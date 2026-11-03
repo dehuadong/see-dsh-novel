@@ -1,19 +1,19 @@
 # Bootstrap：see-dsh-novel（新仓库初始化交接）
 
-本文件自包含；除参考源码目录 `inkos` 外，不依赖任何其他工程。初始化完成后删除本文件。
+本文件自包含；除源码目录 `inkos` 外，不依赖任何其他工程。
 
 ## 0. 源与目标
 
-- 源产品（只读规格）：`inkos`
+- 源工程（只读规格）：`inkos`
 - 新仓库：`E:\see-dsh-novel`
-- 运行时：只用 DSH 原生机制（Skill / Preset / Plugin / Subagent / 文件与 Session 状态），不 import、不运行参考工程代码，不引入其 Provider、Agent 循环、CLI、存储或调度。
+- 运行时：只用 DSH 原生机制（Skill / Preset / Plugin / Subagent / 文件与 Session 状态），不 import、不运行`inkos`源工程代码，不引入其 Provider、Agent 循环、CLI、存储或调度。
 
 ## 1. 新会话入口
 
 在新工作区 `E:\see-dsh-novel` 开新会话，第一条消息：
 
 ```text
-读取 E:\dsh-nove\.handoff\2026-11-03-see-dsh-novel-bootstrap.md，
+读取 E:\see-dsh-novel\see-dsh-novel-bootstrap.md，
 
 ```
 
@@ -121,7 +121,7 @@ E:\see-dsh-novel\
 | 技能 | `skills` 服务（文件系统） | SKILL.md + references 从 `skills/` 读取 |
 | 方法注入 | `systemPrompt.context()` | 按 role/action 激活技能，注入 SKILL body + 选定 reference 片段（受预算） |
 | 工具 | `tools.register` | `story_*` 工具；每 phase 独立 tool schema |
-| 面板 | `client` 插件 + slots | 不写独立前端服务 |
+| 面板 | `client` 插件 + slots | 不写独立前端服务；从会话进入，同顶部的对话、轨迹旁边；UI使用react，具体参考官方文档 E:\see-dsh-novel\deepseek-harness\packages|
 
 ### 5.2 实施顺序（每步产出一个 `verified`）
 
