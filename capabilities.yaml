@@ -31,7 +31,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/client/index.ts
     consumer: packages/see-dsh-novel/test/client.test.mjs
     realRun: artifacts/real-runs/runtime.client-ui.json
-    status: missing
+    status: verified
   - id: runtime.package-check
     title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致
     reference: inkos:scripts/verify-no-workspace-protocol.mjs

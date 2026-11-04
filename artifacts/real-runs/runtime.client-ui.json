@@ -1,0 +1,16 @@
+{
+  "capability": "runtime.client-ui",
+  "date": "2026-11-04",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "84 passed — 面板客户端 8 例（预设读取含 null 回落、三态、按钮可见性、命令四态回执、条件注册与注销、产物形态与产物 apply 冒烟）＋边界 3 例（含客户端层只允许宿主 type-only 导入）＋此前的工具、账本与 schema 用例"
+  },
+  "receipts": [
+    "客户端产物：`packages/see-dsh-novel/lib/client.js` 9325 字节，开头是 `window.__ModuleLoader__.load({ id: \"see-dsh-novel\", factory: (require) => {`，sha256 b82e947d…；产物内 `require(\"react\")` 与 `require(\"react/jsx-runtime\")` 由宿主模块表提供，不打包 React",
+    "面板渲染并提交命令：会话 seq 371/372 `story-review` 成功（阶段 foundation，14 个文件，摘要 3b5f41e9）；seq 373/374 `story-approve` 成功并写下 `story-approval stage=foundation digest=3b5f41e9…`；seq 375/376 `story-reject` 成功（退回作废之前的确认）",
+    "三条命令的 `source.kind` 都是 `user`，来自「作品」面板按钮；对话里能同时看到三行命令回执，说明提交后作者拿到了可见结果",
+    "提交后的可见回执由面板本地渲染（`已提交「…」，结果在「对话」里`），不依赖命令返回值回填；自动化用例覆盖 ok／unbound／unmatched／error 四态"
+  ]
+}
