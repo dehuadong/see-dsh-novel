@@ -24,6 +24,14 @@ capabilities:
     consumer: packages/see-dsh-novel/test/agent-tools.test.mjs
     realRun: artifacts/real-runs/runtime.agent-tools.json
     status: verified
+  - id: runtime.client-ui
+    title: 面板客户端基线：slots 注册、React/JSX 构建、类型化 props、样式安装
+    reference: inkos:packages/studio/
+    dsh: client plugin + slots
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: runtime.session-binding
     title: 作品身份 work.json、会话按工作目录绑定、面板显示立项状态
     reference: inkos:packages/core/src/harness/session-binding.ts
