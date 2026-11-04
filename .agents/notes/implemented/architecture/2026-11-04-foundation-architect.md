@@ -1,12 +1,12 @@
 # Agent Note: foundation.architect —— 四段基础设定与落盘契约
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
 账本第三行之前的那一行要求 architect 以单 child 跑四段（outline / details / cast_index / cards），每段独立 tool schema，产物落成作者可读的文档。这条能力一旦落地，就同时定下了「一部作品在磁盘上长什么样」——后续每个能力都要在这套路径与状态文件上读写。参考资料里这些契约分散在三个文件里（tool schema、写入实现、状态播种），没有任何一处写全。
 
-## Proposal
+## Decision
 
 ### 工作区布局（一工作区即一作品）
 
@@ -33,12 +33,12 @@ Status: proposed
 
 | 工具 | 输入 | 落点 |
 |---|---|---|
-| `story_foundation_outline` | `storyFrame`、`volumeMap` | `story/outline/*.md` |
-| `story_foundation_details` | `bookRules`（Markdown）、`bookRulesData`（结构化）、`pendingHooks[]` | `book_rules.md`、`book_rules.json`、`state/hooks.json` |
+| `story_foundation_outline` | `storyFrame`、`volumeMap` | `source/story/outline/*.md` |
+| `story_foundation_details` | `bookRules`（Markdown）、`bookRulesData`（结构化）、`pendingHooks[]` | `source/story/book_rules.md`、`.json`、`source/story/state/hooks.json` |
 | `story_foundation_cast_index` | `roles[]`，每项 `{ tier: major\|minor, name }` | 不落盘，供下一段生成动态 schema |
-| `story_foundation_cast_documents` | `role_<n>_content` 动态字段 | `story/roles/{主要角色\|次要角色}/<safeName>.md` |
+| `story_foundation_cast_documents` | `role_<n>_content` 动态字段 | `source/story/roles/{主要角色\|次要角色}/<safeName>.md` |
 
-`cast_index` 先跑，`cast_documents` 的 schema 按上一步的 `roles` 生成——每张卡一个具名字段，而不是一段 JSON 数组。这样模型无法少交或多交卡片，也不用在字符串里塞 JSON。
+`cast_index` 先跑，`cast_documents` 的 schema 按上一步的 `roles` 生成——每张卡一个具名字段，而不是一段 JSON 数组。这样模型无法少交或多交卡片，也不用在字符串里塞 JSON。工具 schema 在注册时固定，所以 `cast_index` 执行后注销并重新注册 `cast_documents`，新 schema 的字段数等于索引里的角色数。
 
 角色文件名按 `/\:*?"<>|` → `_` 替换后 trim；替换后为空则整次失败，不静默跳过。
 
@@ -87,19 +87,16 @@ Status: proposed
 
 **写入直接覆盖，不做 staging。** 实现最省。否掉：四段里任何一段失败都可能留下半套设定，作者看到的是混合了新旧两个版本的作品。
 
-## Acceptance criteria
+## Consequences
 
-- 四个工具在预设会话里可调用，schema 各自通过运行时子集校验（单值 `type`、可空用 `oneOf`、动态属性 `additionalProperties: false`）。
-- 一次完整 foundation 跑完后，上表路径逐个存在，内容与工具输入一致；`book_rules.json` 是合法 JSON。
-- `init` 重跑不删除已有角色卡；`revise` 删除本次未重写的角色卡；两者都整批成功或整批回滚。
-- `state/hooks.json` 的条目字段与初值如上；四个状态文件在首次运行时创建。
-- 角色名含 `/`、`:` 等字符时落盘为替换后的文件名；替换后为空则失败并保留原状。
-- 消费者测试覆盖：路径落盘、init/revise 删除差异、回滚、hooks 播种、schema 子集。
-- 真实运行：在一个空工作区跑完一次 foundation，产物与回执写入 `artifacts/real-runs/foundation.architect.json`。
+收益：一部作品的磁盘形态定了下来——`source/story/` 下是作者可读的 Markdown 与小 JSON，索引不参与权威；四段各有一个 schema，模型无法少交或多交；写入只有一条路径，失败整批回滚。
 
-## Risks
+真实运行已跑通（`session-974fa00e…`，工作区 `.artifacts/work-demo`）：四段依次返回成功，落下 14 个文件——outline 2 个、rules 2 个、角色卡 6 个、状态 4 个；`hooks.json` 播种 2 条 `deferred`；`乙/丙` 落成 `乙_丙.md`。`npm test` 23 条覆盖路径落盘、`init`/`revise` 删除差异、回滚、hooks 播种与 schema 子集。
+
+代价与约束：
 
 - 四段是四次模型调用，任一段超时或输出不合 schema 都会中断；回滚必须真的可用，否则会留下半套文件。
-- `cast_documents` 的动态 schema 随角色数增长，角色很多时工具 schema 会很大。
-- 状态文件一旦被后续能力写入，`details` 重跑不能覆盖它们；这条边界现在靠「已存在则不改」实现，缺少更细的迁移策略。
+- `cast_documents` 的动态 schema 随角色数增长：角色很多时工具 schema 会很大，且每次索引都要重新注册一次。
+- 状态文件一旦被后续能力写入，`details` 重跑不能覆盖它们；这条边界靠「已存在则不改」实现，缺少更细的迁移策略。
 - 工作区根来自会话目录，若作者在仓库根直接跑，作品文件会落在仓库根，需要作者自己选对目录。
+- 角色卡按名字落盘，改名等于换文件：旧文件不会被删除，除非走 `revise`。

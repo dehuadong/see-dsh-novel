@@ -55,7 +55,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/foundation
     consumer: packages/see-dsh-novel/test/foundation.test.mjs
     realRun: artifacts/real-runs/foundation.architect.json
-    status: missing
+    status: verified
   - id: foundation.hooks
     title: pendingHooks 种子、id/status 语义、投影一致
     reference: inkos:packages/core/src/state/state-reducer.ts

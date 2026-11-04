@@ -1,0 +1,20 @@
+{
+  "capability": "foundation.architect",
+  "date": "2026-11-04",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm test",
+    "passed": true,
+    "summary": "23 passed — foundation paths, state seeding without overwrite, dynamic card schema, init/revise deletion, rollback, role-name sanitising, schema subset, layer boundaries, plus the P0 suites"
+  },
+  "receipts": [
+    "session header: agentPreset=see-dsh-novel, cwd=E:\\see-dsh-novel\\.artifacts\\work-demo",
+    "story_foundation_outline -> isError=false, 写入 2 个文件",
+    "story_foundation_details -> isError=false, 写入 6 个文件（book_rules.md/.json + 四个 state 文件）",
+    "story_foundation_cast_index -> isError=false, 开篇人物 6 位：沈砚（主要）、裴照（主要）、苏芜（主要）、崔无咎（主要）、韩九（次要）、小满（次要）",
+    "story_foundation_cast_documents -> isError=false, 写入 6 个文件",
+    "workspace: source/story/outline/{story_frame,volume_map}.md, book_rules.md/.json, roles/主要角色/{沈砚,裴照,苏芜,崔无咎}.md, roles/次要角色/{韩九,小满}.md, state/{manifest,current_state,hooks,chapter_summaries}.json",
+    "hooks: 2 条 deferred，startChapter=0、lastAdvancedChapter=0、带 expectedPayoff 与 notes",
+    "bundle: lib/agent.js loads standalone and registers five tools before install"
+  ]
+}
