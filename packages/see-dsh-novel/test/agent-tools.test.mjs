@@ -56,6 +56,13 @@ test('the preset lists the writing tool surface', () => {
   )
 })
 
+test('the persona is the editor-in-chief, not the writer', () => {
+  const prefix = byId.get('persona')?.config?.prefix ?? ''
+  assert.match(prefix, /主编/)
+  assert.match(prefix, /不亲自写正文/)
+  assert.match(prefix, /只作参考/)
+})
+
 test('file tools are read-only and no shell is mounted', () => {
   assert.deepEqual(byId.get('tool-fs')?.config, { write: false, edit: false, applyPatch: false })
   assert.equal(byId.get('tool-fs-search')?.config?.sampleOverCapGlobResults, false)
