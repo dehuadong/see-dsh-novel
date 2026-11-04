@@ -15,7 +15,8 @@
     "cordis.patch.yml"
   ],
   "scripts": {
-    "build": "tsc -p ."
+    "build": "node scripts/bundle.mjs",
+    "typecheck": "tsc -p ."
   },
   "dsh": {
     "bundle": {

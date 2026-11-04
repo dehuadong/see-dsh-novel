@@ -8,7 +8,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { FileWrite } from './commit.js'
-import type { PendingHook } from './contract.js'
+import type { PendingHook } from './types.js'
 
 const STATE_DIR = 'source/story/state'
 

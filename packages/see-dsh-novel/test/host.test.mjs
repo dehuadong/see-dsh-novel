@@ -1,9 +1,9 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import * as agentHalf from '../src/agent.ts'
-import * as surface from '../src/index.ts'
-import { PHASES, STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from '../src/story-next.ts'
+import * as agentHalf from '../src/plugin/agent.ts'
+import * as surface from '../src/plugin/index.ts'
+import { PHASES, STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
 
 /** Minimal service stubs: the agent half needs the tool registry and the Session directory. */
 function services() {

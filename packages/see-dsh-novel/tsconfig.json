@@ -8,11 +8,10 @@
     "outDir": "lib",
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": false,
     "declaration": false,
     "sourceMap": false,
     "skipLibCheck": true,
-    "verbatimModuleSyntax": false
+    "noEmit": true
   },
   "include": ["src/**/*.ts"]
 }

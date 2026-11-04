@@ -45,3 +45,11 @@ export interface PluginContext {
   tools: { register(definition: ToolDefinition<any, any>): Disposer }
   workingDirectory: { ensure(agent: unknown): Promise<string> }
 }
+
+/** foundation 阶段产出的未解伏笔，播种进 hooks 状态。 */
+export interface PendingHook {
+  hookId: string
+  type: string
+  expectedPayoff: string
+  notes: string
+}

@@ -7,8 +7,8 @@ import {
   DETAILS_PARAMETERS,
   OUTLINE_PARAMETERS,
   castDocumentsParameters,
-} from '../src/foundation/contract.ts'
-import { storyNextOutput, storyNextParameters } from '../src/story-next.ts'
+} from '../src/pipelines/long/contract.ts'
+import { storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
 import { violations } from './support/schema-subset.mjs'
 
 test('story_next schemas stay inside the runtime subset', () => {

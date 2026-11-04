@@ -8,7 +8,7 @@
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../types.js'
+import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../../core/types.js'
 import {
   CAST_INDEX_PARAMETERS,
   COMMIT_OUTPUT,
@@ -18,9 +18,9 @@ import {
   roleCardPath,
 } from './contract.js'
 import type { BookRulesData, IndexedRole, PendingHook } from './contract.js'
-import { commitFoundation } from './commit.js'
-import type { CommitResult } from './commit.js'
-import { stateWritesIfMissing } from './state.js'
+import { commitFoundation } from '../../core/commit.js'
+import type { CommitResult } from '../../core/commit.js'
+import { stateWritesIfMissing } from '../../core/state.js'
 
 const ROLE_DIRS = ['主要角色', '次要角色'] as const
 

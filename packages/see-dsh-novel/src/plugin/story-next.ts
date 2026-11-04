@@ -5,7 +5,7 @@
  * 直接做消费者测试。作品绑定属于 runtime.session-binding，这里只描述
  * 「当前没有作品」这一种状态。
  */
-import type { JsonSchema } from './types.js'
+import type { JsonSchema } from '../core/types.js'
 
 /** 本能力能报出的阶段。阶段随能力增加而扩展，不预先登记未实现的阶段。 */
 export const PHASES = ['unbound'] as const

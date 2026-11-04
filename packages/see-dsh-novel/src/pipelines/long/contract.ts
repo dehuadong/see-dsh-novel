@@ -5,20 +5,13 @@
  * 不支持 type 数组与 minItems），越界会让 `tools.register` 抛错并拖垮整个
  * 预设装载。
  */
-import type { JsonSchema } from '../types.js'
+import type { JsonSchema, PendingHook } from '../../core/types.js'
 
 export type RoleTier = 'major' | 'minor'
 
 export interface IndexedRole {
   tier: RoleTier
   name: string
-}
-
-export interface PendingHook {
-  hookId: string
-  type: string
-  expectedPayoff: string
-  notes: string
 }
 
 export interface BookRulesData {
@@ -34,6 +27,8 @@ export interface BookRulesData {
   fanficMode?: string
   allowedDeviations: string[]
 }
+
+export type { PendingHook }
 
 /** 角色级别 → 磁盘目录名。 */
 const ROLE_DIRS: Record<RoleTier, string> = { major: '主要角色', minor: '次要角色' }

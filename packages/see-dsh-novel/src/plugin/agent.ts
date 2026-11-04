@@ -3,10 +3,10 @@
  * `see-dsh-novel` preset. Mounted by the preset's `plugins` list, never by a
  * composition-root row — a root row would register the tools globally.
  */
-import { installFoundationTools } from './foundation/tools.js'
+import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
 import type { StoryNext } from './story-next.js'
-import type { Disposer, PluginContext, ToolDefinition } from './types.js'
+import type { Disposer, PluginContext, ToolDefinition } from '../core/types.js'
 
 export const name = 'see-dsh-novel-agent'
 

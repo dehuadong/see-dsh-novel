@@ -10,10 +10,11 @@ P0 时把「插件运行时装的是 JS」和「开发时写什么」混成了�
 
 ## Decision
 
-源码是 TypeScript，`tsc` 编译到 `lib/`，`exports` 指向 `lib/*.js`。
+源码是 TypeScript，产物是单文件 ESM，`exports` 指向 `lib/*.js`。
 
 - 根目录是 pnpm workspace（`pnpm-workspace.yaml`，`packages/*`），锁文件换成 `pnpm-lock.yaml`。
-- `packages/see-dsh-novel/tsconfig.json`：`NodeNext`、`strict`、`noUncheckedIndexedAccess`、`rootDir: src`、`outDir: lib`。
+- `packages/see-dsh-novel/tsconfig.json`：`NodeNext`、`strict`、`noUncheckedIndexedAccess`、`rootDir: src`、`noEmit`——`tsc` 只做类型检查。
+- `scripts/bundle.mjs` 用 esbuild 打 `lib/index.js`、`lib/agent.js`、`lib/client.js`；node 平台外部化 `@deepseek-ai/*` 与 `node:*`，client 走 browser/iife。打包形态与原因见 [分层与构建](../architecture/2026-11-04-layering.md)。
 - `lib/` 不入库：仓库只存源码，构建在本地与 CI 各做一次。
 - 测试用 `tsx` 直接跑 `src/*.ts`，不依赖构建产物——测试失败不会和构建失败混在一起。
 - `install_bundle` 之前必须 `pnpm run build`，否则装进去的是上一次的产物。

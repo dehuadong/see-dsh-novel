@@ -33,7 +33,7 @@ const requireStub = (specifier) => {
   throw new Error(`unexpected client dependency: ${specifier}`)
 }
 
-await import('../src/client.ts')
+await import('../src/plugin/client.ts')
 
 /** Apply the client plugin against a stub slot service. */
 function mount() {
