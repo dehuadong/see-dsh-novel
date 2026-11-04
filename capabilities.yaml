@@ -14,7 +14,7 @@ capabilities:
     dsh: bundle/preset + client
     implementation: packages/see-dsh-novel
     consumer: packages/see-dsh-novel/test/host.test.mjs
-    realRun: .artifacts/real-runs/runtime.load.json
+    realRun: artifacts/real-runs/runtime.load.json
     status: verified
   - id: runtime.session-binding
     title: 当前作品绑定、面板进入作品
