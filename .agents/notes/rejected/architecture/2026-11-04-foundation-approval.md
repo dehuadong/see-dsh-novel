@@ -1,6 +1,6 @@
 # Agent Note: foundation.approval —— 作者确认闸门与回执
 
-Status: proposed
+Status: rejected — 出树插件没有自定义 RPC，自造会话事件会破坏日志；由 [foundation-approval-gate](../../proposed/architecture/2026-11-04-foundation-approval-gate.md) 接管
 
 ## Problem
 
