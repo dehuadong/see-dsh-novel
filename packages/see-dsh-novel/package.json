@@ -15,6 +15,7 @@
     "src/agent.js",
     "src/story-next.js",
     "src/client.js",
+    "src/foundation",
     "cordis.patch.yml"
   ],
   "dsh": {

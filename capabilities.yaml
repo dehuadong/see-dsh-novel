@@ -52,9 +52,9 @@ capabilities:
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     reference: inkos:packages/core/src/agents/architect.ts
     dsh: subagents
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/foundation
+    consumer: packages/see-dsh-novel/test/foundation.test.mjs
+    realRun: artifacts/real-runs/foundation.architect.json
     status: missing
   - id: foundation.hooks
     title: pendingHooks 种子、id/status 语义、投影一致

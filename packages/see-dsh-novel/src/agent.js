@@ -1,22 +1,23 @@
 /**
- * Agent half: registers the `story_next` tool for every agent that selects the
+ * Agent half: registers the story tools for every agent that selects the
  * `see-dsh-novel` preset. Mounted by the preset's `plugins` list, never by a
- * composition-root row — a root row would register the tool globally.
+ * composition-root row — a root row would register the tools globally.
  */
+import { installFoundationTools } from './foundation/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
 
 export const name = 'see-dsh-novel-agent'
 
-/** The tool registry is the only service this half depends on. */
-export const inject = ['tools']
+/** The tool registry plus the Session directory the foundation tools write into. */
+export const inject = ['tools', 'workingDirectory']
 
 /**
- * Register `story_next` and hand the disposer back to the loader.
- * @param {{ tools: { register: (definition: unknown) => () => void } }} ctx
- * @returns {() => void} the exact disposer that unregisters the tool
+ * Register `story_next` and the four foundation tools; hand back one disposer.
+ * @param {{ tools: { register: (definition: unknown) => () => void }, workingDirectory: { ensure: (agent: unknown) => Promise<string> } }} ctx
+ * @returns {() => void}
  */
 export function apply(ctx) {
-  return ctx.tools.register({
+  const disposeStoryNext = ctx.tools.register({
     name: STORY_NEXT_NAME,
     description:
       'Return the current story work and which phase comes next. Reports the unbound phase until a work is selected.',
@@ -35,4 +36,11 @@ export function apply(ctx) {
     },
     execute: () => Promise.resolve(storyNext()),
   })
+
+  const disposeFoundation = installFoundationTools(ctx)
+
+  return () => {
+    disposeFoundation()
+    disposeStoryNext()
+  }
 }

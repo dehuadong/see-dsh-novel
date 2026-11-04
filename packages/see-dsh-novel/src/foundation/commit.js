@@ -1,0 +1,95 @@
+/**
+ * 整批写入：先 staging，再备份目标，再 rename 到位；失败用备份回滚。
+ *
+ * 不引入持久 journal：本阶段写入方是单进程单次调用，跨进程恢复属于
+ * `runtime.recovery` 那一行。
+ */
+import { cp, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { dirname, join, resolve } from 'node:path'
+
+/** @param {string} path */
+async function exists(path) {
+  try {
+    await stat(path)
+    return true
+  } catch (error) {
+    if (error.code === 'ENOENT') return false
+    throw error
+  }
+}
+
+/**
+ * @param {string} root 作品根目录
+ * @param {{ writes: ReadonlyArray<{ relativePath: string, content: string }>, deletes?: ReadonlyArray<string> }} plan
+ * @returns {Promise<{ written: string[], deleted: string[] }>}
+ */
+export async function commitFoundation(root, { writes, deletes = [] }) {
+  if (writes.length === 0 && deletes.length === 0) return { written: [], deleted: [] }
+
+  const base = resolve(root)
+  const staging = join(base, 'source', `.staging-${randomUUID()}`)
+  const workDir = join(staging, 'work')
+  const backupDir = join(staging, 'backup')
+  const touched = [...writes.map((write) => write.relativePath), ...deletes]
+  /** @type {string[]} */
+  const applied = []
+
+  try {
+    await mkdir(workDir, { recursive: true })
+    await mkdir(backupDir, { recursive: true })
+
+    for (const { relativePath, content } of writes) {
+      const staged = join(workDir, relativePath)
+      await mkdir(dirname(staged), { recursive: true })
+      await writeFile(staged, content, 'utf8')
+    }
+
+    for (const relativePath of touched) {
+      const target = resolve(base, relativePath)
+      if (!(await exists(target))) continue
+      const backup = join(backupDir, relativePath)
+      await mkdir(dirname(backup), { recursive: true })
+      await cp(target, backup)
+    }
+
+    for (const { relativePath } of writes) {
+      const target = resolve(base, relativePath)
+      await mkdir(dirname(target), { recursive: true })
+      await rm(target, { force: true })
+      await rename(join(workDir, relativePath), target)
+      applied.push(relativePath)
+    }
+
+    for (const relativePath of deletes) {
+      await rm(resolve(base, relativePath), { force: true })
+    }
+
+    return { written: writes.map((write) => write.relativePath), deleted: [...deletes] }
+  } catch (error) {
+    await restore(base, backupDir, touched, applied)
+    throw error
+  } finally {
+    await rm(staging, { recursive: true, force: true })
+  }
+}
+
+/**
+ * 把备份写回原位；没有备份且已写入的文件删除，避免留下半套产物。
+ * @param {string} base
+ * @param {string} backupDir
+ * @param {ReadonlyArray<string>} touched
+ * @param {ReadonlyArray<string>} applied
+ */
+async function restore(base, backupDir, touched, applied) {
+  for (const relativePath of touched) {
+    const backup = join(backupDir, relativePath)
+    const target = resolve(base, relativePath)
+    if (await exists(backup)) {
+      await mkdir(dirname(target), { recursive: true })
+      await cp(backup, target, { force: true })
+    } else if (applied.includes(relativePath)) {
+      await rm(target, { force: true })
+    }
+  }
+}

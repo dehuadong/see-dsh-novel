@@ -5,6 +5,23 @@ import * as agentHalf from '../src/agent.js'
 import * as surface from '../src/index.js'
 import { PHASES, STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from '../src/story-next.js'
 
+/** Minimal service stubs: the agent half needs the tool registry and the Session directory. */
+function services() {
+  const registered = new Map()
+  return {
+    registered,
+    ctx: {
+      tools: {
+        register(definition) {
+          registered.set(definition.name, definition)
+          return () => registered.delete(definition.name)
+        },
+      },
+      workingDirectory: { ensure: async () => process.cwd() },
+    },
+  }
+}
+
 test('the root row mounts a no-op surface half', () => {
   assert.equal(surface.name, 'see-dsh-novel')
   assert.equal(typeof surface.apply, 'function')
@@ -13,45 +30,42 @@ test('the root row mounts a no-op surface half', () => {
 
 test('agent half declares loader metadata', () => {
   assert.equal(agentHalf.name, 'see-dsh-novel-agent')
-  assert.deepEqual(agentHalf.inject, ['tools'])
+  assert.deepEqual(agentHalf.inject, ['tools', 'workingDirectory'])
   assert.equal(typeof agentHalf.apply, 'function')
 })
-
-const { apply } = agentHalf
 
 test('storyNext reports the unbound phase', () => {
   assert.deepEqual(storyNext(), { work: null, phase: 'unbound', next: 'init' })
   assert.equal(PHASES.includes(storyNext().phase), true)
 })
 
-test('apply registers story_next and returns its disposer', () => {
-  const registered = []
-  const ctx = {
-    tools: {
-      register(definition) {
-        registered.push(definition)
-        return () => registered.splice(0, registered.length)
-      },
-    },
-  }
+test('apply registers story_next plus the foundation tools and disposes them all', () => {
+  const { registered, ctx } = services()
 
-  const dispose = apply(ctx)
+  const dispose = agentHalf.apply(ctx)
 
-  assert.equal(registered.length, 1)
-  const [definition] = registered
-  assert.equal(definition.name, STORY_NEXT_NAME)
+  assert.deepEqual([...registered.keys()].sort(), [
+    'story_foundation_cast_documents',
+    'story_foundation_cast_index',
+    'story_foundation_details',
+    'story_foundation_outline',
+    STORY_NEXT_NAME,
+  ])
+
+  const definition = registered.get(STORY_NEXT_NAME)
   assert.deepEqual(definition.parameters, storyNextParameters)
   assert.deepEqual(definition.output.schema, storyNextOutput)
   assert.equal(typeof definition.output.render, 'function')
   assert.equal(typeof definition.execute, 'function')
 
   dispose()
-  assert.equal(registered.length, 0)
+  assert.equal(registered.size, 0)
 })
 
 test('story_next execute resolves the unbound contract', async () => {
-  let definition
-  apply({ tools: { register: (value) => (definition = value, () => {}) } })
+  const { registered, ctx } = services()
+  agentHalf.apply(ctx)
+  const definition = registered.get(STORY_NEXT_NAME)
 
   const result = await definition.execute({})
   assert.deepEqual(result, { work: null, phase: 'unbound', next: 'init' })
