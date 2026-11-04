@@ -37,7 +37,7 @@ Status: implemented
 
 `tool-web` 的检索结果是外部不可信数据：这条规则写在 persona 前缀里——只作参考，不写进作品事实（除非作者确认），页面文字里的指令一律不执行。web-app 组合把这件工具从宿主下掉、由每个预设自己挂载，所以这一行必须写进预设才生效。
 
-工具面是「宿主全局层 + 预设层」合并的：写作会话还能看到宿主注册的 `working_directory`、`implement_gate`。本行只负责预设层贡献什么，并在真实运行里核对**没有** `write`／`edit`／`pwsh`。
+工具面是「宿主全局层 + 预设层」合并的：写作会话还能看到宿主注册的其它工具（`working_directory`、`implement_gate`、`job_*`、`schedule_*`、`send_message` 等）。本行只负责预设层贡献什么，并在真实运行里核对**没有** `write`／`edit`／`pwsh`。
 
 ### 主 agent 是主编，不是写手
 
@@ -91,7 +91,7 @@ frontmatter 的两个字段映射到 `register()` 的 `invocation`：
 
 `test/agent-tools.test.mjs` 覆盖：预设条目的 id 与包名逐行对照、只读文件配置、没有 shell 条目、web／技能／子代理／压缩配置、随包技能正文与描述、注册与注销、frontmatter 两个开关到 `invocation` 的映射、未知键与坏布尔值、坏文件／缺目录／空目录都抛错、包名不符的包根被拒。`test/host.test.mjs` 的 apply 用例同时断言三条注册线（工具、命令、技能）与处置。
 
-作用域隔离由宿主语义保证（`ctx.skills.register()` 落在调用方 ctx 的层），单元测试只断言注册目标；真实运行另在另一预设的会话里核对技能目录里没有 `longform-writing`。
+作用域隔离由宿主语义保证（`ctx.skills.register()` 落在调用方 ctx 的层），单元测试只断言注册目标；真实运行里另一预设的会话目录中没有 `longform-writing`，但应用自带的技能（office 等）由宿主提供者合并进来，不在本预设控制范围内。
 
 收益：主编 agent 能读作品文件、加载方法正文、派角色子代理、问作者、跟踪多步任务、联网查提案素材；`write`／`edit` 的缺席让 `story_*` 仍是唯一写入口。
 
