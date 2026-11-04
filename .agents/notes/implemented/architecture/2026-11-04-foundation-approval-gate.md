@@ -48,7 +48,7 @@ B 的非授权结果不转 A：`rejected` 与 `cancelled` 终止，作者已经�
 
 三态：不是作品目录时显示「当前工作区还不是作品」并说明如何立项；是作品但不是该预设会话时只读展示、不提供按钮；是作品且预设相符时提供「查看待确认」「认可」「退回」三个按钮，分别执行 `/story-review`、`/story-approve`、`/story-reject`。读取中与文件资源通道不可用时给出对应说明，同样不提供动作。
 
-`conversation.view` 的注册是全局的：DSH 的 list slot 只接受 `id`／`order`／`label`／`priority`，没有按会话过滤的扩展点（消费方 `viewTabs()` 只按开发者工具开关滤掉 trajectory 一项），所以「作品」tab 在每个会话都出现。适用性由上面的内容三态表达，不靠隐藏 tab；要真正按会话隐藏，需要平台先提供可见性过滤点。
+DSH 的 `conversation.view` 只能全局注册：list slot 接受 `id`／`order`／`label`／`priority`，没有按会话过滤的扩展点，消费方 `viewTabs()` 也只按开发者工具开关滤掉 trajectory。所以「作品」页不常驻注册：插件在会话头的 `conversation.session.header.utilities` 挂一个渲染为空的哨兵，哨兵读当前会话的预设，命中 `see-dsh-novel` 时注册「作品」页，离开或换会话时注销。代价是注册随会话切换增删、tab 列表随之刷新；它假设同一时刻只挂载一个会话，多会话并排渲染的布局要重新验证。空白新会话头部整体不渲染（`hideChrome`），哨兵不在，注册也撤销——那时本来就不显示 tab。
 
 按钮经 `ctx.sessions.binding(sessionId)?.session.command(line)` 提交；拿不到 binding 时按钮不出现并说明原因。命令结果——清单、摘要与确认结果——落在「对话」页，所以按钮提交后必须在面板里回报结果（执行中／已提交／失败原因），否则作者停在「作品」页会以为没反应。面板不读命令结果，也不新增宿主到客户端的数据通道；面板的完整形态留给 panel.workbench。
 

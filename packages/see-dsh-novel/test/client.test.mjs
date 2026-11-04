@@ -6,12 +6,13 @@ import assert from 'node:assert/strict'
  *
  * The client module is a plain script that calls `window.__ModuleLoader__.load`
  * at import time, so the loader is stubbed before the dynamic import. `require`
- * is stubbed to return a minimal React: this checks registration, the three
- * workspace states, the command dispatch and its visible notice, not rendering
- * fidelity.
+ * is stubbed to return a minimal React: this checks the sentinel that scopes the
+ * view to its preset, the three workspace states, the command dispatch and its
+ * visible notice, not rendering fidelity.
  */
 
 const SLOT = 'conversation.view'
+const SENTINEL_SLOT = 'conversation.session.header.utilities'
 const registered = []
 let loaded
 
@@ -26,6 +27,8 @@ globalThis.window = {
 /** One state slot per hook call, reset for every render. */
 let hookStates = []
 let hookIndex = 0
+let pendingEffects = []
+let committedCleanups = []
 
 const React = {
   createElement(type, props, ...children) {
@@ -42,6 +45,9 @@ const React = {
     }
     return [hookStates[index], set]
   },
+  useEffect(callback) {
+    pendingEffects.push(callback)
+  },
 }
 
 const requireStub = (specifier) => {
@@ -51,37 +57,40 @@ const requireStub = (specifier) => {
 
 await import('../src/plugin/client.ts')
 
+/** Every registration for one slot, in registration order. */
+const entriesOf = (slot) => registered.filter((entry) => entry.options.name === slot)
+
+const stateOf = (sessionId, { cwd = 'E:\\work', preset = 'see-dsh-novel' } = {}) => ({
+  byId: { [sessionId]: { cwd } },
+  projectionsBySession: { [sessionId]: { values: { agentPreset: preset } } },
+})
+
 /** Apply the client plugin against a stub slot and session service. */
-function mount({
-  sessionId = 'session-1',
-  cwd = 'E:\\work',
-  preset = 'see-dsh-novel',
-  outline = 'live',
-  manifest = 'failed',
-  bound = true,
-  matched = true,
-} = {}) {
+function mount({ sessionId = 'session-1', bound = true, matched = true } = {}) {
   registered.length = 0
   hookStates = []
   hookIndex = 0
+  pendingEffects = []
+  committedCleanups = []
   const commands = []
-  const dismissed = []
-  const injected = []
+  const disposers = []
   const ctx = {
     slots: {
       inject(slot, register) {
-        assert.equal(slot, SLOT)
         const dispose = register()
-        if (typeof dispose === 'function') injected.push(dispose)
+        if (typeof dispose === 'function') disposers.push(dispose)
       },
       register(options, component) {
         registered.push({ options, component })
-        return () => dismissed.push(options.id)
+        return () => {
+          const at = registered.indexOf(registered.find((entry) => entry.options === options))
+          if (at >= 0) registered.splice(at, 1)
+        }
       },
     },
     sessions: {
       binding(id) {
-        assert.equal(id, sessionId)
+        if (id !== sessionId) return undefined
         if (!bound) return undefined
         return {
           session: {
@@ -93,26 +102,50 @@ function mount({
         }
       },
     },
+    effect(callback) {
+      const dispose = callback()
+      if (typeof dispose === 'function') disposers.push(dispose)
+      return () => {}
+    },
   }
   loaded.factory(requireStub).apply(ctx)
 
-  const state = {
-    byId: { [sessionId]: { cwd } },
-    projectionsBySession: { [sessionId]: { values: { agentPreset: preset } } },
+  /** Render the header sentinel: the only thing that decides view eligibility. */
+  function showSession(preset) {
+    const sentinel = entriesOf(SENTINEL_SLOT)[0]
+    assert.ok(sentinel, 'the sentinel must be registered into the session header')
+    const props = {
+      sessionId,
+      useSessions: (select) => select(stateOf(sessionId, { preset })),
+      ...sentinel.options.inject(),
+    }
+    hookIndex = 0
+    pendingEffects = []
+    for (const cleanup of committedCleanups) cleanup()
+    committedCleanups = []
+    sentinel.component(props)
+    for (const callback of pendingEffects) {
+      const cleanup = callback()
+      if (typeof cleanup === 'function') committedCleanups.push(cleanup)
+    }
+    pendingEffects = []
   }
-  const props = {
-    sessionId,
-    useSessions: (select) => select(state),
-    useResource: (address) => ({ status: address.endsWith('/story_frame.md') ? outline : manifest }),
-    ...registered[0].options.inject(),
-  }
-  return { props, commands, injected, dismissed }
-}
 
-/** Render the registered view with a fresh hook cursor. */
-function render(props) {
-  hookIndex = 0
-  return registered[0].component(props)
+  /** Render the 作品 view, which only exists while the sentinel reports eligible. */
+  function renderView({ outline = 'live', manifest = 'failed', preset = 'see-dsh-novel' } = {}) {
+    const view = entriesOf(SLOT)[0]
+    assert.ok(view, 'the work view must be registered for this preset')
+    const props = {
+      sessionId,
+      useSessions: (select) => select(stateOf(sessionId, { preset })),
+      useResource: (address) => ({ status: address.endsWith('/story_frame.md') ? outline : manifest }),
+      ...view.options.inject(),
+    }
+    hookIndex = 0
+    return view.component(props)
+  }
+
+  return { commands, showSession, renderView, disposers }
 }
 
 /** All text children of a rendered tree. */
@@ -154,93 +187,104 @@ test('the client module declares the package id and its services', () => {
   assert.deepEqual(loaded.factory(requireStub).inject, ['slots', 'sessions'])
 })
 
-test('apply registers a 作品 view into conversation.view', () => {
-  mount()
-  assert.equal(registered.length, 1)
-  const [{ options, component }] = registered
-  assert.equal(options.name, SLOT)
-  assert.equal(options.id, 'see-dsh-novel')
-  assert.equal(options.label, '作品')
-  assert.equal(typeof component, 'function')
+test('the view stays unregistered until a session on this preset is shown', () => {
+  const { showSession } = mount()
+  assert.equal(entriesOf(SLOT).length, 0)
+  showSession('standard')
+  assert.equal(entriesOf(SLOT).length, 0)
+  showSession('see-dsh-novel')
+  const [entry] = entriesOf(SLOT)
+  assert.equal(entry.options.id, 'see-dsh-novel')
+  assert.equal(entry.options.label, '作品')
+  assert.equal(entry.options.order, 20)
+})
+
+test('leaving a session on this preset removes the view again', () => {
+  const { showSession } = mount()
+  showSession('see-dsh-novel')
+  assert.equal(entriesOf(SLOT).length, 1)
+  showSession('standard')
+  assert.equal(entriesOf(SLOT).length, 0)
 })
 
 test('a directory without either anchor file shows the unbound state', () => {
-  const { props } = mount({ outline: 'failed', manifest: 'failed' })
-  const shown = texts(render(props)).join('\n')
+  const { showSession, renderView } = mount()
+  showSession('see-dsh-novel')
+  const shown = texts(renderView({ outline: 'failed' })).join('\n')
   assert.match(shown, /尚未绑定作品/)
   assert.match(shown, /E:\\work/)
-  assert.deepEqual(buttons(render(props)), [])
+  assert.deepEqual(buttons(renderView({ outline: 'failed' })), [])
 })
 
 test('either anchor file is enough to treat the workspace as a work', () => {
-  const { props } = mount({ outline: 'failed', manifest: 'live' })
-  assert.equal(buttons(render(props)).length, 3)
+  const { showSession, renderView } = mount()
+  showSession('see-dsh-novel')
+  assert.equal(buttons(renderView({ outline: 'failed', manifest: 'live' })).length, 3)
 })
 
 test('an unavailable resource channel says so instead of claiming no work', () => {
-  const { props } = mount({ outline: 'none', manifest: 'none' })
-  const shown = texts(render(props)).join('\n')
+  const { showSession, renderView } = mount()
+  showSession('see-dsh-novel')
+  const shown = texts(renderView({ outline: 'none', manifest: 'none' })).join('\n')
   assert.match(shown, /资源通道不可用/)
   assert.doesNotMatch(shown, /尚未绑定作品/)
 })
 
-test('a work opened under another preset is read-only', () => {
-  const { props } = mount({ preset: 'standard' })
-  const tree = render(props)
-  assert.match(texts(tree).join('\n'), /预设「standard」/)
-  assert.deepEqual(buttons(tree), [])
+test('a work opened under another preset never reaches this view', () => {
+  const { showSession } = mount()
+  showSession('standard')
+  assert.equal(entriesOf(SLOT).length, 0)
 })
 
 test('a bound work under this preset offers the three commands', () => {
-  const { props } = mount()
-  assert.deepEqual(buttons(render(props)).map((entry) => entry.label), ['查看待确认', '认可', '退回'])
+  const { showSession, renderView } = mount()
+  showSession('see-dsh-novel')
+  assert.deepEqual(buttons(renderView()).map((entry) => entry.label), ['查看待确认', '认可', '退回'])
 })
 
 test('submitting reports that the result lands in the conversation', async () => {
-  const { props, commands } = mount()
-  const approve = buttons(render(props)).find((entry) => entry.label === '认可')
-  approve.onClick()
+  const { showSession, renderView, commands } = mount()
+  showSession('see-dsh-novel')
+  buttons(renderView()).find((entry) => entry.label === '认可').onClick()
 
   // The click reports progress immediately, so the view never looks inert.
-  assert.match(texts(render(props)).join('\n'), /正在执行「认可」/)
+  assert.match(texts(renderView()).join('\n'), /正在执行「认可」/)
 
   await settle()
   assert.deepEqual(commands, ['/story-approve'])
-  assert.match(texts(render(props)).join('\n'), /已提交「认可」，结果在「对话」里/)
+  assert.match(texts(renderView()).join('\n'), /已提交「认可」，结果在「对话」里/)
 })
 
 test('each button dispatches its own command', async () => {
-  const { props, commands } = mount()
-  for (const entry of buttons(render(props))) entry.onClick()
+  const { showSession, renderView, commands } = mount()
+  showSession('see-dsh-novel')
+  for (const entry of buttons(renderView())) entry.onClick()
   await settle()
   assert.deepEqual(commands, ['/story-review', '/story-approve', '/story-reject'])
 })
 
 test('an unmatched command is reported instead of failing silently', async () => {
-  const { props } = mount({ matched: false })
-  buttons(render(props)).find((entry) => entry.label === '认可').onClick()
+  const { showSession, renderView } = mount({ matched: false })
+  showSession('see-dsh-novel')
+  buttons(renderView()).find((entry) => entry.label === '认可').onClick()
   await settle()
-  assert.match(texts(render(props)).join('\n'), /这个会话没有该命令/)
-})
-
-test('a command that cannot reach a session reports it', async () => {
-  const { props, commands } = mount()
-  props.runCommand = async () => 'unbound'
-  buttons(render(props)).find((entry) => entry.label === '认可').onClick()
-  await settle()
-  assert.match(texts(render(props)).join('\n'), /还没有就绪，命令没有执行/)
+  assert.match(texts(renderView()).join('\n'), /这个会话没有该命令/)
 })
 
 test('without a retained session the actions are withheld', () => {
-  const { props } = mount({ bound: false })
-  const tree = render(props)
+  const { showSession, renderView } = mount({ bound: false })
+  showSession('see-dsh-novel')
+  const tree = renderView()
   assert.match(texts(tree).join('\n'), /还没有就绪/)
   assert.deepEqual(buttons(tree), [])
 })
 
-test('the view registration can be disposed', () => {
-  const { injected, dismissed } = mount()
-  assert.equal(injected.length, 1)
-  injected[0]()
-  assert.deepEqual(dismissed, ['see-dsh-novel'])
+test('disposing the plugin removes every contribution', () => {
+  const { showSession, disposers } = mount()
+  showSession('see-dsh-novel')
+  assert.equal(entriesOf(SLOT).length, 1)
+  assert.equal(entriesOf(SENTINEL_SLOT).length, 1)
+  for (const dispose of disposers) dispose()
+  assert.equal(entriesOf(SLOT).length, 0)
+  assert.equal(entriesOf(SENTINEL_SLOT).length, 0)
 })

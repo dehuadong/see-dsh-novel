@@ -54,11 +54,13 @@ interface SessionBindingLike {
 interface ClientContext {
   slots: {
     inject(slot: string, register: () => unknown): void
-    register(options: SlotRegistration, component: (props: ViewProps) => unknown): () => void
+    register(options: SlotRegistration, component: (props: any) => unknown): () => void
   }
   sessions: {
     binding(sessionId: string): SessionBindingLike | undefined
   }
+  /** 注册不属于任何 fiber 的副作用（这里是按会话可用的视图注册）。 */
+  effect(callback: () => () => void, label?: string): () => void
 }
 
 interface SessionCommandResult {
@@ -78,6 +80,9 @@ interface ModuleLoader {
 declare const window: { __ModuleLoader__: ModuleLoader }
 
 const SLOT = 'conversation.view'
+/** 挂在当前会话头部的一段哨兵：它渲染成空，只用来判断这个会话该不该有「作品」页。 */
+const SENTINEL_SLOT = 'conversation.session.header.utilities'
+const VIEW_ID = 'see-dsh-novel'
 /** 与 `cordis.patch.yml` 里 `preset-see-dsh-novel` 的 id 一致；改预设 id 时两处同改。 */
 const PRESET = 'see-dsh-novel'
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
@@ -179,27 +184,82 @@ window.__ModuleLoader__.load({
       )
     }
 
+    interface SentinelProps {
+      sessionId: string
+      useSessions: <T>(select: (state: SessionListState) => T) => T
+      syncEligible: (eligible: boolean) => void
+    }
+
+    /**
+     * 空渲染的哨兵：只有它挂在页面上时才说明「当前会话」正在显示。
+     * 它把会话预设翻译成一次注册/注销，于是「作品」页只出现在该预设的会话里。
+     */
+    function EligibilitySentinel(props: SentinelProps): unknown {
+      const { sessionId, useSessions, syncEligible } = props
+      const preset = useSessions((state) => state.projectionsBySession?.[sessionId]?.values?.agentPreset
+        ?? state.byId[sessionId]?.projectionValues?.agentPreset)
+      React.useEffect(() => {
+        syncEligible(preset === PRESET)
+        return () => { syncEligible(false) }
+      }, [preset, syncEligible])
+      return null
+    }
+
     return {
       inject: ['slots', 'sessions'],
       apply(ctx: ClientContext): void {
-        ctx.slots.inject(SLOT, () => ctx.slots.register(
-          {
-            name: SLOT,
-            id: 'see-dsh-novel',
-            order: 20,
-            label: '作品',
-            inject: () => ({
-              canCommand: (sessionId: string): boolean => ctx.sessions.binding(sessionId) !== undefined,
-              runCommand: async (sessionId: string, line: string): Promise<CommandOutcome> => {
-                const binding = ctx.sessions.binding(sessionId)
-                if (binding === undefined) return 'unbound'
-                const result = await binding.session.command(line) as SessionCommandResult
-                if (result?.ok !== true) return 'error'
-                return result.value?.matched === true ? 'ok' : 'unmatched'
-              },
-            }),
+        const viewInject = () => ({
+          canCommand: (sessionId: string): boolean => ctx.sessions.binding(sessionId) !== undefined,
+          runCommand: async (sessionId: string, line: string): Promise<CommandOutcome> => {
+            const binding = ctx.sessions.binding(sessionId)
+            if (binding === undefined) return 'unbound'
+            const result = await binding.session.command(line) as SessionCommandResult
+            if (result?.ok !== true) return 'error'
+            return result.value?.matched === true ? 'ok' : 'unmatched'
           },
-          StoryView,
+        })
+
+        let eligible = false
+        let declared = false
+        let viewDisposer: (() => void) | undefined
+
+        /** 当前挂载的会话用的是这个预设、且槽位已声明时才注册「作品」页。 */
+        function syncView(): void {
+          if (eligible && declared && viewDisposer === undefined) {
+            viewDisposer = ctx.slots.register(
+              { name: SLOT, id: VIEW_ID, order: 20, label: '作品', inject: viewInject },
+              StoryView,
+            )
+            return
+          }
+          if ((!eligible || !declared) && viewDisposer !== undefined) {
+            viewDisposer()
+            viewDisposer = undefined
+          }
+        }
+
+        const syncEligible = (value: boolean): void => {
+          eligible = value
+          syncView()
+        }
+
+        ctx.effect(() => () => {
+          viewDisposer?.()
+          viewDisposer = undefined
+        }, 'see-dsh-novel: conditional work view')
+
+        ctx.slots.inject(SLOT, () => {
+          declared = true
+          syncView()
+          return () => {
+            declared = false
+            syncView()
+          }
+        })
+
+        ctx.slots.inject(SENTINEL_SLOT, () => ctx.slots.register(
+          { name: SENTINEL_SLOT, id: `${VIEW_ID}-eligibility`, order: 100, inject: () => ({ syncEligible }) },
+          EligibilitySentinel,
         ))
       },
     }
