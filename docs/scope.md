@@ -6,7 +6,7 @@
 
 只做一条纵向链路，端到端打通：
 
-提案 → 立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle / finalize → 导出与备份
+立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle / finalize → 导出与备份
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
@@ -15,7 +15,9 @@
 按纵向能力推进，一次一个 PR；顺序以账本行序为准，前一行未 `verified` 不跳行。
 
 - **P0** `runtime.load` —— 最小 bundle／preset／tool／skill／client 骨架，CI 通过，真实加载一次。
-- **P1** `foundation.architect` + `cast.single-authority` + `foundation.approval` —— 第一条真实链路：立项 → 基础设定 → 角色进入 brief。
+- **P1** 立项与基础设定 —— 第一条真实链路：立项 → 基础设定 → 作者认可 → 角色进入 brief。
+  - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P5 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
+  - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
 - **P2** `plan.outline` + `plan.chapter` + `context.brief`。
 - **P3** `chapter.write` + `chapter.review` + `chapter.revise`。
 - **P4** `chapter.summary` + `chapter.settle` + `chapter.finalize`。
@@ -23,7 +25,7 @@
 - **P6** 短篇流水线，独立推进。
 - **P7** 剧本流水线，独立推进。
 
-阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。`runtime.session-binding`、`runtime.commands`、`runtime.telemetry`、`runtime.recovery` 没有单列阶段，随 P0–P1 就近补齐。
+阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：参考工程先 `inkos init` 建项目、再 `inkos book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代参考工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
 
 ### 运行形态
 
