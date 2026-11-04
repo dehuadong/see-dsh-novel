@@ -1,0 +1,18 @@
+{
+  "capability": "runtime.agent-tools",
+  "date": "2026-11-04",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "88 passed — 新增 12 例：预设条目 id 与包名逐行对照、persona 主编口径、只读文件配置、无 shell 条目、web／技能／子代理／压缩配置、随包技能正文与描述、注册与注销、frontmatter 开关映射、未知键与坏布尔值、坏文件／缺目录／空目录／包名不符的包根都抛错；host 用例断言工具、命令、技能三条注册线与处置"
+  },
+  "receipts": [
+    "seq 349 系统提示以主编 persona 开头：「你是这部长篇的主编：与作者对话、收敛创意与计划、安排角色干活，并对交付质量负责」「正文由写作角色写……你不亲自写正文」",
+    "seq 350 的 request/header 记录 31 个工具：含 read、read_image、glob、grep、skill、web_search、web_fetch、ask_user_question、todo_write、subagent、job_list／job_kill／job_output、schedule_*；不含 write、edit、apply_patch、pwsh、bash",
+    "seq 348 的 skill-catalog 里有 `longform-writing`（随包技能经预设作用域注册后出现在目录中）",
+    "seq 356 调用 skill{name: longform-writing}，seq 357 返回 1143 字符的方法正文，六节加交稿前五问自检",
+    "seq 354 glob 找到 source/story/roles/**/*.md；seq 362 read 实读 沈砚.md，最终回答原样引用第 8 行「开篇他不查案。他要的只有一件事……」，证明只读文件工具可用",
+    "作用域隔离：本会话（非 see-dsh-novel 预设）的技能目录里没有 `longform-writing`，只有工程技能与应用自带技能"
+  ]
+}

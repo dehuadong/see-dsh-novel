@@ -23,7 +23,7 @@ capabilities:
     implementation: packages/see-dsh-novel/cordis.patch.yml
     consumer: packages/see-dsh-novel/test/agent-tools.test.mjs
     realRun: artifacts/real-runs/runtime.agent-tools.json
-    status: missing
+    status: verified
   - id: runtime.session-binding
     title: 当前作品绑定、面板进入作品
     reference: inkos:packages/core/src/harness/session-binding.ts
