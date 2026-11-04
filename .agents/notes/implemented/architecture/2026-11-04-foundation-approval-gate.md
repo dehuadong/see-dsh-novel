@@ -48,7 +48,9 @@ B 的非授权结果不转 A：`rejected` 与 `cancelled` 终止，作者已经�
 
 三态：不是作品目录时显示「当前工作区还不是作品」并说明如何立项；是作品但不是该预设会话时只读展示、不提供按钮；是作品且预设相符时提供「查看待确认」「认可」「退回」三个按钮，分别执行 `/story-review`、`/story-approve`、`/story-reject`。读取中与文件资源通道不可用时给出对应说明，同样不提供动作。
 
-按钮经 `ctx.sessions.binding(sessionId)?.session.command(line)` 提交；拿不到 binding 时按钮不出现并说明原因。清单、摘要与最近确认状态由命令结果写在会话里，面板不读它们。本能力不新增宿主到客户端的数据通道；面板的完整形态留给 panel.workbench。
+`conversation.view` 的注册是全局的：DSH 的 list slot 只接受 `id`／`order`／`label`／`priority`，没有按会话过滤的扩展点（消费方 `viewTabs()` 只按开发者工具开关滤掉 trajectory 一项），所以「作品」tab 在每个会话都出现。适用性由上面的内容三态表达，不靠隐藏 tab；要真正按会话隐藏，需要平台先提供可见性过滤点。
+
+按钮经 `ctx.sessions.binding(sessionId)?.session.command(line)` 提交；拿不到 binding 时按钮不出现并说明原因。命令结果——清单、摘要与确认结果——落在「对话」页，所以按钮提交后必须在面板里回报结果（执行中／已提交／失败原因），否则作者停在「作品」页会以为没反应。面板不读命令结果，也不新增宿主到客户端的数据通道；面板的完整形态留给 panel.workbench。
 
 作品绑定与「从会话进入作品」的完整流程属于 runtime.session-binding；本能力只判断确认区能否操作，不实现作品索引或切换。
 
