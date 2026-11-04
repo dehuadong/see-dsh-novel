@@ -16,6 +16,14 @@ capabilities:
     consumer: packages/see-dsh-novel/test/host.test.mjs
     realRun: artifacts/real-runs/runtime.load.json
     status: verified
+  - id: runtime.agent-tools
+    title: 写作预设的工具面：persona／指令／只读文件／技能／子代理／ask-user／todo；不开放通用写工具
+    reference: inkos:packages/core/src/harness/builtin-profiles.ts
+    dsh: preset plugins + skills
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: runtime.session-binding
     title: 当前作品绑定、面板进入作品
     reference: inkos:packages/core/src/harness/session-binding.ts

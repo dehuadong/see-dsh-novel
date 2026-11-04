@@ -14,18 +14,28 @@
 
 按纵向能力推进，一次一个 PR；顺序以账本行序为准，前一行未 `verified` 不跳行。
 
-- **P0** `runtime.load` —— 最小 bundle／preset／tool／skill／client 骨架，CI 通过，真实加载一次。
-- **P1** 立项与基础设定 —— 第一条真实链路：立项 → 基础设定 → 作者认可 → 角色进入 brief。
-  - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P5 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
+- **P0 运行时骨架**：`runtime.load` + `runtime.agent-tools`（写作预设的工具面：persona、指令、只读文件、技能、子代理、ask-user、todo、jobs、上下文压缩；通用写工具不开放，内容写入只走 `story_*`）。
+- **P1 立项与基础设定**：
+  - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P6 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
-- **P2** `plan.outline` + `plan.chapter` + `context.brief`。
-- **P3** `chapter.write` + `chapter.review` + `chapter.revise`。
-- **P4** `chapter.summary` + `chapter.settle` + `chapter.finalize`。
-- **P5** `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
-- **P6** 短篇流水线，独立推进。
-- **P7** 剧本流水线，独立推进。
+- **P2 章前规划与上下文**：`plan.outline` + `plan.chapter` + `context.brief` + `context.retrieval`。
+- **P3 正文生产**：`chapter.write` + `chapter.review` + `chapter.revise`。
+- **P4 结算与定稿**：`chapter.summary` + `chapter.settle` + `chapter.finalize`。
+- **P5 章节运维与对账**：`chapter.reopen` + `chapter.move-delete` + `state.check`。
+- **P6 产物与工作台**：`artifact.identity` + `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
+- **P7 短篇流水线**：`short.*`，v1 之后独立推进。
+- **P8 剧本流水线**：`script.*`，v1 之后独立推进。
 
-阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：参考工程先 `inkos init` 建项目、再 `inkos book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代参考工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
+阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。排序依据是参考工程的长篇流水线阶段链：立项（书配置与作品身份）→ 基础设定（四段设定 + 控制文档 + 初始快照）→ 每章（规划 memo → 装配上下文 → 初稿 → 审阅观察 → 修订 → 落盘 → 结算真相文件 → 校验）→ 定稿与快照 → 导出与备份。
+
+P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：参考工程先 `init` 建项目、再 `book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代参考工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
+
+两处已知的次序偏差：
+
+- `foundation.*` 与 `cast.single-authority` 在 P1 前置行之前就已交付并 `verified`。账本行序仍是推进顺序——`runtime.*` 组剩余行补齐后才进 P2；这条历史事实不改写已验证的状态。
+- 参考工程在基础设定结束时就建初始快照，`artifact.identity` 属于早期能力；本项目把它排在 P6，意味着 P6 之前没有 revision 身份。v1 只有第 1 章、不做历史修订，因此可以接受；一旦要支持历史章节修订，`artifact.identity` 必须先于 P2 交付。
+
+参考工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
 
 ### 运行形态
 
