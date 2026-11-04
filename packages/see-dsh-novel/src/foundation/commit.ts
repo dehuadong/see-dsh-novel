@@ -8,23 +8,34 @@ import { cp, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { dirname, join, resolve } from 'node:path'
 
-/** @param {string} path */
-async function exists(path) {
+export interface FileWrite {
+  relativePath: string
+  content: string
+}
+
+export interface CommitResult {
+  written: string[]
+  deleted: string[]
+}
+
+async function exists(path: string): Promise<boolean> {
   try {
     await stat(path)
     return true
   } catch (error) {
-    if (error.code === 'ENOENT') return false
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
     throw error
   }
 }
 
 /**
- * @param {string} root 作品根目录
- * @param {{ writes: ReadonlyArray<{ relativePath: string, content: string }>, deletes?: ReadonlyArray<string> }} plan
- * @returns {Promise<{ written: string[], deleted: string[] }>}
+ * @param root 作品根目录
+ * @param plan 写入与删除清单；写入项的内容先落 staging
  */
-export async function commitFoundation(root, { writes, deletes = [] }) {
+export async function commitFoundation(
+  root: string,
+  { writes, deletes = [] }: { writes: ReadonlyArray<FileWrite>, deletes?: ReadonlyArray<string> },
+): Promise<CommitResult> {
   if (writes.length === 0 && deletes.length === 0) return { written: [], deleted: [] }
 
   const base = resolve(root)
@@ -32,8 +43,7 @@ export async function commitFoundation(root, { writes, deletes = [] }) {
   const workDir = join(staging, 'work')
   const backupDir = join(staging, 'backup')
   const touched = [...writes.map((write) => write.relativePath), ...deletes]
-  /** @type {string[]} */
-  const applied = []
+  const applied: string[] = []
 
   try {
     await mkdir(workDir, { recursive: true })
@@ -74,14 +84,13 @@ export async function commitFoundation(root, { writes, deletes = [] }) {
   }
 }
 
-/**
- * 把备份写回原位；没有备份且已写入的文件删除，避免留下半套产物。
- * @param {string} base
- * @param {string} backupDir
- * @param {ReadonlyArray<string>} touched
- * @param {ReadonlyArray<string>} applied
- */
-async function restore(base, backupDir, touched, applied) {
+/** 把备份写回原位；没有备份且已写入的文件删除，避免留下半套产物。 */
+async function restore(
+  base: string,
+  backupDir: string,
+  touched: ReadonlyArray<string>,
+  applied: ReadonlyArray<string>,
+): Promise<void> {
   for (const relativePath of touched) {
     const backup = join(backupDir, relativePath)
     const target = resolve(base, relativePath)

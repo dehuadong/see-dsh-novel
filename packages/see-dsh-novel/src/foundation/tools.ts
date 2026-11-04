@@ -8,44 +8,61 @@
 import { readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../types.js'
 import {
-  COMMIT_OUTPUT,
   CAST_INDEX_PARAMETERS,
+  COMMIT_OUTPUT,
   DETAILS_PARAMETERS,
   OUTLINE_PARAMETERS,
   castDocumentsParameters,
   roleCardPath,
 } from './contract.js'
+import type { BookRulesData, IndexedRole, PendingHook } from './contract.js'
 import { commitFoundation } from './commit.js'
+import type { CommitResult } from './commit.js'
 import { stateWritesIfMissing } from './state.js'
 
-const ROLE_DIRS = ['主要角色', '次要角色']
+const ROLE_DIRS = ['主要角色', '次要角色'] as const
+
+interface OutlineArgs {
+  storyFrame: string
+  volumeMap: string
+}
+
+interface DetailsArgs {
+  bookRules: string
+  bookRulesData: BookRulesData
+  pendingHooks: PendingHook[]
+}
+
+interface CastIndexArgs {
+  roles: IndexedRole[]
+}
+
+interface CastDocumentsArgs {
+  mode?: 'init' | 'revise'
+  [key: `role_${number}_content`]: string
+}
 
 /** 把提交结果渲染成工具卡片文本。 */
-function renderCommit(_args, value) {
+function renderCommit(_args: unknown, value: CommitResult): Array<{ type: 'text', text: string }> {
   const written = value.written.length
   const deleted = value.deleted.length
   return [{
     type: 'text',
-    text: deleted > 0
-      ? `写入 ${written} 个文件，删除 ${deleted} 个旧角色卡`
-      : `写入 ${written} 个文件`,
+    text: deleted > 0 ? `写入 ${written} 个文件，删除 ${deleted} 个旧角色卡` : `写入 ${written} 个文件`,
   }]
 }
 
-/**
- * 尚未被本次重写的角色卡。
- * @param {string} root
- * @param {ReadonlyArray<string>} written
- */
-async function staleRoleCards(root, written) {
-  const stale = []
+/** 尚未被本次重写的角色卡。 */
+async function staleRoleCards(root: string, written: ReadonlyArray<string>): Promise<string[]> {
+  const stale: string[] = []
   for (const dir of ROLE_DIRS) {
     let entries
     try {
       entries = await readdir(join(root, 'source/story/roles', dir), { withFileTypes: true })
     } catch (error) {
-      if (error.code === 'ENOENT') continue
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
       throw error
     }
     for (const entry of entries) {
@@ -57,28 +74,20 @@ async function staleRoleCards(root, written) {
   return stale
 }
 
-/**
- * 注册四个 foundation 工具；cast_documents 会随索引结果重新注册。
- * @param {{ tools: { register: (definition: unknown) => () => void }, workingDirectory: { ensure: (agent: unknown) => Promise<string> } }} ctx
- * @returns {() => void} 注销全部工具
- */
-export function installFoundationTools(ctx) {
-  const disposers = []
-  /** @type {(() => void) | undefined} */
-  let cardsDisposer
-  /** @type {ReadonlyArray<{ tier: 'major' | 'minor', name: string }>} */
-  let indexedRoles = []
+/** 注册四个 foundation 工具；cast_documents 会随索引结果重新注册。 */
+export function installFoundationTools(ctx: PluginContext): Disposer {
+  const disposers: Disposer[] = []
+  let cardsDisposer: Disposer | undefined
+  let indexedRoles: ReadonlyArray<IndexedRole> = []
 
-  /** @param {{ agent?: unknown }} exec */
-  async function workRoot(exec) {
+  async function workRoot(exec: ExecuteContext): Promise<string> {
     if (!exec?.agent) throw new Error('foundation 工具需要所属 agent 会话；无归属时拒绝写入')
     const dir = await ctx.workingDirectory.ensure(exec.agent)
     if (!dir) throw new Error('无法解析当前工作区目录')
     return dir
   }
 
-  /** @param {ReadonlyArray<{ tier: 'major' | 'minor', name: string }>} roles */
-  function registerCards(roles) {
+  function registerCards(roles: ReadonlyArray<IndexedRole>): void {
     indexedRoles = roles
     cardsDisposer?.()
     cardsDisposer = ctx.tools.register({
@@ -87,7 +96,7 @@ export function installFoundationTools(ctx) {
         'Write one character card per indexed role under source/story/roles/. In revise mode, cards not resubmitted are deleted.',
       parameters: castDocumentsParameters(roles),
       output: { schema: COMMIT_OUTPUT, render: renderCommit },
-      async execute(args, exec) {
+      async execute(args: CastDocumentsArgs, exec: ExecuteContext): Promise<CommitResult> {
         const root = await workRoot(exec)
         const writes = indexedRoles.map((role, index) => ({
           relativePath: roleCardPath(role.tier, role.name),
@@ -109,16 +118,15 @@ export function installFoundationTools(ctx) {
       'Write the work outline: a readable story frame and a volume/chapter direction map, into source/story/outline/*.md.',
     parameters: OUTLINE_PARAMETERS,
     output: { schema: COMMIT_OUTPUT, render: renderCommit },
-    async execute(args, exec) {
-      const root = await workRoot(exec)
-      return commitFoundation(root, {
+    execute(args: OutlineArgs, exec): Promise<CommitResult> {
+      return workRoot(exec).then((root) => commitFoundation(root, {
         writes: [
           { relativePath: 'source/story/outline/story_frame.md', content: `${String(args.storyFrame).trim()}\n` },
           { relativePath: 'source/story/outline/volume_map.md', content: `${String(args.volumeMap).trim()}\n` },
         ],
-      })
+      }))
     },
-  }))
+  } as ToolDefinition<OutlineArgs, CommitResult>))
 
   disposers.push(ctx.tools.register({
     name: 'story_foundation_details',
@@ -126,7 +134,7 @@ export function installFoundationTools(ctx) {
       'Write the book rules (readable Markdown plus structured JSON) and seed the initial unresolved hooks into source/story/state/.',
     parameters: DETAILS_PARAMETERS,
     output: { schema: COMMIT_OUTPUT, render: renderCommit },
-    async execute(args, exec) {
+    async execute(args: DetailsArgs, exec: ExecuteContext): Promise<CommitResult> {
       const root = await workRoot(exec)
       const stateWrites = await stateWritesIfMissing(root, args.pendingHooks)
       return commitFoundation(root, {
@@ -137,7 +145,7 @@ export function installFoundationTools(ctx) {
         ],
       })
     },
-  }))
+  } as ToolDefinition<DetailsArgs, CommitResult>))
 
   disposers.push(ctx.tools.register({
     name: 'story_foundation_cast_index',
@@ -164,20 +172,20 @@ export function installFoundationTools(ctx) {
         },
         required: ['roles'],
       },
-      render: (_args, value) => [{
-        type: 'text',
+      render: (_args: unknown, value: { roles: IndexedRole[] }) => [{
+        type: 'text' as const,
         text: `开篇人物 ${value.roles.length} 位：` +
           value.roles.map((role) => `${role.name}（${role.tier === 'major' ? '主要' : '次要'}）`).join('、'),
       }],
     },
-    execute(args) {
+    execute(args: CastIndexArgs): Promise<{ roles: IndexedRole[] }> {
       const roles = args.roles.map((role) => ({ tier: role.tier, name: String(role.name).trim() }))
       registerCards(roles)
       return Promise.resolve({ roles })
     },
-  }))
+  } as ToolDefinition<CastIndexArgs, { roles: IndexedRole[] }>))
 
-  return () => {
+  return (): void => {
     cardsDisposer?.()
     for (const dispose of disposers) dispose()
   }

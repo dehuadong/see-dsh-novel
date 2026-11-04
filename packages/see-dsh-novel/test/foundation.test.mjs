@@ -4,8 +4,8 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { roleCardPath, sanitizeRoleName } from '../src/foundation/contract.js'
-import { installFoundationTools } from '../src/foundation/tools.js'
+import { roleCardPath, sanitizeRoleName } from '../src/foundation/contract.ts'
+import { installFoundationTools } from '../src/foundation/tools.ts'
 
 /** A throwaway work root plus the four tools bound to it. */
 async function harness() {

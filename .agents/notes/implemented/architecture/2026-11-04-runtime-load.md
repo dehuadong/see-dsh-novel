@@ -12,7 +12,7 @@ Status: implemented
 
 根目录是 pnpm workspace，`packages/*` 放插件包。当前只有一个包 `packages/see-dsh-novel`，包内同时提供宿主侧与浏览器侧入口，不按侧拆包。
 
-源码是纯 ESM JavaScript（`.js` + JSDoc 类型），没有 TypeScript 构建。本能力的验收是「装进去能跑」，多一层构建会让「装载失败」与「构建失败」难以区分。
+源码是 TypeScript，编译到 `lib/` 后由 Loader 装载；`.js` 只是产物形态，不再直接手写。这一条在 `foundation.architect` 之前改过，理由与代价见 [源码用 TypeScript，产物仍是 JavaScript](../process/2026-11-04-typescript-build.md)。
 
 ### 包内结构
 

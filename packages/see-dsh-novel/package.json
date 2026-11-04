@@ -5,19 +5,18 @@
   "type": "module",
   "description": "以 DSH 原生机制实现的长篇写作流水线：story_next 工具与作品面板",
   "exports": {
-    ".": "./src/index.js",
-    "./agent": "./src/agent.js",
-    "./client": "./src/client.js",
+    ".": "./lib/index.js",
+    "./agent": "./lib/agent.js",
+    "./client": "./lib/client.js",
     "./package.json": "./package.json"
   },
   "files": [
-    "src/index.js",
-    "src/agent.js",
-    "src/story-next.js",
-    "src/client.js",
-    "src/foundation",
+    "lib",
     "cordis.patch.yml"
   ],
+  "scripts": {
+    "build": "tsc -p ."
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

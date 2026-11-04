@@ -7,10 +7,22 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import type { FileWrite } from './commit.js'
+import type { PendingHook } from './contract.js'
+
 const STATE_DIR = 'source/story/state'
 
-/** @param {unknown} hook */
-function hookRecord(hook) {
+interface HookRecord {
+  hookId: string
+  startChapter: number
+  type: string
+  status: 'deferred'
+  lastAdvancedChapter: number
+  expectedPayoff: string
+  notes: string
+}
+
+function hookRecord(hook: PendingHook): HookRecord {
   return {
     hookId: String(hook.hookId).trim(),
     startChapter: 0,
@@ -22,33 +34,30 @@ function hookRecord(hook) {
   }
 }
 
-/** @param {string} path */
-async function missing(path) {
+async function missing(path: string): Promise<boolean> {
   try {
     await readFile(path)
     return false
   } catch (error) {
-    if (error.code === 'ENOENT') return true
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return true
     throw error
   }
 }
 
-/**
- * 生成「尚不存在」的状态文件写入项，交给同一次 commit 原子落盘。
- * @param {string} root
- * @param {ReadonlyArray<unknown>} hooks
- * @returns {Promise<Array<{ relativePath: string, content: string }>>}
- */
-export async function stateWritesIfMissing(root, hooks) {
-  const json = (value) => `${JSON.stringify(value, null, 2)}\n`
-  const candidates = [
+/** 生成「尚不存在」的状态文件写入项，交给同一次 commit 原子落盘。 */
+export async function stateWritesIfMissing(
+  root: string,
+  hooks: ReadonlyArray<PendingHook>,
+): Promise<FileWrite[]> {
+  const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
+  const candidates: Array<[string, unknown]> = [
     ['manifest.json', { schemaVersion: 2, language: 'zh', lastAppliedChapter: 0, projectionVersion: 1 }],
     ['current_state.json', { chapter: 0, facts: [] }],
     ['hooks.json', { hooks: hooks.map(hookRecord) }],
     ['chapter_summaries.json', { rows: [] }],
   ]
 
-  const writes = []
+  const writes: FileWrite[] = []
   for (const [name, value] of candidates) {
     if (await missing(join(root, STATE_DIR, name))) {
       writes.push({ relativePath: `${STATE_DIR}/${name}`, content: json(value) })

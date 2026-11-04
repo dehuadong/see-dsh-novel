@@ -4,13 +4,16 @@
   "version": "0.0.0",
   "description": "以 DSH 原生机制实现长篇写作流水线",
   "scripts": {
-    "test": "node --test packages/see-dsh-novel/test/*.test.mjs",
+    "build": "tsc -p packages/see-dsh-novel",
+    "test": "node --import tsx --test packages/see-dsh-novel/test/*.test.mjs",
     "verify-notes": "tsx .agents/skills/write-agent-notes/scripts/verify-agent-note-tree.ts --root .agents/notes && tsx .agents/skills/write-agent-notes/scripts/verify-agent-note-format.ts --root .agents/notes && tsx .agents/skills/write-agent-notes/scripts/verify-archived-agent-notes.ts --root .agents/notes",
     "check-capabilities": "node scripts/check-capabilities.mjs",
-    "verify": "npm run verify-notes && npm run check-capabilities && npm test"
+    "verify": "pnpm run build && pnpm run verify-notes && pnpm run check-capabilities && pnpm run test"
   },
   "devDependencies": {
+    "@types/node": "^26.6.6",
     "tsx": "^4.23.15",
+    "typescript": "^5.7.3",
     "yaml": "^2.9.1"
   }
 }
