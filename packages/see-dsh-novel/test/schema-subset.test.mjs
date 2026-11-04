@@ -5,7 +5,10 @@ import {
   CAST_INDEX_PARAMETERS,
   COMMIT_OUTPUT,
   DETAILS_PARAMETERS,
+  GATE_OUTPUT,
+  NO_PARAMETERS,
   OUTLINE_PARAMETERS,
+  SIGNOFF_OUTPUT,
   castDocumentsParameters,
 } from '../src/pipelines/long/contract.ts'
 import { storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
@@ -21,6 +24,12 @@ test('foundation schemas stay inside the runtime subset', () => {
   assert.deepEqual(violations(DETAILS_PARAMETERS), [])
   assert.deepEqual(violations(CAST_INDEX_PARAMETERS), [])
   assert.deepEqual(violations(COMMIT_OUTPUT), [])
+})
+
+test('approval schemas stay inside the runtime subset', () => {
+  assert.deepEqual(violations(NO_PARAMETERS), [])
+  assert.deepEqual(violations(GATE_OUTPUT), [])
+  assert.deepEqual(violations(SIGNOFF_OUTPUT), [])
 })
 
 test('the dynamic character-card schema stays inside the runtime subset', () => {

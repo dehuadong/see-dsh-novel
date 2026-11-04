@@ -1,6 +1,6 @@
 # Agent Note: foundation.approval —— 作者确认闸门与回执
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -8,7 +8,7 @@ Status: proposed
 
 DSH 自带的 approval 服务看起来是现成入口，但它回答的是「这个工具调用准不准执行」，并且与会话的权限策略绑死：策略为 `never` 时它在派发前就确定拒绝，作者什么也看不到。创作认可与会话安全策略是两件事，不能只靠前者。
 
-## Proposal
+## Decision
 
 ### 闸门位置
 
@@ -18,23 +18,23 @@ DSH 自带的 approval 服务看起来是现成入口，但它回答的是「这
 
 B 是原生确认：会话的确认策略为 `ask` 时，签核工具调用 `ctx.approval.request`，作者在输入框上方的确认条上决定。回执是 `approval/asked` 与 `approval/decided`；只有 `allowed-once` 放行，且这条确认只服务发起它的那一次调用。
 
-A 是面板确认：作者在「作品」面板点「认可」，面板执行 `/story-approve`。回执是这条命令的 `command/run` 与 `command/done`，`command/done` 的文本末尾带一行自有标记 `story-approval stage=foundation digest=<hex> files=<n>`。命令自己校验并重算摘要，工具读回执时再算一次比对。
+A 是面板确认：作者在「作品」面板点「认可」，面板执行 `/story-approve`。回执是这条命令的 `command/run` 与 `command/done`，`command/done` 的文本末尾带一行自有标记 `story-approval stage=foundation digest=<hex> files=<n> via=receipt`。命令自己校验并重算摘要，工具读回执时再算一次比对。
 
-通道在调用前按确定规则选定，不是问完再猜：
+通道在调用前按确定规则选定，不是问完再猜。策略按 approval 服务自己的生效顺序读：会话覆盖优先，其次组合层默认，最后是 `ask`。
 
 | 签核时的状态 | 通道 |
 | --- | --- |
 | 已有有效 A 回执 | 直接放行，不再询问 |
-| 无 A 回执，`ctx.approval.overrideOf(session)` 为 `ask` | B |
+| 无 A 回执，策略为 `ask` | B |
 | 无 A 回执，策略为 `never` 或 `approval` 服务不存在 | 不发起询问，拒绝并给出 `/story-approve` 指引 |
 
 B 的非授权结果不转 A：`rejected` 与 `cancelled` 终止，作者已经表态或撤回；`unavailable` 说明没有可用的确认端，拒绝并提示改走 A。只有确认通道整体不可用才改道。
 
 ### 回执与有效性
 
-工件集合是 `source/story/` 下的全部文件；摘要是把相对路径升序排列后，逐文件把相对路径与内容喂入 sha256 得到的十六进制串。集合为空时签核直接拒绝——还没有基础设定可以定稿。
+工件集合是 `source/story/` 下的全部文件；摘要是把相对路径升序排列后，逐文件把相对路径、字节长度与内容喂入 sha256 得到的十六进制串。字节长度参与摘要，避免「路径 + 内容」直接拼接时两组不同文件碰出同一串。集合为空时签核直接拒绝——还没有基础设定可以定稿。
 
-A 回执有效，当且仅当最近一条成功的 `/story-approve` 记录的 `digest` 与当前摘要相同。标记行是这条命令文本里唯一的机器可读部分；面向作者的人读文本放在它前面。写入改变内容就改变摘要，旧回执自然失效，不需要另外比对路径集合。B 的回执在发起它的调用内一次性消耗：询问前算一次摘要，放行前再算一次，不一致即拒绝。
+最近一次作者决定决定一切，且退回与确认同样重要：最近决定是确认、且摘要与当前工件一致，回执有效；最近决定是退回，更早的确认不再放行。A 回执来自 `/story-approve` 的命令结果，B 回执来自签核工具在原生确认条里获批后的结果；两者都写成同一行标记，所以「这一版已签核」事后可读。标记行是结果文本里唯一的机器可读部分；面向作者的人读文本放在它前面。B 的确认还在发起它的调用内复核一次摘要：询问前算一次，放行前再算一次，不一致即拒绝。
 
 回执只进会话日志，不进作品目录：作品是作者的文档，确认是操作痕迹。
 
@@ -44,21 +44,22 @@ A 回执有效，当且仅当最近一条成功的 `/story-approve` 记录的 `d
 
 - 会话工作目录：`useSessions(state => state.byId[sessionId]?.cwd)`。
 - 会话预设：`useSessions(state => state.projectionsBySession[sessionId]?.values.agentPreset ?? state.byId[sessionId]?.projectionValues?.agentPreset)`。
-- 目录里有没有作品：`useResource<'file'>('dsh-resource://file/session/<sessionId>/source/story')`；`live` 表示作品存在，`failed` 表示没有，`none` 表示该地址没有 provider（此时不提供动作）。
+- 目录里有没有作品：`file` 协议的 stat 只接受普通文件、探不到目录，所以改探两个锚点文件——`source/story/outline/story_frame.md` 与 `source/story/state/manifest.json`；任一 `live` 即视为作品，两个都 `failed` 表示没有，`none` 表示该地址没有 provider（此时不提供动作）。
 
-三态：不是作品目录时显示「当前工作区还不是作品」并说明如何立项；是作品但不是该预设会话时只读展示、不提供按钮；是作品且预设相符时提供「查看待确认」「认可」「退回」三个按钮，分别执行 `/story-review`、`/story-approve`、`/story-reject`。
+三态：不是作品目录时显示「当前工作区还不是作品」并说明如何立项；是作品但不是该预设会话时只读展示、不提供按钮；是作品且预设相符时提供「查看待确认」「认可」「退回」三个按钮，分别执行 `/story-review`、`/story-approve`、`/story-reject`。读取中与文件资源通道不可用时给出对应说明，同样不提供动作。
 
-按钮经 `ctx.sessions.binding(sessionId)?.session.command(line)` 提交；拿不到 binding 时禁用并说明原因。清单、摘要与最近确认状态由命令结果写在会话里，面板不读它们。本能力不新增宿主到客户端的数据通道；面板的完整形态留给 panel.workbench。
+按钮经 `ctx.sessions.binding(sessionId)?.session.command(line)` 提交；拿不到 binding 时按钮不出现并说明原因。清单、摘要与最近确认状态由命令结果写在会话里，面板不读它们。本能力不新增宿主到客户端的数据通道；面板的完整形态留给 panel.workbench。
 
 作品绑定与「从会话进入作品」的完整流程属于 runtime.session-binding；本能力只判断确认区能否操作，不实现作品索引或切换。
 
 ### 工具与命令
 
-- `story_gate`（只读）：只报告与确认有关的状态——待确认工件清单、当前摘要、最近一次确认（通道、时间、是否仍有效）、当前确认策略与可用通道；作品与下一阶段仍由 `story_next` 报告。
-- `story_foundation_signoff`：按通道规则取确认，成功则报告定稿的工件与摘要。
-- `/story-review`：打印工件清单、摘要与最近确认状态。
+- `story_gate`（只读）：只报告与确认有关的状态——待确认工件清单、当前摘要、最近一次作者决定（确认还是退回、时间、通道是面板命令还是原生确认条、是否仍有效）、当前确认策略、此刻能否弹原生确认条；没有 `approval` 服务时策略报 `unknown`。作品与下一阶段仍由 `story_next` 报告。
+- `story_foundation_signoff`：按通道规则取确认，成功则报告定稿的工件与摘要，并在结果里留下同一条标记行。
+- `/story-review`：打印工件清单、摘要、最近决定与可用通道。
 - `/story-approve`：校验工件存在、重算摘要，返回带标记的成功结果。
-- `/story-reject`：记录一次退回，不产生可放行的回执。
+- `/story-reject`：记录一次退回，作废更早的确认，不产生可放行的回执。
+- `/story-approve` 与 `/story-reject` 接受一段作者备注，写进结果文本；备注在标记行之外，不参与回执判定。
 
 工具与命令都注册在 `see-dsh-novel/agent`，因此只有该预设的会话拥有它们。`ctx.approval` 用 `ctx.get('approval')` 可选读取，缺失时只让签核失败，不影响其余工具。
 
@@ -99,21 +100,17 @@ A 回执有效，当且仅当最近一条成功的 `/story-approve` 记录的 `d
 
 面板可以直接显示清单与最近确认，不必绕到命令结果里。本能力内否掉：投影注册要求 zod 形状的 schema，要么给插件加 zod 依赖，要么依赖「注册后只调 `.parse()`」这个内部细节；面板的完整形态属于 panel.workbench，届时按那里的数据需求一并引入。
 
-## Acceptance criteria
+## Consequences
 
-- 无有效回执时签核被拒绝，返回明确原因，且不产生任何文件写入。
-- 策略为 `never` 时签核不发起 `approval/asked`，拒绝并给出 `/story-approve` 指引。
-- 策略为 `ask` 时：`allowed-once` 放行；`rejected`、`cancelled`、`unavailable` 拒绝；`rejected` 之后不提示改走面板。
-- 执行 `/story-approve` 之后签核放行；工件内容变更后同一条回执失效。
-- `/story-review` 报告工件清单、摘要与最近确认状态。
-- 面板三态：非作品目录显示未绑定；作品目录在非该预设会话中只读且无按钮；作品目录加该预设显示三个按钮。
-- 真实运行：同一预设会话里 `ask` 模式走一次 B（先拒后放行），`never` 模式走一次 A（命令确认后放行），两次回执留档 `artifacts/real-runs/foundation.approval.json`。
+收益：签核成为定稿的唯一出口，作者不确认就定不了稿，被拒绝时一个字也不写；两条通道共用同一行回执，`danger-full-access` 下也有可用的确认路径；回执带摘要，写入一变旧确认自动失效，退回也一样作废；`story_gate` 与 `/story-review` 读得出最近一次决定，后续阶段有据可依。
 
-## Risks
+`packages/see-dsh-novel/test/approval.test.mjs` 覆盖这些行为：无回执与各类拒绝、`allowed-once` 放行、面板回执放行、内容变更后回执失效、退回作废旧确认、原生确认留在日志里的签核、三个命令，以及两条工具在无归属会话里失败。真实运行（`ask` 走一次 B、`never` 走一次 A）的留档在 `artifacts/real-runs/foundation.approval.json`。
+
+代价与已知限制：
 
 - 摘要把 `source/story/` 全部文件卷进来：等章节正文写进这个目录，摘要会随章节变化，必须按阶段收窄工件范围，否则签核被无关写入作废。
-- A 回执的摘要是命令文本里的自有标记；格式一改旧回执就失效——失败方向是拒绝，不是放行。
-- 面板是本项目第一处写操作 UI，等待态与失败重试没有参考实现。
-- 回执只在会话里；换会话继续同一作品需要重新签核。
+- A 回执的摘要是结果文本里的自有标记；格式一改旧回执就失效——失败方向是拒绝，不是放行。
+- 面板是本项目第一处写操作 UI，等待态与失败重试没有参考实现；面板判「是不是作品」靠两个锚点文件，因为 `file` 协议的 stat 探不到目录。
+- 回执只在会话里；换会话继续同一作品需要重新签核（`runtime.session-binding` 处理）。
 - B 的确认条要等作者：作者不响应时这次工具调用一直挂着（与其它 approval 一致），取消本轮得到 `cancelled`。
 - `never` 策略下 B 完全不可用；作者既不切策略也不用面板时，流程停在等待确认。

@@ -9,6 +9,8 @@ import { join } from 'node:path'
 import { countHooks, validateHooks } from '../core/hooks.js'
 import type { HooksState } from '../core/hooks.js'
 import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../core/types.js'
+import { installApprovalCommands } from '../pipelines/long/commands.js'
+import { installGateTools } from '../pipelines/long/gate.js'
 import { renderHooksProjection } from '../pipelines/long/hooks.js'
 import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
@@ -16,8 +18,8 @@ import type { StoryNext } from './story-next.js'
 
 export const name = 'see-dsh-novel-agent'
 
-/** The tool registry plus the Session directory the foundation tools write into. */
-export const inject = ['tools', 'workingDirectory'] as const
+/** The tool and command registries plus the Session directory the story tools write into. */
+export const inject = ['tools', 'workingDirectory', 'commands'] as const
 
 interface HooksResult {
   counts: Record<string, number>
@@ -75,8 +77,12 @@ export function apply(ctx: PluginContext): Disposer {
   } as ToolDefinition<Record<string, never>, HooksResult>)
 
   const disposeFoundation = installFoundationTools(ctx)
+  const disposeGate = installGateTools(ctx)
+  const disposeCommands = installApprovalCommands(ctx)
 
   return (): void => {
+    disposeCommands()
+    disposeGate()
     disposeFoundation()
     disposeHooks()
     disposeStoryNext()

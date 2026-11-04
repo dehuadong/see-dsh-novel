@@ -67,10 +67,10 @@ capabilities:
   - id: foundation.approval
     title: 作者确认闸门与回执
     reference: inkos:packages/core/src/interaction/session.ts
-    dsh: client + tools.register
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: client + tools.register + commands + approval
+    implementation: packages/see-dsh-novel/src/pipelines/long/gate.ts
+    consumer: packages/see-dsh-novel/test/approval.test.mjs
+    realRun: artifacts/real-runs/foundation.approval.json
     status: missing
   - id: cast.single-authority
     title: roles:index／role:* 唯一人物权威，major/minor 均进入 brief/context

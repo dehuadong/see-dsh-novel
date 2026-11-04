@@ -134,3 +134,42 @@ export const COMMIT_OUTPUT: JsonSchema = OBJECT({
   written: STRING_ARRAY(),
   deleted: STRING_ARRAY(),
 }, ['written', 'deleted'])
+
+/** 本能力负责的唯一阶段；后续阶段各自登记自己的名字。 */
+export const FOUNDATION_STAGE = 'foundation'
+
+/** 只读闸门工具，报告确认状态而不推进。 */
+export const GATE_TOOL = 'story_gate'
+
+/** 签核工具，把这一版基础设定标记为定稿。 */
+export const SIGNOFF_TOOL = 'story_foundation_signoff'
+
+/** 面板按钮执行的三个命令。 */
+export const COMMAND_REVIEW = 'story-review'
+export const COMMAND_APPROVE = 'story-approve'
+export const COMMAND_REJECT = 'story-reject'
+
+/** 无参工具的参数位；留出来，避免以后加参数时改变调用形态。 */
+export const NO_PARAMETERS: JsonSchema = OBJECT({}, [])
+
+/** `story_gate` 的返回值；可空字段用空串而不是 null，保持 schema 简单。 */
+export const GATE_OUTPUT: JsonSchema = OBJECT({
+  stage: STRING('本能力负责的阶段'),
+  files: STRING_ARRAY(),
+  digest: { type: 'string', description: '当前工件摘要；没有工件时为空串' },
+  confirmed: { type: 'boolean', description: '当前摘要是否有一条仍然有效的作者确认' },
+  decision: { type: 'string', enum: ['approve', 'reject', 'none'], description: '最近一次作者决定' },
+  channel: { type: 'string', enum: ['receipt', 'approval', 'none'], description: '有效确认来自面板命令还是原生确认条' },
+  receiptAt: { type: 'string', description: '最近一条确认的时间（ISO），没有时为空串' },
+  policy: { type: 'string', enum: ['ask', 'never', 'unknown'], description: '会话的确认策略' },
+  canPrompt: { type: 'boolean', description: '现在能否弹原生确认条' },
+  hint: { type: 'string', description: '下一步该做什么' },
+}, ['stage', 'files', 'digest', 'confirmed', 'decision', 'channel', 'receiptAt', 'policy', 'canPrompt', 'hint'])
+
+/** `story_foundation_signoff` 成功时的返回值；拒绝以工具错误返回。 */
+export const SIGNOFF_OUTPUT: JsonSchema = OBJECT({
+  signed: { type: 'boolean' },
+  channel: { type: 'string', enum: ['receipt', 'approval'], description: '确认来自面板命令还是原生确认条' },
+  digest: { type: 'string' },
+  files: STRING_ARRAY(),
+}, ['signed', 'channel', 'digest', 'files'])

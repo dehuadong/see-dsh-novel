@@ -15,10 +15,16 @@
 | 技能 | 自有技能目录与加载器 | DSH `skills` 服务 + 文件系统 | SKILL.md + references 由运行时加载 | 技能能按角色／动作激活 |
 | 方法注入 | 自建 prompt 拼装 | `systemPrompt.context()` | 不在实现里复制方法正文，只注入受预算约束的片段 | 注入片段可在 trace 中定位 |
 | 工具 | 自有工具总线 | `tools.register` | `story_*` 工具按阶段注册独立 schema | 每阶段工具集不同且可校验 |
+| 作者确认 | 独立审批 UI，确认与执行分离 | DSH `approval` 服务 + `commands` | 原生确认留 `approval/decided` 回执，但与会话权限策略耦合；策略为 `never` 时由面板命令产生回执 | 无有效回执时签核被拒绝 |
 | 面板 | 独立前端服务 | `client` 插件 + slots | 从会话进入，与对话、轨迹并列；UI 用 React | 面板挂载到指定 slot |
 
 ## 偏差登记
 
 每项偏差按四段记录：参考做法 / 我们的做法 / 原因 / 验证。相等实现不登记，避免把映射表写第二遍。
 
-当前无已确认偏差；首次实现与参考行为不一致时在此追加，并在所属能力的真实运行回执里留下验证方式。
+### 作者确认：原生确认条与面板命令双通道
+
+- 参考做法：独立审批界面，确认由 UI 直接提交，提议与执行分离。
+- 我们的做法：会话策略为 `ask` 时用 DSH 原生确认条，回执落在 `approval/asked` 与 `approval/decided`；策略为 `never` 或没有确认端时改由 `/story-approve` 命令产生回执，签核工具只读最近一次决定。
+- 原因：出树插件没有自定义 RPC 出口，自造会话事件会让持久化整份拒读；原生确认又与会话权限策略绑死，单一通道在 `danger-full-access` 下恒拒。
+- 验证：`packages/see-dsh-novel/test/approval.test.mjs` 覆盖两条通道与各类拒绝；真实运行记录在 `artifacts/real-runs/foundation.approval.json`。
