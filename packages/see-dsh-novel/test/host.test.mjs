@@ -49,6 +49,7 @@ test('apply registers story_next plus the foundation tools and disposes them all
     'story_foundation_cast_index',
     'story_foundation_details',
     'story_foundation_outline',
+    'story_hooks',
     STORY_NEXT_NAME,
   ])
 

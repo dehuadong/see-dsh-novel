@@ -60,9 +60,9 @@ capabilities:
     title: pendingHooks 种子、id/status 语义、投影一致
     reference: inkos:packages/core/src/state/state-reducer.ts
     dsh: storage
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/core/hooks.ts
+    consumer: packages/see-dsh-novel/test/hooks.test.mjs
+    realRun: artifacts/real-runs/foundation.hooks.json
     status: missing
   - id: foundation.approval
     title: 作者确认闸门与回执
