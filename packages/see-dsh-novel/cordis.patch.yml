@@ -1,0 +1,22 @@
+# The see-dsh-novel bundle patch.
+#
+# Two rows with different jobs:
+#   - `see-dsh-novel` mounts the package root at the composition root. The
+#     browser half is resolved from a root row's package manifest, so this row
+#     is what makes the panel load; its host half is intentionally empty.
+#   - `preset-see-dsh-novel` declares the agent preset. Its `plugins` are child
+#     entries of this composition, not references to rows above; the tool
+#     reaches writing agents only by being listed there.
+- insert:
+    - id: see-dsh-novel
+      name: 'see-dsh-novel'
+
+    - id: preset-see-dsh-novel
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: see-dsh-novel
+        name: see-dsh-novel
+        description: 长篇写作流水线：立项、基础设定、章节推进与导出
+        plugins:
+          - id: see-dsh-novel-story
+            name: 'see-dsh-novel/agent'

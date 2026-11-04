@@ -1,0 +1,33 @@
+{
+  "name": "see-dsh-novel",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "以 DSH 原生机制实现的长篇写作流水线：story_next 工具与作品面板",
+  "exports": {
+    ".": "./src/index.js",
+    "./agent": "./src/agent.js",
+    "./client": "./src/client.js",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "src/index.js",
+    "src/agent.js",
+    "src/story-next.js",
+    "src/client.js",
+    "cordis.patch.yml",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

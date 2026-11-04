@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "description": "以 DSH 原生机制实现长篇写作流水线",
   "scripts": {
+    "test": "node --test packages/see-dsh-novel/test/*.test.mjs",
     "verify-notes": "tsx .agents/skills/write-agent-notes/scripts/verify-agent-note-tree.ts --root .agents/notes && tsx .agents/skills/write-agent-notes/scripts/verify-agent-note-format.ts --root .agents/notes && tsx .agents/skills/write-agent-notes/scripts/verify-archived-agent-notes.ts --root .agents/notes",
     "check-capabilities": "node scripts/check-capabilities.mjs",
     "verify": "npm run verify-notes && npm run check-capabilities"

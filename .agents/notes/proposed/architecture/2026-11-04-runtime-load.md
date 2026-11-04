@@ -10,47 +10,50 @@ Status: proposed
 
 ### 仓库形态
 
-根目录改成 pnpm workspace，`packages/*` 放插件包。P0 只有一个包 `packages/plugin-inkos`，同时提供 host 入口与 client 入口，避免宿主侧与浏览器侧各建一个包后再拆。
+根目录改成 pnpm workspace，`packages/*` 放插件包。P0 只有一个包 `packages/see-dsh-novel`，同时提供 host 入口与 client 入口，避免宿主侧与浏览器侧各建一个包后再拆。
 
 源码用纯 ESM JavaScript（`.js` + JSDoc 类型），不引入 TypeScript 构建。理由是 P0 的验收是「装进去能跑」，多一层构建会让「加载失败」与「构建失败」难以区分；需要类型时再单独引入，不阻塞骨架落地。
 
 ### 包内结构
 
 ```
-packages/plugin-inkos/
+packages/see-dsh-novel/
   package.json        # dsh.bundle.patch + dsh.client
-  cordis.patch.yml    # 两行：story 插件行 + agent preset 行
-  src/index.js        # host 入口：注册 story_next 工具
+  cordis.patch.yml    # 根行 + agent preset 行
+  src/index.js        # 根行的 host 入口：空实现，只为让浏览器半边可被发现
+  src/agent.js        # preset 子行：注册 story_next
+  src/story-next.js   # 工具契约（纯函数、参数与输出 schema）
   src/client.js       # client 入口：注册面板骨架
-  locale/zh.json      # 面板与工具文案
   icon.svg            # 面板图标
-  test/host.test.mjs  # 消费者测试：装载后故事工具已注册
+  test/                # 消费者测试 + schema 子集守门
 ```
 
 `package.json` 的 `dsh.client` 声明 `platform: web`、`immediately: true`、`inject: ['@deepseek-ai/dsh-client-ui-conversation']`，与官方模板一致。
 
 ### 装配
 
-`cordis.patch.yml` 插入一行 preset：
+`cordis.patch.yml` 插入两行：根行 `see-dsh-novel`，以及 preset。
 
 ```yaml
 - insert:
-    - id: preset-inkos
+    - id: see-dsh-novel
+      name: 'see-dsh-novel'
+
+    - id: preset-see-dsh-novel
       name: '@deepseek-ai/dsh-agent-preset'
       config:
-        id: inkos
-        name: InkOS 长篇
+        id: see-dsh-novel
+        name: see-dsh-novel
         plugins:
-          - id: inkos-story
-            name: '@inkos/plugin-inkos'
-          - id: skill-filesystem
-            name: '@deepseek-ai/dsh-skill-filesystem'
-            config: { roots: ['.agents/skills'] }
-          - id: tool-skill
-            name: '@deepseek-ai/dsh-tool-skill'
+          - id: see-dsh-novel-story
+            name: 'see-dsh-novel/agent'
 ```
 
-preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是对父组合行 id 的引用——工具与技能必须写进 preset 才随 agent 装载。浏览器面板不走 patch 行，由 `package.json` 的 `dsh.client` 声明加载。
+两行的分工来自 client 模块的发现规则：浏览器半边由**组合根行**所挂包的清单解析，且只认包根说明符，子路径条目会被当作「不是 client 行」跳过。因此根行挂包根、host 实现为空；工具放在 preset 的子行里，用 `/agent` 子路径挂载，只进入选择该 preset 的会话。若把工具放进根行，它会注册成全局工具；若只保留 preset 子行，面板永远不会被解析。
+
+preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是对父组合行 id 的引用——工具必须写进 preset 才随 agent 装载。
+
+技能不另建行：工作区的 `.agents/skills` 已由 `skill-filesystem` 的默认项目根扫描，本会话的技能目录即来自那里；在 preset 里再放一个 `skill-filesystem` 会注册第二个 provider，与既有目录重复。
 
 `skill-filesystem` 的 `roots` 键名与相对路径基准以实施时 `Config.listConfigs` 的 schema 为准；设计只确定「技能根指向仓库 `.agents/skills`」这一事实。
 
@@ -66,9 +69,11 @@ preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是
 
 P0 只产出 `work: null, phase: 'unbound', next: 'init'`：作品绑定属于 `runtime.session-binding`，不在本能力内捏造。工具必须在 preset 装载后即可被调用，调用失败与「未绑定」是两种结果，前者由测试覆盖。
 
+工具定义要满足运行时的两条硬约束：参数与输出 schema 只能落在支持的子集内（单个 `type` 字符串，可空用 `oneOf`），`output.render` 必须返回无损 JSON——返回 `undefined` 会让整次调用报「returned invalid output」。两处都由消费者测试盯住。
+
 ### 面板骨架
 
-`src/client.js` 向与对话、轨迹并列的容器 slot 注册一个 `StoryPanel` 骨架：标题、当前阶段、占位正文。slot 由实施时 `Slots.listSubTree` 查询确定，不在设计阶段猜名字；骨架不发起任何网络请求。
+`src/client.js` 向 `conversation.view` 注册一个面板：该 slot 的条目与对话、轨迹并列，`label` 即标签文字。骨架只有标题、当前阶段与占位正文，不发起任何网络请求。
 
 ### 验证切入点
 
@@ -88,8 +93,8 @@ P0 只产出 `work: null, phase: 'unbound', next: 'init'`：作品绑定属于 `
 
 ## Acceptance criteria
 
-- `packages/plugin-inkos` 能作为 bundle 被 `plugin_manager install_bundle` 应用，`application: applied`。
-- 新会话的 preset 列表出现 `inkos-story`，其中的 `story_next` 可调用并返回 `{ work: null, phase: 'unbound', next: 'init' }`。
+- `packages/see-dsh-novel` 能作为 bundle 被 `plugin_manager install_bundle` 应用，`application: applied`。
+- 新会话的 preset 列表出现 `see-dsh-novel-story`，其中的 `story_next` 可调用并返回 `{ work: null, phase: 'unbound', next: 'init' }`。
 - client 骨架挂载到与对话、轨迹并列的容器 slot，可见标题与当前阶段。
 - `test/host.test.mjs` 通过，且断言注册与注销两侧。
 - 账本 `runtime.load` 三份证据齐备，`check-capabilities -- --write` 置为 `verified`。
