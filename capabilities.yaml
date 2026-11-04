@@ -52,7 +52,7 @@ capabilities:
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     reference: inkos:packages/core/src/agents/architect.ts
     dsh: subagents
-    implementation: packages/see-dsh-novel/src/foundation
+    implementation: packages/see-dsh-novel/src/pipelines/long
     consumer: packages/see-dsh-novel/test/foundation.test.mjs
     realRun: artifacts/real-runs/foundation.architect.json
     status: verified
