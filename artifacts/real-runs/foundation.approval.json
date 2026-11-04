@@ -1,0 +1,19 @@
+{
+  "capability": "foundation.approval",
+  "date": "2026-11-04",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "60 passed — approval 22 例（无回执拒绝、never/policy/服务缺失、ask 四种结果、面板回执放行、内容变更失效、退回作废、原生确认留在日志、三条命令、两个工具无归属失败），面板 13 例（按预设条件注册、三态、提交回报），加上账本、边界、schema 子集与前几行的既有用例"
+  },
+  "receipts": [
+    "策略 never（approval/policy seq 232）：面板命令 /story-approve 生效（seq 324，via=receipt），签核工具直接放行、不弹确认条——seq 305 → 306 返回『已定稿 foundation：14 个文件，摘要 3b5f41e9（作者在面板确认）』并带 story-approval stage=foundation digest=3b5f41e9… files=14 via=receipt",
+    "策略 never 下 story_gate 读到该回执：seq 316『foundation：14 个文件，摘要 3b5f41e9，已被作者确认（策略 never）』",
+    "策略 ask（approval/policy seq 126）：seq 161 approval/asked → seq 162 decided=allowed-once → seq 163 签核成功，via=approval",
+    "同一会话先拒后放行：seq 197 asked → seq 198 decided=rejected → seq 199 签核返回 isError『作者退回了这一版基础设定，未定稿……』；seq 214 asked → seq 215 allowed-once → seq 216 签核成功 via=approval；seq 222 story_gate『已被作者确认（策略 ask）』",
+    "退回作废更早的确认：seq 132 /story-approve（via=receipt）→ seq 134 /story-reject → seq 146 story_gate『尚未确认（策略 ask）』",
+    "面板真实渲染：作者在「作品」页点「认可」，命令结果落在「对话」（command/done seq 324）；「作品」页只在 see-dsh-novel 会话出现",
+    "工件：E:\\\\see-dsh-novel\\\\.artifacts\\\\work-demo\\\\source\\\\story 下 14 个文件，摘要 3b5f41e9c9d55643278a751fb31b4c84feaec1e77337c983ec88e9b3787da5b9"
+  ]
+}

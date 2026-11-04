@@ -71,7 +71,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/pipelines/long/gate.ts
     consumer: packages/see-dsh-novel/test/approval.test.mjs
     realRun: artifacts/real-runs/foundation.approval.json
-    status: missing
+    status: verified
   - id: cast.single-authority
     title: roles:index／role:* 唯一人物权威，major/minor 均进入 brief/context
     reference: inkos:packages/core/src/references/reference-context.ts
