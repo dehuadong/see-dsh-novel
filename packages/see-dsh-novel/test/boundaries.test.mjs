@@ -48,6 +48,8 @@ test('pipelines never import the plugin layer', () => {
 /**
  * 浏览器半边是独立层：只认宿主客户端包、`react` 与同目录的相对导入。
  * 它不能碰本仓库的 `core`／`pipelines`／`plugin`，也不能用 node 内置模块。
+ * 宿主包只能 `import type`：值导入会被 esbuild 内联进产物，而产物只外部化
+ * `react`／`react/jsx-runtime`——把类型包当值用会在运行时炸。
  */
 test('the client layer imports only host client packages, react, and its own files', () => {
   const dir = 'packages/see-dsh-novel/src/client'
@@ -67,6 +69,10 @@ test('the client layer imports only host client packages, react, and its own fil
       if (!allowed.some((pattern) => pattern.test(specifier))) {
         offenders.push(`${file} -> ${specifier}`)
       }
+    }
+    for (const line of text.split(/\r?\n/)) {
+      if (!/from\s+'@deepseek-ai\//.test(line)) continue
+      if (!/^\s*import\s+type\b/.test(line)) offenders.push(`${file} -> 值导入：${line.trim()}`)
     }
   }
   assert.deepEqual(offenders, [])

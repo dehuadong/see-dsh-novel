@@ -167,6 +167,20 @@ test('the preset reader tolerates both projection channels', () => {
   }
   assert.equal(presetOf(legacy, SESSION), 'legacy')
   assert.equal(presetOf(sessionState(undefined), SESSION), undefined)
+
+  // 宿主把「还没决定预设」投影成 null：应当落到保留行，而不是把 null 当成预设名。
+  const pending = {
+    ids: [SESSION],
+    byId: { [SESSION]: { sessionId: SESSION, cwd: '/work', projectionValues: { agentPreset: 'legacy' } } },
+    projectionsBySession: { [SESSION]: { values: { agentPreset: null } } },
+  }
+  assert.equal(presetOf(pending, SESSION), 'legacy')
+  const nothing = {
+    ids: [SESSION],
+    byId: { [SESSION]: { sessionId: SESSION, cwd: '/work' } },
+    projectionsBySession: { [SESSION]: { values: { agentPreset: null } } },
+  }
+  assert.equal(presetOf(nothing, SESSION), undefined)
 })
 
 /** 直接渲染 StoryView，绕过条件注册：组件行为单独测。 */

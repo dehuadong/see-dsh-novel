@@ -80,7 +80,7 @@ Status: implemented
 
 ## Consequences
 
-产物与源码：`src/client/` 六文件（`index.ts`、`StoryView.tsx`、`EligibilitySentinel.tsx`、`preset.ts`、`outcome.ts`、`styles.ts`、`types.ts`），`lib/client.js` 是 CJS + 加载器包裹；`src/plugin/client.ts` 删除。构建脚本从 `package.json` 读插件 id，残留检查覆盖两种导入写法。主 `tsconfig.json` 排除 `src/client/**` 并开 `react-jsx`，`tsconfig.client.json` 单独检查；工作区根的 `tsconfig.json` 只给 `tsx` 提供 JSX 设置。
+产物与源码：`src/client/` 七个文件（`index.ts`、`StoryView.tsx`、`EligibilitySentinel.tsx`、`preset.ts`、`outcome.ts`、`styles.ts`、`types.ts`），`lib/client.js` 是 CJS + 加载器包裹；`src/plugin/client.ts` 删除。构建脚本从 `package.json` 读插件 id，残留检查覆盖两种导入写法。主 `tsconfig.json` 排除 `src/client/**` 并开 `react-jsx`，`tsconfig.client.json` 单独检查；工作区根的 `tsconfig.json` 只给 `tsx` 提供 JSX 设置。
 
 验证：`test/client.test.mjs` 8 例（预设读取、三态、按钮、回执四态、条件注册与注销、产物形态与 `apply` 冒烟），`test/boundaries.test.mjs` 增加客户端层规则；`pnpm run verify` 全绿。props 写错会同时让 client 类型检查失败（`ViewInjected` 的成员校验）。
 

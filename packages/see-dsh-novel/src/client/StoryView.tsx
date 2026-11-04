@@ -45,7 +45,7 @@ function workState(states: ReadonlyArray<ResourceStatus>): ResourceStatus {
 function noticeOf(label: string, outcome: CommandOutcome): string {
   if (outcome === 'ok') return `已提交「${label}」，结果在「对话」里。`
   if (outcome === 'unbound') return '当前会话还没有就绪，命令没有执行。'
-  if (outcome === 'unmatched') return '这个会话没有该命令：确认预设是 see-dsh-novel。'
+  if (outcome === 'unmatched') return `这个会话没有该命令：确认预设是 ${PRESET_ID}。`
   return '提交失败，稍后再试。'
 }
 
