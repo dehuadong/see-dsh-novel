@@ -38,3 +38,6 @@ jobs:
 
       - name: Check capabilities ledger
         run: npm run check-capabilities
+
+      - name: Run plugin tests
+        run: npm test

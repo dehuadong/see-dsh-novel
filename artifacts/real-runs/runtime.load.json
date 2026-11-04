@@ -1,0 +1,18 @@
+{
+  "capability": "runtime.load",
+  "date": "2026-11-04",
+  "sessionId": "session-9bd27abf-7fe2-4103-ae89-b05500138e97",
+  "tests": {
+    "command": "npm test",
+    "passed": true,
+    "summary": "8 passed — surface no-op, agent metadata, story_next contract, registration + disposer, execute, schema subset (parameters/output), subset mirror rejects type arrays"
+  },
+  "receipts": [
+    "install_bundle see-dsh-novel 0.1.0: application=applied, warnings=[]",
+    "config.listConfigs(@deepseek-ai/dsh-agent-preset) includes patchId preset-see-dsh-novel with the agent row mounted from see-dsh-novel/agent",
+    "client: conversation.view renders a 作品 view beside 对话 and 轨迹 (observed in the running desktop app)",
+    "tool: story_next is not registered outside the preset — the coding session reports unknown tool",
+    "tool: session header records agentPreset=see-dsh-novel; call story_next -> isError=false, content [{type:'text',text:'阶段 unbound（未绑定作品）'}]",
+    "rejected on the way, for the record: dsh.client is only resolved from a package-root composition row, and output.render must return a content-block array"
+  ]
+}

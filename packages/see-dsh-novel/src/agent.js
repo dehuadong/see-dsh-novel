@@ -23,10 +23,15 @@ export function apply(ctx) {
     parameters: storyNextParameters,
     output: {
       schema: storyNextOutput,
-      // The runtime serializes whatever this returns into the tool card, so it
-      // must be lossless JSON; returning the result keeps the card and the
-      // model-visible payload identical.
-      render: (result) => result,
+      // The runtime renders this array as the tool card's content and calls
+      // `.some` on it, so it must be an array of content blocks — not the
+      // result object, and not undefined.
+      render: (_args, value) => [{
+        type: 'text',
+        text: value.work === null
+          ? `阶段 ${value.phase}（未绑定作品）`
+          : `阶段 ${value.phase} · ${value.work}`,
+      }],
     },
     execute: () => Promise.resolve(storyNext({})),
   })

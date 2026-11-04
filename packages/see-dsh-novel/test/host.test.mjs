@@ -58,9 +58,11 @@ test('story_next execute resolves the unbound contract', async () => {
   const result = await definition.execute({})
   assert.deepEqual(result, { work: null, phase: 'unbound', next: 'init' })
 
-  // The runtime serializes render() into the tool card; it must be lossless
-  // JSON, and returning undefined fails the call with "returned invalid output".
-  const rendered = definition.output.render(result)
-  assert.deepEqual(rendered, result)
-  assert.equal(JSON.parse(JSON.stringify(rendered)) !== null, true)
+  // The runtime renders this as the tool card's content and calls `.some` on
+  // it: it must be an array of lossless-JSON content blocks.
+  const rendered = definition.output.render({}, result)
+  assert.equal(Array.isArray(rendered), true)
+  assert.equal(rendered.length > 0, true)
+  assert.equal(rendered.every((block) => block.type === 'text' && typeof block.text === 'string'), true)
+  assert.doesNotThrow(() => JSON.stringify(rendered))
 })

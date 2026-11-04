@@ -1,8 +1,10 @@
+const SLOT = 'conversation.view'
+
 window.__ModuleLoader__.load({
   id: 'see-dsh-novel',
   factory(require) {
-    const React = require('react');
-    const h = React.createElement;
+    const React = require('react')
+    const h = React.createElement
 
     function StoryView() {
       return h(
@@ -23,19 +25,19 @@ window.__ModuleLoader__.load({
           { style: { margin: 0, opacity: 0.7 } },
           '尚未绑定作品。立项之后，阶段与章节进度会显示在这里。',
         ),
-      );
+      )
     }
 
     return {
       inject: ['slots'],
       apply(ctx) {
-        ctx.slots.inject('conversation.view', () =>
+        ctx.slots.inject(SLOT, () =>
           ctx.slots.register(
-            { name: 'conversation.view', id: 'see-dsh-novel', order: 20, label: '作品' },
+            { name: SLOT, id: 'see-dsh-novel', order: 20, label: '作品' },
             StoryView,
           ),
-        );
+        )
       },
-    };
+    }
   },
-});
+})
