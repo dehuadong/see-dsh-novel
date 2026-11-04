@@ -1,3 +1,6 @@
 # 本地目录联接（Junction），指向项目外部仓库，不纳入版本控制
 /inkos/
 /deepseek-harness/
+
+# Node 依赖
+/node_modules/

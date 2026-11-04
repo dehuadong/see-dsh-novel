@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Agent Note 的 append-only 检查需要变更前的提交
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Verify Agent Notes
+        env:
+          # HEAD 在干净检出上是空操作；比较对象改为变更前的提交：
+          # PR 的 base，或推送分支的上一个 tip。新建分支推送送 before=0000…，
+          # git show 失败后脚本跳过 append-only 检查（seal 与磁盘的一致性仍然校验）。
+          AGENT_NOTE_ARCHIVE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: npm run verify-notes
+
+      - name: Check capabilities ledger
+        run: npm run check-capabilities
