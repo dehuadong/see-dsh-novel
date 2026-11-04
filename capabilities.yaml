@@ -25,9 +25,9 @@ capabilities:
     realRun: artifacts/real-runs/runtime.agent-tools.json
     status: verified
   - id: runtime.session-binding
-    title: 当前作品绑定、面板进入作品
+    title: 作品身份 work.json、会话按工作目录绑定、面板显示立项状态
     reference: inkos:packages/core/src/harness/session-binding.ts
-    dsh: storage + client
+    dsh: storage + tools.register + client
     implementation: null
     consumer: null
     realRun: null
