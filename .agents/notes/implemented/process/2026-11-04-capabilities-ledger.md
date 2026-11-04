@@ -12,7 +12,7 @@ Status: implemented
 
 `capabilities.yaml` 是唯一的能力账本，全量、只追加、不删除。状态只有 `missing` 与 `verified`。
 
-每行八个字段：`id`、`title`、`reference`、`dsh`、`implementation`、`consumer`、`realRun`、`status`。`dsh` 记录 DSH 落点（`subagents`、`tools.register`、`storage` 等），`reference` 记录参考落点，`implementation` 与 `consumer` 是仓库内相对路径，`realRun` 指向 `artifacts/real-runs/<id>.json`。临时目录叫 `.tmp/`，与证据目录 `artifacts/` 不同名，避免两者在同一层里靠一个点区分。
+每行八个字段：`id`、`title`、`reference`、`dsh`、`implementation`、`consumer`、`realRun`、`status`。`dsh` 记录 DSH 落点（`subagents`、`tools.register`、`storage` 等），`reference` 记录参考落点，`implementation` 与 `consumer` 是仓库内相对路径，`realRun` 指向 `artifacts/real-runs/<id>.json`。临时目录 `.artifacts/` 由 shell 守卫固定，项目侧配置改不了它；它只放临时产物，与入库的 `artifacts/real-runs/` 靠目录名区分。
 
 `scripts/check-capabilities.mjs` 是唯一能让一行变成 `verified` 的入口：
 
