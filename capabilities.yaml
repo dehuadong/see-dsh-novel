@@ -88,6 +88,14 @@ capabilities:
     consumer: null
     realRun: null
     status: missing
+  - id: panel.gate-resume
+    title: 作者闸门面板：认可后把「继续」投回会话，让 agent 复核回执并接着干；退回不唤醒
+    reference: inkos:packages/core/src/harness/system-prompt.ts
+    dsh: client session.prompt
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     reference: inkos:packages/core/src/agents/architect.ts
