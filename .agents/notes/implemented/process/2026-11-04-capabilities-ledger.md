@@ -12,7 +12,7 @@ Status: implemented
 
 `capabilities.yaml` 是唯一的能力账本，全量、只追加、不删除。状态只有 `missing` 与 `verified`。
 
-每行八个字段：`id`、`title`、`reference`、`dsh`、`implementation`、`consumer`、`realRun`、`status`。`dsh` 记录 DSH 落点（`subagents`、`tools.register`、`storage` 等），`reference` 记录参考落点，`implementation` 与 `consumer` 是仓库内相对路径，`realRun` 指向 `artifacts/real-runs/<id>.json`。
+每行八个字段：`id`、`title`、`reference`、`dsh`、`implementation`、`consumer`、`realRun`、`status`。`dsh` 记录 DSH 落点（`subagents`、`tools.register`、`storage` 等），`reference` 记录参考落点，`implementation` 与 `consumer` 是仓库内相对路径，`realRun` 指向 `.artifacts/real-runs/<id>.json`。
 
 `scripts/check-capabilities.mjs` 是唯一能让一行变成 `verified` 的入口：
 
@@ -43,6 +43,6 @@ CI 在每次 push / PR 跑 `npm run verify`，先校验 Note 树，再校验账�
 
 收益：状态只可能因为证据出现而变化；评审看账本 diff 就知道哪项能力被推进；参考落点与 DSH 落点并排，新的 Agent 不必重新考古。
 
-代价：每条能力要维护真实运行回执，成本高于勾选表格；`artifacts/real-runs/` 需要随代码提交，不能依赖本地留档。`--write` 会重排 YAML 注释块以外的内容，手写格式不被保留。
+代价：每条能力要维护真实运行回执，成本高于勾选表格；`.artifacts/real-runs/` 随代码提交，不能依赖本地留档（`.artifacts/` 的其余内容仍是临时产物，不入库）。`--write` 会重排 YAML 注释块以外的内容，手写格式不被保留。
 
 首次校验接入时，账本 38 条全部 `missing`，校验输出 `verified 0`，属预期基线。

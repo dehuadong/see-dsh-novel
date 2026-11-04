@@ -19,7 +19,7 @@ import YAML from 'yaml'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LEDGER_PATH = join(ROOT, 'capabilities.yaml')
-const REAL_RUN_DIR = 'artifacts/real-runs'
+const REAL_RUN_DIR = '.artifacts/real-runs'
 
 const FIELDS = ['id', 'title', 'reference', 'dsh', 'implementation', 'consumer', 'realRun', 'status']
 const STATUSES = ['missing', 'verified']

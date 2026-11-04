@@ -49,7 +49,7 @@ preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是
 
 - `npm test`：宿主半边覆盖根入口、工具契约、注册与注销；浏览器半边用 stub 的 `__ModuleLoader__` 与 slot 服务覆盖注册、注销与骨架渲染；另有参数与输出 schema 的运行时子集守门。用例见 [`packages/see-dsh-novel/test`](../../../../packages/see-dsh-novel/test)。
 - 真实运行：bundle 装入 profile 后 `application: applied`；`config.listConfigs` 出现 `preset-see-dsh-novel`；桌面应用中「作品」视图与对话、轨迹并列出现；预设会话里 `story_next` 返回 `isError=false`，卡片内容为「阶段 unbound（未绑定作品）」；同一工具在非该预设的会话中不存在。
-- 回执写入 `artifacts/real-runs/runtime.load.json`，`check-capabilities -- --write` 将账本置为 `verified`。
+- 回执写入 `.artifacts/real-runs/runtime.load.json`，`check-capabilities -- --write` 将账本置为 `verified`。
 
 ## Alternatives considered
 
