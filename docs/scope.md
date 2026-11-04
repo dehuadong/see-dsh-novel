@@ -6,7 +6,7 @@
 
 只做一条纵向链路，端到端打通：
 
-立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle / finalize → 导出与备份
+创意提案 → 立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle / finalize → 导出与备份
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
@@ -15,8 +15,9 @@
 按纵向能力推进，一次一个 PR；顺序以账本行序为准，前一行未 `verified` 不跳行。
 
 - **P0 运行时骨架**：`runtime.load` + `runtime.agent-tools`（写作预设的工具面：persona、指令、只读文件、联网检索、技能、子代理、ask-user、todo、jobs、上下文压缩；通用写工具不开放，内容写入只走 `story_*`）。
-- **P1 立项与基础设定**：
+- **P1 创意提案、立项与基础设定**：
   - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P6 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
+  - 创意提案：`proposal.creative`（对话收敛创意，只问缺的关键信息；结构化提案携带标题／题材／平台／语言／章数／单章字数与卡片文案；确认后按确认参数创建作品）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
 - **P2 章前规划与上下文**：`plan.outline` + `plan.chapter` + `context.brief` + `context.retrieval`。
 - **P3 正文生产**：`chapter.write` + `chapter.review` + `chapter.revise`。
@@ -25,8 +26,9 @@
 - **P6 产物与工作台**：`artifact.identity` + `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
 - **P7 短篇流水线**：`short.*`，v1 之后独立推进。
 - **P8 剧本流水线**：`script.*`，v1 之后独立推进。
+- **P9 补强（v1 之后）**：`radar.topic` + `forecast.plot`——提案阶段的选题雷达与剧情预演，产出方向候选与非正式草案，不改作品事实。
 
-阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。排序依据是参考工程的长篇流水线阶段链：立项（书配置与作品身份）→ 基础设定（四段设定 + 控制文档 + 初始快照）→ 每章（规划 memo → 装配上下文 → 初稿 → 审阅观察 → 修订 → 落盘 → 结算真相文件 → 校验）→ 定稿与快照 → 导出与备份。
+阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。排序依据是参考工程的长篇流水线阶段链：创意提案（无作品时的对话，结构化提案 + 确认卡）→ 立项（书配置与作品身份）→ 基础设定（四段设定 + 控制文档 + 初始快照）→ 每章（规划 memo → 装配上下文 → 初稿 → 审阅观察 → 修订 → 落盘 → 结算真相文件 → 校验）→ 定稿与快照 → 导出与备份。
 
 P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：参考工程先 `init` 建项目、再 `book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代参考工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
 
@@ -48,6 +50,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 ## 非目标（v1）
 
 - **短篇与剧本流水线**：v1 之后独立推进；账本中已登记，不占 v1 交付。
+- **选题雷达与剧情预演**：`radar.topic`、`forecast.plot` 是提案阶段的补强项，账本已登记、排在 P9，不占 v1 交付；补上以后提案可以带方向候选与分支预演，但不改作品事实。
 - **兼容层**：不提供双格式读写，不保留旧版接口别名。
 - **旧作品迁移**：不导入既有作品库，不做历史数据清洗。
 - **横向重构**：不做跨模块统一抽象，按能力纵向交付。

@@ -56,6 +56,14 @@ capabilities:
     consumer: null
     realRun: null
     status: missing
+  - id: proposal.creative
+    title: 创意提案：对话收敛创意、结构化提案与确认卡、确认后按确认参数创建作品
+    reference: inkos:packages/core/src/agent/agent-tools.ts
+    dsh: tools.register + approval + storage
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     reference: inkos:packages/core/src/agents/architect.ts
@@ -316,6 +324,22 @@ capabilities:
     title: 剧本审校与修订（v1 后）
     reference: inkos:packages/core/src/pipeline/script-storyboard-runner.ts
     dsh: subagents
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
+  - id: radar.topic
+    title: 选题／市场雷达：从概念产出方向候选（v1 后补强）
+    reference: inkos:packages/core/src/agents/radar.ts
+    dsh: subagents + tools.register
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
+  - id: forecast.plot
+    title: 剧情预演：分支剧情候选与非正式草案（v1 后补强）
+    reference: inkos:packages/core/src/forecast/runner.ts
+    dsh: subagents + storage
     implementation: null
     consumer: null
     realRun: null
