@@ -1,0 +1,16 @@
+{
+  "capability": "cast.single-authority",
+  "date": "2026-11-04",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "76 passed — cast 16 例（两档读取与排序、空目录、名册与逐字卡块、同名冲突、空卡、仅空卡与目录读不了时的 cast-problem、上下文贡献的名字/位置/插值/必填、预设护栏、无卡目录、索引三类拒绝、换档在 init 与 revise 下的删除与去重、空卡内容拒绝），加上账本、边界、schema 子集与前几行的既有用例"
+  },
+  "receipts": [
+    "seq 332 的 runtime-context 快照（source=runtime-context，5419 字符）包含 `## 人物档案（唯一来源：source/story/roles/）` 与 `[roles:index]`：主要角色 崔无咎、沈砚、苏芜、裴照；次要角色 小满、韩九 —— 两个档位都进入上下文",
+    "同一快照含 6 个 [role:*] 块（崔无咎、沈砚、苏芜、裴照、小满、韩九），内容取自 E:\\see-dsh-novel\\.artifacts\\work-demo\\source\\story\\roles 下的卡文件，末尾带「以上人物档案是唯一来源」规则行",
+    "该快照属于 see-dsh-novel 预设的会话（session header agentPreset=see-dsh-novel）；非该预设的装配由 agentPresets.composedPreset 护栏挡掉，见单测 `the context contribution carries the agreed placement flags`",
+    "写入侧：cast_index 拒绝空名/重复名/安全化后同文件名，cast_documents 拒绝空卡内容并删除换档后旧档位的同名卡（init 与 revise 都生效），见单测 `the cast index refuses empty, repeated and collision-prone names` 与两条换档用例"
+  ]
+}

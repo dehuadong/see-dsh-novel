@@ -79,7 +79,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/pipelines/long/cast.ts
     consumer: packages/see-dsh-novel/test/cast.test.mjs
     realRun: artifacts/real-runs/cast.single-authority.json
-    status: missing
+    status: verified
   - id: plan.outline
     title: 全书计划／卷图
     reference: inkos:packages/core/src/pipeline/persisted-governed-plan.ts
