@@ -14,6 +14,11 @@
 
 文档遵循 [`docs/AGENTS.md`](docs/AGENTS.md)：文档分层、位置、职责与写法。
 
+## DSH 插件与预设
+
+在开发deepseek-harness 插件时遇到问题可参阅deepseek-harness官方源码工程包 `E:\workspace\DSH\deepseek-harness\packages`
+
+
 ## 工程工作流 
 
 工程任务从 Discuss 开始。
