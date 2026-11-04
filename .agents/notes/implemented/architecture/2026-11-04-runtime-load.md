@@ -26,7 +26,7 @@ Status: implemented
 
 preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是对父组合行 id 的引用——工具必须写进 preset 才随 agent 装载。
 
-技能不另建行：本组合（web-app）把宿主上的 `skill-filesystem` 与 `tool-skill` 两行都 `disabled`，每个预设自己挂载本地发现；本预设两行都没挂，所以写作 agent 现在没有技能目录，也没有 `skill` 工具。技能投放归 [runtime.agent-tools](../../proposed/architecture/2026-11-04-runtime-agent-tools.md)。
+技能不另建行：本组合（web-app）把宿主上的 `skill-filesystem` 与 `tool-skill` 两行都 `disabled`，每个预设自己挂载本地发现。`see-dsh-novel` 预设挂了 `tool-skill`，随包技能由插件的 agent 半边在预设作用域注册，见 [runtime.agent-tools](2026-11-04-runtime-agent-tools.md)。
 
 ### `story_next` 契约
 

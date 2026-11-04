@@ -1,6 +1,6 @@
 # Agent Note: runtime.agent-tools —— 写作预设的工具面与技能投放
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -12,7 +12,7 @@ Status: proposed
 
 参考工程用「作品配置文件声明该作品类型的能力、推荐方法与产物类型」的方式给代理一套方法资源（`inkos:packages/core/src/harness/builtin-profiles.ts`），方法正文与执行合同分开；本行对应的是给写作 agent 一套按需加载的方法技能，加上读作品文件、派角色子代理、问作者、跟踪多步任务这几样工具。
 
-## Proposal
+## Decision
 
 ### 预设声明写作 agent 的工具条目
 
@@ -35,7 +35,7 @@ Status: proposed
 
 不列：`tool-bash`／`tool-pwsh`（写作不需要 shell，也堵住「用 shell 绕过 `story_*` 写文件」这条路）、`plan-mode`／`tool-goal`（这是作者的工作流，不是 agent 的）。
 
-`tool-web` 的检索结果是外部不可信数据：技能与工具说明里要写明它只作参考，不写进作品事实（除非作者确认），页面文字里的指令一律不执行。web-app 组合把这件工具从宿主下掉、由每个预设自己挂载，所以这一行必须写进预设才生效。
+`tool-web` 的检索结果是外部不可信数据：这条规则写在 persona 前缀里——只作参考，不写进作品事实（除非作者确认），页面文字里的指令一律不执行。web-app 组合把这件工具从宿主下掉、由每个预设自己挂载，所以这一行必须写进预设才生效。
 
 工具面是「宿主全局层 + 预设层」合并的：写作会话还能看到宿主注册的 `working_directory`、`implement_gate`。本行只负责预设层贡献什么，并在真实运行里核对**没有** `write`／`edit`／`pwsh`。
 
@@ -49,9 +49,9 @@ Status: proposed
 
 - 技能正文与元数据以文件形式随包发布（`skills/` 进 `files`），运行时从包目录读取——技能仍然是文件系统上的文件，经 DSH 技能服务投放，不引入自建加载层；
 - `register()` 落在**调用方 ctx 的层**，预设挂载的插件注册的就是这个预设的层：写作 agent 看得到，其它预设看不到；
-- 路径用 `new URL('../skills/<name>/SKILL.md', import.meta.url)` 从产物位置推包根，不依赖 YAML 里的绝对路径；
-- frontmatter 由本包内的一个最小解析器读（逐行 `key: value`，只认 `name`／`description`／`whenToUse` 与两个布尔字段，不做完整 YAML），解析失败或字段非法直接抛错，让预设激活失败——包内文件缺失或写坏是安装问题，必须炸出来，不能静默少一个技能；
-- 不在预设里再挂一行 `skill-filesystem`：它的 `customSkillDirs` 要在 patch 里写绝对路径，而 patch 在安装后的包目录里、位置随安装方式变化；`!!js` 只能拿 `ctx` 与 `dshHomePath`，没有可靠的「本包目录」来源。宿主那行已被 web-app 关掉，所以「不挂」就等于「没有任何文件系统提供者」，不存在第二个 provider 的问题（`runtime-load` 笔记里「工作区 `.agents/skills` 由默认项目根扫描」的说法在本组合下不成立，同批改准）。
+- 包根由 `packageRootOf(import.meta.url, 'see-dsh-novel')` 从产物位置向上找 `package.json` 得到，并校验包名——源码与打包产物的目录深度不同，不能用固定相对路径，也不能接受先撞上的别的包；
+- frontmatter 由本包内的一个最小解析器读：逐行 `key: value`，允许 BOM 与 `#` 注释行，键只认 `name`／`description`／`whenToUse`／`disable-model-invocation`／`user-invocable`（其余键报错，避免把开关写错后静默失效），两个布尔只认 `true`／`false`，不做完整 YAML；缺文件、缺 `SKILL.md`、缺字段、字段非法、正文为空或技能目录里一个技能都没有，都直接抛错，让预设激活失败——包内文件缺失或写坏是安装问题，必须炸出来，不能静默少一个技能；
+- 不在预设里再挂一行 `skill-filesystem`：它的 `customSkillDirs` 要在 patch 里写绝对路径，而 patch 在安装后的包目录里、位置随安装方式变化；`!!js` 只能拿 `ctx` 与 `dshHomePath`，没有可靠的「本包目录」来源。宿主那行已被 web-app 关掉，所以「不挂」就等于「没有任何文件系统提供者」，不存在第二个 provider 的问题。
 
 ### 技能使用面
 
@@ -79,21 +79,22 @@ frontmatter 的两个字段映射到 `register()` 的 `invocation`：
 
 **不开联网。** 工具面更小，也不引入外部不可信内容。否掉：提案与题材沟通阶段需要查趋势、找可比的参考作品、核对现实细节，作者会直接用得到；DSH 的 `tool-web` 是原生工具，而 web-app 组合正是按预设挂载它（宿主那行是关的），我们的预设不写就没有。
 
-## Acceptance criteria
+## Consequences
 
-- 写作会话的工具列表包含 `read`、`glob`、`grep`、`web_search`、`web_fetch`、`skill`、`todo_write`、`ask_user_question`、`subagent`、`job_*`／`schedule_*` 与压缩入口；预设层**不贡献** `write`、`edit`、`apply_patch`、`pwsh`、`bash`（宿主层当前也没有给写作会话注册这些行；`read_image` 只在挂载附件库时出现，不计入验收）。
-- 写作 agent 的技能目录里出现 `longform-writing`；按名加载返回方法正文。
-- `story_*` 与 `story_next` 的注册、行为、处置不变（既有用例回归通过）。
-- 其它预设的会话看不到 `longform-writing`（作用域注册不泄漏）。
-- 实现与证据：implementation `packages/see-dsh-novel/cordis.patch.yml`、consumer `packages/see-dsh-novel/test/agent-tools.test.mjs`、realRun `artifacts/real-runs/runtime.agent-tools.json`（含 date、sessionId、tests.passed、非空 receipts）。
-- 真实运行：在作品目录的写作会话里让 agent 读一张角色卡并复述一行（证明 `read` 可用），再让它列出可用技能并加载 `longform-writing`（证明投放可用）。
+落到 `packages/see-dsh-novel/cordis.patch.yml` 的是：persona、agent-instructions、time-context、只读 `tool-fs`、`tool-fs-search`、`tool-skill`、`tool-web`、`tool-subagent` 与 control、`tool-ask-user`、`tool-todo`、`tool-jobs`、`tool-schedule`、compaction 组、`see-dsh-novel/agent`。技能由 `src/pipelines/long/skills.ts` 在 agent 半边注册，文件在 `skills/longform-writing/SKILL.md`，`files` 里带 `skills`。
 
-## Risks
+`test/agent-tools.test.mjs` 覆盖：预设条目的 id 与包名逐行对照、只读文件配置、没有 shell 条目、web／技能／子代理／压缩配置、随包技能正文与描述、注册与注销、frontmatter 两个开关到 `invocation` 的映射、未知键与坏布尔值、坏文件／缺目录／空目录都抛错、包名不符的包根被拒。`test/host.test.mjs` 的 apply 用例同时断言三条注册线（工具、命令、技能）与处置。
+
+作用域隔离由宿主语义保证（`ctx.skills.register()` 落在调用方 ctx 的层），单元测试只断言注册目标；真实运行另在另一预设的会话里核对技能目录里没有 `longform-writing`。
+
+收益：写作 agent 能读作品文件、加载方法正文、派角色子代理、问作者、跟踪多步任务、联网查提案素材；`write`／`edit` 的缺席让 `story_*` 仍是唯一写入口。
+
+代价与已知限制：
 
 - 抄的清单随 DSH 版本漂移：升级后要对照 `packages/bundle/web-app/presets/standard.patch.yml` 复查条目名与必填配置（例如 `tool-fs-search` 的 `sampleOverCapGlobResults`、`tool-fs` 的 `applyPatch` 默认值）。
-- 技能在每次 apply 时读一次包内文件；文件缺失、frontmatter 非法或正文为空都直接抛错，让预设激活失败并留下诊断——这是安装损坏，不该带着少一个技能的会话继续跑。
+- 技能在每次 apply 时读一次包内文件；文件缺失、frontmatter 非法、正文为空或技能目录为空都直接抛错，让预设激活失败并留下诊断——这是安装损坏，不该带着少一个技能的会话继续跑。- 解析器只认上面列出的五个键：DSH 将来给 SKILL.md 增加新键时，本包的技能文件要同步放行，否则预设激活会失败（宁可炸，不要静默忽略）。
+- 技能只能通过 `ctx.skills.register()` 投放，改方法正文要重装或重打包插件，不是改工作区文件。
 - `agent-instructions` 读的是会话工作区的 AGENTS.md：写作会话跑在作品目录通常没有该文件；若作者把会话开在本仓库根，会读到工程规则。这是 DSH 的既有行为，不是本行引入的。
 - 工具面变大后，写作 agent 更容易「自己想办法写文件」：`read` 只能读，`write`／`edit` 缺失会让它要么走 `story_*`，要么失败——失败是想要的信号。
 - `subagent` 可用后，角色委派的成本与并发要由后续能力（`chapter.write`、`context.brief`）约束，本行只负责把工具放到位。
 - 联网检索依赖宿主的 `web` 服务与检索凭据；环境没配好时 `web_search` 在调用时报错，其余工具不受影响。检索结果按外部不可信数据处理，只作参考。
-- `docs/dsh-mapping.md` 的技能行现在写的是「skills 服务 + 文件系统」；本行是文件 + `ctx.skills.register()`，落地时把该行改成实际机制，避免文档与实现相反。

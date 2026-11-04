@@ -105,6 +105,21 @@ export interface AgentPresetsLike {
   composedPreset(ctx: unknown): string | undefined
 }
 
+/** 一条技能的注册参数；只有本项目会写进去的字段。 */
+export interface SkillRegistrationLike {
+  name: string
+  description: string
+  content: string
+  whenToUse?: string
+  source?: string
+  invocation?: { modelInvocable: boolean; userInvocable: boolean }
+}
+
+/** 宿主技能服务面：注册一条随包技能，作用域由调用方的层决定。 */
+export interface SkillsLike {
+  register(skill: SkillRegistrationLike): Disposer
+}
+
 /** 一次装配里能读到的运行时事实；`agent` 缺席时是诊断性装配。 */
 export interface AssembleContextLike {
   agent?: AgentLike & { ctx?: unknown }
@@ -128,6 +143,7 @@ export interface PluginContext {
     get(session: SessionLike): string
   }
   commands: { register(definition: CommandDefinitionLike): Disposer }
+  skills: SkillsLike
   systemPrompt: { context(contribution: PromptContextLike): Disposer }
   /** 可选服务按名读取；用它可以避免整个插件等待一个不存在的服务。 */
   get(service: string): unknown

@@ -13,6 +13,7 @@ import { installCastContext } from '../pipelines/long/cast.js'
 import { installApprovalCommands } from '../pipelines/long/commands.js'
 import { installGateTools } from '../pipelines/long/gate.js'
 import { renderHooksProjection } from '../pipelines/long/hooks.js'
+import { installStorySkills, packageRootOf } from '../pipelines/long/skills.js'
 import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
 import type { StoryNext } from './story-next.js'
@@ -20,13 +21,16 @@ import type { StoryNext } from './story-next.js'
 export const name = 'see-dsh-novel-agent'
 
 /**
- * The tool, command and prompt registries plus the Session directory the story
- * tools write into.
+ * The tool, command, skill and prompt registries plus the Session directory the
+ * story tools write into.
  */
-export const inject = ['tools', 'workingDirectory', 'commands', 'systemPrompt'] as const
+export const inject = ['tools', 'workingDirectory', 'commands', 'skills', 'systemPrompt'] as const
 
 /** 本插件所属的预设 id；与 `cordis.patch.yml` 里 `preset-see-dsh-novel` 保持一致。 */
 const PRESET_ID = 'see-dsh-novel'
+
+/** 包根目录：随包技能从这里读，源码与打包产物的深度不同。 */
+const PACKAGE_ROOT = packageRootOf(import.meta.url, 'see-dsh-novel')
 
 interface HooksResult {
   counts: Record<string, number>
@@ -87,8 +91,10 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
   const disposeCast = installCastContext(ctx, PRESET_ID)
+  const disposeSkills = installStorySkills(ctx, PACKAGE_ROOT)
 
   return (): void => {
+    disposeSkills()
     disposeCast()
     disposeCommands()
     disposeGate()
