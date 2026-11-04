@@ -12,7 +12,9 @@
 
 ## 文档与约定
 
-文档遵循 [`docs/AGENTS.md`](docs/AGENTS.md)：文档分层、位置、职责与写法。
+- 文档遵循 [`docs/AGENTS.md`](docs/AGENTS.md)：文档分层、位置、职责与写法。
+
+- InkOS 仓库分析研究文档 `docs\report\inkos\readme.md`；源工程地址`inkos/`
 
 ## DSH 插件与预设
 
