@@ -37,8 +37,11 @@ interface ViewProps {
   useSessions: <T>(select: (state: SessionListState) => T) => T
   useResource: (address: string) => ResourceSnapshot
   canCommand: (sessionId: string) => boolean
-  runCommand: (sessionId: string, line: string) => void
+  runCommand: (sessionId: string, line: string) => Promise<CommandOutcome>
 }
+
+/** 命令提交的结果；面板据此给出可见的回执，而不是静默失败。 */
+type CommandOutcome = 'ok' | 'unbound' | 'unmatched' | 'error'
 
 interface SessionCommandFace {
   command(line: string): Promise<unknown>
@@ -56,6 +59,11 @@ interface ClientContext {
   sessions: {
     binding(sessionId: string): SessionBindingLike | undefined
   }
+}
+
+interface SessionCommandResult {
+  ok: boolean
+  value?: { matched?: boolean }
 }
 
 interface ClientPlugin {
@@ -102,14 +110,28 @@ window.__ModuleLoader__.load({
       return h('button', { type: 'button', onClick }, label)
     }
 
+    /** 提交结果换成人话；命令真正执行与否，作者必须立刻看见。 */
+    function noticeOf(label: string, outcome: CommandOutcome): string {
+      if (outcome === 'ok') return `已提交「${label}」，结果在「对话」里。`
+      if (outcome === 'unbound') return '当前会话还没有就绪，命令没有执行。'
+      if (outcome === 'unmatched') return '这个会话没有该命令：确认预设是 see-dsh-novel。'
+      return '提交失败，稍后再试。'
+    }
+
     function StoryView(props: ViewProps): unknown {
       const { sessionId, useSessions, useResource, canCommand, runCommand } = props
+      const [notice, setNotice] = React.useState('')
       const cwd = useSessions((state) => state.byId[sessionId]?.cwd)
       const preset = useSessions((state) => state.projectionsBySession?.[sessionId]?.values?.agentPreset
         ?? state.byId[sessionId]?.projectionValues?.agentPreset)
       const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
       const manifest = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_MANIFEST}`)
       const work = workState([outline.status, manifest.status])
+
+      function submit(label: string, line: string): void {
+        setNotice(`正在执行「${label}」…`)
+        void runCommand(sessionId, line).then((outcome) => { setNotice(noticeOf(label, outcome)) })
+      }
 
       const body: unknown[] = []
       if (work === 'none') {
@@ -127,10 +149,14 @@ window.__ModuleLoader__.load({
         body.push(h('p', { style: MUTED }, '作者确认闸门：这一版基础设定需要作者认可，才允许签核定稿。'))
         if (canCommand(sessionId)) {
           body.push(h('div', { style: ROW },
-            button('查看待确认', () => runCommand(sessionId, '/story-review')),
-            button('认可', () => runCommand(sessionId, '/story-approve')),
-            button('退回', () => runCommand(sessionId, '/story-reject'))))
-          body.push(h('p', { style: MUTED }, '清单、摘要与确认结果会出现在会话里。'))
+            button('查看待确认', () => submit('查看待确认', '/story-review')),
+            button('认可', () => submit('认可', '/story-approve')),
+            button('退回', () => submit('退回', '/story-reject'))))
+          if (notice === '') {
+            body.push(h('p', { style: MUTED }, '清单、摘要与确认结果会出现在「对话」页。'))
+          } else {
+            body.push(h('p', { style: MUTED }, notice))
+          }
         } else {
           body.push(h('p', { style: MUTED }, '当前会话还没有就绪，暂时不能提交确认。'))
         }
@@ -164,10 +190,12 @@ window.__ModuleLoader__.load({
             label: '作品',
             inject: () => ({
               canCommand: (sessionId: string): boolean => ctx.sessions.binding(sessionId) !== undefined,
-              runCommand: (sessionId: string, line: string): void => {
+              runCommand: async (sessionId: string, line: string): Promise<CommandOutcome> => {
                 const binding = ctx.sessions.binding(sessionId)
-                if (binding === undefined) return
-                void binding.session.command(line)
+                if (binding === undefined) return 'unbound'
+                const result = await binding.session.command(line) as SessionCommandResult
+                if (result?.ok !== true) return 'error'
+                return result.value?.matched === true ? 'ok' : 'unmatched'
               },
             }),
           },
