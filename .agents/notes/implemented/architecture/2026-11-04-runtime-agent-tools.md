@@ -92,7 +92,8 @@ frontmatter 的两个字段映射到 `register()` 的 `invocation`：
 代价与已知限制：
 
 - 抄的清单随 DSH 版本漂移：升级后要对照 `packages/bundle/web-app/presets/standard.patch.yml` 复查条目名与必填配置（例如 `tool-fs-search` 的 `sampleOverCapGlobResults`、`tool-fs` 的 `applyPatch` 默认值）。
-- 技能在每次 apply 时读一次包内文件；文件缺失、frontmatter 非法、正文为空或技能目录为空都直接抛错，让预设激活失败并留下诊断——这是安装损坏，不该带着少一个技能的会话继续跑。- 解析器只认上面列出的五个键：DSH 将来给 SKILL.md 增加新键时，本包的技能文件要同步放行，否则预设激活会失败（宁可炸，不要静默忽略）。
+- 技能在每次 apply 时读一次包内文件；文件缺失、frontmatter 非法、正文为空或技能目录为空都直接抛错，让预设激活失败并留下诊断——这是安装损坏，不该带着少一个技能的会话继续跑。
+- 解析器只认上面列出的五个键：DSH 将来给 SKILL.md 增加新键时，本包的技能文件要同步放行，否则预设激活会失败（宁可炸，不要静默忽略）。
 - 技能只能通过 `ctx.skills.register()` 投放，改方法正文要重装或重打包插件，不是改工作区文件。
 - `agent-instructions` 读的是会话工作区的 AGENTS.md：写作会话跑在作品目录通常没有该文件；若作者把会话开在本仓库根，会读到工程规则。这是 DSH 的既有行为，不是本行引入的。
 - 工具面变大后，写作 agent 更容易「自己想办法写文件」：`read` 只能读，`write`／`edit` 缺失会让它要么走 `story_*`，要么失败——失败是想要的信号。
