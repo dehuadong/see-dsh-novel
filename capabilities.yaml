@@ -32,6 +32,22 @@ capabilities:
     consumer: null
     realRun: null
     status: missing
+  - id: runtime.package-check
+    title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致
+    reference: inkos:scripts/verify-no-workspace-protocol.mjs
+    dsh: scripts + pnpm pack
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
+  - id: runtime.boundary-check
+    title: 边界校验：源码不得 import 参考工程；@deepseek-ai 只允许预设内的 type-only 引用
+    reference: docs/dsh-mapping.md
+    dsh: scripts + node
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: runtime.session-binding
     title: 作品身份 work.json、会话按工作目录绑定、面板显示立项状态
     reference: inkos:packages/core/src/harness/session-binding.ts
