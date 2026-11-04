@@ -1,12 +1,12 @@
 # Agent Note: foundation.hooks —— 伏笔的状态语义与投影
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
 `foundation.architect` 已经把初始伏笔写进 `state/hooks.json`，但那只是**一次播种**：条目字段由工具调用时顺手拼出，没有 schema、没有取值约束、没有「同一个 hookId 只能出现一次」的检查，也没有任何地方把伏笔渲染成可读的投影。账本这一行要求的是「id/status 语义、投影一致」——播种之外的三件事都还没有属主。
 
-## Proposal
+## Decision
 
 ### 条目与取值
 
@@ -60,16 +60,14 @@ Status: proposed
 
 **直接在工具里返回原始 JSON。** 实现最省。否掉：作者与模型看的都是这个投影，表格比 JSON 更容易被后续 brief 直接复用。
 
-## Acceptance criteria
+## Consequences
 
-- `core/hooks.ts` 校验器拒绝：重复 `hookId`、未知 `status`、`lastAdvancedChapter < startChapter`、空 `type`。
-- 三条合法迁移通过；终态再推进与章节号倒退直接抛错。
-- `renderHooksProjection` 对同一状态稳定输出，且顺序符合三键排序；中英两套表头。
-- `story_hooks` 在预设会话里返回计数与投影，`isError=false`。
-- 消费者测试覆盖校验、迁移、排序稳定性；真实运行回执写入 `artifacts/real-runs/foundation.hooks.json`。
+收益：伏笔有了约束、迁移与稳定投影。`story_hooks` 在预设会话里可直接看到「# 伏笔池」表格；同一份状态必得同一份文本，排序不依赖插入顺序。
 
-## Risks
+真实运行已跑通（`session-974fa00e…`）：`story_hooks` 返回 `isError=false`，表格里是两条 `deferred` 条目，列与参考资料一致。测试 28 条覆盖校验、迁移、排序、转义与计数。
 
-- 五态里有 `open` 与 `progressing` 的语义重叠，参考资料没有给判定边界；本设计只为 `progressing` 定了「本章首次涉及」，`open` 暂不主动产生。
-- 投影文本会成为 brief 的输入，表格列宽或措辞变化会影响下游 prompt 的稳定性，需要版本化或至少在测试里锁住表头。
-- `story_hooks` 是只读工具，若作者期望在这里编辑伏笔，会落空；编辑入口留给后续能力。
+代价与约束：
+
+- `open` 与 `progressing` 的边界参考资料没给，本实现只为 `progressing` 定了「本章首次涉及」，`open` 暂不主动产生。
+- 三条迁移规则是按语义补的，不是从 `state-reducer.ts` 抄来的；若后续发现参考实现的迁移不同，需要新开一篇 Note 覆盖本决定。
+- 投影文本会成为 brief 输入，表头措辞变化影响下游 prompt；目前靠测试锁住表头。

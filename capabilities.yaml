@@ -63,7 +63,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/hooks.ts
     consumer: packages/see-dsh-novel/test/hooks.test.mjs
     realRun: artifacts/real-runs/foundation.hooks.json
-    status: missing
+    status: verified
   - id: foundation.approval
     title: 作者确认闸门与回执
     reference: inkos:packages/core/src/interaction/session.ts

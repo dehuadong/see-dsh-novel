@@ -1,0 +1,16 @@
+{
+  "capability": "foundation.hooks",
+  "date": "2026-11-04",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm test",
+    "passed": true,
+    "summary": "28 passed — hook validation (duplicate id, unknown status, chapter monotonicity, empty type), the three legal transitions plus terminal rejection, deterministic and sorted projection, cell escaping, status counts, and the earlier suites"
+  },
+  "receipts": [
+    "session 974fa00e keeps agentPreset=see-dsh-novel and cwd=E:\\see-dsh-novel\\.artifacts\\work-demo",
+    "story_hooks -> isError=false; content is the 伏笔池 table with the fixed seven columns and two rows",
+    "state/hooks.json holds two deferred hooks (H-001, H-002) seeded by story_foundation_details",
+    "projection keeps the reference header set and sorts by startChapter, lastAdvancedChapter, hookId"
+  ]
+}
