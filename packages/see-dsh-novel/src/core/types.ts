@@ -100,11 +100,35 @@ export interface CommandDefinitionLike {
   handler(invocation: CommandInvocationLike): CommandResultLike | Promise<CommandResultLike>
 }
 
+/** 宿主 agentPresets 服务面：只需要判断一个 agent 用的是哪个预设。 */
+export interface AgentPresetsLike {
+  composedPreset(ctx: unknown): string | undefined
+}
+
+/** 一次装配里能读到的运行时事实；`agent` 缺席时是诊断性装配。 */
+export interface AssembleContextLike {
+  agent?: AgentLike & { ctx?: unknown }
+}
+
+/** 一条 runtime context 贡献；文本在每次装配时求值。 */
+export interface PromptContextLike {
+  name: string
+  order: number
+  text: (context: AssembleContextLike) => string
+  interpolate?: boolean
+  required?: boolean
+}
+
 /** 插件在 apply 里能拿到的服务。 */
 export interface PluginContext {
   tools: { register(definition: ToolDefinition<any, any>): Disposer }
-  workingDirectory: { ensure(agent: AgentLike): Promise<string> }
+  workingDirectory: {
+    ensure(agent: AgentLike): Promise<string>
+    /** 会话实际使用的目录；会话没有自己的目录时是宿主默认目录，因此总是非空。 */
+    get(session: SessionLike): string
+  }
   commands: { register(definition: CommandDefinitionLike): Disposer }
+  systemPrompt: { context(contribution: PromptContextLike): Disposer }
   /** 可选服务按名读取；用它可以避免整个插件等待一个不存在的服务。 */
   get(service: string): unknown
 }

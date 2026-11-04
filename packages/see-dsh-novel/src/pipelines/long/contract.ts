@@ -30,8 +30,8 @@ export interface BookRulesData {
 
 export type { PendingHook }
 
-/** 角色级别 → 磁盘目录名。 */
-const ROLE_DIRS: Record<RoleTier, string> = { major: '主要角色', minor: '次要角色' }
+/** 角色级别 → 磁盘目录名。读取方与写入方共用同一张表。 */
+export const ROLE_DIRS: Record<RoleTier, string> = { major: '主要角色', minor: '次要角色' }
 
 /** Windows／POSIX 都不接受的文件名字符。 */
 const UNSAFE_NAME = /[/\\:*?"<>|]/g
@@ -137,6 +137,10 @@ export const COMMIT_OUTPUT: JsonSchema = OBJECT({
 
 /** 本能力负责的唯一阶段；后续阶段各自登记自己的名字。 */
 export const FOUNDATION_STAGE = 'foundation'
+
+/** 角色档案作为 runtime context 的名字与位置：team identity 之后、harness source 之前。 */
+export const CAST_CONTEXT_NAME = 'story:cast'
+export const CAST_CONTEXT_ORDER = 130
 
 /** 只读闸门工具，报告确认状态而不推进。 */
 export const GATE_TOOL = 'story_gate'

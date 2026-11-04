@@ -1,6 +1,6 @@
 # Agent Note: cast.single-authority —— 人物唯一权威与角色进入上下文
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -8,7 +8,7 @@ foundation 把角色卡分别写进 `roles/主要角色/` 与 `roles/次要角�
 
 参考工程把 `story/roles/` 当唯一来源，按档位分组渲染进上下文（`utils/outline-paths.ts` 的 `readRoleCards` 与 `readCharacterContext`，两个档位都渲染），但没有定义同名冲突、换档、空卡与读失败这些边界。本项目要补的正是这几条规则。
 
-## Proposal
+## Decision
 
 ### 名字是身份，档位是属性
 
@@ -28,15 +28,17 @@ systemPrompt.context({
   order: 130,
   interpolate: false,
   required: true,
-  text: (context) => renderCastContext(context.agent),
+  text: (assembly) => castTextFor(assembly),
 })
 ```
+
+`castTextFor` 在 `installCastContext` 里：先确认这次装配的 agent 属于本预设，再用 `workingDirectory.get(agent.session)` 读两个档位目录并渲染。
 
 - `order: 130` 排在 team identity（125）之后、harness source（200）之前，不占用内置位置。
 - `interpolate: false`：角色卡里出现 `{{...}}` 时按原文保留，不被当成提示变量。
 - `required: true`：作者关掉可选 runtime context 时角色档案仍保留——没有它写不了正文。
 
-文本由本次装配的 `AssembleContext.agent` 推出会话目录（`workingDirectory.get(agent.session)`），同步读两个档位目录。没有 agent、没有会话目录、或没有任何卡时返回空串，不贡献任何文本。
+文本由本次装配的 `AssembleContext.agent` 推出会话目录（`workingDirectory.get(agent.session)`；会话没有自己的目录时那是宿主默认目录），同步读两个档位目录。没有 agent、预设不符、或既没有卡也没有问题时返回空串，不贡献任何文本。
 
 形态是 `roles:index` 名册加每卡一个 `role:<name>` 块：
 
@@ -57,13 +59,17 @@ systemPrompt.context({
 
 [cast-problem]
 沈砚在主要角色与次要角色各有一张卡：合并成一张再继续；冲突的卡没有注入。
+
+以上人物档案是唯一来源：已有角色不得改设定，新人物先建档再写。
 ```
 
-卡内容按文件原样拼接，不加二次标题、不做行尾裁剪；名册与卡片块都按名字的码位升序排列，保证同一磁盘状态每次装配产出同一段文字。
+最后一行是给模型的规则：人物档案只用来保持一致，不允许借它改写已有设定或凭空补人物。卡内容按文件原样拼接，不加二次标题，只去掉卡末尾的换行以免块之间出现多余空行；名册与卡片块都按名字的 Unicode 码位升序排列，保证同一磁盘状态每次装配产出同一段文字。
+
+没有任何卡也没有问题时贡献为空；只剩问题时（例如唯一一张卡是空卡）仍然注入 `[cast-problem]`，让作者看得见。
 
 ### 只在 see-dsh-novel 的 agent 上生效
 
-`systemPrompt.context` 注册落在服务根作用域、是全局的：同一进程里别的 agent 装配时也会看到这条注册。所以文本提供函数先看 `agentPresets.composedPreset(agent.ctx)`，不是 `see-dsh-novel` 就返回空串；`agentPresets` 服务缺席时同样返回空串——宁可没有角色档案，也不串到别的预设。
+系统提示服务是根作用域的单实例，`context()` 把贡献登记在服务自己的 ctx 上：同一进程里别的 agent 装配时也会看到这条注册。所以文本提供函数先看 `agentPresets.composedPreset(agent.ctx)`，不是 `see-dsh-novel` 就返回空串；`agentPresets` 服务缺席时同样返回空串——宁可没有角色档案，也不串到别的预设。
 
 ### 不落盘索引
 
@@ -90,20 +96,18 @@ systemPrompt.context({
 
 **把 `[cast-problem]` 通过工具错误抛出。** 更显眼。否掉：装配期抛错会打断整轮对话；作者需要的是「先看到问题、其余人物照常可用」。
 
-## Acceptance criteria
+## Consequences
 
-- 上下文快照包含 `[roles:index]`，主要与次要角色都出现在名册里；每张卡一个 `[role:<name>]` 块，内容与文件逐字一致。
-- 没有任何角色卡时该贡献为空：快照里不出现 `人物档案`。
-- 同名跨档位时：冲突的两张卡不注入，快照里出现 `[cast-problem]` 并点名；其余卡照常注入。
-- `story_foundation_cast_index` 拒绝空名、重复名、安全化后同文件名。
-- `cast_documents` 拒绝空卡内容；把角色换档写入后，旧档位同名文件被删除（`init` 与 `revise` 都如此），磁盘上不留两张同名卡。
-- 非 `see-dsh-novel` 预设的 agent 装配时该贡献为空（单元测试覆盖）。
-- 真实运行：在 `.artifacts/work-demo` 的 see-dsh-novel 会话里发一条消息，会话日志的 runtime-context 快照含两个档位的卡与全部 `role:*` 键。
+收益：人物只有一个权威来源，同名、碰撞名和空卡在写入或装配时就被挡住；两个档位的角色卡都进入 runtime context，写作 agent 不再靠对话记忆人物；`roles:index` 与 `role:<name>` 给了后续检索与预算一个稳定键空间，而磁盘上不多一份会过期的索引。
 
-## Risks
+`packages/see-dsh-novel/test/cast.test.mjs` 覆盖：两档读取与排序、空目录、名册与逐字卡块、同名冲突、空卡、仅空卡时的 `[cast-problem]`、目录读不了时的 `[cast-problem]`、上下文贡献的名字/位置/插值/必填标记、预设护栏与无卡目录、索引的三类拒绝、换档在 `init` 与 `revise` 下的删除（含去重）、空卡内容拒绝。
+
+代价与已知限制：
 
 - 每轮都重发整份角色卡：六张卡约几千 token，角色越多越贵；预算与裁剪归 `context.brief`。
 - 同步读盘发生在每次装配：六个小文件可以接受，角色数量很大时要加按目录 mtime 的缓存。
 - 作者手改文件仍可能造出空卡或冲突；系统只报告不修复，修复靠作者或重跑 `revise`。
 - 预设判断依赖 `agentPresets.composedPreset`；该服务缺席时角色档案不会注入（宁可没有，不串预设）。
 - 运行时上下文快照会出现在会话记录里，卡内容对作者可见（本来就是给模型看的）。
+- 换档删除是 `init` 只写不删的唯一例外：同一角色换档位时旧卡必须消失，否则磁盘留下两张同名卡、整份人物档案都不再注入。这条例外登记在 [foundation-architect](2026-11-04-foundation-architect.md) 的写入语义里。
+- 档位目录本身读不了（权限等）时也按 `[cast-problem]` 报告，而不是让整轮装配失败。

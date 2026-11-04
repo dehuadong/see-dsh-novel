@@ -5,7 +5,7 @@
  * cast_index 不落盘，它的产出用来重建 cast_documents 的动态 schema：
  * 每个角色一个具名字段，让「每人一张卡」成为 schema 约束。
  */
-import { readdir } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../../core/types.js'
@@ -14,15 +14,18 @@ import {
   COMMIT_OUTPUT,
   DETAILS_PARAMETERS,
   OUTLINE_PARAMETERS,
+  ROLE_DIRS,
   castDocumentsParameters,
   roleCardPath,
 } from './contract.js'
-import type { BookRulesData, IndexedRole, PendingHook } from './contract.js'
+import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contract.js'
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
 import { stateWritesIfMissing } from '../../core/state.js'
 
-const ROLE_DIRS = ['主要角色', '次要角色'] as const
+/** 两个档位；读取与删除都按这个顺序走。 */
+const TIER_ORDER: ReadonlyArray<RoleTier> = ['major', 'minor']
+const OTHER_TIER: Record<RoleTier, RoleTier> = { major: 'minor', minor: 'major' }
 
 interface OutlineArgs {
   storyFrame: string
@@ -57,7 +60,8 @@ function renderCommit(_args: unknown, value: CommitResult): Array<{ type: 'text'
 /** 尚未被本次重写的角色卡。 */
 async function staleRoleCards(root: string, written: ReadonlyArray<string>): Promise<string[]> {
   const stale: string[] = []
-  for (const dir of ROLE_DIRS) {
+  for (const tier of TIER_ORDER) {
+    const dir = ROLE_DIRS[tier]
     let entries
     try {
       entries = await readdir(join(root, 'source/story/roles', dir), { withFileTypes: true })
@@ -72,6 +76,42 @@ async function staleRoleCards(root: string, written: ReadonlyArray<string>): Pro
     }
   }
   return stale
+}
+
+/** 换档写入要删掉的旧卡：同名角色在另一档位已经有一张。 */
+async function movedRoleCards(root: string, roles: ReadonlyArray<IndexedRole>): Promise<string[]> {
+  const moved: string[] = []
+  for (const role of roles) {
+    const previous = roleCardPath(OTHER_TIER[role.tier], role.name)
+    try {
+      await stat(join(root, previous))
+      moved.push(previous)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    }
+  }
+  return moved
+}
+
+/**
+ * 索引里的名字就是身份：空名、重复名、安全化后同文件名的角色都拒绝，
+ * 否则两张卡会写进同一个文件或同一个角色被登记两次。
+ */
+function normalizeCastIndex(roles: ReadonlyArray<IndexedRole>): IndexedRole[] {
+  const names = new Set<string>()
+  const files = new Set<string>()
+  const normalized: IndexedRole[] = []
+  for (const role of roles) {
+    const name = String(role.name ?? '').trim()
+    if (name === '') throw new Error('角色名不能为空')
+    if (names.has(name)) throw new Error(`角色重复：${name}`)
+    const file = roleCardPath(role.tier, name)
+    if (files.has(file)) throw new Error(`两个角色会写进同一个文件：${file}`)
+    names.add(name)
+    files.add(file)
+    normalized.push({ tier: role.tier, name })
+  }
+  return normalized
 }
 
 /** 注册四个 foundation 工具；cast_documents 会随索引结果重新注册。 */
@@ -98,14 +138,16 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       output: { schema: COMMIT_OUTPUT, render: renderCommit },
       async execute(args: CastDocumentsArgs, exec: ExecuteContext): Promise<CommitResult> {
         const root = await workRoot(exec)
-        const writes = indexedRoles.map((role, index) => ({
-          relativePath: roleCardPath(role.tier, role.name),
-          content: `${String(args[`role_${index + 1}_content`]).trim()}\n`,
-        }))
-        const deleted = args.mode === 'revise'
-          ? await staleRoleCards(root, writes.map((write) => write.relativePath))
-          : []
-        return commitFoundation(root, { writes, deletes: deleted })
+        const writes = indexedRoles.map((role, index) => {
+          const content = String(args[`role_${index + 1}_content`] ?? '').trim()
+          if (content === '') throw new Error(`角色卡内容不能为空：${role.name}`)
+          return { relativePath: roleCardPath(role.tier, role.name), content: `${content}\n` }
+        })
+        const written = writes.map((write) => write.relativePath)
+        // revise 删掉本次没重写的卡；换档写入再删掉另一档位里的同名旧卡。两者可能重叠，去重。
+        const deleted = args.mode === 'revise' ? await staleRoleCards(root, written) : []
+        const moved = await movedRoleCards(root, indexedRoles)
+        return commitFoundation(root, { writes, deletes: [...new Set([...deleted, ...moved])] })
       },
     })
   }
@@ -178,10 +220,10 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
           value.roles.map((role) => `${role.name}（${role.tier === 'major' ? '主要' : '次要'}）`).join('、'),
       }],
     },
-    execute(args: CastIndexArgs): Promise<{ roles: IndexedRole[] }> {
-      const roles = args.roles.map((role) => ({ tier: role.tier, name: String(role.name).trim() }))
+    async execute(args: CastIndexArgs): Promise<{ roles: IndexedRole[] }> {
+      const roles = normalizeCastIndex(args.roles)
       registerCards(roles)
-      return Promise.resolve({ roles })
+      return { roles }
     },
   } as ToolDefinition<CastIndexArgs, { roles: IndexedRole[] }>))
 

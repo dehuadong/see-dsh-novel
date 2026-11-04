@@ -13,7 +13,7 @@
 | 作品存储 | 作品内容为落盘文档 | 作品正文与设定落盘为文档，SQLite 只做索引（一作品一库；一个工作区即一部作品） | 正文要可读、可 diff、可直接导出；索引只加速检索，不能成为正文的唯一副本 | 删除索引后能从文档重建；两部作品互不串数据 |
 | 调度 | 队列 + worker | DSH jobs／schedule | 长任务用子代理异步执行，不建队列 | 长任务可断点续跑 |
 | 技能 | 自有技能目录与加载器 | DSH `skills` 服务 + 文件系统 | SKILL.md + references 由运行时加载 | 技能能按角色／动作激活 |
-| 方法注入 | 自建 prompt 拼装 | `systemPrompt.context()` | 不在实现里复制方法正文，只注入受预算约束的片段 | 注入片段可在 trace 中定位 |
+| 方法注入 | 自建 prompt 拼装 | `systemPrompt.context()` | 不在实现里复制方法正文；角色档案整份注入，预算与裁剪留给 `context.brief` | 注入片段可在 trace 中定位 |
 | 工具 | 自有工具总线 | `tools.register` | `story_*` 工具按阶段注册独立 schema | 每阶段工具集不同且可校验 |
 | 作者确认 | 独立审批 UI，确认与执行分离 | DSH `approval` 服务 + `commands` | 原生确认留 `approval/decided` 回执，但与会话权限策略耦合；策略为 `never` 时由面板命令产生回执 | 无有效回执时签核被拒绝 |
 | 面板 | 独立前端服务 | `client` 插件 + slots | 从会话进入，与对话、轨迹并列；UI 用 React | 面板挂载到指定 slot |

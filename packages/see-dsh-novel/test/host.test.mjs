@@ -5,13 +5,15 @@ import * as agentHalf from '../src/plugin/agent.ts'
 import * as surface from '../src/plugin/index.ts'
 import { PHASES, STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
 
-/** Minimal service stubs: the agent half needs the tool and command registries plus the Session directory. */
+/** Minimal service stubs: the agent half needs the tool, command and prompt registries plus the Session directory. */
 function services() {
   const registered = new Map()
   const commands = new Map()
+  const contexts = []
   return {
     registered,
     commands,
+    contexts,
     ctx: {
       tools: {
         register(definition) {
@@ -19,11 +21,17 @@ function services() {
           return () => registered.delete(definition.name)
         },
       },
-      workingDirectory: { ensure: async () => process.cwd() },
+      workingDirectory: { ensure: async () => process.cwd(), get: () => process.cwd() },
       commands: {
         register(definition) {
           commands.set(definition.name, definition)
           return () => commands.delete(definition.name)
+        },
+      },
+      systemPrompt: {
+        context(contribution) {
+          contexts.push(contribution)
+          return () => contexts.splice(contexts.indexOf(contribution), 1)
         },
       },
       get: () => undefined,
@@ -39,7 +47,7 @@ test('the root row mounts a no-op surface half', () => {
 
 test('agent half declares loader metadata', () => {
   assert.equal(agentHalf.name, 'see-dsh-novel-agent')
-  assert.deepEqual(agentHalf.inject, ['tools', 'workingDirectory', 'commands'])
+  assert.deepEqual(agentHalf.inject, ['tools', 'workingDirectory', 'commands', 'systemPrompt'])
   assert.equal(typeof agentHalf.apply, 'function')
 })
 
@@ -48,8 +56,8 @@ test('storyNext reports the unbound phase', () => {
   assert.equal(PHASES.includes(storyNext().phase), true)
 })
 
-test('apply registers story_next, the foundation and gate tools, and the approval commands', () => {
-  const { registered, commands, ctx } = services()
+test('apply registers story_next, the foundation and gate tools, the approval commands and the cast context', () => {
+  const { registered, commands, contexts, ctx } = services()
 
   const dispose = agentHalf.apply(ctx)
 
@@ -64,6 +72,7 @@ test('apply registers story_next, the foundation and gate tools, and the approva
     STORY_NEXT_NAME,
   ])
   assert.deepEqual([...commands.keys()].sort(), ['story-approve', 'story-reject', 'story-review'])
+  assert.deepEqual(contexts.map((contribution) => contribution.name), ['story:cast'])
 
   const definition = registered.get(STORY_NEXT_NAME)
   assert.deepEqual(definition.parameters, storyNextParameters)
@@ -74,6 +83,7 @@ test('apply registers story_next, the foundation and gate tools, and the approva
   dispose()
   assert.equal(registered.size, 0)
   assert.equal(commands.size, 0)
+  assert.equal(contexts.length, 0)
 })
 
 test('story_next execute resolves the unbound contract', async () => {

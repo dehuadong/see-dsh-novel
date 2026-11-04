@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { countHooks, validateHooks } from '../core/hooks.js'
 import type { HooksState } from '../core/hooks.js'
 import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../core/types.js'
+import { installCastContext } from '../pipelines/long/cast.js'
 import { installApprovalCommands } from '../pipelines/long/commands.js'
 import { installGateTools } from '../pipelines/long/gate.js'
 import { renderHooksProjection } from '../pipelines/long/hooks.js'
@@ -18,8 +19,14 @@ import type { StoryNext } from './story-next.js'
 
 export const name = 'see-dsh-novel-agent'
 
-/** The tool and command registries plus the Session directory the story tools write into. */
-export const inject = ['tools', 'workingDirectory', 'commands'] as const
+/**
+ * The tool, command and prompt registries plus the Session directory the story
+ * tools write into.
+ */
+export const inject = ['tools', 'workingDirectory', 'commands', 'systemPrompt'] as const
+
+/** 本插件所属的预设 id；与 `cordis.patch.yml` 里 `preset-see-dsh-novel` 保持一致。 */
+const PRESET_ID = 'see-dsh-novel'
 
 interface HooksResult {
   counts: Record<string, number>
@@ -79,8 +86,10 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeFoundation = installFoundationTools(ctx)
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
+  const disposeCast = installCastContext(ctx, PRESET_ID)
 
   return (): void => {
+    disposeCast()
     disposeCommands()
     disposeGate()
     disposeFoundation()

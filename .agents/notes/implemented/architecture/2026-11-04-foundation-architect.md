@@ -56,6 +56,8 @@ Status: implemented
 
 `mode` 由调用方给：`init` 只写不删；`revise` 额外删除 `story/roles/{主要角色,次要角色}/` 下本次未重写的 `.md`。删除只在 `revise` 发生，`init` 重跑不动作者已有文件。
 
+唯一例外是同一角色换档位：`cast_documents` 写入某档位的卡时，若另一档位已有同名卡，那张旧卡会进删除清单——名字才是身份，两个档位各留一张就是冲突，见 [cast.single-authority](2026-11-04-cast-single-authority.md)。
+
 ### 状态播种
 
 `story_foundation_details` 产出 `pendingHooks` 后，若 `state/hooks.json` 不存在则播种：
