@@ -14,7 +14,7 @@
 
 按纵向能力推进，一次一个 PR；顺序以账本行序为准，前一行未 `verified` 不跳行。
 
-- **P0 运行时骨架**：`runtime.load` + `runtime.agent-tools`（写作预设的工具面：persona、指令、只读文件、技能、子代理、ask-user、todo、jobs、上下文压缩；通用写工具不开放，内容写入只走 `story_*`）。
+- **P0 运行时骨架**：`runtime.load` + `runtime.agent-tools`（写作预设的工具面：persona、指令、只读文件、联网检索、技能、子代理、ask-user、todo、jobs、上下文压缩；通用写工具不开放，内容写入只走 `story_*`）。
 - **P1 立项与基础设定**：
   - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P6 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。

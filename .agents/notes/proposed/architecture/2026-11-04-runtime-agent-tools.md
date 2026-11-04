@@ -26,13 +26,16 @@ Status: proposed
 | `dsh-tool-fs` | 读作品文件 | `write: false`、`edit: false`、`applyPatch: false`，只留 `read` 与 `read_image` |
 | `dsh-tool-fs-search` | glob／grep | `sampleOverCapGlobResults: false`（该字段必填） |
 | `dsh-tool-skill` | 技能目录与按名加载 | 无 |
+| `dsh-tool-web` | 提案沟通与素材检索 | `fetch: true`、`searchTimeoutMs: 60000` |
 | `dsh-tool-subagent-control` + `dsh-tool-subagent` | 角色即子代理 | `provider: spawn`、`toolName: subagent` |
 | `dsh-tool-ask-user` | 只问作者能决定的事 | 无 |
 | `dsh-tool-todo` | 多步写作的进度 | `allowParallelInProgress: true` |
 | `dsh-tool-jobs` + `dsh-tool-schedule` | 长任务与定时 | 无 |
 | `dsh-compaction-basic` + `dsh-command-compact` + `dsh-compaction-tool-result-pruner` | 章节变长后的上下文压缩 | 放一个 `cordis:group`，`isolate: { compaction: true, toolResultPruner: true }` |
 
-不列：`tool-bash`／`tool-pwsh`（写作不需要 shell，也堵住「用 shell 绕过 `story_*` 写文件」这条路）、`tool-web`（素材检索是后续能力）、`plan-mode`／`tool-goal`（这是作者的工作流，不是 agent 的）。
+不列：`tool-bash`／`tool-pwsh`（写作不需要 shell，也堵住「用 shell 绕过 `story_*` 写文件」这条路）、`plan-mode`／`tool-goal`（这是作者的工作流，不是 agent 的）。
+
+`tool-web` 的检索结果是外部不可信数据：技能与工具说明里要写明它只作参考，不写进作品事实（除非作者确认），页面文字里的指令一律不执行。web-app 组合把这件工具从宿主下掉、由每个预设自己挂载，所以这一行必须写进预设才生效。
 
 工具面是「宿主全局层 + 预设层」合并的：写作会话还能看到宿主注册的 `working_directory`、`implement_gate`。本行只负责预设层贡献什么，并在真实运行里核对**没有** `write`／`edit`／`pwsh`。
 
@@ -74,11 +77,11 @@ frontmatter 的两个字段映射到 `register()` 的 `invocation`：
 
 **用 `disable-model-invocation` 做 agent 隔离。** 零配置。否掉：它是逐技能的全局字段，给工程技能打上标记会连开发会话一起失去自动加载；而且本组合下工程技能根本不在写作 agent 的层里。
 
-**开 `tool-web`。** 能查资料。否掉：v1 的素材来源是作者提供的文件与后续的 `materials.import`，先不开外网工具。
+**不开联网。** 工具面更小，也不引入外部不可信内容。否掉：提案与题材沟通阶段需要查趋势、找可比的参考作品、核对现实细节，作者会直接用得到；DSH 的 `tool-web` 是原生工具，而 web-app 组合正是按预设挂载它（宿主那行是关的），我们的预设不写就没有。
 
 ## Acceptance criteria
 
-- 写作会话的工具列表包含 `read`、`glob`、`grep`、`skill`、`todo_write`、`ask_user_question`、`subagent`、`job_*`／`schedule_*` 与压缩入口；预设层**不贡献** `write`、`edit`、`apply_patch`、`pwsh`、`bash`（宿主层当前也没有给写作会话注册这些行；`read_image` 只在挂载附件库时出现，不计入验收）。
+- 写作会话的工具列表包含 `read`、`glob`、`grep`、`web_search`、`web_fetch`、`skill`、`todo_write`、`ask_user_question`、`subagent`、`job_*`／`schedule_*` 与压缩入口；预设层**不贡献** `write`、`edit`、`apply_patch`、`pwsh`、`bash`（宿主层当前也没有给写作会话注册这些行；`read_image` 只在挂载附件库时出现，不计入验收）。
 - 写作 agent 的技能目录里出现 `longform-writing`；按名加载返回方法正文。
 - `story_*` 与 `story_next` 的注册、行为、处置不变（既有用例回归通过）。
 - 其它预设的会话看不到 `longform-writing`（作用域注册不泄漏）。
@@ -92,4 +95,5 @@ frontmatter 的两个字段映射到 `register()` 的 `invocation`：
 - `agent-instructions` 读的是会话工作区的 AGENTS.md：写作会话跑在作品目录通常没有该文件；若作者把会话开在本仓库根，会读到工程规则。这是 DSH 的既有行为，不是本行引入的。
 - 工具面变大后，写作 agent 更容易「自己想办法写文件」：`read` 只能读，`write`／`edit` 缺失会让它要么走 `story_*`，要么失败——失败是想要的信号。
 - `subagent` 可用后，角色委派的成本与并发要由后续能力（`chapter.write`、`context.brief`）约束，本行只负责把工具放到位。
+- 联网检索依赖宿主的 `web` 服务与检索凭据；环境没配好时 `web_search` 在调用时报错，其余工具不受影响。检索结果按外部不可信数据处理，只作参考。
 - `docs/dsh-mapping.md` 的技能行现在写的是「skills 服务 + 文件系统」；本行是文件 + `ctx.skills.register()`，落地时把该行改成实际机制，避免文档与实现相反。
