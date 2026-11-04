@@ -8,15 +8,14 @@
     ".": "./src/index.js",
     "./agent": "./src/agent.js",
     "./client": "./src/client.js",
-    "./icon": "./icon.svg"
+    "./package.json": "./package.json"
   },
   "files": [
     "src/index.js",
     "src/agent.js",
     "src/story-next.js",
     "src/client.js",
-    "cordis.patch.yml",
-    "icon.svg"
+    "cordis.patch.yml"
   ],
   "dsh": {
     "bundle": {

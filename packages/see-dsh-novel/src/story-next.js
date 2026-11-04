@@ -7,19 +7,17 @@
  */
 
 /** 本能力能报出的阶段。阶段随能力增加而扩展，不预先登记未实现的阶段。 */
-export const PHASES = Object.freeze(['unbound', 'init'])
+export const PHASES = Object.freeze(['unbound'])
 
 /** 工具名，注册与测试共用同一个常量，避免两处字面量漂移。 */
 export const STORY_NEXT_NAME = 'story_next'
 
 /**
- * 由当前作品状态推出下一步。
- * @param {{ work?: string | null }} [state] 当前绑定的作品；缺省表示未绑定。
- * @returns {{ work: string | null, phase: string, next: string }}
+ * 当前没有绑定作品时的下一步。
+ * @returns {{ work: null, phase: 'unbound', next: string }}
  */
-export function storyNext(state = {}) {
-  const work = typeof state.work === 'string' && state.work.trim() ? state.work.trim() : null
-  return { work, phase: work ? 'init' : 'unbound', next: 'init' }
+export function storyNext() {
+  return { work: null, phase: 'unbound', next: 'init' }
 }
 
 /** 无参工具：留出参数位，避免以后加参数时改变调用形态。 */

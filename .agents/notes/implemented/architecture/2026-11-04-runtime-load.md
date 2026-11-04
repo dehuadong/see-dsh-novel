@@ -30,7 +30,7 @@ preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是
 
 ### `story_next` 契约
 
-无参数；返回 `{ work: string | null, phase: 'unbound' | 'init', next: string }`。当前恒为 `{ work: null, phase: 'unbound', next: 'init' }`：作品绑定属于 `runtime.session-binding`，这里不捏造。
+无参数；返回 `{ work: null, phase: 'unbound', next: 'init' }`。作品绑定属于 `runtime.session-binding`，这里不捏造；阶段词表因此只有 `unbound`，随能力增加再扩。
 
 工具定义受运行时两条硬约束：
 
@@ -47,7 +47,7 @@ preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是
 
 ### 验证
 
-- `npm test`：覆盖根入口为空、工具契约、注册与注销，以及参数与输出 schema 的运行时子集约束；用例见 [`packages/see-dsh-novel/test`](../../../../packages/see-dsh-novel/test)。
+- `npm test`：宿主半边覆盖根入口、工具契约、注册与注销；浏览器半边用 stub 的 `__ModuleLoader__` 与 slot 服务覆盖注册、注销与骨架渲染；另有参数与输出 schema 的运行时子集守门。用例见 [`packages/see-dsh-novel/test`](../../../../packages/see-dsh-novel/test)。
 - 真实运行：bundle 装入 profile 后 `application: applied`；`config.listConfigs` 出现 `preset-see-dsh-novel`；桌面应用中「作品」视图与对话、轨迹并列出现；预设会话里 `story_next` 返回 `isError=false`，卡片内容为「阶段 unbound（未绑定作品）」；同一工具在非该预设的会话中不存在。
 - 回执写入 `artifacts/real-runs/runtime.load.json`，`check-capabilities -- --write` 将账本置为 `verified`。
 
@@ -71,6 +71,7 @@ preset 的 `plugins` 是子组合条目列表（`id`/`name`/`config`），不是
 
 - `install_bundle` 写入当前 profile，影响所有会话；卸载要 `remove_bundle`，回滚步骤必须显式执行。
 - 宿主插件模块在组合应用时装载，改文件不会热更新；每次改动都要重启应用才能验证，反馈环比纯库代码慢。
-- 浏览器半边没有本地单元测试：本地无法装配 `window.__ModuleLoader__` 与 slot 服务，只能靠真实应用观察。
+- 浏览器半边只在 stub 的 loader 与 slot 服务下测注册、注销与骨架结构；真实渲染、布局与主题仍只能靠运行中的应用观察。
+- 安装会把 profile 的 `agent-preset-registry.selectedDefault` 指向本 preset（新会话默认选中），这不是能力的一部分，需要时在应用里改回。
 - 纯 JS 没有编译期类型检查，工具契约靠测试与运行时反馈保证。
 - preset 引用未安装的插件行时，错误指向组合而非插件，首次排查成本落在 preset 那一行。

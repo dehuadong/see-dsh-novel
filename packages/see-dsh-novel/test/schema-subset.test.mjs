@@ -15,7 +15,9 @@ const TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 'boolea
 const KEYWORDS = new Set([
   'type', 'oneOf', 'properties', 'required', 'additionalProperties', 'items', 'enum', 'const',
 ])
-const ANNOTATIONS = new Set(['description', 'title'])
+const ANNOTATIONS = new Set(['description', 'title', 'default', 'examples'])
+/** Constraint keywords that may not sit beside `oneOf`. */
+const ONE_OF_SIBLINGS = ['type', 'properties', 'required', 'additionalProperties', 'items', 'enum', 'const']
 
 function violations(node, path = 'schema', out = []) {
   if (node === null || typeof node !== 'object' || Array.isArray(node)) {
@@ -33,6 +35,9 @@ function violations(node, path = 'schema', out = []) {
     return out
   }
   if (hasOneOf) {
+    for (const key of ONE_OF_SIBLINGS) {
+      if (Object.hasOwn(node, key)) out.push(`${path}.${key} is not supported beside oneOf`)
+    }
     if (!Array.isArray(node.oneOf) || node.oneOf.length < 2) {
       out.push(`${path}.oneOf must be an array of at least two schemas`)
     } else {
@@ -49,6 +54,12 @@ function violations(node, path = 'schema', out = []) {
       ? `${path}.type must be a single type string (type arrays are not supported)`
       : `${path}.type must be one of ${[...TYPES].join('/')}`)
     return out
+  }
+  for (const key of ['enum', 'const']) {
+    if (!Object.hasOwn(node, key)) continue
+    if (node.type === 'object' || node.type === 'array') {
+      out.push(`${path}.${key} is not supported on type "${node.type}"`)
+    }
   }
   if (node.type === 'object') {
     if (Object.hasOwn(node, 'properties')) {

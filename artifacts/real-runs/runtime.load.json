@@ -5,14 +5,13 @@
   "tests": {
     "command": "npm test",
     "passed": true,
-    "summary": "8 passed — surface no-op, agent metadata, story_next contract, registration + disposer, execute, schema subset (parameters/output), subset mirror rejects type arrays"
+    "summary": "12 passed — surface entry is a no-op, agent metadata, story_next contract, tool registration + disposer, execute result, client view registration + disposer + skeleton structure, and the schema subset guard for parameters and output"
   },
   "receipts": [
     "install_bundle see-dsh-novel 0.1.0: application=applied, warnings=[]",
-    "config.listConfigs(@deepseek-ai/dsh-agent-preset) includes patchId preset-see-dsh-novel with the agent row mounted from see-dsh-novel/agent",
-    "client: conversation.view renders a 作品 view beside 对话 and 轨迹 (observed in the running desktop app)",
-    "tool: story_next is not registered outside the preset — the coding session reports unknown tool",
-    "tool: session header records agentPreset=see-dsh-novel; call story_next -> isError=false, content [{type:'text',text:'阶段 unbound（未绑定作品）'}]",
-    "rejected on the way, for the record: dsh.client is only resolved from a package-root composition row, and output.render must return a content-block array"
+    "config.listConfigs(@deepseek-ai/dsh-agent-preset) lists patchId preset-see-dsh-novel, whose agent row is mounted from see-dsh-novel/agent",
+    "client: a 作品 view appears beside 对话 and 轨迹 in the running desktop app",
+    "tool: outside the preset the coding session reports unknown tool story_next — the registration is scoped, not global",
+    "tool: session-9bd27abf records agentPreset=see-dsh-novel; call story_next -> isError=false, content [{\"type\":\"text\",\"text\":\"阶段 unbound（未绑定作品）\"}]"
   ]
 }

@@ -33,6 +33,6 @@ export function apply(ctx) {
           : `阶段 ${value.phase} · ${value.work}`,
       }],
     },
-    execute: () => Promise.resolve(storyNext({})),
+    execute: () => Promise.resolve(storyNext()),
   })
 }

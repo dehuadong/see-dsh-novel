@@ -19,10 +19,8 @@ test('agent half declares loader metadata', () => {
 
 const { apply } = agentHalf
 
-test('storyNext reports unbound until a work is selected', () => {
+test('storyNext reports the unbound phase', () => {
   assert.deepEqual(storyNext(), { work: null, phase: 'unbound', next: 'init' })
-  assert.deepEqual(storyNext({ work: '   ' }), { work: null, phase: 'unbound', next: 'init' })
-  assert.deepEqual(storyNext({ work: '试作' }), { work: '试作', phase: 'init', next: 'init' })
   assert.equal(PHASES.includes(storyNext().phase), true)
 })
 
