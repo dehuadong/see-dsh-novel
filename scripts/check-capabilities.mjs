@@ -27,6 +27,10 @@ const ID_RE = /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 const HEADER = `# 能力账本：全量能力清单，初始化全部 missing，只追加不删除。
+# 分组（按行序）：runtime.load 起＝运行时与工程；foundation.architect 起＝长篇基础；
+# chapter.write 起＝章节流水线；artifact.identity 起＝产物与面板；
+# short.outline 起＝短篇（v1 后）；script.spec 起＝剧本（v1 后）。
+# 交付顺序见 docs/scope.md；行序即推进顺序。
 # status 只能由 \`npm run check-capabilities -- --write\` 依据证据生成；人工只能写 missing。
 # verified 需要三份证据同时成立：implementation 与 consumer 路径存在、
 # 消费者的通过记录、artifacts/real-runs/<id>.json 含日期／session id／关键回执。

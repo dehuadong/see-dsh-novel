@@ -10,6 +10,21 @@
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
+## 交付顺序
+
+按纵向能力推进，一次一个 PR；顺序以账本行序为准，前一行未 `verified` 不跳行。
+
+- **P0** `runtime.load` —— 最小 bundle／preset／tool／skill／client 骨架，CI 通过，真实加载一次。
+- **P1** `foundation.architect` + `cast.single-authority` + `foundation.approval` —— 第一条真实链路：立项 → 基础设定 → 角色进入 brief。
+- **P2** `plan.outline` + `plan.chapter` + `context.brief`。
+- **P3** `chapter.write` + `chapter.review` + `chapter.revise`。
+- **P4** `chapter.summary` + `chapter.settle` + `chapter.finalize`。
+- **P5** `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
+- **P6** 短篇流水线，独立推进。
+- **P7** 剧本流水线，独立推进。
+
+阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。`runtime.session-binding`、`runtime.commands`、`runtime.telemetry`、`runtime.recovery` 没有单列阶段，随 P0–P1 就近补齐。
+
 ### 运行形态
 
 - 从 DSH 会话进入，面板与对话、轨迹并列，界面用 React 渲染，接入 `client` 插件与 slots。
