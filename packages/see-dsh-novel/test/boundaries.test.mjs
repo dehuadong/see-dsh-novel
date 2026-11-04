@@ -44,3 +44,30 @@ test('pipelines never import the plugin layer', () => {
   }
   assert.deepEqual(offenders, [])
 })
+
+/**
+ * 浏览器半边是独立层：只认宿主客户端包、`react` 与同目录的相对导入。
+ * 它不能碰本仓库的 `core`／`pipelines`／`plugin`，也不能用 node 内置模块。
+ */
+test('the client layer imports only host client packages, react, and its own files', () => {
+  const dir = 'packages/see-dsh-novel/src/client'
+  const allowed = [
+    /^@deepseek-ai\/cordis$/,
+    /^@deepseek-ai\/dsh-[a-z0-9-]+(?:\/client)?$/,
+    /^react$/,
+    /^react\/jsx-runtime$/,
+    /^\.\/[A-Za-z0-9-]+\.js$/,
+  ]
+  const offenders = []
+  for (const file of readdirSync(dir)) {
+    if (!file.endsWith('.ts') && !file.endsWith('.tsx')) continue
+    const text = readFileSync(join(dir, file), 'utf8')
+    for (const match of text.matchAll(/from\s+'([^']+)'/g)) {
+      const specifier = match[1]
+      if (!allowed.some((pattern) => pattern.test(specifier))) {
+        offenders.push(`${file} -> ${specifier}`)
+      }
+    }
+  }
+  assert.deepEqual(offenders, [])
+})

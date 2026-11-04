@@ -28,9 +28,9 @@ capabilities:
     title: 面板客户端基线：slots 注册、React/JSX 构建、类型化 props、样式安装
     reference: inkos:packages/studio/
     dsh: client plugin + slots
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/client/index.ts
+    consumer: packages/see-dsh-novel/test/client.test.mjs
+    realRun: artifacts/real-runs/runtime.client-ui.json
     status: missing
   - id: runtime.package-check
     title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致

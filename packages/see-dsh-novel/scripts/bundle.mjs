@@ -1,9 +1,14 @@
 /**
- * 打成单文件 ESM 产物，供 DSH 以原生 ESM 直接加载。
+ * 打成单文件产物，供 DSH 以原生加载器直接吃。
  *
- * 为什么必须打包：DSH 用原生 `import()` 吃插件入口，Node 的 ESM 解析器不补全
- * 扩展名，也不会为插件准备跨包 node_modules。单文件产物把相对导入与工作区依赖
- * 一并内联，形态对齐 DSH 自身的插件（`main` 指向 `lib/*.js`，产物内零相对导入）。
+ * 宿主半边（`lib/index.js`、`lib/agent.js`）是 ESM：DSH 用原生 `import()` 装载，
+ * Node 的 ESM 解析器不补全扩展名、也不为插件准备跨包 node_modules，所以相对
+ * 导入与工作区依赖必须内联。
+ *
+ * 浏览器半边（`lib/client.js`）走客户端模块系统的正式形态：CJS 产物由
+ * `window.__ModuleLoader__.load({ id, factory })` 包起来，`factory(require)`
+ * 拿到宿主模块表里的 react 等共享模块，返回插件对象。形态与 DSH 自己的
+ * 客户端构建一致（见 harness 的 `packages/client/tsdown.client.ts`）。
  */
 import * as fs from 'node:fs'
 import * as path from 'node:path'
@@ -15,30 +20,68 @@ const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 /** DSH 宿主提供的服务面，不进产物。 */
 const HOST_EXTERNAL = ['@deepseek-ai/*', 'node:*']
 
+/** 客户端模块表提供的共享模块，不进产物。 */
+const CLIENT_EXTERNAL = ['react', 'react/jsx-runtime']
+
+/** 客户端产物的插件 id：与 `package.json` 的包名一致，不另写一份。 */
+const CLIENT_ID = JSON.parse(fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8')).name
+
 // 清掉上一次的产物，避免旧入口与新入口同时存在。
 fs.rmSync(path.join(packageRoot, 'lib'), { recursive: true, force: true })
 
-async function buildEntry(entry, outfile, platform = 'node') {
+/** 产物里不允许残留相对导入：单文件是加载器的前提。 */
+function assertNoRelativeImports(outfile, output) {
+  const leftover = /(?:from\s*|require\(\s*)["']\.[^"']*["']/.exec(output)
+  if (leftover !== null) throw new Error(`${outfile} 残留相对导入：${leftover[0]}`)
+}
+
+function report(outfile, bytes, modules) {
+  console.log(`[bundle] ${outfile} ok (${(bytes / 1024).toFixed(1)} KB, 内联 ${modules} 个模块)`)
+}
+
+async function buildNodeEntry(entry, outfile) {
   const result = await esbuild.build({
     entryPoints: [path.join(packageRoot, entry)],
     outfile: path.join(packageRoot, outfile),
     bundle: true,
-    platform,
-    target: platform === 'node' ? 'node22' : 'es2022',
-    format: platform === 'node' ? 'esm' : 'iife',
-    external: platform === 'node' ? HOST_EXTERNAL : [],
+    platform: 'node',
+    target: 'node22',
+    format: 'esm',
+    external: HOST_EXTERNAL,
     sourcemap: false,
     legalComments: 'inline',
     logLevel: 'warning',
     metafile: true,
   })
   const output = fs.readFileSync(path.join(packageRoot, outfile), 'utf8')
-  const leftover = /from\s*["']\.[^"']*["']/.exec(output)
-  if (leftover !== null) throw new Error(`${outfile} 残留相对导入：${leftover[0]}`)
-  const bytes = fs.statSync(path.join(packageRoot, outfile)).size
-  console.log(`[bundle] ${outfile} ok (${(bytes / 1024).toFixed(1)} KB, 内联 ${Object.keys(result.metafile.inputs).length} 个模块)`)
+  assertNoRelativeImports(outfile, output)
+  report(outfile, fs.statSync(path.join(packageRoot, outfile)).size, Object.keys(result.metafile.inputs).length)
 }
 
-await buildEntry('src/plugin/index.ts', 'lib/index.js')
-await buildEntry('src/plugin/agent.ts', 'lib/agent.js')
-await buildEntry('src/plugin/client.ts', 'lib/client.js', 'browser')
+async function buildClientEntry(entry, outfile) {
+  const result = await esbuild.build({
+    entryPoints: [path.join(packageRoot, entry)],
+    outfile: path.join(packageRoot, outfile),
+    bundle: true,
+    platform: 'browser',
+    target: 'es2022',
+    format: 'cjs',
+    external: CLIENT_EXTERNAL,
+    jsx: 'automatic',
+    sourcemap: false,
+    legalComments: 'inline',
+    logLevel: 'warning',
+    metafile: true,
+    banner: {
+      js: `window.__ModuleLoader__.load({ id: ${JSON.stringify(CLIENT_ID)}, factory: (require) => {\nvar module = { exports: {} }; var exports = module.exports;`,
+    },
+    footer: { js: 'return module.exports; } });' },
+  })
+  const output = fs.readFileSync(path.join(packageRoot, outfile), 'utf8')
+  assertNoRelativeImports(outfile, output)
+  report(outfile, fs.statSync(path.join(packageRoot, outfile)).size, Object.keys(result.metafile.inputs).length)
+}
+
+await buildNodeEntry('src/plugin/index.ts', 'lib/index.js')
+await buildNodeEntry('src/plugin/agent.ts', 'lib/agent.js')
+await buildClientEntry('src/client/index.ts', 'lib/client.js')

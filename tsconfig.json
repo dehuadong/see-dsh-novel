@@ -1,0 +1,11 @@
+{
+  "//": "测试运行器（tsx）从工作区根读 JSX 变换设置；包自身的类型检查用 packages/see-dsh-novel/tsconfig*.json。",
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "jsx": "react-jsx",
+    "strict": true,
+    "skipLibCheck": true
+  }
+}

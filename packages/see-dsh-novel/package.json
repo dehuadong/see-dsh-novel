@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "build": "node scripts/bundle.mjs",
-    "typecheck": "tsc -p ."
+    "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.client.json"
   },
   "dsh": {
     "bundle": {
