@@ -15,6 +15,8 @@ export interface SessionEventLike {
 
 /** 插件在工具执行与命令处理里能读到的会话面。 */
 export interface SessionLike {
+  /** 会话标识；宿主 `Session` 上叫 `id`。 */
+  readonly id?: string
   snapshotEvents(): ReadonlyArray<SessionEventLike>
 }
 
@@ -149,6 +151,35 @@ export interface PluginContext {
   systemPrompt: { context(contribution: PromptContextLike): Disposer }
   /** 可选服务按名读取；用它可以避免整个插件等待一个不存在的服务。 */
   get(service: string): unknown
+}
+
+/** 会话查询返回的一份观察：一份不可变切面，用完释放。 */
+export interface SessionObservationLike {
+  readonly projections?: { values?: Record<string, unknown> }
+  dispose?(): void
+}
+
+/** 宿主的会话查询服务面：按 id 读一个会话的投影。 */
+export interface SessionQueryLike {
+  observeSession(sessionId: string, options?: { signal?: AbortSignal }): Promise<SessionObservationLike>
+}
+
+/** 子代理目录的一行；`child` 是真子会话，`diagnostic` 是读不通的分支。 */
+export interface SubagentRowLike {
+  readonly kind: 'child' | 'diagnostic'
+  readonly id: string
+  readonly parentId?: string
+  readonly depth?: number
+  readonly mode?: string
+  readonly label?: string
+  readonly activity?: 'running' | 'inactive'
+  readonly reason?: string
+  readonly hasChildren?: boolean
+}
+
+/** 宿主的子代理服务面：列出一棵会话子树。 */
+export interface SubagentsLike {
+  listDescendants(rootSessionId: string, signal?: AbortSignal): Promise<readonly SubagentRowLike[]>
 }
 
 /** foundation 阶段产出的未解伏笔，播种进 hooks 状态。 */
