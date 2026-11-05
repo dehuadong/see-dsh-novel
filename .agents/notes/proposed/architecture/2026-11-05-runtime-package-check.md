@@ -29,7 +29,7 @@ export interface PackageFacts {
   diskFiles?: ReadonlyArray<string>   // 包目录里的真实文件（链接面）
   tarballFiles?: ReadonlyArray<string> // npm pack 的 files[].path（打包面）
   patchNames?: ReadonlyArray<string>  // cordis.patch.yml 里所有 name
-  pinnedVersions?: ReadonlyArray<string> // 工作区里 @deepseek-ai/* 的现有版本
+  dshVersions?: Record<string, string>   // 根 package.json devDependencies 里的 @deepseek-ai/* 版本
 }
 export function packagingProblems(facts: PackageFacts): PackageProblem[]
 ```
@@ -61,7 +61,7 @@ YAML 由脚本解析（根 `devDependencies` 有 `yaml`），纯函数只收 `pa
 | code | 判据 |
 | --- | --- |
 | `workspace-protocol` | 任何依赖字段里出现 `workspace:`。理由：这个包要装到工作区**之外**（link 或 tarball），`workspace:` 在那边的解析器里没有意义；与参考工程「源清单允许、发布前替换」的差别写在 Alternatives 里 |
-| `version-drift` | `@deepseek-ai/*` 的版本在所有出现处必须一致（取自 `pinnedVersions` 的首个值；不一致就报出两个值） |
+| `version-drift` | 插件包 `package.json` 的任何依赖字段里，`@deepseek-ai/*` 的版本必须等于根 `devDependencies` 里同名包的版本（`dshVersions`）；根里没有这个名字就不判（那是插件包自己引入的新包，另当别论） |
 
 路径比较统一先去掉前导 `./` 与首尾斜杠，再比。
 
@@ -71,7 +71,7 @@ YAML 由脚本解析（根 `devDependencies` 有 `yaml`），纯函数只收 `pa
 
 1. 在 `packages/see-dsh-novel` 跑 `npm pack --dry-run --json`，取 `files[].path`；
 2. 递归列包目录的磁盘文件（跳过 `node_modules`、`.git`、`lib` 之外的大目录也要列全——链接面要判断 `lib/agent.js` 在不在）；
-3. 读 `package.json` 与 `cordis.patch.yml`（`yaml` 解析，收集所有 `name`）；
+3. 读插件包 `package.json` 与 `cordis.patch.yml`（`yaml` 解析，收集所有 `name`），再读根 `package.json` 的 `devDependencies` 并筛出 `@deepseek-ai/*` 作为 `dshVersions`；
 4. 调 `packagingProblems`，有问题的码与细节打到 stderr，退出码 1；否则打印「files／exports／patch 行数」与 tarball 条目数。
 
 根 `package.json` 加 `"check-package": "node --import tsx scripts/check-package.mjs"`，`verify` 链排在 `build` 之后：
@@ -102,7 +102,7 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 - 链接面：`exports` 去掉 `./` 后指向 `lib/agent.js`，磁盘上缺失 → `export-target-missing lib/agent.js`。
 - 打包面：tarball 条目里没有 `lib/agent.js` → `pack-export-missing lib/agent.js`；`files` 声明 `skills` 但 tarball 里没有 `skills/` 条目 → `files-entry-missing skills`。
 - 打包面：条目里出现 `src/index.ts` → `forbidden-path src/index.ts`；条目为空 → `empty-pack`。
-- 依赖面：`"x": "workspace:*"` → `workspace-protocol x`；两个 `@deepseek-ai/*` 版本不一致 → `version-drift` 并给出两个值。
+- 依赖面：`"x": "workspace:*"` → `workspace-protocol x`；插件包依赖写 `"@deepseek-ai/dsh-tools": "0.2.1"` 而根 `devDependencies` 是 `0.2.2-rc.1` → `version-drift @deepseek-ai/dsh-tools`（根里没有这个名字时不报）。
 - patch：`dsh.bundle.patch` 指向不存在的文件 → `patch-missing`；patch 里出现 `see-dsh-novel/tools` 而 `exports` 没有 `./tools` → `patch-module-unexported see-dsh-novel/tools`。
 - 有问题时退出码非零，stderr 列出问题码与细节；没有问题时不写任何文件。
 - `verify` 链里排在 `build` 之后；实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；脚本 `scripts/check-package.mjs` 与根 `package.json`；realRun `artifacts/real-runs/runtime.package-check.json`。
@@ -112,6 +112,6 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 
 - `npm pack --dry-run --json` 是 npm 的行为；pnpm 打出的包理论上可能不同。本项目按 npm 语义声明 `files`，且 tarball 只是打包面的近似，真实安装当前走 link。
 - 链接面与打包面都通过，不代表宿主一定能装上：版本要求、profile 权限、preset 引用仍可能挡住。
-- `version-drift` 用「所有出现处必须一致」代替「等于工作区声明的版本」：它抓得到单个字段漂移，抓不到「全部一起被改错」。
+- `version-drift` 只比「插件包声明了的、根里也有的」包：插件包目前没有任何依赖，规则今天不会触发；它防的是将来给插件包加 `@deepseek-ai/*` 依赖时版本落后。根内部的版本一致性不在本行范围（根 `@deepseek-ai/cordis` 是 4.1.0，`dsh-*` 是 0.2.2-rc.1，本来就不同名不同版本）。
 - `files` 里写目录时按前缀匹配，空目录不会出现在 tarball，会被 `files-entry-missing` 报出来——这通常正是想要的提醒。
 - 脚本依赖 PATH 里的 `npm`；只有 pnpm 的环境会在取 entries 时失败，而不是静默跳过。
