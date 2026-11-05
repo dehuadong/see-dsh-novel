@@ -1,0 +1,17 @@
+{
+  "capability": "foundation.truth-projections",
+  "date": "2026-11-05",
+  "sessionId": "session-a2b71b7b-b5e4-4f80-a86f-b8fd9bb19c90",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "210 passed — 投影 6 例（排序、转义与末尾换行、中英表头、事实按 validUntilChapter 过滤、八列摘要、空表、错形状拒绝）＋ 语言 2 例（manifest 优先、坏文件退回）＋ foundation 8 例（七份文件与投影内容）＋ hooks 3 例 ＋ recovery 27 例（投影可重建、源缺失不可修、projection-stale、state-invalid）"
+  },
+  "receipts": [
+    "真实运行（`work-proj`，session `session-a2b71b7b-b5e4-4f80-a86f-b8fd9bb19c90`）：主编先调 `story_foundation_details`（含 `pendingHooks: [{hookId:\"H1\", type:\"悬案\", expectedPayoff:\"首卷第三章\", notes:\"开场埋\"}]`），回执「写入 9 个文件」；随后调 `story_hooks`，回执以 `# 伏笔池` 开头并列出 `H1` 行",
+    "落盘共 9 份：`book_rules.md`／`book_rules.json` 加四份状态 JSON 与三份投影（`current_state.md`／`pending_hooks.md`／`chapter_summaries.md`）；`pending_hooks.md` 与 `story_hooks` 的工具文本逐字一致（同为 144 字符、首尾相同），`current_state.md` 含 `> 当前章节: 0`，`chapter_summaries.md` 是空表加表头",
+    "对照一：删掉 `pending_hooks.md`（`hooks.json` 在）后扫描报 `state-missing source/story/pending_hooks.md fixable true`；`repairWorkspace` 补回的内容与原文件逐字一致，`hooks.json` 未变",
+    "对照二：只删 `hooks.json` 时扫描报 `hooks-missing`（不可修）与 `projection-stale source/story/pending_hooks.md`（不可修），`repairWorkspace` 返回空数组、不生成空投影",
+    "对照三：同时删 `hooks.json` 与 `pending_hooks.md` 时 `state-missing` 变为 `fixable false`，`repairWorkspace` 不重建，避免用空表掩盖伏笔池丢失"
+  ]
+}
