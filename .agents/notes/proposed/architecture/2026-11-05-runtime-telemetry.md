@@ -20,14 +20,16 @@ Status: proposed
 
 ### 数据来源：三个已注册的投影 + 子代理目录
 
-对每个子会话（`subagents.listDescendants(rootSessionId)` 得到，带 `parentId` 与 `depth`）：
+`subagents.listDescendants(rootSessionId)` 返回两类行：`kind: 'child'`（真正的子会话，带 `parentId`、`depth`、`mode`、`label?`、`activity`、`hasChildren`）与 `kind: 'diagnostic'`（目录读不通或模式未知，只有 `id` 与 `reason`）。只有 `child` 行进 `delegations`；`diagnostic` 行进 `diagnostics`，连同 `reason`（`corrupt`／`unsupported`／`unavailable`）一起报出来，不假装它是委派。
 
-- **身份**：`subagentCatalog`（父会话投影）给 `id`、`mode`（one-shot／continuable／external／unknown）、`label`；`subagentIdentity`（子会话投影）给子会话自己的 label 副本。
-- **用量**：`tokenUsage` 投影，四个互不重叠的桶——`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`。不自己扫 `assistant/message` 求和使用量：那条读日志的路子已经被宿主的投影取代，而投影连缓存分桶都算好了。
-- **耗时**：`subagentTiming` 投影的 `settledMs`（已结束轮次的累计毫秒），加上 `active` 的开区间（`through - since`）作为当前轮已用时间。
-- **是否正常结束**：`subagentTiming.lastTurnCompleted`。`false` 说明最近一轮没正常收尾；`undefined` 说明还没有结束的轮次。
+对每个 `child`：
 
-读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。
+- **身份**：行里的 `mode`（one-shot／continuable／external／unknown）与 `label`。`label` 对 one-shot 允许缺省，所以按可空处理；子会话自己的 `subagent` 投影是同一份事实的副本，用于核对，不单独作为来源。
+- **用量**：子会话的 `tokenUsage` 投影，四个互不重叠的桶——`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`。不自己扫 `assistant/message` 求和使用量：那条读日志的路子已经被宿主的投影取代，而投影连缓存分桶都算好了。
+- **耗时**：子会话的 `subagentTiming` 投影：`settledMs`（已结束轮次的累计毫秒）加 `active` 开区间（`through - since`）。
+- **状态**：先看目录行的 `activity`（`running`／`inactive`）——它表示「这个子会话现在还住着没有」，是活性事实；再看 `subagentTiming.lastTurnCompleted`——`true`／`false` 分别对应 `completed`／`incomplete`。`active` 只说明「有一个还没关的轮次」，进程被杀留下的未闭合轮次会让它永远看起来开着，所以不用它判活。
+
+读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。`external`／`unknown` 模式没有本地会话，`observeSession` 会报找不到——这类行按「读不到」处理，不算失败。
 
 ### `story_telemetry` 的输出
 
@@ -35,18 +37,20 @@ Status: proposed
 
 ```json
 {
-  "summary": { "delegations": 1, "incomplete": 0, "durationMs": 42000,
+  "summary": { "delegations": 1, "incomplete": 0, "diagnostics": 0, "durationMs": 42000,
     "usage": { "uncachedInputTokens": 0, "outputTokens": 0, "cacheReadTokens": 0, "cacheWriteTokens": 0 } },
   "delegations": [
     { "childSessionId": "session-…", "label": "writer", "mode": "one-shot", "depth": 1,
       "state": "completed", "durationMs": 42000,
       "usage": { "uncachedInputTokens": 1200, "outputTokens": 800, "cacheReadTokens": 0, "cacheWriteTokens": 0 } }
-  ]
+  ],
+  "diagnostics": []
 }
 ```
 
-- `state`：`completed`（`lastTurnCompleted === true`）、`incomplete`（`false`）、`running`（有 `active` 开区间）、`unknown`（没有可判定的信号）。枚举固定四值，不猜。
-- `usage` 与 `durationMs` 读不到时是 `null`，不写 0：0 会被当成「真的没花」。
+- `state` 的判定顺序：目录行 `activity === 'running'` → `running`；否则 `lastTurnCompleted === true` → `completed`、`false` → `incomplete`；都没有（或子会话读不到）→ `unknown`。枚举固定四值，不猜。
+- `label`、`usage`、`durationMs` 读不到时是 `null`，不写 0：0 会被当成「真的没花」；`label` 缺省是 one-shot 的正常形态，不是错误。
+- `diagnostics` 沿用目录的 `reason`，不进 `delegations`、不计入 `incomplete`。
 - `summary` 只统计返回的这 `limit` 条，字段名与含义在工具描述里写明，避免作者把分页当成全量。
 - 排序：按子会话创建时间升序，取最近 `limit` 条（即最后 N 条），与「最近一次委派」的直觉一致。
 
@@ -69,13 +73,14 @@ Status: proposed
 ## Acceptance criteria
 
 - 当前会话没有子代理时：`story_telemetry` 返回 `summary.delegations: 0` 与空 `delegations`，不报错。
-- 有一次子代理委派后：`delegations` 里出现该子会话，`childSessionId`、`label`、`mode`、`depth`、`state`、`durationMs`、`usage` 齐备；`usage` 是四个非负整数桶或 `null`；`state` 是四个固定值之一。
+- 有一次子代理委派后：`delegations` 里出现该子会话，`childSessionId`、`mode`、`depth`、`state` 齐备；`label` 是字符串或 `null`（one-shot 允许缺省）；`durationMs` 是非负整数或 `null`；`usage` 是四个非负整数桶或 `null`；`state` 是四个固定值之一，且 `running` 来自目录行的 `activity`。
 - `incomplete` 的子会话（最近一轮没有正常收尾）在 `summary.incomplete` 里被计数，对应条目的 `state` 是 `incomplete`。
+- `diagnostic` 行只出现在 `diagnostics` 里并带 `reason`，不计入 `delegations`／`incomplete`；`external`／`unknown` 模式没有本地会话时，条目仍返回，`usage`／`durationMs` 为 `null`、`state` 由 `activity` 决定。
 - `limit` 生效：只返回最近 `limit` 条，`summary` 与返回集合一致。
 - `subagents`／`sessionQuery` 缺失时返回错误文本并点名缺失的服务。
-- `test/host.test.mjs` 的工具清单同批加 `story_telemetry`；`test/telemetry.test.mjs` 用假的服务面覆盖上述分支。
+- `test/host.test.mjs` 的工具清单同批加 `story_telemetry`；`test/telemetry.test.mjs` 用假的服务面覆盖上述分支（含 diagnostic、无本地会话、`activity: running`）。
 - 实现与证据：implementation `packages/see-dsh-novel/src/plugin/telemetry-tool.ts`（工具与聚合）与 `src/plugin/agent.ts`（注册）；consumer `packages/see-dsh-novel/test/telemetry.test.mjs`；realRun `artifacts/real-runs/runtime.telemetry.json`。
-- 真实运行：在一个有 `work.json` 的会话里让主编把一件小事派给子代理，随后调用 `story_telemetry`，能看到该子会话的 label、state=completed、耗时与用量四桶。
+- 真实运行：在一个有 `work.json` 的会话里让主编把一件小事派给子代理，随后调用 `story_telemetry`，能看到该子会话的 `state=completed`、耗时与用量四桶。
 
 ## Risks
 
