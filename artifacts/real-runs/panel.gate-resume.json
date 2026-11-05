@@ -1,0 +1,19 @@
+{
+  "capability": "panel.gate-resume",
+  "date": "2026-11-05",
+  "sessionId": "session-974fa00e-310f-4224-adcf-e752e8b513f6",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "94 passed — 面板 18 例（一次点击两步、认可后投「继续」、继续失败文案、退回／查看不唤醒、命令失败与抛错、resume 抛错只算「没能继续」、连点只走一次、切换会话重置与在途结果丢弃、注入面的 payload／queue 模式、产物形态）"
+  },
+  "receipts": [
+    "面板点一次「认可」：seq 380/381 `command/run`＋`command/done`（`story-approve` 成功，写下 `story-approval stage=foundation digest=3b5f41e9c9d5… files=14 via=receipt`）",
+    "同一次点击的第二步：seq 382 `agent/inbox/spliced`（target next-turn，消息内容即 `RESUME_TEXT`，source 带 `rpcId`），seq 383 `turn/start` turn 13 —— 会话被叫醒，不再需要作者补一句话",
+    "seq 386 `user/message` 是那条「作者刚在面板确认了 foundation…」；seq 387/388 是常规运行时上下文，说明它作为普通一轮进入模型",
+    "seq 392/393 `story_gate` 返回「foundation：14 个文件，摘要 3b5f41e9，已被作者确认（策略 never）」——门禁复核成立",
+    "seq 398/399 `story_foundation_signoff` 返回「已定稿 foundation：14 个文件，摘要 3b5f41e9（作者在面板确认）」——签核成功，摘要与回执一致",
+    "seq 404/405 续作的 `story_next` 报「阶段 unbound」：作品绑定与阶段推进属于 `runtime.session-binding`／`runtime.commands`，不在本行范围；本行到「签核完成」即止",
+    "seq 417 `turn/end`（reason completed）：这一轮由确认触发并正常结束，全程无需作者再操作"
+  ]
+}

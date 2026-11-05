@@ -95,7 +95,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/client/index.ts
     consumer: packages/see-dsh-novel/test/client.test.mjs
     realRun: artifacts/real-runs/panel.gate-resume.json
-    status: missing
+    status: verified
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     reference: inkos:packages/core/src/agents/architect.ts
