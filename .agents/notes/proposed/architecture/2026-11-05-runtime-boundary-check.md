@@ -54,7 +54,9 @@ typecheck → build → check-package → check-boundary → verify-notes → ch
 
 ### reference 指向规则的所有者
 
-`docs/dsh-mapping.md` 只记机制映射与偏差，依赖边界不归它；规则的所有者是 `AGENTS.md` 的铁律 3（「只用 DSH 运行时，不 import、不运行源工程代码」）。本行的 `reference` 因此改成 `AGENTS.md`，不往 `dsh-mapping.md` 里再抄一份规则——同一事实一个家。
+基础规则在 `AGENTS.md`：开头那段（不 import、不运行参考工程）与铁律 3（只用 DSH 运行时）。`AGENTS.md` 没有写「`@deepseek-ai` 只能 type-only」与「`deepseek-harness/` 也算参考树」——这两条是本行把意图落成可检查形式时的具体化，补充记在本文里；`AGENTS.md` 管意图，本文管可执行的判据，不互相抄。
+
+本行**没有参考源工程证据**：它是项目护栏，不从参考工程映射而来。账本行的 `reference` 因此写 `none:项目护栏（AGENTS.md 前言与铁律 3）`，不用它冒充参考证据。
 
 ## Alternatives considered
 
@@ -76,7 +78,7 @@ typecheck → build → check-package → check-boundary → verify-notes → ch
 - 合成文件 `core/x.ts` 里 `import type {} from '@deepseek-ai/cordis'` → `host-import-outside-allowed-layers`；同样的行放在 `plugin/x.ts` 或 `client/x.tsx` 里不报；`tools/packaging.ts` 里只出现字符串 `'@deepseek-ai/dsh-agent-preset'`（没有导入语句）不报。
 - 注释里出现「inkos」不算问题；`import type { X } from '@deepseek-ai/dsh-tools'` 不报。
 - 有问题时退出码非零、stderr 每行一个 `code path: detail`。
-- 账本行的 `reference` 改成 `AGENTS.md`；不改 `docs/dsh-mapping.md`（它只记机制映射）。
+- 账本行的 `reference` 改成 `none:项目护栏（AGENTS.md 前言与铁律 3）`，明示没有参考源证据；不改 `docs/dsh-mapping.md`（它只记机制映射）。
 - 实现与证据：implementation `packages/see-dsh-novel/src/tools/boundary.ts`；consumer `packages/see-dsh-novel/test/boundary-check.test.mjs`；脚本 `scripts/check-boundary.mjs`、根 `package.json` 的 `verify` 链、`capabilities.yaml` 的 `reference`／implementation／consumer／realRun 字段同批更新；realRun `artifacts/real-runs/runtime.boundary-check.json`。
 - 真实运行：`pnpm run check-boundary` 在真实源码树上通过；再用 `--root` 指向一个含 `import 'inkos/x'` 的临时目录，脚本报 `reference-import` 并退出 1。
 
