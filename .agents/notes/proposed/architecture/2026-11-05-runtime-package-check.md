@@ -72,6 +72,14 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 
 `pnpm pack` 会执行 `prepack`／`prepare`／`postpack` 这些 hook；本包不该有它们，脚本用 `install-hook` 规则检查，而不是靠 pack 时「看它有没有副作用」。
 
+### 接进 CI
+
+`.github/workflows/ci.yml` 同批改：
+
+- 把「Build／Verify Notes／Check capabilities ledger／Run plugin tests」四步收成一条 `pnpm run verify`，`AGENT_NOTE_ARCHIVE_BASE_REF` 提到 job 级 env；这样 CI 与本地跑的是同一条链，以后给 `verify` 加步骤不用再改 yaml；
+- `verify` job 加 `windows-latest` 与 `ubuntu-latest` 矩阵：真实宿主是 Windows，`link:` 安装、路径大小写、junction 这些差异只有 Windows runner 覆盖得到；包很小，两个 runner 的代价可控；
+- 隔离安装冒烟（参考工程的 `install-smoke`：装一棵 DSH、fresh profile、`dsh plugin add <tgz>`、`--dump-config`）不在本行：它验证「装得上」而不是「产物对」，且要下载整棵依赖，等包稳定后作为 `workflow_dispatch`／nightly 单独加。
+
 ## Alternatives considered
 
 **查源码树，不打包。** 快，不依赖 pnpm。否掉：`files` 白名单、`prepack`、pnpm 对目录的处理都不在源码树里体现；参考工程的注释明确否定了「用源码文件列表代替 release evidence」。
@@ -100,7 +108,8 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 - 包内 `lib/index.js` 留一个 `import 'esbuild'` → `undeclared-import esbuild`；把 `lib/index.js` 改成 import 一个包内文件（inputs 变 2）→ `undeclared-import` 的 inputs 断言报错。
 - 包内 `lib/client.js` 不含 `id: "see-dsh-novel"` → `client-id-missing`。
 - 有问题时退出码非零、stderr 列问题码；通过时不写工作区任何文件（临时目录已清理）。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；`scripts/pack-tar.mjs` 由 `scripts/pack-tar.test.mjs` 覆盖（合成一份带链接、`..`、重复条目的 tar 字节），根 `test` 脚本同时跑 `scripts/*.test.mjs`；`scripts/check-package.mjs` 与根 `package.json` 的 `verify` 链；realRun `artifacts/real-runs/runtime.package-check.json`（含 `date`、`sessionId`、`tests.passed: true` 与非空 `receipts`，与其他行同形）。
+- CI：`.github/workflows/ci.yml` 的 `verify` job 在 `ubuntu-latest` 与 `windows-latest` 上都跑 `pnpm run verify`，`check-package` 因此随链执行；`AGENT_NOTE_ARCHIVE_BASE_REF` 在 job 级 env，两条 runner 都拿到。
+- 实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；`scripts/pack-tar.mjs` 由 `scripts/pack-tar.test.mjs` 覆盖（合成一份带链接、`..`、重复条目的 tar 字节），根 `test` 脚本同时跑 `scripts/*.test.mjs`；`scripts/check-package.mjs`、根 `package.json` 的 `verify` 链与 `.github/workflows/ci.yml` 同批改；realRun `artifacts/real-runs/runtime.package-check.json`（含 `date`、`sessionId`、`tests.passed: true` 与非空 `receipts`，与其他行同形）。
 - 真实运行：`pnpm run check-package` 在真实 `pnpm pack` 产物上通过；再人为改动一次（把 `files` 里的 `lib` 去掉）重跑，脚本报错并以非零码退出，随后恢复。
 
 ## Risks
@@ -111,4 +120,5 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 - 允许集合精确到文件名：新增构建产物（例如 preset 子入口）必须同批更新白名单，否则报 `unexpected-entry`——这是有意的摩擦。
 - `install-hook` 检查的是 manifest 里的脚本名，不判断脚本内容；一个无害的 hooks 也会被拦，需要作者显式改成别的名字或移除。
 - 本行不覆盖「安装成功」：版本要求、profile 权限、host 与 client 的装载顺序仍可能让 `install_bundle` 失败。
+- CI 加 Windows runner 会让每次推送多一份机器时间；如果后续觉得太慢，可以先只让 `ubuntu-latest` 跑 `verify`，Windows 改成只在 PR 上跑。
 - `local-dependency` 与 `version-drift` 今天恒不触发；它们只有合成 fixture 的证据。
