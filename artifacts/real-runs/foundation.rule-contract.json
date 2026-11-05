@@ -1,0 +1,15 @@
+{
+  "capability": "foundation.rule-contract",
+  "date": "2026-11-05",
+  "sessionId": "session-5856f2b8-8c5c-465b-b00a-61674176d2fc",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "202 passed — book_rules 7 例（版本注入与字段顺序、缺必填与未知字段、裸字符串／空数组合法、prototype 键拒绝、读取往返与正文去空白、缺失 md／缺失 json／语法错／无版本、schema 字段集合与校验器一致且保留 narrativePerson 说明）＋ foundation 8 例（含非法 details 不写盘、落盘含 version）"
+  },
+  "receipts": [
+    "真实运行（`work-rules`，session `session-5856f2b8-8c5c-465b-b00a-61674176d2fc`）：主编调 `story_foundation_details`，入参 `bookRulesData` 为 `{prohibitions:[\"不写现实政治\"], enableFullCastTracking:false, allowedDeviations:[], narrativePerson:\"第三人称\"}`，工具回执「写入 6 个文件」",
+    "落盘的 `book_rules.json` 首项是 `\"version\": \"2\"`，字段顺序为 version → narrativePerson → prohibitions → enableFullCastTracking → allowedDeviations；`readBookRules` 读回 `{version:\"2\", narrativePerson:\"第三人称\", prohibitions:[\"不写现实政治\"], enableFullCastTracking:false, allowedDeviations:[]}`，`body` 为 `# 本书规则\\n\\n不写现实政治。`",
+    "对照：复制该文件删除 `version` 后重跑读取，退出非零，stderr 为 `source/story/book_rules.json: 字段 version 必须是 \"2\"，实际是 undefined`；恢复文件后读取再次通过"
+  ]
+}
