@@ -1,12 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { parseProposal, proposalCard } from '../src/core/proposal.ts'
 import { installProposalTool, PROPOSE_NAME, proposeOutput, proposeParameters } from '../src/plugin/proposal-tool.ts'
-import { readWork, writeWork } from '../src/core/work.ts'
+import { readWork, workProbes, writeWork } from '../src/core/work.ts'
+import { storyNext } from '../src/plugin/story-next.ts'
 import { violations } from './support/schema-subset.mjs'
 
 async function workspace() {
@@ -82,10 +83,15 @@ test('the draft rejects missing or invalid fields', () => {
   assert.equal(draft.language, 'zh')
 })
 
+test('a bracketed title is not wrapped twice on the card', () => {
+  const card = proposalCard(parseProposal({ title: '《夜班司机》', summary: 's' }))
+  assert.match(card, /^立项《夜班司机》｜中文\ns$/)
+})
+
 test('the card carries the confirmed fields and omits the missing ones', () => {
   const card = proposalCard(parseProposal(full))
   assert.match(card, /立项《夜班司机》/)
-  assert.match(card, /都市悬疑 · 起点 · 中文 · 目标 120 章 · 单章 2600 字/)
+  assert.match(card, /都市悬疑 · 起点 · 中文 · 目标 120 章 × 单章 2600 字/)
   assert.match(card, /撞见城市另一面/)
   // 语言总是出现，所以只有语言时卡片仍有一格。
   assert.equal(proposalCard(parseProposal({ title: '书', summary: 's' })), '立项《书》｜中文\ns')
@@ -95,14 +101,15 @@ test('the card carries the confirmed fields and omits the missing ones', () => {
 test('allowing the card writes work.json with the confirmed fields', async () => {
   const root = await workspace()
   try {
+    const controller = new AbortController()
     const approval = fakeApproval('allowed-once')
     const { ctx, registered } = services(root, approval.service)
     installProposalTool(ctx)
-    const result = await registered.get(PROPOSE_NAME).execute(full, exec)
+    const result = await registered.get(PROPOSE_NAME).execute(full, { ...exec, signal: controller.signal })
     assert.equal(result.created, true)
     assert.equal(result.outcome, 'allowed-once')
-    assert.match(result.work, /《夜班司机》/)
-    assert.match(result.work, /目标 120 章/)
+    assert.match(result.summary, /《夜班司机》/)
+    assert.match(result.summary, /目标 120 章/)
 
     const work = await readWork(root)
     assert.equal(work.title, '夜班司机')
@@ -114,10 +121,16 @@ test('allowing the card writes work.json with the confirmed fields', async () =>
       platform: '起点',
     })
     assert.equal(await exists(join(root, 'source')), false, '立项不创建 source/')
+    // 工作区里只多出身份文件本身。
+    assert.deepEqual((await readdir(root)).sort(), ['work.json'])
+    // 立项后的路牌是 foundation。
+    assert.equal(storyNext(await workProbes(root)).phase, 'foundation')
     assert.equal(approval.requests.length, 1)
     assert.equal(approval.requests[0].callId, 'call_1')
     assert.equal(approval.requests[0].toolName, 'story_propose')
     assert.match(approval.requests[0].reason, /立项《夜班司机》/)
+    // 取消卡片时确认条要能连带收回：signal 原样传下去。
+    assert.equal(approval.requests[0].signal, controller.signal)
   } finally {
     await cleanup(root)
   }
@@ -133,7 +146,7 @@ for (const outcome of ['rejected', 'cancelled', 'unavailable']) {
       const result = await registered.get(PROPOSE_NAME).execute(full, exec)
       assert.equal(result.created, false)
       assert.equal(result.outcome, outcome)
-      assert.equal(result.work, null)
+      assert.equal(result.summary, null)
       assert.equal(await exists(join(root, 'work.json')), false)
       const rendered = registered.get(PROPOSE_NAME).output.render({}, result)
       assert.match(rendered[0].text, new RegExp(`未立项（${outcome}）`))

@@ -5,7 +5,7 @@
  * 不可用时只给确定性入口，不静默创建。
  */
 import type {
-  ApprovalService, Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition,
+  ApprovalOutcome, Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition,
 } from '../core/types.js'
 import { proposalCard, parseProposal } from '../core/proposal.js'
 import { describeWork, readWork, writeWork, WORK_LANGUAGES } from '../core/work.js'
@@ -15,14 +15,17 @@ import { approvalServiceOf, confirmationPolicy } from '../pipelines/long/gate.js
 export const PROPOSE_NAME = 'story_propose'
 
 /** 提案的四种结局；`unavailable` 包含服务缺席、策略 never 与确认条自身不可用。 */
-export type ProposalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
+export type ProposalOutcome = ApprovalOutcome
+/** 结局的固定取值，schema 枚举从这里来。 */
+export const PROPOSAL_OUTCOMES = ['allowed-once', 'rejected', 'cancelled', 'unavailable'] as const
 
 /** 提案工具的回执。 */
 export interface ProposalResult {
   created: boolean
   outcome: ProposalOutcome
   card: string
-  work: string | null
+  /** 立项成功后的一行身份描述；未立项时是 null。 */
+  summary: string | null
 }
 
 /** 参数：标题与摘要必填，其余可选。 */
@@ -47,11 +50,11 @@ export const proposeOutput: JsonSchema = {
   additionalProperties: false,
   properties: {
     created: { type: 'boolean' },
-    outcome: { type: 'string', enum: ['allowed-once', 'rejected', 'cancelled', 'unavailable'] },
+    outcome: { type: 'string', enum: [...PROPOSAL_OUTCOMES] },
     card: { type: 'string' },
-    work: { oneOf: [{ type: 'string' }, { type: 'null' }] },
+    summary: { oneOf: [{ type: 'string' }, { type: 'null' }] },
   },
-  required: ['created', 'outcome', 'card', 'work'],
+  required: ['created', 'outcome', 'card', 'summary'],
 }
 
 /**
@@ -76,7 +79,7 @@ export async function proposeWork(
 
   const approval = approvalServiceOf(ctx)
   if (approval === undefined || confirmationPolicy(approval, exec.agent) === 'never') {
-    return { created: false, outcome: 'unavailable', card, work: null }
+    return { created: false, outcome: 'unavailable', card, summary: null }
   }
   const outcome = await approval.request({
     agent: exec.agent,
@@ -86,7 +89,7 @@ export async function proposeWork(
     signal: exec.signal,
   })
   if (outcome !== 'allowed-once') {
-    return { created: false, outcome, card, work: null }
+    return { created: false, outcome, card, summary: null }
   }
   const work = await writeWork(root, {
     title: draft.title,
@@ -96,20 +99,23 @@ export async function proposeWork(
     genre: draft.genre,
     platform: draft.platform,
   })
-  return { created: true, outcome, card, work: describeWork(work) }
+  return { created: true, outcome: 'allowed-once', card, summary: describeWork(work) }
 }
 
 /** 回执的文字摘要。 */
 function renderProposal(_args: unknown, value: ProposalResult): Array<{ type: 'text', text: string }> {
-  if (value.created && value.work !== null) {
-    return [{ type: 'text', text: `已立项${value.work}\n下一步：按 story_next 的指示写基础设定。` }]
+  if (value.created && value.summary !== null) {
+    return [{ type: 'text', text: `已立项${value.summary}` }]
   }
-  const why = value.outcome === 'rejected'
-    ? '作者退回了这次提案，问清想改哪一处再提。'
-    : value.outcome === 'cancelled'
-      ? '作者取消了这次提案，不要自行重试。'
-      : '确认条不可用：可以用 /story-init，或在作者明确说要立项后调 story_work_create。'
+  const why = value.outcome === 'allowed-once' ? '' : OUTCOME_HINT[value.outcome]
   return [{ type: 'text', text: `未立项（${value.outcome}）。${why}\n提案：\n${value.card}` }]
+}
+
+/** 三种非允许结局各自的下一步；与确认结果的语义一一对应。 */
+const OUTCOME_HINT: Record<Exclude<ProposalOutcome, 'allowed-once'>, string> = {
+  rejected: '作者退回了这次提案，问清想改哪一处再提。',
+  cancelled: '作者取消了这次提案，先不要重试；等作者重新开口，再问想改哪一处。',
+  unavailable: '确认条不可用：可以用 /story-init，或在作者明确说要立项后调 story_work_create。',
 }
 
 /**

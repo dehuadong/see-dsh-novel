@@ -235,7 +235,7 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
  * 标题可能已经带书名号（命令输入按原样保存），这时不再包第二层：
  * 首尾都是书名号的标题按作者写的样子输出。
  * @param work 身份对象
- * @returns 形如 `《标题》：profile，language，status（目标 N 章）`
+ * @returns 形如 `《标题》：profile，language，status（目标 N 章，单章 M 字，题材，平台）`；可选字段缺省时不出现
  */
 export function describeWork(work: Work): string {
   const scope = [

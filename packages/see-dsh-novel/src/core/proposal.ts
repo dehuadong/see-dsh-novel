@@ -79,12 +79,19 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
  * @returns 卡片文本
  */
 export function proposalCard(draft: ProposalDraft): string {
+  const scope = draft.targetChapters === undefined
+    ? draft.chapterWordCount === undefined ? undefined : `单章 ${draft.chapterWordCount} 字`
+    : draft.chapterWordCount === undefined
+      ? `目标 ${draft.targetChapters} 章`
+      : `目标 ${draft.targetChapters} 章 × 单章 ${draft.chapterWordCount} 字`
   const parts = [
     draft.genre,
     draft.platform,
     LANGUAGE_LABEL[draft.language],
-    draft.targetChapters === undefined ? undefined : `目标 ${draft.targetChapters} 章`,
-    draft.chapterWordCount === undefined ? undefined : `单章 ${draft.chapterWordCount} 字`,
+    scope,
   ].filter((part): part is string => part !== undefined)
-  return `立项《${draft.title}》${parts.length === 0 ? '' : `｜${parts.join(' · ')}`}\n${draft.summary}`
+  // 标题已带书名号时不再包第二层（与 `describeWork` 同一规则）。
+  const bracketed = draft.title.startsWith('《') && draft.title.endsWith('》')
+  const title = bracketed ? draft.title : `《${draft.title}》`
+  return `立项${title}｜${parts.join(' · ')}\n${draft.summary}`
 }
