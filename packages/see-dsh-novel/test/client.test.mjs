@@ -584,6 +584,12 @@ test('START_TEXT names the checks the agent must run before writing', () => {
   }
   assert.match(text, /阶段不是 foundation 就停手/)
   assert.match(text, /不要自行签核/)
+
+  // 拿不到会话目录时不假装比对：明说拿不到，只要求读身份。
+  const noPath = START_TEXT(undefined)
+  assert.match(noPath, /面板没有拿到这个会话的工作区路径/)
+  assert.doesNotMatch(noPath, /是不是这个目录/)
+  assert.match(noPath, /story_work_show/)
 })
 
 test('the start inject face sends one queue-mode prompt with the cwd', async () => {

@@ -14,7 +14,7 @@ import { useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PRESET_ID, presetSelector } from './preset.js'
-import type { CommandOutcome, ResumeOutcome, SessionId, ViewInjected } from './types.js'
+import type { CommandOutcome, PromptOutcome, SessionId, ViewInjected } from './types.js'
 
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 
@@ -185,7 +185,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         return
       }
       // 回执已经写下，从这里开始的失败只影响「有没有自动继续」。
-      let resumed: ResumeOutcome = 'failed'
+      let resumed: PromptOutcome = 'failed'
       try {
         resumed = await resume(sessionId)
       } catch {
@@ -252,13 +252,16 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     } else if (identified) {
       body.push(<p key="empty" className="sdn-muted">已立项，还没有基础设定。</p>)
       if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
-      body.push(
-        <div key="start" className="sdn-row">
-          <button type="button" disabled={phase === 'submitting'} onClick={() => { void startFoundation() }}>
-            {START_LABEL}
-          </button>
-        </div>,
-      )
+      // 认可已经落定时不再给开工入口：`begin` 会拒绝这次点击，按钮只会是死的。
+      if (!isApproveSettled(phase)) {
+        body.push(
+          <div key="start" className="sdn-row">
+            <button type="button" disabled={phase === 'submitting'} onClick={() => { void startFoundation() }}>
+              {START_LABEL}
+            </button>
+          </div>,
+        )
+      }
       if (notice !== '') body.push(<p key="notice" className="sdn-muted">{notice}</p>)
     } else {
       body.push(<p key="empty" className="sdn-muted">尚未立项。当前工作区既没有 work.json，也没有 source/story/。</p>)

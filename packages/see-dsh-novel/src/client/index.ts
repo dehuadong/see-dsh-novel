@@ -14,7 +14,7 @@ import { outcomeOf } from './outcome.js'
 import { PRESET_ID, SENTINEL_SLOT, VIEW_SLOT } from './preset.js'
 import { StoryView } from './StoryView.js'
 import { installStyles } from './styles.js'
-import type { CommandOutcome, ResumeOutcome, SentinelInjected, SessionId, ViewInjected } from './types.js'
+import type { CommandOutcome, PromptOutcome, SentinelInjected, SessionId, ViewInjected } from './types.js'
 
 export const inject = ['slots', 'sessions'] as const
 
@@ -34,7 +34,7 @@ export const RESUME_TEXT = '作者刚在面板确认了 foundation（若那之�
  *
  * 先核对目录与阶段再动笔：面板按会话记录目录探针，工具按当前工作目录解析，
  * 两者可能不是同一部作品；重挂面板后按钮会回来，阶段检查是重复投递的缓解。
- * @param cwd 面板看到的工作区路径；会话没有记录目录时省略
+ * @param cwd 面板看到的工作区路径；拿不到时会明说拿不到，而不是跳过核对
  */
 export function START_TEXT(cwd: string | undefined): string {
   const where = cwd === undefined
@@ -58,7 +58,7 @@ export function apply(ctx: Context): void {
   ctx.effect(() => installStyles(), 'see-dsh-novel: panel styles')
 
   /** 投一条排队消息；没有绑定时是确定失败，`prompt` 的抛错照常向上抛。 */
-  const promptQueue = async (sessionId: SessionId, text: string): Promise<ResumeOutcome> => {
+  const promptQueue = async (sessionId: SessionId, text: string): Promise<PromptOutcome> => {
     const binding = ctx.sessions.binding(sessionId)
     if (binding === undefined) return 'failed'
     const result = await binding.session.prompt([{ type: 'text', text }], 'queue')
@@ -72,8 +72,8 @@ export function apply(ctx: Context): void {
       if (binding === undefined) return 'unbound'
       return outcomeOf(await binding.session.command(line))
     },
-    resume: (sessionId: SessionId): Promise<ResumeOutcome> => promptQueue(sessionId, RESUME_TEXT),
-    start: (sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome> => promptQueue(sessionId, START_TEXT(cwd)),
+    resume: (sessionId: SessionId): Promise<PromptOutcome> => promptQueue(sessionId, RESUME_TEXT),
+    start: (sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome> => promptQueue(sessionId, START_TEXT(cwd)),
   })
 
   let eligible = false
