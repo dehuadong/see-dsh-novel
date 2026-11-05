@@ -139,7 +139,7 @@ capabilities:
   - id: foundation.rule-contract
     title: book_rules 契约：version 2 与严格读取，字段缺失/非法即报错
     source: inkos:packages/core/src/models/book-rules.ts
-    dsh: tools.register + atomic write
+    dsh: tools.register + library + atomic write
     implementation: null
     consumer: null
     realRun: null
