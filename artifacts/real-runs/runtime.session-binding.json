@@ -1,0 +1,17 @@
+{
+  "capability": "runtime.session-binding",
+  "date": "2026-11-05",
+  "sessionId": "session-233e1dfd-f99a-4a60-a212-b2a315627e9b",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "105 passed — 身份读写与严格解析、三个探针、四阶段映射、commitFile 单文件写入、两个作品工具、面板身份三态与任一锚点足够"
+  },
+  "receipts": [
+    "空工作区 `E:\\see-dsh-novel\\.artifacts\\work-empty-2` 里立项：seq 21/22 `story_work_show` →「这个工作区还没有立项（没有 work.json）」；seq 23/24 `story_next` →「阶段 unbound（未绑定作品）」",
+    "seq 29/30 `story_work_create` 参数 `{title: 夜行测试, language: zh}` →「已立项《夜行测试》：longform-novel，zh，draft」；磁盘上 `work-empty-2/work.json` 的 `version/id/title/profile/language/status/metadata/createdAt/updatedAt` 齐全，`id` 取目录名 `work-empty-2`",
+    "seq 35/36 `story_next` 读到身份文件 →「阶段 foundation · 夜行测试」；面板同时显示「已立项，还没有基础设定」+ 当前工作区路径（截图），没有作者确认按钮",
+    "第二个真机样本 `E:\\see-dsh-novel\\.artifacts\\work-empty`（会话 session-3ad39e43）：`story_work_create` 带 `metadata.targetChapters=120`／`chapterWordCount=3000` →「已立项《长夜行》：longform-novel，zh，draft（目标 120 章，单章 3000 字）」；随后 `story_next` 报「阶段 foundation · 长夜行」；模型在同一轮继续写完基础设定后，面板改显示作者确认闸门且不带「身份文件缺失」提示，说明身份探针读到、设定探针按内容切换",
+    "身份缺、内容在的真实样本 `.artifacts/work-demo`：面板显示确认闸门并追加「身份文件缺失」一行（模型与面板读同一份 `work.json`；该目录仍未立项，属预期状态）"
+  ]
+}

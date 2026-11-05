@@ -55,7 +55,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/work.ts
     consumer: packages/see-dsh-novel/test/work.test.mjs
     realRun: artifacts/real-runs/runtime.session-binding.json
-    status: missing
+    status: verified
   - id: runtime.commands
     title: DSH command/headless 入口（init/export 至少一条）
     reference: inkos:packages/cli/src/commands/
