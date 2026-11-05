@@ -12,8 +12,6 @@ Status: implemented
 
 参考工程的确认语义不是这样：宿主确认之后会起一轮，并把 `confirmedAction` 交给 agent——「本轮动作已由宿主确认：… 立即调用匹配的 capability action，不要再次确认。」
 
-门禁本身已经足够强（`story_foundation_signoff` 在摘要不匹配或最新决定是退回时拒绝），缺的是**确认之后把会话叫醒**这一环。
-
 ## Decision
 
 ### 一次点击，先写回执，再投「继续」
@@ -88,9 +86,9 @@ Status: implemented
 
 ## Consequences
 
-落到实现的：`src/client/index.ts` 导出 `RESUME_TEXT` 并给视图注入 `resume(sessionId)`（`prompt([{ type:'text', text }], 'queue')`，`RemoteResult.ok !== true` 或没有会话绑定时返回 `'failed'`）；`StoryView.tsx` 的 `submit` 是一次点击两步——命令成功且是 `/story-approve` 时接着调 `resume`，成功后把三个按钮换成状态行（`'已确认，正在继续…'` 或 `'已确认；会话没能自动继续，在「对话」里说一句「继续」即可。'`），两种都在本次挂载内不可再点。防重靠 `useRef` 的 `inFlight`／`done`：同一帧连点两次只会走一遍，state 的异步更新挡不住这一下。
+`src/client/index.ts` 导出 `RESUME_TEXT` 并给视图注入 `resume(sessionId)`：`prompt([{ type: 'text', text }], 'queue')`，`RemoteResult.ok !== true` 或没有会话绑定时返回 `'failed'`。`StoryView.tsx` 的 `submit` 是一次点击两步——命令成功且是 `/story-approve` 时接着调 `resume`，成功后把三个按钮换成状态行（继续 / 没能继续），两种都在本次挂载内不可再点；退回与查看走各自的成功文案、不唤醒。本地生命周期收成一个 `phase`（`idle`／`running`／`resumed`／`resume-failed`）加一个同步的 ref 防同一帧连点；会话 id 变化时重置，避免面板在会话之间复用时把上一个会话的「已确认」带过来；`runCommand` 或 `resume` 抛错时落到「提交失败」并恢复按钮，不会把「正在执行」挂着。
 
-验证：`test/client.test.mjs` 14 例，新增或改写的覆盖「认可→投消息」「resume 失败文案」「退回／查看不唤醒」「命令失败不投且保留按钮」「连点只走一次」「`resume` 注入面的 payload 与 `queue` 模式」「prompt 拒绝与无绑定都返回 `failed`」「消息文本含两个工具名且不含摘要」；`pnpm run verify` 全绿。
+验证见 `test/client.test.mjs`（认可→投消息、继续失败文案、退回／查看不唤醒、命令失败与抛错都不投且恢复按钮、连点只走一次、切换会话重置、`resume` 注入面的 payload 与 `queue` 模式、prompt 拒绝与无绑定都返回 `failed`、消息文本含两个工具名且不含摘要），真实运行回执见 `artifacts/real-runs/panel.gate-resume.json`。
 
 代价与已知限制：
 
@@ -98,4 +96,3 @@ Status: implemented
 - 连点防重只在本次挂载内有效；跨挂载重复认可仍会起两轮，门禁只保证「摘要不匹配的确认不生效」。
 - `prompt` 的成败取决于会话是否可写（被归档、agent 正阻塞等）；失败路径已定义，作者仍要手动说一句才能继续。
 - 消息文本会随产品演进，测试断言的是「提到两个工具名」「不要再次请作者确认」这类稳定语义，不锁整句。
-- 宿主侧 `Agent.followup()` 这条路没有走：它能把「确认即继续」做到连面板都不需要，但要宿主代码碰 DSH 的内部消息结构与品牌类型，等真有“无面板确认”需求时再评估。

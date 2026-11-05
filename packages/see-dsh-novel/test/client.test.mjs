@@ -119,6 +119,31 @@ async function render(element) {
 /** 按槽位名取注册项。 */
 const entryFor = (registrations, slot) => registrations.find((entry) => entry.spec.name === slot)
 
+/**
+ * 把视图挂到「预设匹配 + 槽位已声明」的状态，返回它的注入面。
+ * @param binding 会话绑定工厂；省略表示没有绑定
+ */
+async function mountEligible(binding) {
+  const { ctx, registrations, injected } = fakeContext(binding)
+  apply(ctx)
+  const releaseSentinel = injected.get(SENTINEL_SLOT)()
+  const releaseSlot = injected.get(SLOT)()
+  const sentinel = entryFor(registrations, SENTINEL_SLOT)
+  const tree = await render(React.createElement(sentinel.component, {
+    sessionId: SESSION,
+    useSessions: selectorOf(sessionState('see-dsh-novel')),
+    ...sentinel.spec.inject(),
+  }))
+  return {
+    face: entryFor(registrations, SLOT).spec.inject(),
+    async dispose() {
+      await act(async () => { tree.unmount() })
+      releaseSlot()
+      releaseSentinel()
+    },
+  }
+}
+
 test('apply installs styles, wires both slots, and registers the view only when eligible', async () => {
   const head = installDocumentStub()
   const { ctx, registrations, injected, effects } = fakeContext()
@@ -192,11 +217,12 @@ async function renderView({
   runCommand,
   resumeOutcome = 'ok',
   resume,
+  sessionId = SESSION,
 } = {}) {
   const calls = []
   const resumes = []
   const props = {
-    sessionId: SESSION,
+    sessionId,
     useSessions: selectorOf(state),
     useResource: (address) => ({
       status: address.includes('story_frame') ? statuses[0] : statuses[1],
@@ -204,17 +230,17 @@ async function renderView({
       failure: undefined,
     }),
     canCommand: () => canCommand,
-    runCommand: async (sessionId, line) => {
-      calls.push({ sessionId, line })
-      return runCommand === undefined ? outcome : runCommand
+    runCommand: async (id, line) => {
+      calls.push({ sessionId: id, line })
+      return runCommand === undefined ? outcome : runCommand()
     },
-    resume: async (sessionId) => {
-      resumes.push(sessionId)
+    resume: async (id) => {
+      resumes.push(id)
       return resume === undefined ? resumeOutcome : resume()
     },
   }
   const tree = await render(React.createElement(StoryView, props))
-  return { tree, calls, resumes }
+  return { tree, props, calls, resumes }
 }
 
 test('the view shows the gate and dispatches the three commands', async () => {
@@ -246,12 +272,14 @@ test('reject and review never wake the session', async () => {
   await act(async () => { reject.tree.root.findAllByType('button')[2].props.onClick() })
   assert.deepEqual(reject.calls, [{ sessionId: SESSION, line: '/story-reject' }])
   assert.deepEqual(reject.resumes, [])
-  assert.match(textOf(reject.tree), /已提交「退回」/)
+  assert.match(textOf(reject.tree), /已退回；这一版不会签核，等意见后重写再确认/)
+  assert.equal(reject.tree.root.findAllByType('button').length, 3, '退回后按钮仍在')
 
   const review = await renderView()
   await act(async () => { review.tree.root.findAllByType('button')[0].props.onClick() })
   assert.deepEqual(review.calls, [{ sessionId: SESSION, line: '/story-review' }])
   assert.deepEqual(review.resumes, [])
+  assert.match(textOf(review.tree), /已提交，结果在「对话」里/)
 })
 
 test('a failed command does not wake the session and keeps the buttons', async () => {
@@ -261,6 +289,42 @@ test('a failed command does not wake the session and keeps the buttons', async (
   assert.deepEqual(resumes, [])
   assert.match(textOf(tree), /提交失败，稍后再试/)
   assert.equal(tree.root.findAllByType('button').length, 3)
+})
+
+test('a throwing command is reported instead of leaving the panel stuck', async () => {
+  installDocumentStub()
+  const { tree, resumes } = await renderView({
+    runCommand: () => { throw new Error('rpc down') },
+  })
+  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  assert.deepEqual(resumes, [])
+  assert.match(textOf(tree), /提交失败，稍后再试/)
+  assert.equal(tree.root.findAllByType('button').length, 3, '失败后按钮应恢复可用')
+})
+
+test('switching sessions resets the panel state', async () => {
+  installDocumentStub()
+  const other = 'session-2'
+  const twoSessions = {
+    ids: [SESSION, other],
+    byId: {
+      [SESSION]: { sessionId: SESSION, cwd: '/work' },
+      [other]: { sessionId: other, cwd: '/work' },
+    },
+    projectionsBySession: {
+      [SESSION]: { values: { agentPreset: 'see-dsh-novel' } },
+      [other]: { values: { agentPreset: 'see-dsh-novel' } },
+    },
+  }
+  const { tree, props } = await renderView({ state: twoSessions })
+  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  assert.match(textOf(tree), /已确认，正在继续…/)
+
+  await act(async () => {
+    tree.update(React.createElement(StoryView, { ...props, sessionId: other }))
+  })
+  assert.doesNotMatch(textOf(tree), /已确认，正在继续…/)
+  assert.equal(tree.root.findAllByType('button').length, 3, '换会话后按钮应回来')
 })
 
 test('a double click dispatches one command and one resume', async () => {
@@ -317,24 +381,10 @@ test('command outcomes map to the four visible states', async () => {
 
   // 没有会话绑定时，注入面直接给出 unbound，不调用命令。
   installDocumentStub()
-  const { ctx, registrations, injected } = fakeContext()
-  apply(ctx)
-  const releaseSentinel = injected.get(SENTINEL_SLOT)()
-  const releaseSlot = injected.get(SLOT)()
-  const sentinel = entryFor(registrations, SENTINEL_SLOT)
-  const sentinelTree = await render(React.createElement(sentinel.component, {
-    sessionId: SESSION,
-    useSessions: selectorOf(sessionState('see-dsh-novel')),
-    ...sentinel.spec.inject(),
-  }))
-  const view = entryFor(registrations, SLOT)
-  const injectedFace = view.spec.inject()
-  assert.equal(await injectedFace.runCommand(SESSION, '/story-approve'), 'unbound')
-  assert.equal(injectedFace.canCommand(SESSION), false)
-
-  await act(async () => { sentinelTree.unmount() })
-  releaseSlot()
-  releaseSentinel()
+  const { face, dispose } = await mountEligible()
+  assert.equal(await face.runCommand(SESSION, '/story-approve'), 'unbound')
+  assert.equal(face.canCommand(SESSION), false)
+  await dispose()
 })
 
 test('the unbound notice is visible to the author', async () => {
@@ -355,18 +405,7 @@ test('the resume inject face sends one queue-mode continuation prompt', async ()
       },
     },
   }
-  const { ctx, registrations, injected } = fakeContext(() => binding)
-  apply(ctx)
-  const releaseSentinel = injected.get(SENTINEL_SLOT)()
-  const releaseSlot = injected.get(SLOT)()
-  const sentinel = entryFor(registrations, SENTINEL_SLOT)
-  const sentinelTree = await render(React.createElement(sentinel.component, {
-    sessionId: SESSION,
-    useSessions: selectorOf(sessionState('see-dsh-novel')),
-    ...sentinel.spec.inject(),
-  }))
-  const face = entryFor(registrations, SLOT).spec.inject()
-
+  const { face, dispose } = await mountEligible(() => binding)
   assert.deepEqual(await face.resume(SESSION), 'ok')
   assert.equal(prompts.length, 1)
   assert.equal(prompts[0].mode, 'queue')
@@ -375,45 +414,20 @@ test('the resume inject face sends one queue-mode continuation prompt', async ()
   assert.match(RESUME_TEXT, /story_foundation_signoff/)
   assert.match(RESUME_TEXT, /不要再次请作者确认/)
   assert.doesNotMatch(RESUME_TEXT, /[0-9a-f]{64}/, '消息里不应带摘要')
-
-  await act(async () => { sentinelTree.unmount() })
-  releaseSlot()
-  releaseSentinel()
+  await dispose()
 })
 
 test('resume reports failure for a rejected prompt or a missing binding', async () => {
   installDocumentStub()
   const failing = { session: { prompt: async () => ({ ok: false }) } }
-  const first = fakeContext(() => failing)
-  apply(first.ctx)
-  const releaseSentinel = first.injected.get(SENTINEL_SLOT)()
-  const releaseSlot = first.injected.get(SLOT)()
-  const sentinel = entryFor(first.registrations, SENTINEL_SLOT)
-  const sentinelTree = await render(React.createElement(sentinel.component, {
-    sessionId: SESSION,
-    useSessions: selectorOf(sessionState('see-dsh-novel')),
-    ...sentinel.spec.inject(),
-  }))
-  assert.equal(await entryFor(first.registrations, SLOT).spec.inject().resume(SESSION), 'failed')
-  await act(async () => { sentinelTree.unmount() })
-  releaseSlot()
-  releaseSentinel()
+  const first = await mountEligible(() => failing)
+  assert.equal(await first.face.resume(SESSION), 'failed')
+  await first.dispose()
 
   // 没有会话绑定：直接失败，不调用 prompt。
-  const second = fakeContext()
-  apply(second.ctx)
-  const releaseSecondSentinel = second.injected.get(SENTINEL_SLOT)()
-  const releaseSecondSlot = second.injected.get(SLOT)()
-  const secondSentinel = entryFor(second.registrations, SENTINEL_SLOT)
-  const secondTree = await render(React.createElement(secondSentinel.component, {
-    sessionId: SESSION,
-    useSessions: selectorOf(sessionState('see-dsh-novel')),
-    ...secondSentinel.spec.inject(),
-  }))
-  assert.equal(await entryFor(second.registrations, SLOT).spec.inject().resume(SESSION), 'failed')
-  await act(async () => { secondTree.unmount() })
-  releaseSecondSlot()
-  releaseSecondSentinel()
+  const second = await mountEligible()
+  assert.equal(await second.face.resume(SESSION), 'failed')
+  await second.dispose()
 })
 
 test('the built client artifact keeps the module-loader handoff', () => {
