@@ -80,22 +80,27 @@ function stringArray(value: unknown, file: string, field: string): string[] {
 /** 嵌套对象的一组字段；schema 与校验共用。 */
 interface NestedField {
   schema: JsonSchema
+  /** 必填与否；schema 的 required 与校验的缺字段检查都从这里推。 */
+  required: boolean
   read(value: unknown, file: string, where: string): unknown
 }
 
 /** 严格对象：只接受已知字段、必填项齐全。 */
 function nestedObject(
   fields: Readonly<Record<string, NestedField>>,
-  required: ReadonlyArray<string>,
 ): { schema: JsonSchema, read(value: unknown, file: string, where: string): Record<string, unknown> } {
   const properties: Record<string, JsonSchema> = {}
-  for (const [name, field] of Object.entries(fields)) properties[name] = field.schema
+  const required: string[] = []
+  for (const [name, field] of Object.entries(fields)) {
+    properties[name] = field.schema
+    if (field.required) required.push(name)
+  }
   return {
-    schema: OBJECT(properties, [...required]),
+    schema: OBJECT(properties, required),
     read(value, file, where) {
       const source = record(value, file, where)
       for (const key of Object.keys(source)) {
-        if (!(key in fields)) fail(file, `${where} 里的未知字段 ${JSON.stringify(key)}`)
+        if (!Object.hasOwn(fields, key)) fail(file, `${where} 里的未知字段 ${JSON.stringify(key)}`)
       }
       for (const key of required) {
         if (!Object.hasOwn(source, key)) fail(file, `${where} 缺少字段 ${JSON.stringify(key)}`)
@@ -111,19 +116,21 @@ function nestedObject(
 }
 
 const PROTAGONIST = nestedObject({
-  name: { schema: STRING, read: (value, file) => rawString(value, file, 'protagonist.name') },
-  personalityLock: { schema: STRING_ARRAY, read: (value, file) => stringArray(value, file, 'protagonist.personalityLock') },
-  behavioralConstraints: { schema: STRING_ARRAY, read: (value, file) => stringArray(value, file, 'protagonist.behavioralConstraints') },
-}, ['name', 'personalityLock', 'behavioralConstraints'])
+  name: { schema: STRING, required: true, read: (value, file) => rawString(value, file, 'protagonist.name') },
+  personalityLock: { schema: STRING_ARRAY, required: true, read: (value, file) => stringArray(value, file, 'protagonist.personalityLock') },
+  behavioralConstraints: { schema: STRING_ARRAY, required: true, read: (value, file) => stringArray(value, file, 'protagonist.behavioralConstraints') },
+})
 
 const GENRE_LOCK = nestedObject({
-  primary: { schema: STRING, read: (value, file) => rawString(value, file, 'genreLock.primary') },
-  forbidden: { schema: STRING_ARRAY, read: (value, file) => stringArray(value, file, 'genreLock.forbidden') },
-}, ['primary', 'forbidden'])
+  primary: { schema: STRING, required: true, read: (value, file) => rawString(value, file, 'genreLock.primary') },
+  forbidden: { schema: STRING_ARRAY, required: true, read: (value, file) => stringArray(value, file, 'genreLock.forbidden') },
+})
 
 /** 顶层字段；schema 与校验共用这一张表。 */
-interface FieldSpec extends NestedField {
+interface FieldSpec {
   optional: boolean
+  schema: JsonSchema
+  read(value: unknown, file: string): unknown
 }
 
 const FIELDS: Readonly<Record<keyof BookRulesInput, FieldSpec>> = {
@@ -189,7 +196,16 @@ export function parseBookRules(value: unknown, file: string = BOOK_RULES_JSON): 
       if (FIELDS[name].optional) continue
       fail(file, `缺少字段 ${JSON.stringify(name)}`)
     }
-    rules[name] = FIELDS[name].read(value, file, name)
+    rules[name] = FIELDS[name].read(value, file)
+  }
+  // 装配后的自检：必填字段齐全、已写入的值仍能通过同一份字段表。
+  // 类型系统看不到运行时的键值对应，这一步让「读函数返回错类型」当场失败。
+  for (const name of FIELD_NAMES) {
+    if (!Object.hasOwn(rules, name)) {
+      if (FIELDS[name].optional) continue
+      fail(file, `内部错误：缺少字段 ${name}`)
+    }
+    FIELDS[name].read(rules[name], file)
   }
   return rules as unknown as BookRules
 }

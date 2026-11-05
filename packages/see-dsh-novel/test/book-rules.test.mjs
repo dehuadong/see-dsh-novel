@@ -67,6 +67,13 @@ test('bare strings and arrays follow the source schema, not stricter rules', () 
     ...minimal,
     protagonist: { name: '甲', personalityLock: [], behavioralConstraints: [], extra: 1 },
   }), /protagonist 里的未知字段/)
+
+  // 原型链上的名字也是未知字段，不能被 `in` 放行。
+  assert.throws(() => parseBookRules({
+    version: '2',
+    ...minimal,
+    protagonist: { name: '甲', personalityLock: [], behavioralConstraints: [], constructor: 1 },
+  }), /protagonist 里的未知字段 "constructor"/)
 })
 
 test('readBookRules returns the rules and the trimmed body', async () => {
