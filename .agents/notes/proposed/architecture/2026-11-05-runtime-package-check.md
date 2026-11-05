@@ -102,7 +102,7 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 - 链接面：`exports` 去掉 `./` 后指向 `lib/agent.js`，磁盘上缺失 → `export-target-missing lib/agent.js`。
 - 打包面：tarball 条目里没有 `lib/agent.js` → `pack-export-missing lib/agent.js`；`files` 声明 `skills` 但 tarball 里没有 `skills/` 条目 → `files-entry-missing skills`。
 - 打包面：条目里出现 `src/index.ts` → `forbidden-path src/index.ts`；条目为空 → `empty-pack`。
-- 依赖面：`"x": "workspace:*"` → `workspace-protocol x`；插件包依赖写 `"@deepseek-ai/dsh-tools": "0.2.1"` 而根 `devDependencies` 是 `0.2.2-rc.1` → `version-drift @deepseek-ai/dsh-tools`（根里没有这个名字时不报）。
+- 依赖面：`"x": "workspace:*"` → `workspace-protocol x`；插件包依赖写 `"@deepseek-ai/dsh-client-ui-conversation": "0.2.1"` 而根 `devDependencies` 是 `0.2.2-rc.1` → `version-drift @deepseek-ai/dsh-client-ui-conversation`（根里没有这个名字时不报）。
 - patch：`dsh.bundle.patch` 指向不存在的文件 → `patch-missing`；patch 里出现 `see-dsh-novel/tools` 而 `exports` 没有 `./tools` → `patch-module-unexported see-dsh-novel/tools`。
 - 有问题时退出码非零，stderr 列出问题码与细节；没有问题时不写任何文件。
 - `verify` 链里排在 `build` 之后；实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；脚本 `scripts/check-package.mjs` 与根 `package.json`；realRun `artifacts/real-runs/runtime.package-check.json`。
