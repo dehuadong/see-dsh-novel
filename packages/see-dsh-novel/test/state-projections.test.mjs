@@ -75,3 +75,9 @@ test('empty state still renders the header row and a trailing newline', () => {
   assert.match(text, /\| 主体 \| 关系 \/ 属性 \| 当前事实 \| 生效章节 \| 来源章节 \|/)
   assert.equal(text.endsWith('\n'), true)
 })
+
+test('the renderers reject wrong shapes instead of failing later', () => {
+  assert.throws(() => renderHooksProjection({ hooks: null }), /hooks 状态/)
+  assert.throws(() => renderCurrentStateProjection({ chapter: 0 }), /当前状态/)
+  assert.throws(() => renderChapterSummariesProjection({}), /章节摘要状态/)
+})

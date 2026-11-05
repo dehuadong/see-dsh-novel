@@ -117,6 +117,32 @@ async function missing(path: string): Promise<boolean> {
   }
 }
 
+/** 形状校验；解析成功但形状不对与解析失败同样处理。 */
+function shapeOk<T>(status: 'ok' | 'missing' | 'invalid', value: unknown, ok: (value: unknown) => value is T): value is T {
+  return status === 'ok' && ok(value)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function isManifest(value: unknown): value is StateManifest {
+  return isRecord(value) && value.schemaVersion === 2 && (value.language === 'zh' || value.language === 'en')
+    && typeof value.lastAppliedChapter === 'number' && value.projectionVersion === 1
+}
+
+function isCurrentState(value: unknown): value is CurrentStateState {
+  return isRecord(value) && typeof value.chapter === 'number' && Array.isArray(value.facts)
+}
+
+function isHooksState(value: unknown): value is HooksState {
+  return isRecord(value) && Array.isArray(value.hooks)
+}
+
+function isChapterSummaries(value: unknown): value is ChapterSummariesState {
+  return isRecord(value) && Array.isArray(value.rows)
+}
+
 /** 读一份 JSON 的三种结局：成功、缺失、内容坏了。 */
 interface JsonStatus<T> {
   status: 'ok' | 'missing' | 'invalid'
@@ -173,32 +199,28 @@ export async function inspectState(
     readJsonStatus<HooksState>(join(root, STATE_DIR, 'hooks.json')),
     readJsonStatus<ChapterSummariesState>(join(root, STATE_DIR, 'chapter_summaries.json')),
   ])
-  const manifestValue = manifest.status === 'ok' ? manifest.value : undefined
+  const manifestValue = shapeOk(manifest.status, manifest.value, isManifest) ? manifest.value : undefined
+  const currentValue = shapeOk(currentState.status, currentState.value, isCurrentState) ? currentState.value : undefined
+  const hooksValue = shapeOk(hooksState.status, hooksState.value, isHooksState) ? hooksState.value : undefined
+  const summariesValue = shapeOk(chapterSummaries.status, chapterSummaries.value, isChapterSummaries) ? chapterSummaries.value : undefined
   const fallback = defaultStateSnapshot(hooks, manifestValue?.language ?? language)
   const invalid = ([
-    ['manifest.json', manifest],
-    ['current_state.json', currentState],
-    ['hooks.json', hooksState],
-    ['chapter_summaries.json', chapterSummaries],
-  ] as const).filter(([, read]) => read.status === 'invalid').map(([name]) => `${STATE_DIR}/${name}`)
+    ['manifest.json', manifest.status, manifestValue],
+    ['current_state.json', currentState.status, currentValue],
+    ['hooks.json', hooksState.status, hooksValue],
+    ['chapter_summaries.json', chapterSummaries.status, summariesValue],
+  ] as const)
+    .filter(([, status, value]) => status === 'invalid' || (status === 'ok' && value === undefined))
+    .map(([name]) => `${STATE_DIR}/${name}`)
   return {
     snapshot: {
       manifest: manifestValue ?? fallback.manifest,
-      currentState: currentState.value ?? fallback.currentState,
-      hooks: hooksState.value ?? fallback.hooks,
-      chapterSummaries: chapterSummaries.value ?? fallback.chapterSummaries,
+      currentState: currentValue ?? fallback.currentState,
+      hooks: hooksValue ?? fallback.hooks,
+      chapterSummaries: summariesValue ?? fallback.chapterSummaries,
     },
     invalid,
   }
-}
-
-/** 只取快照；坏文件按默认值处理（播种与工具用）。 */
-export async function readStateSnapshot(
-  root: string,
-  hooks: ReadonlyArray<PendingHook> = [],
-  language: ProjectionLanguage = 'zh',
-): Promise<StateSnapshot> {
-  return (await inspectState(root, hooks, language)).snapshot
 }
 
 /** 生成「尚不存在」的状态写入项（JSON 与投影都补），交给同一次 commit 原子落盘。 */

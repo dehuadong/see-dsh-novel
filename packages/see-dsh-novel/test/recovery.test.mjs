@@ -242,6 +242,25 @@ test('a deleted projection is rebuilt from its source, and a stale one is report
   }
 })
 
+test('a readable but wrong-shaped state file is reported and never overwritten', async () => {
+  const root = await workspace()
+  try {
+    await writeWork(root, { title: '坏状态' })
+    await seedFoundation(root)
+    await writeFile(join(root, 'source/story/state/hooks.json'), '{"hooks":null}', 'utf8')
+    const scan = await scanWorkspace(root)
+    const invalid = scan.findings.filter((entry) => entry.code === 'state-invalid')
+    assert.deepEqual(invalid.map((entry) => entry.path), ['source/story/state/hooks.json'])
+    assert.equal(invalid[0].fixable, false)
+    // apply 不抛错，也不覆盖坏文件或拿默认值重建投影。
+    const applied = await repairWorkspace(root, scan.findings)
+    assert.deepEqual(applied, [])
+    assert.equal(await readFile(join(root, 'source/story/state/hooks.json'), 'utf8'), '{"hooks":null}')
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('a dead prepared staging is rolled back from its backup', async () => {
   const root = await workspace()
   try {

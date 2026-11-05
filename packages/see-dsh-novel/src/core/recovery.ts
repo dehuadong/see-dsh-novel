@@ -285,7 +285,8 @@ function contentFindings(
   // 投影：源 JSON 存在且可读就重建，源没了或坏了不能拿空表冒充。
   for (const projection of PROJECTIONS) {
     const projectionPresent = files.includes(projection.path)
-    const sourcePresent = files.includes(projection.source) && !invalid.includes(projection.source)
+    const sourceExists = files.includes(projection.source)
+    const sourcePresent = sourceExists && !invalid.includes(projection.source)
     if (!projectionPresent) {
       findings.push({
         code: 'state-missing',
@@ -296,7 +297,7 @@ function contentFindings(
           : `投影 ${projection.path} 的源 ${projection.source} 缺失或读不出来；重建会用空表掩盖丢失。`,
         fixable: sourcePresent,
       })
-    } else if (!sourcePresent) {
+    } else if (!sourceExists) {
       findings.push({
         code: 'projection-stale',
         severity: 'warning',

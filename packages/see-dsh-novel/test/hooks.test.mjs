@@ -2,7 +2,6 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { countHooks, transitionHook, validateHooks } from '../src/core/hooks.ts'
-import { renderHooksProjection } from '../src/core/state-projections.ts'
 
 const hook = (over = {}) => ({
   hookId: 'H1',
@@ -34,29 +33,6 @@ test('transitions follow the table and stop at terminal states', () => {
   assert.throws(() => transitionHook(hook(), 'resolved', 1), /不允许从 deferred/)
   assert.throws(() => transitionHook(progressing, 'resolved', 1), /倒退/)
   assert.equal(transitionHook(hook(), 'superseded', 0).status, 'superseded')
-})
-
-test('projection is deterministic and sorted by the three keys', () => {
-  const state = {
-    hooks: [
-      hook({ hookId: 'B', startChapter: 2 }),
-      hook({ hookId: 'A', startChapter: 1, lastAdvancedChapter: 1, status: 'progressing' }),
-      hook({ hookId: 'C', startChapter: 1 }),
-    ],
-  }
-  const first = renderHooksProjection(state)
-  const second = renderHooksProjection(structuredClone(state))
-
-  assert.equal(first, second)
-  assert.match(first, /^# 伏笔池/)
-  const order = first.split('\n').filter((line) => /^\| (A|B|C) /.test(line))
-  assert.deepEqual(order.map((line) => line.split('|')[1]?.trim()), ['C', 'A', 'B'])
-  assert.equal(renderHooksProjection(state, 'en').includes('# Pending Hooks'), true)
-})
-
-test('projection escapes pipes and newlines so the table cannot break', () => {
-  const text = renderHooksProjection({ hooks: [hook({ notes: 'a|b\nc' })] })
-  assert.match(text, /a\\\|b<br>c/)
 })
 
 test('counts group by status', () => {
