@@ -1,0 +1,18 @@
+{
+  "capability": "panel.foundation-start",
+  "date": "2026-11-05",
+  "sessionId": "session-233e1dfd-f99a-4a60-a212-b2a315627e9b",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "108 passed — 面板 29 例（开工按钮的可见条件与一次点击、连点只投一条、确定失败可重试与结果未知不给按钮、running 抑制两类按钮、started 在观察到的一轮后解除、切换会话重置、身份缺/已有设定/通道不可用无按钮、START_TEXT 两种分支、注入面的 payload／queue 模式与无绑定失败）"
+  },
+  "receipts": [
+    "工作区 `E:\\see-dsh-novel\\.artifacts\\work-empty-2` 里只有 `work.json`（已立项、无设定）时，面板显示「已立项，还没有基础设定。」与「开始基础设定」按钮；点一次后这次点击触发了一条 `user/message`（seq 48），内容就是 `START_TEXT`，带面板看到的工作区路径",
+    "seq 45 `turn/start`（turn 2）：指令确实起了一轮，不是只留在会话里；seq 48 之前没有第二条开工消息，连点只投一条",
+    "seq 54/55 `story_work_show` →「《夜行测试》：longform-novel，zh，draft」；seq 56/57 `working_directory` →「E:\\see-dsh-novel\\.artifacts\\work-empty-2」，与面板给的路径一致；seq 62/63 `story_next` →「阶段 foundation · 夜行测试」——消息里的两道核对都发生了",
+    "按消息给的真实顺序写：seq 68/69 `story_foundation_outline`（写入 2 个文件）→ seq 73/75 `story_foundation_details`（6 个）→ seq 80/81 `story_foundation_cast_index`（8 位）→ seq 86/88 `story_foundation_cast_documents`（8 个）",
+    "seq 94/95 `story_gate` →「foundation：16 个文件，摘要 210b3a1f，尚未确认（策略 ask）」；seq 98/99 `story_next` →「阶段 ready · 夜行测试」——停在闸门前，没有自行签核的调用",
+    "磁盘结果：`work-empty-2` 共 17 个文件（`work.json` 加 16 个基础设定文件），大纲与状态清单都在；面板在这一轮结束后按探针翻到作者确认闸门"
+  ]
+}
