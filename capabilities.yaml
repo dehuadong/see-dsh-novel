@@ -84,9 +84,9 @@ capabilities:
     title: 创意提案：对话收敛创意、结构化提案与确认卡、确认后按确认参数创建作品
     reference: inkos:packages/core/src/agent/agent-tools.ts
     dsh: tools.register + approval
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/plugin/proposal-tool.ts
+    consumer: packages/see-dsh-novel/test/proposal.test.mjs
+    realRun: artifacts/real-runs/proposal.creative.json
     status: missing
   - id: panel.gate-resume
     title: 作者闸门面板：认可后把「继续」投回会话，让 agent 复核回执并接着干；退回不唤醒
