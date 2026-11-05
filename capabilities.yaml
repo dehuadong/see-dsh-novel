@@ -140,9 +140,9 @@ capabilities:
     title: book_rules 契约：version 2 与严格读取，字段缺失/非法即报错
     source: inkos:packages/core/src/models/book-rules.ts
     dsh: tools.register + library + atomic write
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/pipelines/long/book-rules.ts
+    consumer: packages/see-dsh-novel/test/book-rules.test.mjs
+    realRun: artifacts/real-runs/foundation.rule-contract.json
     status: missing
   - id: foundation.ready-check
     title: 基础设定就绪判据：五段齐全且至少一张角色卡，而不是只看大纲与状态清单

@@ -7,6 +7,7 @@
  */
 import type { JsonSchema, PendingHook } from '../../core/types.js'
 import type { DecisionSources } from '../../core/receipts.js'
+import { bookRulesDataSchema } from './book-rules.js'
 
 export type RoleTier = 'major' | 'minor'
 
@@ -15,19 +16,7 @@ export interface IndexedRole {
   name: string
 }
 
-export interface BookRulesData {
-  protagonist?: {
-    name: string
-    personalityLock: string[]
-    behavioralConstraints: string[]
-  }
-  genreLock?: { primary: string, forbidden: string[] }
-  narrativePerson?: string
-  prohibitions: string[]
-  enableFullCastTracking: boolean
-  fanficMode?: string
-  allowedDeviations: string[]
-}
+export type { BookRulesInput as BookRulesData } from './book-rules.js'
 
 export type { PendingHook }
 
@@ -71,22 +60,7 @@ export const OUTLINE_PARAMETERS: JsonSchema = OBJECT({
   volumeMap: STRING('分卷与章方向的可读 Markdown，每章给因果节拍，不写场景草稿'),
 }, ['storyFrame', 'volumeMap'])
 
-const BOOK_RULES_DATA: JsonSchema = OBJECT({
-  protagonist: OBJECT({
-    name: STRING(),
-    personalityLock: STRING_ARRAY(),
-    behavioralConstraints: STRING_ARRAY(),
-  }),
-  genreLock: OBJECT({
-    primary: STRING(),
-    forbidden: STRING_ARRAY(),
-  }),
-  narrativePerson: STRING('作者自己的表述，不做枚举'),
-  prohibitions: STRING_ARRAY(),
-  enableFullCastTracking: { type: 'boolean' },
-  fanficMode: STRING(),
-  allowedDeviations: STRING_ARRAY(),
-}, ['prohibitions', 'enableFullCastTracking', 'allowedDeviations'])
+const BOOK_RULES_DATA: JsonSchema = bookRulesDataSchema()
 
 /** `story_foundation_details` 的参数。 */
 export const DETAILS_PARAMETERS: JsonSchema = OBJECT({

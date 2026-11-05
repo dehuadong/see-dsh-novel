@@ -56,6 +56,7 @@ test('details writes book rules and seeds the four state files', async () => {
 
     assert.equal(await read(root, 'source/story/book_rules.md'), '规则正文\n')
     assert.deepEqual(JSON.parse(await read(root, 'source/story/book_rules.json')), {
+      version: '2',
       prohibitions: ['不写现实政治'],
       enableFullCastTracking: false,
       allowedDeviations: [],

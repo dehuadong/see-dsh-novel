@@ -22,6 +22,7 @@ import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contra
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
 import { stateWritesIfMissing } from '../../core/state.js'
+import { BOOK_RULES_JSON, BOOK_RULES_MD, withVersion } from './book-rules.js'
 
 /** 两个档位；读取与删除都按这个顺序走。 */
 const TIER_ORDER: ReadonlyArray<RoleTier> = ['major', 'minor']
@@ -178,11 +179,13 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
     output: { schema: COMMIT_OUTPUT, render: renderCommit },
     async execute(args: DetailsArgs, exec: ExecuteContext): Promise<CommitResult> {
       const root = await workRoot(exec)
+      // 先补版本、再严格校验：写坏的文件不能落到盘上。
+      const rules = withVersion(args.bookRulesData)
       const stateWrites = await stateWritesIfMissing(root, args.pendingHooks)
       return commitFoundation(root, {
         writes: [
-          { relativePath: 'source/story/book_rules.md', content: `${String(args.bookRules).trim()}\n` },
-          { relativePath: 'source/story/book_rules.json', content: `${JSON.stringify(args.bookRulesData, null, 2)}\n` },
+          { relativePath: BOOK_RULES_MD, content: `${String(args.bookRules).trim()}\n` },
+          { relativePath: BOOK_RULES_JSON, content: `${JSON.stringify(rules, null, 2)}\n` },
           ...stateWrites,
         ],
       })
