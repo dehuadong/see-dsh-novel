@@ -19,6 +19,7 @@
   - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P6 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
   - 创意提案：`proposal.creative`（对话收敛创意，只问缺的关键信息；结构化提案携带标题／题材／平台／语言／章数／单章字数与卡片文案；确认后按确认参数创建作品）。
   - 确认后继续：`panel.gate-resume`（作者在面板认可之后，把「继续」投回会话，agent 复核回执再接着干；退回是停止信号，不唤醒）。
+  - 立项后开工：`panel.foundation-start`（「已立项，还没有基础设定」状态给出「开始基础设定」，一键把开工指令投回会话，agent 起一轮写设定）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
 - **P2 章前规划与上下文**：`plan.outline` + `plan.chapter` + `context.brief` + `context.retrieval`。
 - **P3 正文生产**：`chapter.write` + `chapter.review` + `chapter.revise`。
