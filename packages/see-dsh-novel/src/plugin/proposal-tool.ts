@@ -7,6 +7,7 @@
 import type {
   ApprovalOutcome, Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition,
 } from '../core/types.js'
+import { APPROVAL_OUTCOMES } from '../core/types.js'
 import { proposalCard, parseProposal } from '../core/proposal.js'
 import { describeWork, readWork, writeWork, WORK_LANGUAGES } from '../core/work.js'
 import { approvalServiceOf, confirmationPolicy } from '../pipelines/long/gate.js'
@@ -17,7 +18,7 @@ export const PROPOSE_NAME = 'story_propose'
 /** 提案的四种结局；`unavailable` 包含服务缺席、策略 never 与确认条自身不可用。 */
 export type ProposalOutcome = ApprovalOutcome
 /** 结局的固定取值，schema 枚举从这里来。 */
-export const PROPOSAL_OUTCOMES = ['allowed-once', 'rejected', 'cancelled', 'unavailable'] as const
+export const PROPOSAL_OUTCOMES = APPROVAL_OUTCOMES
 
 /** 提案工具的回执。 */
 export interface ProposalResult {
@@ -70,12 +71,14 @@ export async function proposeWork(
   args: unknown,
 ): Promise<ProposalResult> {
   if (!exec.agent) throw new Error('story_propose 需要所属 agent 会话')
-  const draft = parseProposal(args as Parameters<typeof parseProposal>[0])
-  const card = proposalCard(draft)
   const root = await ctx.workingDirectory.ensure(exec.agent)
   if (!root) throw new Error('无法解析当前工作区目录')
+  // 先看身份：已经立项时先报「已立项」，而不是先挑提案字段的毛病。
   const existing = await readWork(root)
   if (existing !== null) throw new Error(`已经立项${describeWork(existing)}；不覆盖，改身份请手改 work.json`)
+
+  const draft = parseProposal(args as Parameters<typeof parseProposal>[0])
+  const card = proposalCard(draft)
 
   const approval = approvalServiceOf(ctx)
   if (approval === undefined || confirmationPolicy(approval, exec.agent) === 'never') {

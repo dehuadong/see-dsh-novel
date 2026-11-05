@@ -26,7 +26,11 @@ export interface AgentLike {
 }
 
 /** 运行时会让工具看到的宿主 approval 结论。 */
-export type ApprovalOutcome = 'allowed-once' | 'rejected' | 'cancelled' | 'unavailable'
+/** 确认条的四种结果；schema 枚举与判定都从这份清单来。 */
+export const APPROVAL_OUTCOMES = ['allowed-once', 'rejected', 'cancelled', 'unavailable'] as const
+
+/** 运行时会给出的确认结论。 */
+export type ApprovalOutcome = typeof APPROVAL_OUTCOMES[number]
 
 /** 宿主 approval 服务面；缺席时签核只能走面板命令。 */
 export interface ApprovalService {

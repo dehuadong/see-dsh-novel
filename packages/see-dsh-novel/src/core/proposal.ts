@@ -4,7 +4,7 @@
  * 工具只负责把作者确认过的字段收齐、校验、拼成一张能一眼看清的卡；对话怎么收敛
  * 由技能负责，落盘由故事身份的原语负责。
  */
-import { WORK_LANGUAGES } from './work.js'
+import { bracketedTitle, WORK_LANGUAGES } from './work.js'
 import type { WorkLanguage } from './work.js'
 
 /** 一份待确认的立项提案。 */
@@ -90,8 +90,6 @@ export function proposalCard(draft: ProposalDraft): string {
     LANGUAGE_LABEL[draft.language],
     scope,
   ].filter((part): part is string => part !== undefined)
-  // 标题已带书名号时不再包第二层（与 `describeWork` 同一规则）。
-  const bracketed = draft.title.startsWith('《') && draft.title.endsWith('》')
-  const title = bracketed ? draft.title : `《${draft.title}》`
-  return `立项${title}｜${parts.join(' · ')}\n${draft.summary}`
+  // 标题已带书名号时不再包第二层（与身份摘要同一条规则）。
+  return `立项${bracketedTitle(draft.title)}｜${parts.join(' · ')}\n${draft.summary}`
 }

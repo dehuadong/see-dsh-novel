@@ -230,10 +230,19 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
 }
 
 /**
+ * 标题按作者写的样子加书名号：已经带书名号的不再包第二层。
+ * 卡片与身份摘要共用这一条规则。
+ * @param title 原始标题
+ * @returns 带书名号的标题
+ */
+export function bracketedTitle(title: string): string {
+  return title.startsWith('《') && title.endsWith('》') ? title : `《${title}》`
+}
+
+/**
  * 身份的一句话描述；工具卡片、命令回执与测试共用。
  *
- * 标题可能已经带书名号（命令输入按原样保存），这时不再包第二层：
- * 首尾都是书名号的标题按作者写的样子输出。
+ * 标题可能已经带书名号（命令输入按原样保存），这时不再包第二层。
  * @param work 身份对象
  * @returns 形如 `《标题》：profile，language，status（目标 N 章，单章 M 字，题材，平台）`；可选字段缺省时不出现
  */
@@ -244,7 +253,6 @@ export function describeWork(work: Work): string {
     work.metadata.genre === undefined ? '' : work.metadata.genre,
     work.metadata.platform === undefined ? '' : work.metadata.platform,
   ].filter((part) => part !== '').join('，')
-  const bracketed = work.title.startsWith('《') && work.title.endsWith('》')
-  const title = bracketed ? work.title : `《${work.title}》`
+  const title = bracketedTitle(work.title)
   return `${title}：${work.profile}，${work.language}，${work.status}${scope === '' ? '' : `（${scope}）`}`
 }

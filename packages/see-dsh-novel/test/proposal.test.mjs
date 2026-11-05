@@ -125,6 +125,8 @@ test('allowing the card writes work.json with the confirmed fields', async () =>
     assert.deepEqual((await readdir(root)).sort(), ['work.json'])
     // 立项后的路牌是 foundation。
     assert.equal(storyNext(await workProbes(root)).phase, 'foundation')
+    const rendered = registered.get(PROPOSE_NAME).output.render({}, result)
+    assert.equal(rendered[0].text, `已立项${result.summary}`)
     assert.equal(approval.requests.length, 1)
     assert.equal(approval.requests[0].callId, 'call_1')
     assert.equal(approval.requests[0].toolName, 'story_propose')
@@ -150,6 +152,9 @@ for (const outcome of ['rejected', 'cancelled', 'unavailable']) {
       assert.equal(await exists(join(root, 'work.json')), false)
       const rendered = registered.get(PROPOSE_NAME).output.render({}, result)
       assert.match(rendered[0].text, new RegExp(`未立项（${outcome}）`))
+      assert.doesNotMatch(rendered[0].text, /下一步/)
+      if (outcome === 'unavailable') assert.match(rendered[0].text, /story-init/)
+      else assert.match(rendered[0].text, /想改哪一处/)
     } finally {
       await cleanup(root)
     }
@@ -177,7 +182,7 @@ test('a missing approval service or the never policy writes nothing', async () =
   }
 })
 
-test('an existing work is refused without touching it', async () => {
+test('an existing work is refused before the proposal fields are judged', async () => {
   const root = await workspace()
   try {
     await writeWork(root, { title: '已经有的书' })
@@ -186,6 +191,8 @@ test('an existing work is refused without touching it', async () => {
     const { ctx, registered } = services(root, approval.service)
     installProposalTool(ctx)
     await assert.rejects(registered.get(PROPOSE_NAME).execute(full, exec), /已经立项/)
+    // 字段非法也先报「已立项」：顺序是「身份 → 字段」。
+    await assert.rejects(registered.get(PROPOSE_NAME).execute({ title: '' }, exec), /已经立项/)
     assert.equal(await readFile(join(root, 'work.json'), 'utf8'), before)
     assert.equal(approval.requests.length, 0)
   } finally {
