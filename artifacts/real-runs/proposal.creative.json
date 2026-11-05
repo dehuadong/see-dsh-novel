@@ -1,0 +1,17 @@
+{
+  "capability": "proposal.creative",
+  "date": "2026-11-05",
+  "sessionId": "session-9d30b2a5-d689-4278-bdf8-9475838fcf9a",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "164 passed — 提案 11 例（字段校验、卡片字段与缺省、书名号不重复、允许后写 work.json 且只有它、story_next 报 foundation、拒绝/取消/不可用都不写盘、服务缺席与 never 不弹条、已立项先于字段校验拒绝、旧格式 work.json 兼容、schema 子集）＋工具与技能清单"
+  },
+  "receipts": [
+    "允许路径（`work-empty-6`，session `session-9d30b2a5-d689-4278-bdf8-9475838fcf9a`）：主编先追问平台与规模（`ask_user_question`，回答「番茄小说」＋「120 章 × 2500 字」），随后调 `story_propose`：title「凌晨三点的后座」、genre「都市悬疑」、platform「番茄小说」、language zh、chapters 120、chapterWords 2500、summary 为一句可读的创意说明",
+    "确认条上点「允许」后工具返回：`已立项《凌晨三点的后座》：longform-novel，zh，draft（目标 120 章，单章 2500 字，都市悬疑，番茄小说）`；随后 `story_next` 返回 `阶段 foundation · 凌晨三点的后座`",
+    "`work-empty-6` 里只有 `work.json`，没有 `source/`；内容与提案逐项一致：`metadata` 为 `{targetChapters:120, chapterWordCount:2500, genre:\"都市悬疑\", platform:\"番茄小说\"}`，`language:\"zh\"`、`status:\"draft\"`",
+    "拒绝路径（`work-empty-5`，session `session-d13db094-d377-402d-99c6-fda469916d57`）：同一套追问后提案「末班之后」（120 章 × 2000 字），确认条上点「拒绝」，工具返回 `未立项（rejected）。作者退回了这次提案，问清想改哪一处再提。`，并附卡片原文；主编随即追问「改哪一处」",
+    "拒绝后 `work-empty-5` 仍是空目录（没有 work.json、没有 source/），说明确认前的提案不落盘"
+  ]
+}
