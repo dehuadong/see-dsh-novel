@@ -71,9 +71,9 @@ export interface FoundationProbes {
 - `story_next`：大纲不齐 → `foundation`；大纲齐但缺 book rules／`pending_hooks.md` → `draft` 且 next 指向 `story_foundation_details`；缺角色卡 → `draft` 且 next 指向 `story_foundation_cast_index`；全部齐全 → `ready`；七个探针全假 → `unbound`。
 - 只有 `manifest.json` 而没有真值文件时不再是 `ready`；真值文件齐全但没有 `manifest.json` 时是 `ready`。
 - `test/host.test.mjs` 的四阶段阶梯用例同批改为新判据（补齐真值文件与角色卡，覆盖 `draft` 的两种 next）；`test/work.test.mjs` 的探针用例（含 `hasState` 梯度）按七字段重写；`test/proposal.test.mjs` 的立项后阶段仍是 `foundation`（只有身份，没有工件）。
-- 面板同批改：`src/client/StoryView.tsx` 订阅六个文件锚点，`hasFoundation` 改为「六个都 live」，去掉 `manifest.json` 与「大纲或状态任一个」的或判断；角色卡仍不查，偏差按上面「与面板的关系」登记进 `docs/dsh-mapping.md`。
+- 面板同批改：`src/client/StoryView.tsx` 订阅六个文件锚点，`hasFoundation` 改为「六个都 live」，去掉 `manifest.json` 与「大纲或状态任一个」的或判断；角色卡仍不查，偏差按上面「与面板的关系」登记进 `docs/dsh-mapping.md`。`test/client.test.mjs` 的 `renderView` 从三个锚点扩到六个，并改掉「一个锚点 live 就算有设定」的断言（`['live','failed','live']` → 六个全 live 才算，任一 failed／pending 都不算）；它是 `runtime.client-ui`、`panel.gate-resume`、`panel.foundation-start` 的消费者，这三行的回执不重录。
 - `runtime.load` 与 `runtime.session-binding` 的历史回执写的是旧探针口径（「三个探针、四阶段映射」）；它们证明的是加载与会话绑定，探针清单由本行拥有并在此更新，回执不重录，差异记在 Risks。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/work.ts`；consumer `packages/see-dsh-novel/test/ready-check.test.mjs`；阶段逻辑改动在 `src/plugin/story-next.ts`，面板改动在 `src/client/StoryView.tsx`，同批更新 `test/host.test.mjs`、`test/work.test.mjs`；realRun `artifacts/real-runs/foundation.ready-check.json`。
+- 实现与证据：implementation `packages/see-dsh-novel/src/core/work.ts`；consumer `packages/see-dsh-novel/test/ready-check.test.mjs`；阶段逻辑改动在 `src/plugin/story-next.ts`，面板改动在 `src/client/StoryView.tsx`，同批更新 `test/host.test.mjs`、`test/work.test.mjs`、`test/client.test.mjs`；realRun `artifacts/real-runs/foundation.ready-check.json`。
 - 真实运行：在已有基础设定的工作区调 `story_next` 得到 `ready`；把四个角色目录里的卡全部移走后再调得到 `draft`（`next` 指向 `story_foundation_cast_index`）；移回后恢复 `ready`。
 
 ## Risks
