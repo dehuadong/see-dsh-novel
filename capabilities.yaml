@@ -75,7 +75,7 @@ capabilities:
   - id: runtime.recovery
     title: 自检／恢复（workspace/work 索引重建）
     reference: inkos:packages/core/src/pipeline/chapter-state-recovery.ts
-    dsh: tools.register + atomic write
+    dsh: tools.register + journaled commit
     implementation: null
     consumer: null
     realRun: null

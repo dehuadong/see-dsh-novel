@@ -44,7 +44,10 @@ Status: proposed
 - 有 journal 且 `pid` 还活着 → `staging-active`（`info`，不修）：那是一次正在进行的提交，碰它会把并发写弄坏；
 - 有 journal、属主已死、`phase: "prepared"` → `staging-rollback`（`warning`，**可修**）：按 journal 把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
 - 有 journal、属主已死、`phase: "applied"` → `staging-cleanup`（`info`，**可修**）：文件都已就位，只删暂存目录；
+- journal 读不出来（写了一半、JSON 坏了、`phase` 不是两个已知值）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
 - 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
+
+`commitFile` 也会留痕：它在目标目录写 `.tmp-<uuid>`，rename 之前崩溃就把临时文件留在原地。它在 `source/story/` 里时还会计入工件摘要，所以扫描顺带找 `.tmp-*`：`tmp-residue`（`warning`，**可修**）——临时文件从未成为目标内容，删掉是安全的，删除后摘要回到应有的值。
 
 属主判定用 `process.kill(pid, 0)`：抛 `ESRCH` 即已死；`EPERM` 视为活着（不是本用户的进程也不能碰）。
 
@@ -68,9 +71,13 @@ Status: proposed
 `source/story/` 下的**所有**文件都进工件摘要（`core/artifacts.ts` 只扫这一个目录），三个索引文件也不例外。所以：
 
 - 重建写回的内容若与缺失前**完全一致**（foundation 播种后从未被章节推进过），摘要回到原值，作者之前的确认仍然有效；
-- 若内容不同（例如章节已推进、`lastAppliedChapter` 不是 0），摘要会变，**旧确认随之失效**——这是正确行为，工具必须在报告里给出修复前后的摘要，让作者知道需要重新确认，而不是宣称「修复不会动摘要」。
+- 若内容不同（例如章节已推进、`lastAppliedChapter` 不是 0），摘要会变，**旧确认随之失效**——这是正确行为。
 
-回收暂存目录不碰工件，摘要不变。
+工具在修复前后各算一次摘要，并且**不只报摘要**：它从会话里读最近一次认可的回执摘要（复用 `core/receipts.ts` 的 `latestDecision` 与 `parseApprovalMarker`），在输出里给出 `digestBefore`、`digestAfter`、`approvedDigest`（没有认可就是 `null`）与 `needsReconfirm`（`approvedDigest !== null && approvedDigest !== digestAfter`）。
+
+这样作者不必自己比对两串哈希：`needsReconfirm: true` 就是「修完之后要重新确认」。工具不替作者确认，也不把 `state-missing` 说成「不影响确认」——缺失时摘要必然与缺失前不同（文件不在集合里），不能拿「前后摘要」证明恢复得对不对；能证明的是「修复后的摘要是否还等于作者认可过的那一版」。
+
+回收暂存目录与删除 `.tmp-*` 不改工件内容（临时文件不是目标内容），摘要回到应有的值。
 
 ### 章节级对账为什么不在本行
 
@@ -96,8 +103,8 @@ Status: proposed
 - 缺任一索引文件（三个各测一次）：一条 `state-missing`（`fixable: true`）；`apply: true` 写回与 `defaultStateFiles` 逐字节一致的内容，重新扫描不再报，`applied` 列出该路径；**不**创建 `hooks.json`。
 - 缺 `hooks.json`：一条 `hooks-missing`（`fixable: false`）；`apply: true` 不创建它。
 - `work.json` 非法：一条 `work-invalid`（`error`、`fixable: false`）；`apply: true` 不改写任何文件。
-- 暂存回收：`phase: "prepared"` 且属主已死 → `apply: true` 用备份还原目标、删掉新增文件与暂存目录；`phase: "applied"` → 只删暂存目录；属主活着的目录原样保留；没有 journal 的目录只报告。
-- 摘要：重建索引后，若写回内容与缺失前一致，`readArtifacts` 的摘要与缺失前相同；否则报告里给出前后摘要（测试用「章节已推进」的假 manifest 覆盖后者）。
+- 暂存回收：`phase: "prepared"` 且属主已死 → `apply: true` 用备份还原目标、删掉新增文件与暂存目录；`phase: "applied"` → 只删暂存目录；属主活着的目录原样保留；没有 journal 或 journal 读不出来的目录只报告；`source/story/` 里的 `.tmp-*` 报告为 `tmp-residue` 并在 `apply: true` 时删除。
+- 摘要与确认：输出带 `digestBefore`／`digestAfter`／`approvedDigest`／`needsReconfirm`；重建内容与缺失前一致时 `digestAfter` 回到认可过的那一版、`needsReconfirm: false`；构造一个「作者已认可旧摘要、重建写回不同的 manifest」的用例，断言 `needsReconfirm: true`。
 - 工具输出 schema 在运行时子集内；`test/host.test.mjs` 的工具清单同批加 `story_recover`；`test/foundation.test.mjs` 对 `stateWritesIfMissing` 的断言不回归。
 - 实现与证据：implementation `packages/see-dsh-novel/src/core/recovery.ts`；consumer `packages/see-dsh-novel/test/recovery.test.mjs`；工具注册与提交日志改动在 `src/plugin/recovery-tool.ts` 与 `src/core/commit.ts`，同批更新 `test/foundation.test.mjs`；realRun `artifacts/real-runs/runtime.recovery.json`。
 - 真实运行：在有基础设定的工作区删掉 `state/manifest.json`，调 `story_recover` 看到 `state-missing`，`apply: true` 后文件重建、`story_next` 仍报 `ready`、摘要与删除前一致；再造一个死属主的 `prepared` 暂存目录，`apply: true` 后被还原并删除。
@@ -108,4 +115,4 @@ Status: proposed
 - 属主判定用 pid：pid 被系统复用到一个无关进程时会误判为「活着」，结果只是留着不给修，不会误删。
 - `pid` 只有本机意义：跨机器共享的工作区上，日志里的 pid 判定不可靠，工具会把残留当「属主活着」保留。
 - 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
-- 摘要可能因重建而变化：工具会报告前后摘要，但不会替作者重新确认；作者要自己再走一次认可。
+- `needsReconfirm` 依据的是会话里能读到的那次认可：如果当前会话没读过旧回执（换过会话），它会是 `false`，作者要自己按摘要判断。
