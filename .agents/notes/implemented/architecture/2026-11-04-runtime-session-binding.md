@@ -121,7 +121,7 @@ foundation 工具不因缺少 `work.json` 而拒绝写入：那会把已经验�
 
 面板：`StoryView` 增加第三个探针 `/work.json`，只当存在性信号（资源通道不带正文，不解析 JSON）。三个探针的通道状态合并判定：任何一个 `none` 就报「读不到工作区状态」、任何一个 `loading` 就报「正在读取」——身份通道读不到不等于身份缺失。通道可读之后，两个锚点都缺时按身份分成「尚未立项」与「已立项，还没有基础设定」；有基础设定时保留原有闸门，身份缺失只追加一行提示，按钮照旧。
 
-验证见 `test/work.test.mjs`（写入字段与幂等、输入校验、严格解析的各类坏值、坏 JSON、探针真值表、四阶段映射、`commitFile` 残留、两个工具的创建／查看／拒绝覆盖、坏身份文件让两个工具报字段错、五个 schema 都在运行时子集内），`test/host.test.mjs`（工具清单扩到十个、`story_next` 在空工作区到 `ready` 的四级读数、卡片渲染）与 `test/client.test.mjs`（身份三态、任一锚点足够、通道不可用与闸门）；真实运行回执见 `artifacts/real-runs/runtime.session-binding.json`。
+验证见 `test/work.test.mjs`（写入字段与幂等、输入校验、严格解析的各类坏值、坏 JSON、探针真值表、四阶段映射、`commitFile` 残留、两个工具的创建／查看／拒绝覆盖、坏身份文件让两个工具报字段错、五个 schema 都在运行时子集内），`test/host.test.mjs`（工具清单扩到十个、`story_next` 在空工作区到 `ready` 的四级读数、卡片渲染）与 `test/client.test.mjs`（身份三态、任一锚点足够、通道不可用与闸门）。真实运行回执由 Verify 阶段写到 `artifacts/real-runs/runtime.session-binding.json`。
 
 代价与已知限制：
 
