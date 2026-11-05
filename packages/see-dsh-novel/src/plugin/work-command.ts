@@ -17,6 +17,8 @@ export interface WorkCreateArgs {
   language?: string
   targetChapters?: number
   chapterWordCount?: number
+  genre?: string
+  platform?: string
 }
 
 /** 一个选项的写法：取值校验与落点都在这里，新增选项只改这张表。 */
@@ -35,6 +37,8 @@ const OPTIONS: Record<string, OptionSpec> = {
   '--lang': { apply: (input, value) => { input.language = value } },
   '--chapters': { apply: (input, value, flag) => { input.targetChapters = integerOf(flag, value) } },
   '--words': { apply: (input, value, flag) => { input.chapterWordCount = integerOf(flag, value) } },
+  '--genre': { apply: (input, value) => { input.genre = value } },
+  '--platform': { apply: (input, value) => { input.platform = value } },
 }
 
 interface Token {
@@ -97,7 +101,7 @@ export function parseWorkCreate(rawInput: string): WorkCreateArgs {
   }
 
   const title = titleOf(rawInput, titleIndices, tokens)
-  if (title === '') throw new Error('缺少标题：用法 /story-init <标题> [--lang zh|en] [--chapters N] [--words N]')
+  if (title === '') throw new Error('缺少标题：用法 /story-init <标题> [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台]')
   input.title = title
   return input
 }
@@ -110,9 +114,9 @@ export function parseWorkCreate(rawInput: string): WorkCreateArgs {
 export function installInitCommand(ctx: PluginContext): Disposer {
   return ctx.commands.register({
     name: COMMAND_INIT,
-    description: '在当前工作区立项：写下 work.json（标题、语言、目标章数与单章字数）。',
+    description: '在当前工作区立项：写下 work.json（标题、语言、目标章数、单章字数、题材与平台）。',
     // 不声明 input 时，命令在候选菜单里一选中就派发，作者来不及补参数。
-    input: { hint: '《标题》 [--lang zh|en] [--chapters N] [--words N]' },
+    input: { hint: '《标题》 [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台]' },
     async handler(invocation: CommandInvocationLike): Promise<CommandResultLike> {
       try {
         const root = await ctx.workingDirectory.ensure(invocation.agent)

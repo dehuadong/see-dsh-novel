@@ -32,10 +32,14 @@ export type WorkProfile = (typeof WORK_PROFILES)[number]
 export type WorkLanguage = (typeof WORK_LANGUAGES)[number]
 export type WorkStatus = (typeof WORK_STATUSES)[number]
 
-/** 立项时作者给出的目标规模；都可选。 */
+/** 立项时作者给出的目标规模与分类；都可选。 */
 export interface WorkMetadata {
   targetChapters?: number
   chapterWordCount?: number
+  /** 题材，例如「都市悬疑」；自由字符串。 */
+  genre?: string
+  /** 目标平台，原样保存。 */
+  platform?: string
 }
 
 /** 一部作品的身份。 */
@@ -64,12 +68,14 @@ export interface WorkCreateInput {
   language?: unknown
   targetChapters?: unknown
   chapterWordCount?: unknown
+  genre?: unknown
+  platform?: unknown
 }
 
 const FIELDS = [
   'version', 'id', 'title', 'profile', 'language', 'status', 'metadata', 'createdAt', 'updatedAt',
 ] as const
-const METADATA_FIELDS = ['targetChapters', 'chapterWordCount'] as const
+const METADATA_FIELDS = ['targetChapters', 'chapterWordCount', 'genre', 'platform'] as const
 
 /** 报错一律带文件与字段，作者手改之后能直接定位。 */
 function fail(file: string, message: string): never {
@@ -132,6 +138,12 @@ export function parseWork(value: unknown, file: string = WORK_FILE): Work {
   }
   if (Object.hasOwn(metadata, 'chapterWordCount')) {
     parsedMetadata.chapterWordCount = positiveInteger(metadata.chapterWordCount, file, 'metadata.chapterWordCount')
+  }
+  if (Object.hasOwn(metadata, 'genre')) {
+    parsedMetadata.genre = text(metadata.genre, file, 'metadata.genre')
+  }
+  if (Object.hasOwn(metadata, 'platform')) {
+    parsedMetadata.platform = text(metadata.platform, file, 'metadata.platform')
   }
   return {
     version: WORK_VERSION,
@@ -199,6 +211,8 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
   if (input.chapterWordCount !== undefined) {
     metadata.chapterWordCount = positiveInteger(input.chapterWordCount, path, 'chapterWordCount')
   }
+  if (input.genre !== undefined) metadata.genre = text(input.genre, path, 'genre')
+  if (input.platform !== undefined) metadata.platform = text(input.platform, path, 'platform')
   const now = new Date().toISOString()
   const work: Work = {
     version: WORK_VERSION,
@@ -227,6 +241,8 @@ export function describeWork(work: Work): string {
   const scope = [
     work.metadata.targetChapters === undefined ? '' : `目标 ${work.metadata.targetChapters} 章`,
     work.metadata.chapterWordCount === undefined ? '' : `单章 ${work.metadata.chapterWordCount} 字`,
+    work.metadata.genre === undefined ? '' : work.metadata.genre,
+    work.metadata.platform === undefined ? '' : work.metadata.platform,
   ].filter((part) => part !== '').join('，')
   const bracketed = work.title.startsWith('《') && work.title.endsWith('》')
   const title = bracketed ? work.title : `《${work.title}》`

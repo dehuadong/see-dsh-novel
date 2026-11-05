@@ -1,6 +1,6 @@
 # Agent Note: proposal.creative —— 从对话到一个可确认的立项提案
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -10,7 +10,7 @@ Status: proposed
 
 DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作品创建原语（`writeWork`）。本行把它们接起来：模型在对话里收敛创意，调 `story_propose` 交出结构化提案，确认条就是确认卡；作者点「允许」才写 `work.json`，点「拒绝」则什么都不落盘。
 
-## Proposal
+## Decision
 
 ### `story_propose` 工具
 
@@ -81,24 +81,19 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 
 **`story_propose` 在确认后顺便调 foundation 段。** 一步到位。否掉：作者确认的是「立项」，不是「开始写设定」；自动往下走会把确认的范围悄悄扩大。
 
-## Acceptance criteria
+## Consequences
 
-- 作者在对话里给出方向、缺的项由模型追问；信息够后模型调 `story_propose`，确认条上出现标题、题材／平台、语言、目标章数与单章字数。
-- 确认条允许 → `work.json` 出现且只有它：`title`、`language`、`metadata.targetChapters`／`chapterWordCount`／`genre`／`platform` 与提案一致；`source/story/` 不存在；`story_next` 报 `foundation`；工具返回 `created: true`。
-- 拒绝或取消 → 工作区没有任何新文件，工具返回 `created: false` 与对应 `outcome`；模型据此问作者要改什么。
-- 没有 `approval` 服务、策略 `never`、或 `approval.request` 自己返回 `unavailable`：三者都不写盘，工具返回 `created: false`、`outcome: "unavailable"` 与替代路径的提示。
-- 已存在 `work.json` → 工具报错且不改写原文件。
-- 校验：空标题、空 `summary`、非法 `language`、`chapters`／`chapterWords` 非正整数时报错，不落盘；未给的字段按默认（`zh`，无目标规模）。
-- `work.json` 里多出的 `genre`／`platform` 能被 `parseWork` 读回、被 `describeWork` 展示；旧格式 `work.json`（没有这两个字段）照常解析。
-- 技能 `story-proposal` 随包注册（`test/host.test.mjs` 的技能清单断言同批更新），`story_propose` 进 `src/plugin/agent.ts` 的注册与注销顺序，工具清单断言同批更新。
-- 身份字段：`story_work_create` 与 `/story-init` 都能写 `genre`／`platform`，`story_work_show` 的输出 schema 能原样读回；旧格式 `work.json` 照常解析。
-- 实现与证据：implementation `packages/see-dsh-novel/src/plugin/proposal-tool.ts`；consumer `packages/see-dsh-novel/test/proposal.test.mjs`；核心校验与卡片渲染在 `src/core/proposal.ts`，身份字段与三条路的改动在 `src/core/work.ts`、`src/plugin/work-tools.ts`、`src/plugin/work-command.ts`，技能在 `skills/story-proposal/SKILL.md`；realRun `artifacts/real-runs/proposal.creative.json`。
-- 真实运行：在一个空工作区里由主编收敛一句创意并提案，作者在确认条上点允许，`work.json` 按提案落盘、`story_next` 报 `foundation`；再跑一次被拒绝的提案，确认没有写盘。
+收益：作者不必先背一串参数才能开书——说清想写什么，模型把缺的补问齐，确认卡上写着标题、题材、平台、语言与目标规模，点允许才落身份。模型不能替作者拍板，落盘前一定有一次作者的动作。
 
-## Risks
+`story_propose` 的四种结局都是显式的：`allowed-once` 才写 `work.json`，`rejected`／`cancelled`／`unavailable` 都不写盘并给出下一步措辞。确认判定复用 foundation 签核的 `approvalServiceOf`／`confirmationPolicy`，`callId` 与 `signal` 原样传进确认条，作者取消时卡片随之收回。提案参数与卡片文案在 `core/proposal.ts` 里校验与拼接，工具只做编排；身份字段 `genre`／`platform` 由 `WorkMetadata` 承载，`story_work_create`、`/story-init`、`story_work_show` 三条路同批支持，写出的 `work.json` 是同一个形状。技能 `story-proposal` 只管怎么问，不承担门禁。
+
+验证见 `test/proposal.test.mjs`、`test/host.test.mjs`（工具与技能清单）与 `test/agent-tools.test.mjs`（技能安装）。
+
+代价与已知限制：
 
 - 会话策略是 `never`（或宿主没装 approval）时提案只能走确定性入口，作者少一条路；工具会把替代路径说清楚，不静默创建。
 - 标题、题材的质量取决于模型与作者来回，工具只做校验；写得太随便的提案会得到一张信息很少的卡，技能负责把该问的问到。
 - `genre`／`platform` 是自由字符串，没有枚举；拼写不一致不会报错，后续若要筛选题材需要另立词表。
 - 提案一次只落一个作品：确认后写盘与确认之间没有并发保护，同一会话里重复调用会被「已立项」挡住，跨会话同时立项仍可能各自创建。
 - 拒绝后没有任何提案留档：作者改主意要重新收敛，这是「提案不落盘」的代价。
+- `minChapterLength`／`maxChapterLength` 不在提案里：`docs/scope.md` 未要求，等章长约束成为独立能力时再进。

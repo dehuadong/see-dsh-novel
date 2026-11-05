@@ -30,6 +30,8 @@ const WORK_SCHEMA: JsonSchema = {
       properties: {
         targetChapters: { type: 'integer' },
         chapterWordCount: { type: 'integer' },
+        genre: { type: 'string' },
+        platform: { type: 'string' },
       },
       required: [],
     },
@@ -52,6 +54,8 @@ export const workCreateParameters: JsonSchema = {
       properties: {
         targetChapters: { type: 'integer', description: '目标章数；可选' },
         chapterWordCount: { type: 'integer', description: '单章目标字数；可选' },
+        genre: { type: 'string', description: '题材，例如「都市悬疑」；可选' },
+        platform: { type: 'string', description: '目标平台；可选' },
       },
       required: [],
     },
@@ -86,7 +90,7 @@ export const workShowOutput: JsonSchema = {
 interface CreateArgs {
   title: string
   language?: string
-  metadata?: { targetChapters?: number, chapterWordCount?: number }
+  metadata?: { targetChapters?: number, chapterWordCount?: number, genre?: string, platform?: string }
 }
 
 /**
@@ -119,6 +123,8 @@ export function installWorkTools(ctx: PluginContext): Disposer {
           language: args.language,
           targetChapters: args.metadata?.targetChapters,
           chapterWordCount: args.metadata?.chapterWordCount,
+          genre: args.metadata?.genre,
+          platform: args.metadata?.platform,
         }),
       }
     },

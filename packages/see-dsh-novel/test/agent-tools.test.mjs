@@ -109,7 +109,7 @@ test('installation registers every packaged skill and cleans up', () => {
     },
   }
   const dispose = installStorySkills(ctx, packageRoot)
-  assert.deepEqual(registered.map((skill) => skill.name), ['longform-writing'])
+  assert.deepEqual(registered.map((skill) => skill.name), ['longform-writing', 'story-proposal'])
   assert.equal(registered[0]?.source, 'runtime')
   dispose()
   assert.deepEqual(registered, [])
