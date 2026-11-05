@@ -5,10 +5,10 @@
  * 版本不符、类型不对都报错，并指出文件与字段——身份错了宁可炸，也不要静默
  * 补默认值，让「未立项」和「设定写了一半」混在一起。
  */
-import { readFile, stat } from 'node:fs/promises'
+import { readFile } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 
-import { commitFile } from './commit.js'
+import { commitFile, pathExists } from './commit.js'
 
 /** 身份文件名；与 `source/` 同级。 */
 export const WORK_FILE = 'work.json'
@@ -146,16 +146,6 @@ export function parseWork(value: unknown, file: string = WORK_FILE): Work {
   }
 }
 
-async function exists(path: string): Promise<boolean> {
-  try {
-    await stat(path)
-    return true
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
-    throw error
-  }
-}
-
 /** 读身份文件；没有就是 `null`，内容非法则抛错。 */
 export async function readWork(root: string): Promise<Work | null> {
   const path = join(resolve(root), WORK_FILE)
@@ -179,9 +169,9 @@ export async function readWork(root: string): Promise<Work | null> {
 export async function workProbes(root: string): Promise<WorkProbes> {
   const base = resolve(root)
   return {
-    hasWork: await exists(join(base, WORK_FILE)),
-    hasFrame: await exists(join(base, STORY_FRAME_FILE)),
-    hasState: await exists(join(base, STORY_STATE_FILE)),
+    hasWork: await pathExists(join(base, WORK_FILE)),
+    hasFrame: await pathExists(join(base, STORY_FRAME_FILE)),
+    hasState: await pathExists(join(base, STORY_STATE_FILE)),
   }
 }
 
@@ -194,7 +184,7 @@ export async function workProbes(root: string): Promise<WorkProbes> {
 export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
   const base = resolve(root)
   const path = join(base, WORK_FILE)
-  if (await exists(path)) {
+  if (await pathExists(path)) {
     // 内容坏了先按字段报错：作者手改出错时，「已经不存在的字段」比「已存在」更有用。
     await readWork(base)
     fail(path, '已经存在，不覆盖；改身份请手改这一份文件')

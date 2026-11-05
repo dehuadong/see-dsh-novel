@@ -6,6 +6,7 @@
  * 且互斥。
  */
 import type { JsonSchema } from '../core/types.js'
+import type { WorkProbes } from '../core/work.js'
 
 /** 本能力能报出的阶段。阶段随能力增加而扩展，不预先登记未实现的阶段。 */
 export const PHASES = ['unbound', 'foundation', 'draft', 'ready'] as const
@@ -21,11 +22,8 @@ export const NEXT_STEPS = {
 /** 工具名，注册与测试共用同一个常量，避免两处字面量漂移。 */
 export const STORY_NEXT_NAME = 'story_next'
 
-/** 判定阶段所需的事实：三个探针，加上探得到的作品标题。 */
-export interface StoryProbeState {
-  hasWork: boolean
-  hasFrame: boolean
-  hasState: boolean
+/** 判定阶段所需的事实：core 的三个探针，加上探得到的作品标题。 */
+export interface StoryProbeState extends WorkProbes {
   title: string | null
 }
 

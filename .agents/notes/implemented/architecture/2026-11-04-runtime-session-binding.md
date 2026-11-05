@@ -115,13 +115,13 @@ foundation 工具不因缺少 `work.json` 而拒绝写入：那会把已经验�
 
 ## Consequences
 
-身份与读文件：`src/core/work.ts` 定义 `WORK_FILE`、四个枚举、`Work`／`WorkMetadata`／`WorkProbes`、`parseWork`（严格：未知字段、版本、枚举、正整数、时间戳都按「文件 + 字段」报错）、`readWork`、`workProbes`（三个探针只看存在性）与 `writeWork`（校验输入、`id` 取目录名、`profile` 固定 `longform-novel`、`status: draft`、时间戳取同一次 `toISOString()`，已存在则报错不覆盖）。`src/core/commit.ts` 新增单文件原语 `commitFile`：同目录 `.tmp-<uuid>` 写完 `rename`，失败删临时文件；它不建 `source/`，也不做备份——那是 `commitFoundation` 的职责。
+身份与读文件：`src/core/work.ts` 定义 `WORK_FILE`、`WORK_VERSION`、三个枚举（`WORK_PROFILES`／`WORK_LANGUAGES`／`WORK_STATUSES`）、`Work`／`WorkMetadata`／`WorkProbes`、`parseWork`（严格：未知字段、版本、枚举、正整数、时间戳都按「文件 + 字段」报错）、`readWork`、`workProbes`（三个探针只看存在性）与 `writeWork`（校验输入、`id` 取目录名、`profile` 固定 `longform-novel`、`status: draft`、时间戳取同一次 `toISOString()`；已存在时先按内容报字段错，内容合法才报「不覆盖」）。`src/core/commit.ts` 新增单文件原语 `commitFile`：同目录 `.tmp-<uuid>` 写完 `rename`，失败删临时文件；它不建 `source/`，也不做备份——那是 `commitFoundation` 的职责。
 
 阶段与工具：`src/plugin/story-next.ts` 的 `PHASES` 扩到 `unbound`／`foundation`／`draft`／`ready`，`NEXT_STEPS` 把阶段映射到 `story_work_create`／`story_foundation_outline`／`story_foundation_details`／`story_gate`；`storyNext(state)` 按「什么都没有 → 没有大纲 → 没有状态清单 → 全都有」的顺序判定，`work` 取读到的标题或 `null`，所以「内容在、身份缺」是合法的 `ready`。`src/plugin/work-tools.ts` 注册 `story_work_create`（参数 `title`／`language`／`metadata.targetChapters`／`metadata.chapterWordCount`，返回 `{ work }`）与 `story_work_show`（返回 `{ work: Work | null }`），两者都要求所属 agent、都用 `workingDirectory.ensure` 解析作品根。`src/plugin/agent.ts` 的 `story_next` 从常量升级为读盘：先 `workProbes`、再按需 `readWork`，坏文件直接抛错；它也因此需要所属 agent，无归属时直接报错。
 
 面板：`StoryView` 增加第三个探针 `/work.json`，只当存在性信号（资源通道不带正文，不解析 JSON）。三个探针的通道状态合并判定：任何一个 `none` 就报「读不到工作区状态」、任何一个 `loading` 就报「正在读取」——身份通道读不到不等于身份缺失。通道可读之后，两个锚点都缺时按身份分成「尚未立项」与「已立项，还没有基础设定」；有基础设定时保留原有闸门，身份缺失只追加一行提示，按钮照旧。
 
-验证见 `test/work.test.mjs`（写入字段与幂等、输入校验、严格解析的各类坏值、坏 JSON、探针真值表、四阶段映射、`commitFile` 残留、两个工具的创建／查看／拒绝覆盖、坏身份文件让两个工具报错、四张 schema 都在运行时子集内），`test/host.test.mjs`（工具清单扩到十个、`story_next` 在空工作区到 `ready` 的四级读数、卡片渲染）与 `test/client.test.mjs`（身份三态与闸门）；真实运行回执见 `artifacts/real-runs/runtime.session-binding.json`。
+验证见 `test/work.test.mjs`（写入字段与幂等、输入校验、严格解析的各类坏值、坏 JSON、探针真值表、四阶段映射、`commitFile` 残留、两个工具的创建／查看／拒绝覆盖、坏身份文件让两个工具报字段错、五个 schema 都在运行时子集内），`test/host.test.mjs`（工具清单扩到十个、`story_next` 在空工作区到 `ready` 的四级读数、卡片渲染）与 `test/client.test.mjs`（身份三态、任一锚点足够、通道不可用与闸门）；真实运行回执见 `artifacts/real-runs/runtime.session-binding.json`。
 
 代价与已知限制：
 

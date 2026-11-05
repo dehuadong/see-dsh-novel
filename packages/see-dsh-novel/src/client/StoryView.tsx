@@ -1,8 +1,9 @@
 /**
  * 「作品」视图。
  *
- * 只判断「确认区能不能用」，不读作品内容：目录与预设来自客户端已有通道，
- * 工件清单与摘要由命令结果写在会话里。作品绑定与进入作品的流程不属于本能力。
+ * 只判断「确认区能不能用」，不读作品内容：目录、预设与三个探针来自客户端
+ * 已有通道，工件清单与摘要由命令结果写在会话里。作品身份的存在性在这里显示，
+ * 但「当前作品是哪一个」的进入与切换不属于本能力。
  */
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'

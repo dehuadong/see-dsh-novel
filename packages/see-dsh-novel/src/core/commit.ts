@@ -18,7 +18,8 @@ export interface CommitResult {
   deleted: string[]
 }
 
-async function exists(path: string): Promise<boolean> {
+/** 路径存在与否；只把 ENOENT 当成「不在」，其它错误照常抛出。 */
+export async function pathExists(path: string): Promise<boolean> {
   try {
     await stat(path)
     return true
@@ -57,7 +58,7 @@ export async function commitFoundation(
 
     for (const relativePath of touched) {
       const target = resolve(base, relativePath)
-      if (!(await exists(target))) continue
+      if (!(await pathExists(target))) continue
       const backup = join(backupDir, relativePath)
       await mkdir(dirname(backup), { recursive: true })
       await cp(target, backup)
@@ -94,7 +95,7 @@ async function restore(
   for (const relativePath of touched) {
     const backup = join(backupDir, relativePath)
     const target = resolve(base, relativePath)
-    if (await exists(backup)) {
+    if (await pathExists(backup)) {
       await mkdir(dirname(target), { recursive: true })
       await cp(backup, target, { force: true })
     } else if (applied.includes(relativePath)) {
