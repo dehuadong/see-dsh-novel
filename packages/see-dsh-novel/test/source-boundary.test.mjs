@@ -85,6 +85,28 @@ test('a side-effect import does not swallow the next statement', () => {
   assert.deepEqual(boundaryProblems([{ path: 'client/x.tsx', text }]), [])
 })
 
+test('declarations without from do not leak into the next statement', () => {
+  const afterTypeAlias = [
+    'export type Id = string',
+    "import { z } from '@deepseek-ai/dsh-tools'",
+  ].join('\n')
+  assert.deepEqual(codes(boundaryProblems([{ path: 'client/x.ts', text: afterTypeAlias }])), ['host-value-import'])
+
+  const afterReexport = [
+    'export { X }',
+    "import { z } from '@deepseek-ai/dsh-tools'",
+  ].join('\n')
+  assert.deepEqual(codes(boundaryProblems([{ path: 'client/x.ts', text: afterReexport }])), ['host-value-import'])
+
+  const multiline = [
+    'import {',
+    '  a,',
+    '  b,',
+    "} from '@deepseek-ai/dsh-tools'",
+  ].join('\n')
+  assert.deepEqual(codes(boundaryProblems([{ path: 'client/x.ts', text: multiline }])), ['host-value-import'])
+})
+
 test('specifiers: exact, subpath, relative, and the host scope', () => {
   assert.equal(isReferenceSpecifier('inkos'), true)
   assert.equal(isReferenceSpecifier('inkos/x'), true)

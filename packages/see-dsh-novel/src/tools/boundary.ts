@@ -120,8 +120,9 @@ export function classifyDependency(dependency: Dependency, path: string): Bounda
 /**
  * 逐行收集静态依赖，只从行首关键字起算。
  *
- * 上一条没有 `from` 的语句不会和下一条的 `from` 配对：`import './setup.js'` 是
- * 独立的副作用导入；`export const S = "…"` 不是依赖语句，直接跳过。
+ * 只有「花括号还没闭合的 import／export 列表」才跨行等待 `from`；这样
+ * `export type Id = string`、`export { X }` 不会把下一条语句的 `from` 吞掉，
+ * 而多行命名导入仍然能拼起来。
  */
 function staticDependencies(text: string): Dependency[] {
   const dependencies: Dependency[] = []
@@ -131,28 +132,31 @@ function staticDependencies(text: string): Dependency[] {
   for (const line of lines) {
     const trimmed = line.trim()
     if (pending !== undefined) {
-      const from = /\bfrom\s*['"]([^'"]+)['"]/.exec(trimmed)
-      if (from?.[1] !== undefined) {
-        dependencies.push({ specifier: from[1], typeOnly: pending.typeOnly, dynamic: false })
-        pending = undefined
-      } else if (trimmed.includes(';') || trimmed === '') {
-        pending = undefined
+      // 新语句开始：上一条没有 from，直接放弃等待。
+      if (/^(import|export)\b/.test(trimmed)) pending = undefined
+      else {
+        const from = /\bfrom\s*['"]([^'"]+)['"]/.exec(trimmed)
+        if (from?.[1] !== undefined) {
+          dependencies.push({ specifier: from[1], typeOnly: pending.typeOnly, dynamic: false })
+          pending = undefined
+          continue
+        }
+        if (trimmed.includes('}')) pending = undefined
+        continue
       }
-      continue
     }
 
     const start = /^(import|export)\b([\s\S]*)$/.exec(trimmed)
     if (start === null) continue
     const keyword = start[1]
     const rest = (start[2] ?? '').trimStart()
-    // 动态导入 `import('x')` 由下面的括号扫描处理。
+    // 动态导入 `import('x')` 由括号扫描处理。
     if (rest.startsWith('(')) continue
-    // `export const`／`export function` 之类不是依赖语句；只有 `export {…} from`、
-    // `export * from`、`export type {…} from` 才可能有 from。
-    if (keyword === 'export' && !/^(type\b|\{|\*)/.test(rest)) continue
 
     const typeOnly = /^type\b/.test(rest)
     const afterType = typeOnly ? rest.replace(/^type\b/, '').trimStart() : rest
+    // export 只有 `export {…}`、`export *`、`export type {…}` 可能带 from。
+    if (keyword === 'export' && !/^(\{|\*)/.test(afterType)) continue
 
     const sideEffect = /^['"]([^'"]+)['"]/.exec(afterType)
     if (sideEffect?.[1] !== undefined) {
@@ -165,7 +169,9 @@ function staticDependencies(text: string): Dependency[] {
       dependencies.push({ specifier: from[1], typeOnly, dynamic: false })
       continue
     }
-    pending = { typeOnly }
+
+    // 只有还没闭合的花括号列表才值得跨行等待 from。
+    if (afterType.includes('{') && !afterType.includes('}')) pending = { typeOnly }
   }
   return dependencies
 }

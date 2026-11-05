@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "194 passed — 边界检查 9 例（干净文件、参考工程四种写法、host 值导入与副作用导入、动态导入只报一条、层规则含 type-only、注释与字符串不算依赖、副作用导入不吞下一条语句、说明符判定、分类器单点分派）"
+    "summary": "195 passed — 边界检查 10 例（干净文件、参考工程四种写法、host 值导入与副作用导入、动态导入只报一条、client 之外的层规则含 type-only、注释与字符串不算依赖、副作用导入不吞下一条语句、声明语句不吞下一条语句、说明符判定、分类器单点分派）"
   },
   "receipts": [
     "`pnpm run check-boundary` 在真实源码树上通过：`{ ok: true, files: 33 }`（`packages/see-dsh-novel/src` 下 33 个 `.ts`／`.tsx`）",

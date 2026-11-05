@@ -70,11 +70,11 @@ Status: implemented
 
 收益：源码里出现一条指向参考工程的 import，或者宿主包不是 `import type`，在 `pnpm run verify` 就会失败，而不是等到装包或运行时。当前源码树（33 个 `.ts`／`.tsx`）干净通过：15 条 `@deepseek-ai` 导入全在 `client/` 且都是 type-only，没有一条参考工程导入。
 
-判定在 `packages/see-dsh-novel/src/tools/boundary.ts`（仓库工具，不进产物）：`stripComments` 先去掉行注释与块注释（字符串与模板字面量保留），再按行首语句取说明符；`boundaryProblems` 只回答依赖来源——`reference-import`（`inkos`／`deepseek-harness` 整段或路径段）、`host-value-import`、`host-import-outside-allowed-layers`（`core/`／`pipelines/`／`tools/` 引用宿主包，type-only 也算）、`dynamic-host-import`（只报这一条）。分层方向仍由 `test/boundaries.test.mjs` 管，两件事不重叠。
+判定在 `packages/see-dsh-novel/src/tools/boundary.ts`（仓库工具，不进产物）：`stripComments` 先去掉行注释与块注释（字符串与模板字面量保留），再按行首语句取说明符；`boundaryProblems` 只回答依赖来源——`reference-import`（`inkos`／`deepseek-harness` 整段或路径段）、`host-value-import`、`host-import-outside-allowed-layers`（`core/`／`pipelines/`／`tools/` 引用宿主包，type-only 也算）、`dynamic-host-import`（只报这一条）。分层方向仍由 `test/boundaries.test.mjs` 管；它对 `client` 的 type-only 规则与本行重叠（一个规则两处解析），取的是同一判据，改动要同步。
 
 `scripts/check-boundary.mjs` 默认扫 `packages/see-dsh-novel/src`，也接受 `--root <dir>` 给对照用；CI 的两条 runner 随根 `package.json` 的 `pnpm run verify` 一起跑。
 
-验证见 `test/source-boundary.test.mjs`：干净文件、参考工程三类写法（裸包／相对路径／export from）、`require` 与副作用导入、动态导入只报一条、`core` 与 `tools` 的层规则、注释与字符串不算依赖、说明符判定（`@scope/inkos` 命中、`my-inkos-wrapper` 不命中）。
+验证见 `test/source-boundary.test.mjs`：干净文件、参考工程四种写法（裸包／子路径／相对路径／export from）、`require` 与副作用导入、动态导入只报一条、`client` 之外的层规则（含 type-only 与副作用导入）、注释与字符串不算依赖、声明语句不吞下一条语句（`export type Id = string`、`export { X }`、多行命名导入）、说明符判定（`@scope/inkos` 不命中、`./vendor/inkos` 命中）。
 
 ### 代价与已知限制
 
