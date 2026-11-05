@@ -37,7 +37,7 @@ Status: proposed
 
 不引入跨进程锁，也不做恢复线程：日志只是在崩溃后让下一个人能判断「这批文件改到哪一步了」。
 
-阶段标记的写是**尽力而为**：`prepared` 写成失败就不进入 rename（本来就该放弃这次提交）；`applied` 写成失败**不能**回滚已经 rename 成功的文件——提交事实上已经完成，只是少了一个标记。这种情况照常清理暂存目录、让提交返回成功；清理失败留下的目录没有 journal，回收只会报 `staging-unknown`，不会误删已应用的写入。`commitFoundation` 的 `catch` 只覆盖 rename 之前的阶段，`applied` 标记的失败不进入那条回滚路径（实现时把标记写放在 try 之外，或单独吞掉它的错误）。
+阶段标记的写是**尽力而为**：`prepared` 写成失败就不进入 rename（本来就该放弃这次提交）；`applied` 写成失败**不能**回滚已经 rename 成功的文件——提交事实上已经完成，只是少了一个标记。这时先把 `journal.json` **删掉**再清理暂存目录：留下的目录必须没有可回滚的日志，否则一个「属主已死 + prepared」的残留会被回收规则当成「没写完」而把已应用的文件回滚掉。清理若也失败，目录里没有 journal，回收只报 `staging-unknown`。`commitFoundation` 的 `catch` 只覆盖 rename 之前的阶段，`applied` 标记的失败不进入那条回滚路径。
 
 ### 回收规则
 
@@ -49,7 +49,7 @@ Status: proposed
 - journal 读不出来（写了一半、JSON 坏了、`phase` 不是两个已知值）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
 - 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
 
-`commitFile` 也会留痕：它在目标目录写 `.tmp-<uuid>`，rename 之前崩溃就把临时文件留在原地。工作区根（`work.json`）与 `source/story/**` 里都可能出现；后者里时还会计入工件摘要。所以扫描顺带找这两处的 `.tmp-*`：`tmp-residue`（`warning`，**可修**）——临时文件从未成为目标内容，删掉是安全的，删除后摘要回到应有的值。
+`commitFile` 也会留痕：它在目标目录写 `.tmp-<uuid>`，rename 之前崩溃就把临时文件留在原地。工作区根（`work.json`）与 `source/story/**` 里都可能出现；后者里时还会计入工件摘要。文件名改成 `.tmp-<pid>-<uuid>`，回收时按 pid 判属主：属主已死的才删（`tmp-residue`，`warning`，**可修**）；属主活着的是另一个正在写的进程，保留；文件名不带 pid（旧格式）的无法判活，只报告。临时文件从未成为目标内容，删除是安全的，删除后摘要回到应有的值。
 
 属主判定用 `process.kill(pid, 0)`：抛 `ESRCH` 即已死；`EPERM` 视为活着（不是本用户的进程也不能碰）。
 
@@ -105,8 +105,8 @@ Status: proposed
 - 缺任一索引文件（三个各测一次）：一条 `state-missing`（`fixable: true`）；`apply: true` 写回与 `defaultStateFiles` 逐字节一致的内容，重新扫描不再报，`applied` 列出该路径；**不**创建 `hooks.json`。
 - 缺 `hooks.json`：一条 `hooks-missing`（`fixable: false`）；`apply: true` 不创建它。
 - `work.json` 非法：一条 `work-invalid`（`error`、`fixable: false`）；`apply: true` 不改写任何文件。
-- 暂存回收：`phase: "prepared"` 且属主已死 → `apply: true` 用备份还原目标、删掉新增文件与暂存目录；`phase: "applied"` → 只删暂存目录；属主活着的目录原样保留；没有 journal 或 journal 读不出来的目录只报告；工作区根与 `source/story/**` 里的 `.tmp-*` 报告为 `tmp-residue` 并在 `apply: true` 时删除。
-- 标记写失败：注入一个「写 `applied` 标记会失败」的文件写入，断言 `commitFoundation` 仍然成功、文件已经就位、不会被自己的 `catch` 回滚，暂存目录被清理。
+- 暂存回收：`phase: "prepared"` 且属主已死 → `apply: true` 用备份还原目标、删掉新增文件与暂存目录；`phase: "applied"` → 只删暂存目录；属主活着的目录原样保留；没有 journal 或 journal 读不出来的目录只报告；工作区根与 `source/story/**` 里属主已死的 `.tmp-<pid>-<uuid>` 报 `tmp-residue` 并在 `apply: true` 时删除，属主活着或旧格式的只报告。
+- 标记写失败：注入一个「写 `applied` 标记会失败」的文件写入，断言 `commitFoundation` 仍然成功、文件已经就位、不会被自己的 `catch` 回滚，暂存目录被清理；再让清理也失败，断言留下的目录里**没有** `journal.json`，扫描只报 `staging-unknown`、不选 `staging-rollback`。
 - 摘要与确认：输出带 `digestBefore`／`digestAfter`／`approvedDigest`／`needsReconfirm`；重建内容与缺失前一致时 `digestAfter` 回到认可过的那一版、`needsReconfirm: false`；构造一个「作者已认可旧摘要、重建写回不同的 manifest」的用例，断言 `needsReconfirm: true`。
 - 工具输出 schema 在运行时子集内；`test/host.test.mjs` 的工具清单同批加 `story_recover`；`test/foundation.test.mjs` 对 `stateWritesIfMissing` 的断言不回归。
 - 实现与证据：implementation `packages/see-dsh-novel/src/core/recovery.ts`；consumer `packages/see-dsh-novel/test/recovery.test.mjs`；工具注册与提交日志改动在 `src/plugin/recovery-tool.ts` 与 `src/core/commit.ts`，同批更新 `test/foundation.test.mjs`；realRun `artifacts/real-runs/runtime.recovery.json`。
@@ -119,3 +119,4 @@ Status: proposed
 - `pid` 只有本机意义：跨机器共享的工作区上，日志里的 pid 判定不可靠，工具会把残留当「属主活着」保留。
 - 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
 - `needsReconfirm` 依据的是会话里能读到的那次认可：如果当前会话没读过旧回执（换过会话），它会是 `false`，作者要自己按摘要判断。
+- `.tmp-*` 的属主判定与暂存同理：pid 被复用会误判为「活着」而保留临时文件，不会误删；旧格式的临时文件永远只报告，靠人工清理。
