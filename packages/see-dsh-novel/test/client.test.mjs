@@ -302,6 +302,43 @@ test('a throwing command is reported instead of leaving the panel stuck', async 
   assert.equal(tree.root.findAllByType('button').length, 3, '失败后按钮应恢复可用')
 })
 
+test('a resume that rejects is reported as a failed continuation, not a failed confirmation', async () => {
+  installDocumentStub()
+  const { tree, resumes } = await renderView({ resume: () => { throw new Error('rpc down') } })
+  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  assert.deepEqual(resumes, [SESSION])
+  assert.match(textOf(tree), /已确认；会话没能自动继续/)
+  assert.doesNotMatch(textOf(tree), /提交失败/)
+  assert.equal(tree.root.findAllByType('button').length, 0)
+})
+
+test('a stale submission does not paint the previous session state', async () => {
+  installDocumentStub()
+  const other = 'session-2'
+  const twoSessions = {
+    ids: [SESSION, other],
+    byId: {
+      [SESSION]: { sessionId: SESSION, cwd: '/work' },
+      [other]: { sessionId: other, cwd: '/work' },
+    },
+    projectionsBySession: {
+      [SESSION]: { values: { agentPreset: 'see-dsh-novel' } },
+      [other]: { values: { agentPreset: 'see-dsh-novel' } },
+    },
+  }
+  let release
+  const pending = new Promise((resolve) => { release = resolve })
+  const { tree, props } = await renderView({ state: twoSessions, runCommand: () => pending })
+  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+
+  // 切换会话，然后旧请求才完成：结果必须被丢弃。
+  await act(async () => { tree.update(React.createElement(StoryView, { ...props, sessionId: other })) })
+  await act(async () => { release('ok') })
+
+  assert.doesNotMatch(textOf(tree), /已确认/)
+  assert.equal(tree.root.findAllByType('button').length, 3, '新会话的按钮应可用')
+})
+
 test('switching sessions resets the panel state', async () => {
   installDocumentStub()
   const other = 'session-2'

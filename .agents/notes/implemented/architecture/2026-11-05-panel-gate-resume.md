@@ -86,7 +86,7 @@ Status: implemented
 
 ## Consequences
 
-`src/client/index.ts` 导出 `RESUME_TEXT` 并给视图注入 `resume(sessionId)`：`prompt([{ type: 'text', text }], 'queue')`，`RemoteResult.ok !== true` 或没有会话绑定时返回 `'failed'`。`StoryView.tsx` 的 `submit` 是一次点击两步——命令成功且是 `/story-approve` 时接着调 `resume`，成功后把三个按钮换成状态行（继续 / 没能继续），两种都在本次挂载内不可再点；退回与查看走各自的成功文案、不唤醒。本地生命周期收成一个 `phase`（`idle`／`running`／`resumed`／`resume-failed`）加一个同步的 ref 防同一帧连点；会话 id 变化时重置，避免面板在会话之间复用时把上一个会话的「已确认」带过来；`runCommand` 或 `resume` 抛错时落到「提交失败」并恢复按钮，不会把「正在执行」挂着。
+`src/client/index.ts` 导出 `RESUME_TEXT` 并给视图注入 `resume(sessionId)`：`prompt([{ type: 'text', text }], 'queue')`，`RemoteResult.ok !== true` 或没有会话绑定时返回 `'failed'`。`StoryView.tsx` 的 `submit` 是一次点击两步——命令成功且是 `/story-approve` 时接着调 `resume`，成功后把三个按钮换成状态行（继续 / 没能继续），两种都在本次挂载内不可再点；退回与查看走各自的成功文案、不唤醒。本地生命周期收成一个 `phase`（`idle`／`running`／`resumed`／`resume-failed`）加一个同步的 ref 防同一帧连点。两层失败分开：命令本身失败或抛错时落「提交失败」并恢复按钮；命令成功之后 `resume` 的失败（含抛错）只落「已确认；会话没能自动继续…」——回执已经写下，不能让作者以为确认没成功。提交记住发起时的会话 id，切换会话后到达的旧结果直接丢弃，避免把上一个会话的「已确认」画到新会话上。
 
 验证见 `test/client.test.mjs`（认可→投消息、继续失败文案、退回／查看不唤醒、命令失败与抛错都不投且恢复按钮、连点只走一次、切换会话重置、`resume` 注入面的 payload 与 `queue` 模式、prompt 拒绝与无绑定都返回 `failed`、消息文本含两个工具名且不含摘要），真实运行回执见 `artifacts/real-runs/panel.gate-resume.json`。
 

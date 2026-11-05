@@ -13,7 +13,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PRESET_ID, presetSelector } from './preset.js'
-import type { CommandOutcome, ViewInjected } from './types.js'
+import type { CommandOutcome, ResumeOutcome, SessionId, ViewInjected } from './types.js'
 
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 
@@ -61,9 +61,12 @@ function workState(states: ReadonlyArray<ResourceStatus>): ResourceStatus {
   return 'none'
 }
 
-/** 提交结果换成人话；命令真正执行与否，作者必须立刻看见。 */
-function noticeOf(label: string, outcome: CommandOutcome): string {
-  if (outcome === 'ok') return `已提交「${label}」，结果在「对话」里。`
+/**
+ * 命令失败换成人话；命令真正执行与否，作者必须立刻看见。
+ * @param label 按钮文案
+ * @param outcome 非成功的命令结果
+ */
+function failureNotice(label: string, outcome: Exclude<CommandOutcome, 'ok'>): string {
   if (outcome === 'unbound') return '当前会话还没有就绪，命令没有执行。'
   if (outcome === 'unmatched') return `这个会话没有该命令：确认预设是 ${PRESET_ID}。`
   return '提交失败，稍后再试。'
@@ -83,6 +86,8 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     phaseRef.current = next
     setPhase(next)
   }
+  // 在途的提交只对发起它的会话有效：面板实例会被复用，切换会话后旧结果必须丢弃。
+  const currentSession = useRef<SessionId>(sessionId)
   const cwd = useSessions((state: SessionListState) => state.byId[sessionId]?.cwd)
   const preset = useSessions(presetSelector(sessionId))
   const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
@@ -91,6 +96,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
   useEffect(() => {
+    currentSession.current = sessionId
     phaseRef.current = 'idle'
     setPhase('idle')
     setNotice('')
@@ -105,12 +111,15 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
    */
   async function submit(label: string, line: string): Promise<void> {
     if (phaseRef.current !== 'idle') return
+    const startedFor = sessionId
+    const stillHere = (): boolean => currentSession.current === startedFor
     moveTo('running')
     setNotice(`正在执行「${label}」…`)
     try {
       const outcome = await runCommand(sessionId, line)
+      if (!stillHere()) return
       if (outcome !== 'ok') {
-        setNotice(noticeOf(label, outcome))
+        setNotice(failureNotice(label, outcome))
         moveTo('idle')
         return
       }
@@ -119,12 +128,21 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         moveTo('idle')
         return
       }
-      const resumed = await resume(sessionId)
+      // 回执已经写下，从这里开始的失败只影响「有没有自动继续」。
+      let resumed: ResumeOutcome = 'failed'
+      try {
+        resumed = await resume(sessionId)
+      } catch {
+        resumed = 'failed'
+      }
+      if (!stillHere()) return
       moveTo(resumed === 'ok' ? 'resumed' : 'resume-failed')
       setNotice('')
     } catch {
-      setNotice('提交失败，稍后再试。')
-      moveTo('idle')
+      if (stillHere()) {
+        setNotice('提交失败，稍后再试。')
+        moveTo('idle')
+      }
     }
   }
 
