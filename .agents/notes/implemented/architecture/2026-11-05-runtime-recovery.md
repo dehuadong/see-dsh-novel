@@ -45,7 +45,7 @@ Status: implemented
 
 - 有 journal 且 `pid` 还活着 → `staging-active`（`info`，不修）：那是一次正在进行的提交，碰它会把并发写弄坏；
 - 有 journal、属主已死、`phase: "applied"` → `staging-cleanup`（`info`，**可修**）：文件都已就位，只删暂存目录；
-- 有 journal、属主已死、`phase: "prepared"` → 按进展分两种：`work/` 里已经没有 staged 文件（且这次提交没有删除项）说明 rename 全做完了、只差标记，记 `staging-cleanup`；否则记 `staging-rollback`（`warning`，**可修**）——把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
+- 有 journal、属主已死、`phase: "prepared"` → 按进展分两种：这次提交有写入、且 `work/` 里已经没有 staged 文件，说明 rename 全做完了、只差标记，记 `staging-cleanup`；否则（还有 staged 文件，或这次提交只有删除项、没有东西可看）记 `staging-rollback`（`warning`，**可修**）——把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
 - journal 读不出来（写了一半、JSON 坏了、`phase` 不是两个已知值）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
 - 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
 
@@ -115,4 +115,4 @@ Status: implemented
 - 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
 - `needsReconfirm` 依据的是会话里能读到的那次认可：如果当前会话没读过旧回执（换过会话），它会是 `false`，作者要自己按摘要判断。
 - `.tmp-*` 的属主判定与暂存同理：pid 被复用会误判为「活着」而保留临时文件，不会误删；旧格式的临时文件永远只报告，靠人工清理。
-- 「`work/` 已搬空」是间接证据：如果提交只有删除项，判不出删除做到哪一步，一律按回滚处理（宁可恢复也不留下删了一半的状态）。
+- 「`work/` 已搬空」是间接证据：有写入时能判出 rename 做完没有；只有删除项的提交没有 staged 文件可看，一律按回滚处理。混合提交（写入 + 删除）在有写入时会按「搬空即完成」判，删除做到哪一步无法从日志判断——删除项当前没有生产调用方，等有调用方时再补更精确的阶段标记。

@@ -67,6 +67,7 @@ async function stagingFixture(root, {
   journal = true,
   pid = DEAD_PID,
   writes = ['source/story/outline/story_frame.md'],
+  deletes = [],
   pending = true,
 }) {
   const dir = join(root, 'source', '.staging-fixture')
@@ -74,7 +75,7 @@ async function stagingFixture(root, {
   await mkdir(join(dir, 'work'), { recursive: true })
   if (pending && writes.length > 0) await writeFile(join(dir, 'work', 'staged.md'), 'staged\n', 'utf8')
   if (journal) {
-    await writeFile(join(dir, 'journal.json'), JSON.stringify({ version: 1, pid, phase, writes, deletes: [] }), 'utf8')
+    await writeFile(join(dir, 'journal.json'), JSON.stringify({ version: 1, pid, phase, writes, deletes }), 'utf8')
   }
   return dir
 }
@@ -250,6 +251,47 @@ test('a prepared staging whose files were all moved is cleaned, not rolled back'
 
     await repairWorkspace(root, scan.findings)
     assert.equal(await readFile(target, 'utf8'), applied, '已应用的文件不被回滚')
+    assert.equal(await exists(staging), false)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a deletes-only prepared staging rolls back even with an empty work dir', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    const target = join(root, 'source/story/outline/story_frame.md')
+    const staging = await stagingFixture(root, { phase: 'prepared', pending: false, writes: [], deletes: ['source/story/outline/story_frame.md'] })
+    await writeFile(join(staging, 'backup/source/story/outline/story_frame.md'), '# 被删前的内容\n', 'utf8')
+    await rm(target)
+
+    const scan = await scanWorkspace(root)
+    assert.ok(scan.findings.some((entry) => entry.code === 'staging-rollback'))
+    await repairWorkspace(root, scan.findings)
+    assert.equal(await readFile(target, 'utf8'), '# 被删前的内容\n', '删除被撤销')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a mixed prepared staging with all writes moved is cleaned, not rolled back', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    const target = join(root, 'source/story/outline/story_frame.md')
+    await writeFile(target, '# 已应用\n', 'utf8')
+    const staging = await stagingFixture(root, {
+      phase: 'prepared',
+      pending: false,
+      deletes: ['source/story/outline/old.md'],
+    })
+
+    const scan = await scanWorkspace(root)
+    assert.ok(scan.findings.some((entry) => entry.code === 'staging-cleanup'))
+    assert.equal(scan.findings.some((entry) => entry.code === 'staging-rollback'), false)
+    await repairWorkspace(root, scan.findings)
+    assert.equal(await readFile(target, 'utf8'), '# 已应用\n')
     assert.equal(await exists(staging), false)
   } finally {
     await cleanup(root)

@@ -145,9 +145,8 @@ async function stagingFindings(root: string): Promise<Finding[]> {
     if (journal.phase === 'prepared') {
       // 日志没来得及改成 applied 时，用「staged 文件是否已经全部搬走」判进展：
       // 全搬空了说明 rename 已完成，剩下的只是没写成的标记与清理。
-      const pending = (journal.deletes.length === 0 && journal.writes.length > 0)
-        ? await countFiles(join(dir, 'work'))
-        : 1
+      // 只有删除项的提交没有 staged 文件可看，判不出来，一律按回滚（宁可恢复）。
+      const pending = journal.writes.length > 0 ? await countFiles(join(dir, 'work')) : 1
       if (pending === 0) {
         findings.push({
           code: 'staging-cleanup',
