@@ -83,7 +83,7 @@ capabilities:
   - id: proposal.creative
     title: 创意提案：对话收敛创意、结构化提案与确认卡、确认后按确认参数创建作品
     reference: inkos:packages/core/src/agent/agent-tools.ts
-    dsh: tools.register + approval + storage
+    dsh: tools.register + approval
     implementation: null
     consumer: null
     realRun: null
