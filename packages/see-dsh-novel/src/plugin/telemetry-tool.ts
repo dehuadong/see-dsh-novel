@@ -264,9 +264,14 @@ export async function readTelemetry(
         release(observation)
       }
     } catch (error) {
-      // 取消是调用方的事，照常抛；其余读不出的情况（external、旧会话）记一条诊断，行本身仍回。
+      // 取消是调用方的事，照常抛；其余读不出的情况记一条诊断，行本身仍回。
       if (exec.signal?.aborted === true) throw error
-      diagnostics.push({ childSessionId: row.id, reason: 'unavailable' })
+      // 宿主用错误码区分「会话内容坏了」与「读不到」，同一个读取面就有这个信息。
+      const code = (error as { code?: unknown }).code
+      diagnostics.push({
+        childSessionId: row.id,
+        reason: code === 'SESSION_QUERY_CORRUPT_SESSION' ? 'corrupt' : 'unavailable',
+      })
       usage = undefined
       timing = undefined
     }

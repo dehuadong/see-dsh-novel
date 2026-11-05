@@ -206,6 +206,37 @@ test('a child row without mode or depth is reported as a diagnostic, not guessed
   assert.deepEqual(result.diagnostics, [{ childSessionId: 'session-malformed', reason: 'unsupported' }])
 })
 
+test('malformed rows do not consume the limit', async () => {
+  const { ctx, registered } = services({
+    rows: [
+      { kind: 'child', id: 'session-malformed', depth: undefined, mode: undefined },
+      { kind: 'child', id: 'session-1', depth: 1, mode: 'one-shot', activity: 'inactive' },
+      { kind: 'child', id: 'session-2', depth: 1, mode: 'one-shot', activity: 'inactive' },
+    ],
+    observations: { 'session-1': observation(completed), 'session-2': observation(completed) },
+  })
+  installTelemetryTool(ctx)
+  const result = await registered.get(TELEMETRY_NAME).execute({ limit: 2 }, exec)
+  assert.deepEqual(result.delegations.map((row) => row.childSessionId), ['session-1', 'session-2'])
+  assert.deepEqual(result.diagnostics, [{ childSessionId: 'session-malformed', reason: 'unsupported' }])
+})
+
+test('a corrupt child session is diagnosed as corrupt, not unavailable', async () => {
+  const { ctx, registered } = services({
+    rows: [{ kind: 'child', id: 'session-corrupt', depth: 1, mode: 'one-shot', activity: 'inactive' }],
+    sessionQuery: {
+      observeSession: async () => {
+        const error = new Error('corrupt session log')
+        error.code = 'SESSION_QUERY_CORRUPT_SESSION'
+        throw error
+      },
+    },
+  })
+  installTelemetryTool(ctx)
+  const result = await registered.get(TELEMETRY_NAME).execute({}, exec)
+  assert.deepEqual(result.diagnostics, [{ childSessionId: 'session-corrupt', reason: 'corrupt' }])
+})
+
 test('limit keeps the most recent rows only', async () => {
   const rows = [1, 2, 3].map((index) => ({
     kind: 'child', id: `session-${index}`, depth: 1, mode: 'one-shot', activity: 'inactive',

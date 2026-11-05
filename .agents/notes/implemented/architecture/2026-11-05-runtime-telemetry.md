@@ -25,7 +25,7 @@ Status: implemented
 `diagnostics` 里还有两类**由本工具判定**的条目，措辞与目录自带的原因一致：
 
 - 缺 `mode`／`depth` 的 `child` 行 → `unsupported`。这类行不用读会话就能判定，所以对全部子会话都判，不进 `delegations`，也不占 `limit` 的名额。
-- 返回窗口里读不出本地会话的 `child` 行 → `unavailable`（external 没有本地会话、旧会话读不到）。窗口之外的子会话不读，也就不产生这类条目——`summary.diagnostics` 因此不是整棵树的全量异常数，而是「目录异常 + 返回窗口内的读失败」。取消（`signal` 已 abort）照常抛出，不算读失败。
+- 返回窗口里读不出本地会话的 `child` 行 → `unavailable`（external 没有本地会话、旧会话读不到）；读取面用错误码区分内容损坏，`SESSION_QUERY_CORRUPT_SESSION` 记为 `corrupt`。窗口之外的子会话不读，也就不产生这类条目——`summary.diagnostics` 因此不是整棵树的全量异常数，而是「目录异常 + 全部缺字段行 + 返回窗口内的读失败」。取消（`signal` 已 abort）照常抛出，不算读失败。
 
 对每个可用的 `child`：
 
