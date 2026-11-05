@@ -13,7 +13,8 @@ import { readWork, workProbes } from '../core/work.js'
 import { installCastContext } from '../pipelines/long/cast.js'
 import { installApprovalCommands } from '../pipelines/long/commands.js'
 import { installGateTools } from '../pipelines/long/gate.js'
-import { renderHooksProjection } from '../pipelines/long/hooks.js'
+import { renderHooksProjection } from '../core/state-projections.js'
+import { stateLanguage } from '../core/state.js'
 import { installStorySkills, packageRootOf } from '../pipelines/long/skills.js'
 import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
@@ -49,7 +50,7 @@ async function readHooks(ctx: PluginContext, exec: ExecuteContext): Promise<Hook
   const root = await ctx.workingDirectory.ensure(exec.agent)
   const raw = await readFile(join(root, 'source/story/state/hooks.json'), 'utf8')
   const state = validateHooks(JSON.parse(raw) as HooksState)
-  return { counts: countHooks(state), projection: renderHooksProjection(state) }
+  return { counts: countHooks(state), projection: renderHooksProjection(state, await stateLanguage(root)) }
 }
 
 /** Register the story tools and hand back one disposer. */

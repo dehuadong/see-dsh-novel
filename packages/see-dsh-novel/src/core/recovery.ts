@@ -10,7 +10,7 @@ import { join, resolve, sep } from 'node:path'
 import { readArtifacts } from './artifacts.js'
 import { commitFile, JOURNAL_FILE, pathExists } from './commit.js'
 import type { CommitJournal } from './commit.js'
-import { defaultStateFiles } from './state.js'
+import { readStateSnapshot, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
 
 /** 发现项的严重程度。 */
@@ -24,6 +24,7 @@ export const FINDING_CODES = [
   'foundation-empty',
   'state-missing',
   'hooks-missing',
+  'projection-stale',
   'staging-active',
   'staging-rollback',
   'staging-cleanup',
@@ -57,6 +58,13 @@ const STATE_DIR = 'source/story/state'
 const WORK_DIR = 'source/story'
 /** 三个可重建的索引；`hooks.json` 不在其中（伏笔池是创作事实）。 */
 const INDEX_FILES = ['manifest.json', 'current_state.json', 'chapter_summaries.json'] as const
+
+/** 三份投影与它们的源 JSON；只有源存在时投影才可重建。 */
+const PROJECTIONS: ReadonlyArray<{ path: string, source: string }> = [
+  { path: 'source/story/current_state.md', source: `${STATE_DIR}/current_state.json` },
+  { path: 'source/story/pending_hooks.md', source: `${STATE_DIR}/hooks.json` },
+  { path: 'source/story/chapter_summaries.md', source: `${STATE_DIR}/chapter_summaries.json` },
+]
 
 /** 进程是否还活着；`ESRCH` 才算已死，其它错误（如 `EPERM`）一律当活着，宁可不碰。 */
 export function pidAlive(pid: number): boolean {
@@ -261,6 +269,30 @@ function contentFindings(hasWork: boolean, workValid: boolean, files: ReadonlyAr
       fixable: false,
     })
   }
+  // 投影：源 JSON 在就重建，源 JSON 没了就不能拿空表冒充。
+  for (const projection of PROJECTIONS) {
+    const projectionPresent = files.includes(projection.path)
+    const sourcePresent = files.includes(projection.source)
+    if (!projectionPresent) {
+      findings.push({
+        code: 'state-missing',
+        severity: 'warning',
+        path: projection.path,
+        detail: sourcePresent
+          ? `投影 ${projection.path} 缺失；可以按 ${projection.source} 重建。`
+          : `投影 ${projection.path} 与它的源 ${projection.source} 都缺失；重建会用空表掩盖丢失。`,
+        fixable: sourcePresent,
+      })
+    } else if (!sourcePresent) {
+      findings.push({
+        code: 'projection-stale',
+        severity: 'warning',
+        path: projection.path,
+        detail: `投影 ${projection.path} 没有源 ${projection.source}；无法核对，留给作者判断。`,
+        fixable: false,
+      })
+    }
+  }
   return findings
 }
 
@@ -347,13 +379,19 @@ async function rollback(root: string, staging: string, journal: CommitJournal): 
  */
 export async function repairWorkspace(root: string, findings: ReadonlyArray<Finding>): Promise<string[]> {
   const base = resolve(root)
-  const defaults = new Map(defaultStateFiles([]).map((write) => [write.relativePath, write.content]))
+  const snapshot = await readStateSnapshot(base)
+  const defaults = new Map(
+    [...stateJsonWrites(snapshot), ...stateProjectionWrites(snapshot)].map((write) => [write.relativePath, write.content]),
+  )
   const applied: string[] = []
   for (const finding of findings) {
     if (!finding.fixable || finding.path === null) continue
     if (finding.code === 'state-missing') {
       const content = defaults.get(finding.path)
       if (content === undefined) continue
+      // 投影只有源 JSON 存在时才可重建；扫描已经按这个口径给了 fixable，这里再守一次。
+      const projection = PROJECTIONS.find((item) => item.path === finding.path)
+      if (projection !== undefined && !(await pathExists(join(base, projection.source)))) continue
       await commitFile(base, finding.path, content)
       applied.push(finding.path)
       continue

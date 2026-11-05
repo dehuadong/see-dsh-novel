@@ -21,7 +21,7 @@ import {
 import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contract.js'
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
-import { stateWritesIfMissing } from '../../core/state.js'
+import { stateLanguage, stateWritesIfMissing } from '../../core/state.js'
 import { BOOK_RULES_JSON, BOOK_RULES_MD, withVersion } from './book-rules.js'
 
 /** 两个档位；读取与删除都按这个顺序走。 */
@@ -181,7 +181,7 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       const root = await workRoot(exec)
       // 先补版本、再严格校验：写坏的文件不能落到盘上。
       const rules = withVersion(args.bookRulesData)
-      const stateWrites = await stateWritesIfMissing(root, args.pendingHooks)
+      const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, await stateLanguage(root))
       return commitFoundation(root, {
         writes: [
           { relativePath: BOOK_RULES_MD, content: `${String(args.bookRules).trim()}\n` },

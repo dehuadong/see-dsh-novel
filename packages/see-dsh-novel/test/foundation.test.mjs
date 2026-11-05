@@ -80,6 +80,12 @@ test('details writes book rules and seeds the four state files', async () => {
     })
     assert.deepEqual(JSON.parse(await read(root, 'source/story/state/current_state.json')), { chapter: 0, facts: [] })
     assert.deepEqual(JSON.parse(await read(root, 'source/story/state/chapter_summaries.json')), { rows: [] })
+
+    // 三份投影与 JSON 同批落盘；伏笔投影带表头与这一行。
+    assert.match(await read(root, 'source/story/pending_hooks.md'), /^# 伏笔池\n/)
+    assert.match(await read(root, 'source/story/pending_hooks.md'), /\| H1 \| 0 \| 悬案 \|/)
+    assert.match(await read(root, 'source/story/current_state.md'), /^# 当前状态\n/)
+    assert.match(await read(root, 'source/story/chapter_summaries.md'), /^# 章节摘要\n/)
   } finally {
     dispose()
   }

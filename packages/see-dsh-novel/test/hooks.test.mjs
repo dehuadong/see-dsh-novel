@@ -56,7 +56,7 @@ test('projection is deterministic and sorted by the three keys', () => {
 
 test('projection escapes pipes and newlines so the table cannot break', () => {
   const text = renderHooksProjection({ hooks: [hook({ notes: 'a|b\nc' })] })
-  assert.match(text, /a\\\|b c/)
+  assert.match(text, /a\\\|b<br>c/)
 })
 
 test('counts group by status', () => {

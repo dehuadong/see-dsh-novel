@@ -1,6 +1,6 @@
 # Agent Note: foundation.truth-projections —— 三份 truth 投影
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -10,7 +10,7 @@ Status: proposed
 
 后果：作者看不到可读的状态与伏笔池；`foundation.ready-check` 无法按源工程判据落地（`pending_hooks.md` 永远不存在）；P3 读状态时只有 JSON。
 
-## Proposal
+## Decision
 
 ### 一份渲染，两处使用
 
@@ -69,21 +69,18 @@ export function renderChapterSummariesProjection(state: ChapterSummariesState, l
 
 **现在就把 `stateSnapshotWrites` 建好给 P4 用。** 提前抽象。否掉：本行没有消费者，且整份保存需要先校验（源工程 `saveRuntimeStateSnapshot` 先 validate 再写）；等 P4 结算行需要时一起做。
 
-## Acceptance criteria
+## Consequences
 
-- `story_foundation_details` 一次写入 7 个文件：四份 `source/story/state/*.json` 与三份 `source/story/{current_state,pending_hooks,chapter_summaries}.md`；投影标题、表头、列序、空表、末尾换行与源工程一致。
-- 中文作品（`work.json` 的 `language: "zh"` 或缺失）得到中文标题与表头；`language: "en"` 得到 `# Pending Hooks`／`# Current State`／`# Chapter Summaries`。
-- 伏笔投影排序与转义：`|` → `\|`、换行 → `<br>`、单元格 trim；`story_hooks` 工具回执与落盘投影逐字一致（同一语言来源：manifest → work.json → zh；`work.json` 读不出来时工具仍按 `zh` 返回）。
-- 当前状态投影过滤 `validUntilChapter < chapter`，正文前有 `> 当前章节: N`；章节摘要按章节号排序、八列。
-- 重跑 details：已有 JSON 与投影不覆盖；删掉某份投影后重跑只补缺失的那份、按 JSON 重建。
-- 自检：删 `pending_hooks.md`（`hooks.json` 在）→ `state-missing` 可修，`apply` 补回且 JSON 不变；同时删 `hooks.json` 与 `pending_hooks.md` → `state-missing` 不可修，`apply` 不生成空投影；`pending_hooks.md` 在而 `hooks.json` 缺 → `projection-stale` 不可修。
-- 既有测试同批更新：`test/foundation.test.mjs` 的文件数从 4 改为 7、`test/hooks.test.mjs` 的转义与末尾换行断言、`test/recovery.test.mjs` 的路径集合断言与「work.json 坏了仍能修 manifest」用例。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/state-projections.ts`；consumer `packages/see-dsh-novel/test/state-projections.test.mjs`；播种、工具与自检改动在 `src/core/state.ts`、`src/pipelines/long/hooks.ts`、`src/core/recovery.ts`；realRun `artifacts/real-runs/foundation.truth-projections.json`。
-- 真实运行：空工作区调 `story_foundation_details`，确认七份文件都在、`pending_hooks.md` 含表头与该次伏笔行、`story_hooks` 回执与文件一致；再删 `pending_hooks.md` 跑 `story_recover`（扫描 + `apply`）确认补回。
+收益：状态不再只有 JSON。一次 details 写七份文件——四份 JSON 加三份投影，同一次原子提交；作者打开作品就能读到伏笔池、当前状态与章节摘要，下一行的就绪判据也终于能看到 `pending_hooks.md`。伏笔表只剩一份渲染：`story_hooks` 的回执与落盘投影逐字一致，换行转义成 `<br>`、单元格 trim、末尾一个换行，与源工程格式对齐。
 
-## Risks
+落地：`packages/see-dsh-novel/src/core/state-projections.ts`（三个渲染函数与状态类型）、`src/core/state.ts`（`defaultStateSnapshot`、`stateJsonWrites`、`stateProjectionWrites`、`readStateSnapshot`、`stateLanguage`、七份播种）、`src/pipelines/long/hooks.ts`（改为复用 core 渲染）、`src/plugin/agent.ts`（`story_hooks` 按 manifest → work.json → zh 取语言）、`src/core/recovery.ts`（投影纳入自检：源 JSON 在则可重建，源缺失时不可修，另报 `projection-stale`）、`src/pipelines/long/tools.ts`（details 传语言）。
 
-- 投影是派生文件：手改投影不会回流 JSON，重建会被覆盖；与源工程一致（投影是只读视图）。
-- 事实与摘要的字段（`subject`／`predicate`／`validUntilChapter`、八列摘要）现在没有生产者，投影只能显示空表；字段契约由 P4 结算行填充。
-- 没有 `work.json` 的工作区按 `zh` 渲染。
-- 自检把投影当索引修补时，作者手写过的投影会在重建时被覆盖。
+验证见 `test/state-projections.test.mjs`（排序、转义与末尾换行、中英表头、事实按 `validUntilChapter` 过滤、八列摘要、空表仍带表头）、`test/foundation.test.mjs`（投影与 JSON 同批落盘，`pending_hooks.md` 带表头与该次伏笔行）、`test/hooks.test.mjs`（回执与投影同一渲染）、`test/recovery.test.mjs`（删投影可修、源缺失不可修、`projection-stale` 只报告）。
+
+### 代价与已知限制
+
+- 投影是派生文件：手改投影不会回流 JSON，重建时会被覆盖；与源工程一致（投影是只读视图）。
+- 事实与摘要的字段（`subject`／`predicate`／`validUntilChapter`、八列摘要）现在没有生产者，投影只显示空表；字段契约由 P4 结算行填充。
+- 没有 `work.json` 的工作区按 `zh` 渲染；`work.json` 读不出来时 `story_hooks` 退回 `zh`。
+- 自检把投影当索引修补：作者手写过的投影会在重建时被覆盖。
+- 删掉 `hooks.json` 同时保留投影时，投影只能报 `projection-stale`，没有自动修复路径。

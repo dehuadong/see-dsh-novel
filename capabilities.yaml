@@ -156,9 +156,9 @@ capabilities:
     title: truth 投影：current_state.md／pending_hooks.md／chapter_summaries.md 与 JSON 同步生成
     source: inkos:packages/core/src/state/state-projections.ts
     dsh: tools.register + atomic write
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/core/state-projections.ts
+    consumer: packages/see-dsh-novel/test/state-projections.test.mjs
+    realRun: artifacts/real-runs/foundation.truth-projections.json
     status: missing
   - id: foundation.control-docs
     title: 控制文档：author_intent.md／current_focus.md／brief.md 的播种与读取

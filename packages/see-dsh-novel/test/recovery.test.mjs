@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { commitFile, commitFoundation } from '../src/core/commit.ts'
 import { readArtifacts } from '../src/core/artifacts.ts'
-import { defaultStateFiles, stateWritesIfMissing } from '../src/core/state.ts'
+import { defaultStateSnapshot, stateJsonWrites, stateProjectionWrites, stateWritesIfMissing } from '../src/core/state.ts'
 import {
   parseJournal,
   pidAlive,
@@ -51,9 +51,10 @@ function services(root) {
   }
 }
 
-/** 播种一份基础设定（三个索引 + 大纲），返回摘要。 */
+/** 播种一份完整基础设定（四份 JSON、三份投影、大纲），返回摘要。 */
 async function seedFoundation(root) {
-  const writes = defaultStateFiles([]).filter((write) => !write.relativePath.endsWith('hooks.json'))
+  const snapshot = defaultStateSnapshot([])
+  const writes = [...stateJsonWrites(snapshot), ...stateProjectionWrites(snapshot)]
   writes.push({ relativePath: 'source/story/outline/story_frame.md', content: '# 大纲\n' })
   await commitFoundation(root, { writes })
   return (await readArtifacts(root)).digest
@@ -182,12 +183,12 @@ test('each missing index is rebuilt byte-identically and the digest returns', as
 
       const applied = await repairWorkspace(root, scan.findings)
       assert.deepEqual(applied, [`source/story/state/${name}`])
-      const expected = defaultStateFiles([]).find((write) => write.relativePath === `source/story/state/${name}`)
+      const expected = stateJsonWrites(defaultStateSnapshot([])).find((write) => write.relativePath === `source/story/state/${name}`)
       assert.equal(await readFile(path, 'utf8'), expected.content)
       assert.equal((await readArtifacts(root)).digest, original, '内容一致时摘要回到原值')
       const rescan = await scanWorkspace(root)
       assert.equal(rescan.findings.some((entry) => entry.code === 'state-missing'), false)
-      assert.equal(await exists(join(root, 'source/story/state/hooks.json')), false, '不创建 hooks')
+      assert.equal(await exists(join(root, 'source/story/state/hooks.json')), true, '播种包含伏笔池')
     } finally {
       await cleanup(root)
     }
@@ -199,12 +200,43 @@ test('a missing hooks pool is reported but never rebuilt', async () => {
   try {
     await writeWork(root, { title: '伏笔' })
     await seedFoundation(root)
+    await rm(join(root, 'source/story/state/hooks.json'))
+    await rm(join(root, 'source/story/pending_hooks.md'))
     const scan = await scanWorkspace(root)
     const hooks = scan.findings.find((entry) => entry.code === 'hooks-missing')
     assert.ok(hooks)
     assert.equal(hooks.fixable, false)
+    const projection = scan.findings.find((entry) => entry.path === 'source/story/pending_hooks.md')
+    assert.ok(projection)
+    assert.equal(projection.fixable, false, '源缺失时投影不可重建')
     await repairWorkspace(root, scan.findings)
     assert.equal(await exists(join(root, 'source/story/state/hooks.json')), false)
+    assert.equal(await exists(join(root, 'source/story/pending_hooks.md')), false)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a deleted projection is rebuilt from its source, and a stale one is reported', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    await rm(join(root, 'source/story/pending_hooks.md'))
+    let scan = await scanWorkspace(root)
+    const missing = scan.findings.find((entry) => entry.path === 'source/story/pending_hooks.md')
+    assert.ok(missing)
+    assert.equal(missing.code, 'state-missing')
+    assert.equal(missing.fixable, true)
+    assert.deepEqual(await repairWorkspace(root, scan.findings), ['source/story/pending_hooks.md'])
+    assert.equal(await exists(join(root, 'source/story/pending_hooks.md')), true)
+
+    await rm(join(root, 'source/story/state/hooks.json'))
+    scan = await scanWorkspace(root)
+    const stale = scan.findings.find((entry) => entry.code === 'projection-stale')
+    assert.ok(stale)
+    assert.equal(stale.path, 'source/story/pending_hooks.md')
+    assert.equal(stale.fixable, false)
+    assert.deepEqual(await repairWorkspace(root, scan.findings), [])
   } finally {
     await cleanup(root)
   }
@@ -528,6 +560,9 @@ test('stateWritesIfMissing seeds only what is absent and shares the defaults', a
   try {
     const writes = await stateWritesIfMissing(root, [])
     assert.deepEqual(writes.map((write) => write.relativePath).sort(), [
+      'source/story/chapter_summaries.md',
+      'source/story/current_state.md',
+      'source/story/pending_hooks.md',
       'source/story/state/chapter_summaries.json',
       'source/story/state/current_state.json',
       'source/story/state/hooks.json',
@@ -535,7 +570,7 @@ test('stateWritesIfMissing seeds only what is absent and shares the defaults', a
     ])
     await commitFoundation(root, { writes })
     assert.deepEqual(await stateWritesIfMissing(root, []), [])
-    const expected = defaultStateFiles([]).find((write) => write.relativePath.endsWith('manifest.json'))
+    const expected = stateJsonWrites(defaultStateSnapshot([])).find((write) => write.relativePath.endsWith('manifest.json'))
     assert.equal(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'), expected.content)
   } finally {
     await cleanup(root)
