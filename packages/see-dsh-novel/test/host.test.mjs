@@ -72,7 +72,10 @@ test('agent half declares loader metadata', () => {
 })
 
 test('storyNext reports the unbound phase and the four-phase ladder', () => {
-  assert.deepEqual(storyNext({ hasWork: false, hasFrame: false, hasState: false, title: null }), {
+  assert.deepEqual(storyNext({
+    hasWork: false, hasFrame: false, hasVolumeMap: false, hasRulesMd: false, hasRulesJson: false, hasPendingHooks: false, hasRoleCard: false,
+    title: null,
+  }), {
     work: null,
     phase: 'unbound',
     next: 'story_work_create',

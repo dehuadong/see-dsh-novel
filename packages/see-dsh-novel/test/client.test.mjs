@@ -239,12 +239,12 @@ async function renderView({
   // 三个状态的写法保留给旧用例：`[设定, 忽略, 身份]` 展开成五份设定文件同值。
   // 六个状态时按 `[大纲, 卷图, 规则 md, 规则 json, 伏笔池, 身份]` 逐项给。
   const six = statuses.length >= 6 ? statuses : [...Array(5).fill(statuses[0]), statuses[2]]
+  const foundationPaths = ['story_frame.md', 'volume_map.md', 'book_rules.md', 'book_rules.json', 'pending_hooks.md']
+  const requests = []
   const foundationIndex = (address) => {
-    if (address.endsWith('story_frame.md')) return 0
-    if (address.endsWith('volume_map.md')) return 1
-    if (address.endsWith('book_rules.md')) return 2
-    if (address.endsWith('book_rules.json')) return 3
-    return 4
+    const index = foundationPaths.findIndex((file) => address.endsWith(`/${file}`))
+    if (index < 0 && !address.endsWith('/work.json')) throw new Error(`unexpected anchor: ${address}`)
+    return index
   }
   const calls = []
   const resumes = []
@@ -252,11 +252,15 @@ async function renderView({
   const props = {
     sessionId,
     useSessions: selectorOf(state),
-    useResource: (address) => ({
-      status: address.endsWith('/work.json') ? six[5] : six[foundationIndex(address)],
-      value: undefined,
-      failure: undefined,
-    }),
+    useResource: (address) => {
+      requests.push(address)
+      const status = address.endsWith('/work.json') ? six[5] : six[foundationIndex(address)]
+      return {
+        status,
+        value: undefined,
+        failure: undefined,
+      }
+    },
     canCommand: () => canCommand,
     runCommand: async (id, line) => {
       calls.push({ sessionId: id, line })
@@ -272,7 +276,7 @@ async function renderView({
     },
   }
   const tree = await render(React.createElement(StoryView, props))
-  return { tree, props, calls, resumes, starts }
+  return { tree, props, calls, resumes, starts, requests }
 }
 
 test('the view shows the gate and dispatches the three commands', async () => {
@@ -436,6 +440,14 @@ test('the identity file decides between 未立项 and 已立项 without touching
 
   // 身份与设定都在：闸门 + 按钮，没有提示。
   const complete = await renderView()
+  assert.deepEqual([...new Set(complete.requests.map((address) => address.split(SESSION)[1]))].sort(), [
+    '/source/story/book_rules.json',
+    '/source/story/book_rules.md',
+    '/source/story/outline/story_frame.md',
+    '/source/story/outline/volume_map.md',
+    '/source/story/pending_hooks.md',
+    '/work.json',
+  ])
   assert.doesNotMatch(textOf(complete.tree), /身份文件缺失/)
   assert.equal(complete.tree.root.findAllByType('button').length, 3)
 

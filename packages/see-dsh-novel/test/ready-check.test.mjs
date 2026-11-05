@@ -29,8 +29,6 @@ async function seedFiles(root) {
   await writeFile(join(root, STORY_RULES_MD), '# 规则\n', 'utf8')
   await writeFile(join(root, STORY_RULES_JSON), '{ "version": "2" }\n', 'utf8')
   await writeFile(join(root, STORY_PENDING_HOOKS), '# 伏笔池\n', 'utf8')
-  await mkdir(join(root, 'source/story/state'), { recursive: true })
-  await writeFile(join(root, 'source/story/state/manifest.json'), '{}\n', 'utf8')
 }
 
 test('ready needs seven files and at least one card in any tier directory', async () => {
@@ -65,6 +63,7 @@ test('ready needs seven files and at least one card in any tier directory', asyn
 test('the English tier directories are accepted, and an empty directory is not', async () => {
   const root = await workspace()
   try {
+    await writeWork(root, { title: '英文目录' })
     await seedFiles(root)
     await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
     assert.equal((await workProbes(root)).hasRoleCard, false, '空目录不算')
@@ -93,13 +92,25 @@ test('a manifest alone is not readiness, and readiness does not need a manifest'
       hasRoleCard: false,
     })
 
+    await writeWork(root, { title: '无 manifest' })
     await seedFiles(root)
     await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
     await writeFile(join(root, 'source/story/roles/major/丙.md'), '# 丙\n', 'utf8')
-    await rm(join(root, 'source/story/state/manifest.json'))
     const probes = await workProbes(root)
     assert.equal(probes.hasRoleCard, true)
     assert.equal(storyNext({ ...probes, title: null }).phase, 'ready')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a card is not probed while a required file is missing', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
+    await writeFile(join(root, 'source/story/roles/major/甲.md'), '# 甲\n', 'utf8')
+    const probes = await workProbes(root)
+    assert.equal(probes.hasRoleCard, false, '必需文件缺一份时就先判不完整')
   } finally {
     await cleanup(root)
   }

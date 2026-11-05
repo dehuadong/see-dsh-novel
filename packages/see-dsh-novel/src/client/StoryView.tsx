@@ -1,7 +1,7 @@
 /**
  * 「作品」视图。
  *
- * 只判断「确认区能不能用」，不读作品内容：目录、预设与三个探针来自客户端
+ * 只判断「确认区能不能用」，不读作品内容：目录、预设与六个锚点来自客户端
  * 已有通道，工件清单与摘要由命令结果写在会话里。作品身份的存在性在这里显示，
  * 但「当前作品是哪一个」的进入与切换不属于本能力。
  */
@@ -19,7 +19,7 @@ import type { CommandOutcome, PromptOutcome, SessionId, ViewInjected } from './t
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 
 /**
- * 基础设定是否齐全：看源工程判据里的六份文件在不在。
+ * 基础设定是否齐全：看源工程判据里的六份文件在不在（面板判其中五份，身份单独判）。
  * 角色卡是目录里的任意 `.md`，资源通道不能列目录，面板不数——`ready` 只由 `story_next` 判。
  * 身份文件 `work.json` 单独探：它回答「立没立项」，不参与「有没有设定」。
  */
@@ -77,7 +77,7 @@ type ResourceStatus = 'none' | 'loading' | 'live' | 'failed'
 type ChannelState = 'unavailable' | 'loading' | 'ready'
 
 /**
- * 先把「读不到」与「在读」判掉：三个探针里任何一个没通道或还在加载，
+ * 先把「读不到」与「在读」判掉：六个锚点里任何一个没通道或还在加载，
  * 都不能对作者断言「有没有作品」。
  */
 function channelState(statuses: ReadonlyArray<ResourceStatus>): ChannelState {
@@ -126,7 +126,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const channel = channelState([frame.status, volumeMap.status, rulesMd.status, rulesJson.status, pendingHooks.status, identity.status])
   // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
   const identified = identity.status === 'live'
-  // 六份文件都在才算有基础设定；缺任一份都算还没写完。
+  // 五份设定文件都在才算有基础设定；身份单独判，缺身份不影响「设定齐不齐」。
   const hasFoundation = [frame, volumeMap, rulesMd, rulesJson, pendingHooks].every((resource) => resource.status === 'live')
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。

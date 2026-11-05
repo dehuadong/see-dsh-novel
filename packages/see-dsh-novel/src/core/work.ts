@@ -195,15 +195,18 @@ export async function readWork(root: string): Promise<Work | null> {
 /** 七项探针：身份、大纲两份、book rules 两份、伏笔池、至少一张角色卡。 */
 export async function workProbes(root: string): Promise<FoundationProbes> {
   const base = resolve(root)
-  const [hasWork, hasFrame, hasVolumeMap, hasRulesMd, hasRulesJson, hasPendingHooks, hasRoleCard] = await Promise.all([
+  const [hasWork, hasFrame, hasVolumeMap, hasRulesMd, hasRulesJson, hasPendingHooks] = await Promise.all([
     pathExists(join(base, WORK_FILE)),
     pathExists(join(base, STORY_FRAME_FILE)),
     pathExists(join(base, STORY_VOLUME_MAP_FILE)),
     pathExists(join(base, STORY_RULES_MD)),
     pathExists(join(base, STORY_RULES_JSON)),
     pathExists(join(base, STORY_PENDING_HOOKS)),
-    roleCardExists(base),
   ])
+  // 必需文件缺一份就先返回：不因为角色目录读不了而把整次探针变成错误。
+  const hasRoleCard = hasWork && hasFrame && hasVolumeMap && hasRulesMd && hasRulesJson && hasPendingHooks
+    ? await roleCardExists(base)
+    : false
   return { hasWork, hasFrame, hasVolumeMap, hasRulesMd, hasRulesJson, hasPendingHooks, hasRoleCard }
 }
 
