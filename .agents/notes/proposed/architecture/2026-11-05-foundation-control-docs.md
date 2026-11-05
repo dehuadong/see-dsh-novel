@@ -9,7 +9,7 @@ Status: proposed
 - `source/brief.md`：`create_work` 把立意原文写在这里（`harness/tools/work-creation.ts:27`），同时存进 `metadata.intent`；作者最初的意图，写作与评审要读。`story/brief.md` 是另一条流水线的外部上下文槽，属于 P2，不在本行。
 - `story/author_intent.md`（长期方向）与 `story/current_focus.md`（短期焦点）：属于 truth 的 direction 类（`interaction/truth-authority.ts:30-32`）。`ensureControlDocuments` 在缺失时写入语言相关的默认模板；给了 `authorIntent` 就用它（`trimEnd() + "\n"`），否则用默认（`state/manager.ts:76-104`）。第一次真值写入前会先 `ensureControlDocuments`（`harness/tools/longform-edits.ts:105`），`loadControlDocuments` 读取前也会先补（`state/manager.ts:112`）。`authorIntent` 只在长篇初始化时由 runner 选项传入（`runner.ts:498-502`）；本行的立项走 `create_work`，不传它。写作时它们作为**优先于模型默认**的用户方向块注入（`agents/writer.ts:463-476`），上下文装配按 `readOrEmpty` 读取（`forecast/context-builder.ts:49-50`）。
 
-复刻的 `story_work_create` 没有 `intent`，不写 `brief.md`，也不播种两份方向文档；`readWork` 的 `metadata` 不认 `intent`。结果是立项后没有任何「作者意图」落盘，P2 的上下文装配到时读到空。
+复刻的 `story_work_create` 没有 `intent`，不写 `brief.md`；两份方向文档也没有任何播种入口，`readWork` 的 `metadata` 不认 `intent`。结果是立项后没有任何「作者意图」落盘，P2 的上下文装配到时读到空。
 
 ## Proposal
 
@@ -55,7 +55,7 @@ export async function readControlDocs(root: string): Promise<{ brief: string, au
 
 **把 `intent` 做成可选。** 兼容旧调用。否掉：源工程 `minLength: 1`；可选会让「没有意图的作品」合法化，而源工程没有这种状态。
 
-**方向文档不播种、等写工具出现再说。** 少写两段默认模板。否掉：源工程在立项与每次读取时都补默认文档；不播种会让「文档不存在」与「文档为空」两种状态混在一起，P2 读到的也是空。
+**方向文档不播种、等写工具出现再说。** 少写两段默认模板。否掉：源工程在第一次真值写入与每次读取时都补默认文档；不播种会让「文档不存在」与「文档为空」两种状态混在一起，P2 读到的也是空。
 
 **本行顺手实现方向写入。** 少一行债。否掉：写工具要处理整份 truth 覆盖（含 `book_rules` 的版本注入与状态投影重建），塞进本行会绕开那些校验；写入口按能力拆行，每行带自己的校验。
 
