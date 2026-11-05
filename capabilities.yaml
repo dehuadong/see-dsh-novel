@@ -71,7 +71,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/plugin/telemetry-tool.ts
     consumer: packages/see-dsh-novel/test/telemetry.test.mjs
     realRun: artifacts/real-runs/runtime.telemetry.json
-    status: missing
+    status: verified
   - id: runtime.recovery
     title: 自检／恢复（workspace/work 索引重建）
     reference: inkos:packages/core/src/pipeline/chapter-state-recovery.ts

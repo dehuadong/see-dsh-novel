@@ -1,0 +1,17 @@
+{
+  "capability": "runtime.telemetry",
+  "date": "2026-11-05",
+  "sessionId": "session-d8617ae4-7867-49eb-ac7c-351e70492b7c",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "135 passed — 委托回执 14 例（空树、completed、驻留+未闭合轮次才算 running、崩溃残留不算、incomplete、diagnostic 不进委派、无本地会话为 null 且 partial、corrupt 错误码、缺字段不占 limit、limit 上限与非法值、取消抛出、schema 子集）＋工具清单"
+  },
+  "receipts": [
+    "会话里先由主编用 `subagent` 派出一笔墨迹委派（seq 62：description「回答基础设定三文件」，子会话 `f227722a-e71a-4b0e-9abb-c3e2b905f668`），随后在 turn 2 调 `story_telemetry`",
+    "第一次调用（seq 78/79，子代理仍驻留、轮次未闭合）：`委派 1 笔（incomplete 0，partial 0，诊断 0）：耗时 3967ms，用量 输入 3075 / 输出 491（缓存读 16512、写 0）`，行内状态是 `running`——「驻留 + 未闭合轮次」这个判定在真机上生效",
+    "第二次调用（seq 85/86，子代理已结束）：同一笔委派变为 `completed`，耗时 4798ms、输入 3255 / 输出 559、缓存读 26496、写 0；`partial 0` 说明用量四桶与耗时都读到了，不是补零",
+    "两次调用的 `诊断 0`：目录没有 diagnostic 行，也没有读不出的子会话；账本由会话投影直接读出，没有新增任何文件（`work-empty-4` 里仍然只有 `work.json`）",
+    "回执字段与契约一致：`summary.delegations/incomplete/diagnostics/partial/durationMs/usage` 与 `delegations[]` 的 `childSessionId/label/mode/depth/state/durationMs/usage` 全部由工具卡输出"
+  ]
+}
