@@ -1,7 +1,7 @@
 {
-  "phase": "implement",
+  "phase": "planning",
   "work": "active",
-  "task": "runtime.telemetry",
+  "task": "runtime.recovery",
   "blockReason": null,
-  "updatedAt": "2026-11-05T04:48:10.244Z"
+  "updatedAt": "2026-11-05T05:10:30.145Z"
 }
