@@ -236,6 +236,16 @@ async function renderView({
   start,
   sessionId = SESSION,
 } = {}) {
+  // 三个状态的写法保留给旧用例：`[设定, 忽略, 身份]` 展开成五份设定文件同值。
+  // 六个状态时按 `[大纲, 卷图, 规则 md, 规则 json, 伏笔池, 身份]` 逐项给。
+  const six = statuses.length >= 6 ? statuses : [...Array(5).fill(statuses[0]), statuses[2]]
+  const foundationIndex = (address) => {
+    if (address.endsWith('story_frame.md')) return 0
+    if (address.endsWith('volume_map.md')) return 1
+    if (address.endsWith('book_rules.md')) return 2
+    if (address.endsWith('book_rules.json')) return 3
+    return 4
+  }
   const calls = []
   const resumes = []
   const starts = []
@@ -243,10 +253,7 @@ async function renderView({
     sessionId,
     useSessions: selectorOf(state),
     useResource: (address) => ({
-      // 顺序与组件里的三个探针一致：大纲、状态清单、身份文件。
-      status: address.endsWith('/work.json')
-        ? statuses[2]
-        : address.includes('story_frame') ? statuses[0] : statuses[1],
+      status: address.endsWith('/work.json') ? six[5] : six[foundationIndex(address)],
       value: undefined,
       failure: undefined,
     }),
@@ -432,10 +439,10 @@ test('the identity file decides between 未立项 and 已立项 without touching
   assert.doesNotMatch(textOf(complete.tree), /身份文件缺失/)
   assert.equal(complete.tree.root.findAllByType('button').length, 3)
 
-  // 一个锚点在就算有设定：闸门照旧，不因另一个锚点缺失而改口。
-  const mixed = await renderView({ statuses: ['live', 'failed', 'live'] })
-  assert.match(textOf(mixed.tree), /作者确认闸门/)
-  assert.equal(mixed.tree.root.findAllByType('button').length, 3)
+  // 六份文件缺一份就不算有设定：仍显示开工按钮，而不是闸门。
+  const mixed = await renderView({ statuses: ['live', 'live', 'live', 'live', 'failed', 'live'] })
+  assert.match(textOf(mixed.tree), /已立项，还没有基础设定/)
+  assert.equal(mixed.tree.root.findAllByType('button').length, 1)
 
   // 身份通道读不到：不能说成「缺失」，整块按通道不可用处理。
   const unreadableIdentity = await renderView({ statuses: ['live', 'live', 'none'] })

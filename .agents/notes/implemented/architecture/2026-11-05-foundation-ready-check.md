@@ -1,6 +1,6 @@
 # Agent Note: foundation.ready-check —— 就绪判据对齐「五段齐全 + 一张角色卡」
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -13,7 +13,7 @@ Status: proposed
 
 `ready` 是面板与后续章节推进的入口，判早了会让章节规划读到空规则与空角色表。
 
-## Proposal
+## Decision
 
 ### 探针改成源工程那份清单
 
@@ -64,22 +64,18 @@ export interface FoundationProbes {
 
 **把判据放进 `story_gate`，`story_next` 不动。** 少改路牌。否掉：`ready` 本来就是路牌的职责；闸门管「作者确认」，两者混在一起会让「为什么不能签核」变得不可解释。
 
-## Acceptance criteria
+## Consequences
 
-- `workProbes` 在完整基础设定（六份文件 + 一张角色卡）上返回七个 `true`；缺任一文件或没有任何角色卡时对应字段为 `false`。
-- 角色卡判定覆盖四个目录：只在 `major/` 放一张卡也算有；目录不存在不算错误。
-- `story_next`：大纲不齐 → `foundation`；大纲齐但缺 book rules／`pending_hooks.md` → `draft` 且 next 指向 `story_foundation_details`；缺角色卡 → `draft` 且 next 指向 `story_foundation_cast_index`；全部齐全 → `ready`；七个探针全假 → `unbound`。
-- 只有 `manifest.json` 而没有真值文件时不再是 `ready`；真值文件齐全但没有 `manifest.json` 时是 `ready`。
-- `test/host.test.mjs` 的四阶段阶梯用例同批改为新判据（补齐真值文件与角色卡，覆盖 `draft` 的两种 next）；`test/work.test.mjs` 的探针用例（含 `hasState` 梯度）按七字段重写；`test/proposal.test.mjs` 的立项后阶段仍是 `foundation`（只有身份，没有工件）。
-- 面板同批改：`src/client/StoryView.tsx` 订阅六个文件锚点，`hasFoundation` 改为「六个都 live」，去掉 `manifest.json` 与「大纲或状态任一个」的或判断；角色卡仍不查，偏差按上面「与面板的关系」登记进 `docs/dsh-mapping.md`。`test/client.test.mjs` 的 `renderView` 从三个锚点扩到六个，并改掉「一个锚点 live 就算有设定」的断言（`['live','failed','live']` → 六个全 live 才算，任一 failed／pending 都不算）；它是 `runtime.client-ui`、`panel.gate-resume`、`panel.foundation-start` 的消费者，这三行的回执不重录。
-- `runtime.load` 与 `runtime.session-binding` 的历史回执写的是旧探针口径（「三个探针、四阶段映射」）；它们证明的是加载与会话绑定，探针清单由本行拥有并在此更新，回执不重录，差异记在 Risks。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/work.ts`；consumer `packages/see-dsh-novel/test/ready-check.test.mjs`；阶段逻辑改动在 `src/plugin/story-next.ts`，面板改动在 `src/client/StoryView.tsx`，同批更新 `test/host.test.mjs`、`test/work.test.mjs`、`test/client.test.mjs`；realRun `artifacts/real-runs/foundation.ready-check.json`。
-- 真实运行：在已有基础设定的工作区调 `story_next` 得到 `ready`；把四个角色目录里的卡全部移走后再调得到 `draft`（`next` 指向 `story_foundation_cast_index`）；移回后恢复 `ready`。
+收益：就绪判据与源工程同一份清单——六份文件加至少一张角色卡。`story_next` 在缺规则时指 `story_foundation_details`，只剩角色卡时指 `story_foundation_cast_index`，不再原地打转；面板订阅同样六份文件，「大纲或状态任一个」的或判断与 `manifest.json` 锚点删掉，作者看到的是「设定齐没齐」而不是「有没有某一份索引」。
 
-## Risks
+落地：`packages/see-dsh-novel/src/core/work.ts`（七项 `FoundationProbes`、`workProbes`、四层角色目录）、`src/plugin/story-next.ts`（四阶段与 `CAST_INDEX_STEP`）、`src/client/StoryView.tsx`（六份文件锚点）。
 
-- 角色卡判定只数文件，不校验内容：一张空 `.md` 也算「有角色卡」，与源工程一致（它也只 `readdir` 数文件）。
-- 四个目录名同时认中文与英文，是源工程的写法；复刻只写中文目录，英文目录兼容历史文件。
-- 面板用自己的锚点判断「有没有基础设定」，与 `story_next` 的 `ready` 可以不一致；偏差已登记在 `docs/dsh-mapping.md`，签核仍以 `story_gate` 为准。
-- 阶段名 `draft` 在源工程没有对应词，是复刻自己的路牌词汇；含义已在上表写死，避免歧义。
-- `runtime.load`／`runtime.session-binding` 回执里的探针描述早于本行；两行状态不依赖该描述，但重读回执的人需要知道探针清单已经变了。
+验证见 `test/ready-check.test.mjs`（七项判据、四个角色目录、只认 `.md`、`manifest` 单独不算就绪、没有 `manifest` 也能就绪、`draft` 两种 next）、`test/work.test.mjs`（探针逐项点亮、四阶段阶梯）、`test/host.test.mjs`（真机工作区从 `foundation` 到 `draft` 到 `cast_index` 到 `ready`）、`test/client.test.mjs`（六锚点、缺一份就不算有设定）。
+
+### 代价与已知限制
+
+- 角色卡只数 `.md` 文件，不校验内容；空文件也算一张，与源工程一致。
+- 四个目录名同时认中文与英文；复刻只写中文目录，英文目录兼容历史文件。
+- 面板判「六份文件齐全」，不数角色卡；`ready` 只由 `story_next` 判，偏差已登记在 `docs/dsh-mapping.md`。
+- `runtime.load`／`runtime.session-binding` 的回执里仍写着旧探针口径（三个探针）；两行状态不依赖该描述，重读回执时需知道探针清单已由本行更新。
+- `draft` 在源工程没有对应词，是复刻的路牌词汇；含义以上表为准。

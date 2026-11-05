@@ -19,13 +19,16 @@ import type { CommandOutcome, PromptOutcome, SessionId, ViewInjected } from './t
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 
 /**
- * 作品存在的判据：`file` 协议的 stat 只接受普通文件，探不到目录，
- * 所以用流水线必然先写下的两个锚点文件代替「source/story/ 存在」这层判断。
+ * 基础设定是否齐全：看源工程判据里的六份文件在不在。
+ * 角色卡是目录里的任意 `.md`，资源通道不能列目录，面板不数——`ready` 只由 `story_next` 判。
  * 身份文件 `work.json` 单独探：它回答「立没立项」，不参与「有没有设定」。
  */
-const ANCHOR_OUTLINE = '/source/story/outline/story_frame.md'
-const ANCHOR_MANIFEST = '/source/story/state/manifest.json'
 const ANCHOR_WORK = '/work.json'
+const ANCHOR_FRAME = '/source/story/outline/story_frame.md'
+const ANCHOR_VOLUME_MAP = '/source/story/outline/volume_map.md'
+const ANCHOR_RULES_MD = '/source/story/book_rules.md'
+const ANCHOR_RULES_JSON = '/source/story/book_rules.json'
+const ANCHOR_PENDING_HOOKS = '/source/story/pending_hooks.md'
 
 /** 三个确认命令；按钮与命令成对写在这里，避免散落在渲染里。 */
 const COMMANDS = [
@@ -114,14 +117,17 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const cwd = useSessions((state: SessionListState) => state.byId[sessionId]?.cwd)
   const preset = useSessions(presetSelector(sessionId))
   const sessionRunning = useSessions((state: SessionListState) => state.byId[sessionId]?.running === true)
-  const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
-  const manifest = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_MANIFEST}`)
+  const frame = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_FRAME}`)
+  const volumeMap = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_VOLUME_MAP}`)
+  const rulesMd = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_RULES_MD}`)
+  const rulesJson = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_RULES_JSON}`)
+  const pendingHooks = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_PENDING_HOOKS}`)
   const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
-  const channel = channelState([outline.status, manifest.status, identity.status])
+  const channel = channelState([frame.status, volumeMap.status, rulesMd.status, rulesJson.status, pendingHooks.status, identity.status])
   // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
   const identified = identity.status === 'live'
-  // 任一锚点存在就算有基础设定；两个都确认缺失才算还没有。
-  const hasFoundation = outline.status === 'live' || manifest.status === 'live'
+  // 六份文件都在才算有基础设定；缺任一份都算还没写完。
+  const hasFoundation = [frame, volumeMap, rulesMd, rulesJson, pendingHooks].every((resource) => resource.status === 'live')
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
   // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求

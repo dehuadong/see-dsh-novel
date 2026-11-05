@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { CAST_INDEX_STEP, NEXT_STEPS, PHASES, storyNext } from '../src/plugin/story-next.ts'
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
@@ -7,14 +8,17 @@ import { basename, join } from 'node:path'
 import { commitFile } from '../src/core/commit.ts'
 import {
   STORY_FRAME_FILE,
-  STORY_STATE_FILE,
+  STORY_PENDING_HOOKS,
+  STORY_RULES_JSON,
+  STORY_RULES_MD,
+  STORY_VOLUME_MAP_FILE,
   WORK_FILE,
   parseWork,
   readWork,
   workProbes,
   writeWork,
 } from '../src/core/work.ts'
-import { NEXT_STEPS, PHASES, storyNext, storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
+import { storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
 import {
   WORK_CREATE_NAME,
   WORK_SHOW_NAME,
@@ -156,57 +160,77 @@ test('readWork returns null when absent and fails loudly when broken', async () 
   }
 })
 
+const NO_PROBES = {
+  hasWork: false,
+  hasFrame: false,
+  hasVolumeMap: false,
+  hasRulesMd: false,
+  hasRulesJson: false,
+  hasPendingHooks: false,
+  hasRoleCard: false,
+}
+
 test('the probes only look at existence', async () => {
   const root = await workspace()
   try {
-    assert.deepEqual(await workProbes(root), { hasWork: false, hasFrame: false, hasState: false })
+    assert.deepEqual(await workProbes(root), NO_PROBES)
 
     await writeWork(root, { title: '探针' })
-    assert.deepEqual(await workProbes(root), { hasWork: true, hasFrame: false, hasState: false })
+    assert.deepEqual(await workProbes(root), { ...NO_PROBES, hasWork: true })
 
     await mkdir(join(root, 'source/story/outline'), { recursive: true })
     await writeFile(join(root, STORY_FRAME_FILE), '# 大纲\n', 'utf8')
-    assert.deepEqual(await workProbes(root), { hasWork: true, hasFrame: true, hasState: false })
+    await writeFile(join(root, STORY_VOLUME_MAP_FILE), '# 卷图\n', 'utf8')
+    assert.deepEqual(await workProbes(root), { ...NO_PROBES, hasWork: true, hasFrame: true, hasVolumeMap: true })
 
-    await mkdir(join(root, 'source/story/state'), { recursive: true })
-    await writeFile(join(root, STORY_STATE_FILE), '{}\n', 'utf8')
-    assert.deepEqual(await workProbes(root), { hasWork: true, hasFrame: true, hasState: true })
+    await writeFile(join(root, STORY_RULES_MD), '# 规则\n', 'utf8')
+    await writeFile(join(root, STORY_RULES_JSON), '{}\n', 'utf8')
+    await writeFile(join(root, STORY_PENDING_HOOKS), '# 伏笔池\n', 'utf8')
+    assert.deepEqual(await workProbes(root), {
+      ...NO_PROBES, hasWork: true, hasFrame: true, hasVolumeMap: true, hasRulesMd: true, hasRulesJson: true, hasPendingHooks: true,
+    })
+
+    await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
+    await writeFile(join(root, 'source/story/roles/major/甲.md'), '# 甲\n', 'utf8')
+    assert.deepEqual(await workProbes(root), {
+      hasWork: true, hasFrame: true, hasVolumeMap: true, hasRulesMd: true, hasRulesJson: true, hasPendingHooks: true, hasRoleCard: true,
+    })
   } finally {
     await cleanup(root)
   }
 })
 
-test('storyNext reports four phases in order', () => {
-  const none = { hasWork: false, hasFrame: false, hasState: false, title: null }
-  assert.deepEqual(storyNext(none), { work: null, phase: 'unbound', next: NEXT_STEPS.unbound })
+test('storyNext reports four phases and the two draft next steps', () => {
+  assert.deepEqual(storyNext({ ...NO_PROBES, title: null }), { work: null, phase: 'unbound', next: NEXT_STEPS.unbound })
 
-  // 身份在、设定没写：foundation。
+  // 有身份、设定没写：foundation。
   assert.deepEqual(
-    storyNext({ ...none, hasWork: true, title: '有身份' }),
+    storyNext({ ...NO_PROBES, hasWork: true, title: '有身份' }),
     { work: '有身份', phase: 'foundation', next: NEXT_STEPS.foundation },
   )
-  // 状态清单先于大纲出现（details 段允许）：仍算 foundation，不是 unbound。
+  // 状态文件先于大纲出现：仍算 foundation，不是 unbound。
   assert.deepEqual(
-    storyNext({ ...none, hasState: true }),
+    storyNext({ ...NO_PROBES, hasPendingHooks: true, title: null }),
     { work: null, phase: 'foundation', next: NEXT_STEPS.foundation },
   )
-  // 大纲在、状态清单缺：draft。
+  // 两份大纲齐、规则缺：draft + details。
   assert.deepEqual(
-    storyNext({ ...none, hasFrame: true }),
+    storyNext({ ...NO_PROBES, hasFrame: true, hasVolumeMap: true, title: null }),
     { work: null, phase: 'draft', next: NEXT_STEPS.draft },
   )
-  // 内容齐、身份缺：ready 且 work 为 null。
+  // 规则与伏笔池齐、只剩角色卡：draft + cast_index。
   assert.deepEqual(
-    storyNext({ ...none, hasFrame: true, hasState: true }),
-    { work: null, phase: 'ready', next: NEXT_STEPS.ready },
+    storyNext({
+      ...NO_PROBES, hasFrame: true, hasVolumeMap: true, hasRulesMd: true, hasRulesJson: true, hasPendingHooks: true, title: null,
+    }),
+    { work: null, phase: 'draft', next: CAST_INDEX_STEP },
   )
-  // 三样齐全：ready 且带标题。
+  // 七项齐全：ready。
   assert.deepEqual(
-    storyNext({ hasWork: true, hasFrame: true, hasState: true, title: '全' }),
+    storyNext({ ...NO_PROBES, hasWork: true, hasFrame: true, hasVolumeMap: true, hasRulesMd: true, hasRulesJson: true, hasPendingHooks: true, hasRoleCard: true, title: '全' }),
     { work: '全', phase: 'ready', next: NEXT_STEPS.ready },
   )
   assert.equal(PHASES.length, 4)
-  assert.deepEqual(new Set(Object.values(NEXT_STEPS)).size, 4)
 })
 
 test('commitFile writes one file and leaves no temporary residue', async () => {

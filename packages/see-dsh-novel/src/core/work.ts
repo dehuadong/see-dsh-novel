@@ -5,7 +5,7 @@
  * 版本不符、类型不对都报错，并指出文件与字段——身份错了宁可炸，也不要静默
  * 补默认值，让「未立项」和「设定写了一半」混在一起。
  */
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 
 import { commitFile, pathExists } from './commit.js'
@@ -23,10 +23,21 @@ export const WORK_LANGUAGES = ['zh', 'en'] as const
 /** 作品状态；立项即 `draft`，推进留给章节定稿与导出的行。 */
 export const WORK_STATUSES = ['draft', 'active', 'archived'] as const
 
-/** 长篇基础设定阶段的探针：先看有没有大纲。 */
+/** 大纲两份；缺一份都算基础设定没写完。 */
 export const STORY_FRAME_FILE = 'source/story/outline/story_frame.md'
-/** 基础设定完成的探针：状态清单存在。 */
-export const STORY_STATE_FILE = 'source/story/state/manifest.json'
+export const STORY_VOLUME_MAP_FILE = 'source/story/outline/volume_map.md'
+/** book rules 两份；结构化那份是写作角色读的。 */
+export const STORY_RULES_MD = 'source/story/book_rules.md'
+export const STORY_RULES_JSON = 'source/story/book_rules.json'
+/** 伏笔池投影；就绪判据要求它存在。 */
+export const STORY_PENDING_HOOKS = 'source/story/pending_hooks.md'
+/** 角色卡目录；任一目录里有一张 .md 就算有角色卡。 */
+export const ROLE_TIER_DIRS = [
+  'source/story/roles/主要角色',
+  'source/story/roles/major',
+  'source/story/roles/次要角色',
+  'source/story/roles/minor',
+] as const
 
 export type WorkProfile = (typeof WORK_PROFILES)[number]
 export type WorkLanguage = (typeof WORK_LANGUAGES)[number]
@@ -55,11 +66,15 @@ export interface Work {
   updatedAt: string
 }
 
-/** `story_next` 用的三个探针；不看内容，只看在不在。 */
-export interface WorkProbes {
+/** `story_next` 用的七项探针；不看内容，只看在不在。 */
+export interface FoundationProbes {
   hasWork: boolean
   hasFrame: boolean
-  hasState: boolean
+  hasVolumeMap: boolean
+  hasRulesMd: boolean
+  hasRulesJson: boolean
+  hasPendingHooks: boolean
+  hasRoleCard: boolean
 }
 
 /** 立项输入：标题必填，其余可省。 */
@@ -177,14 +192,34 @@ export async function readWork(root: string): Promise<Work | null> {
   return parseWork(parsed, path)
 }
 
-/** 三个探针：身份、大纲、状态清单在不在。 */
-export async function workProbes(root: string): Promise<WorkProbes> {
+/** 七项探针：身份、大纲两份、book rules 两份、伏笔池、至少一张角色卡。 */
+export async function workProbes(root: string): Promise<FoundationProbes> {
   const base = resolve(root)
-  return {
-    hasWork: await pathExists(join(base, WORK_FILE)),
-    hasFrame: await pathExists(join(base, STORY_FRAME_FILE)),
-    hasState: await pathExists(join(base, STORY_STATE_FILE)),
+  const [hasWork, hasFrame, hasVolumeMap, hasRulesMd, hasRulesJson, hasPendingHooks, hasRoleCard] = await Promise.all([
+    pathExists(join(base, WORK_FILE)),
+    pathExists(join(base, STORY_FRAME_FILE)),
+    pathExists(join(base, STORY_VOLUME_MAP_FILE)),
+    pathExists(join(base, STORY_RULES_MD)),
+    pathExists(join(base, STORY_RULES_JSON)),
+    pathExists(join(base, STORY_PENDING_HOOKS)),
+    roleCardExists(base),
+  ])
+  return { hasWork, hasFrame, hasVolumeMap, hasRulesMd, hasRulesJson, hasPendingHooks, hasRoleCard }
+}
+
+/** 四个角色目录任一有 .md；目录不存在按空处理。 */
+async function roleCardExists(base: string): Promise<boolean> {
+  for (const tier of ROLE_TIER_DIRS) {
+    let entries: string[]
+    try {
+      entries = await readdir(join(base, tier))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw error
+    }
+    if (entries.some((entry) => entry.endsWith('.md'))) return true
   }
+  return false
 }
 
 /**

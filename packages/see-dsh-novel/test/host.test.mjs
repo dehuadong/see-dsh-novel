@@ -132,15 +132,23 @@ test('story_next execute reads the workspace instead of guessing', async () => {
     assert.deepEqual(foundation, { work: '真机作品', phase: 'foundation', next: 'story_foundation_outline' })
     assert.equal(work.title, '真机作品')
 
-    // 大纲就位：draft。
+    // 两份大纲就位、规则缺：draft + details。
     await mkdir(join(root, 'source/story/outline'), { recursive: true })
     await writeFile(join(root, 'source/story/outline/story_frame.md'), '# 大纲\n', 'utf8')
+    await writeFile(join(root, 'source/story/outline/volume_map.md'), '# 卷图\n', 'utf8')
     const draftPhase = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
     assert.deepEqual(draftPhase, { work: '真机作品', phase: 'draft', next: 'story_foundation_details' })
 
-    // 状态清单也到位：ready。
-    await mkdir(dirname(join(root, 'source/story/state/manifest.json')), { recursive: true })
-    await writeFile(join(root, 'source/story/state/manifest.json'), '{}\n', 'utf8')
+    // 规则与伏笔池齐、只剩角色卡：draft + cast_index。
+    await writeFile(join(root, 'source/story/book_rules.md'), '# 规则\n', 'utf8')
+    await writeFile(join(root, 'source/story/book_rules.json'), '{}\n', 'utf8')
+    await writeFile(join(root, 'source/story/pending_hooks.md'), '# 伏笔池\n', 'utf8')
+    const castPhase = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
+    assert.deepEqual(castPhase, { work: '真机作品', phase: 'draft', next: 'story_foundation_cast_index' })
+
+    // 角色卡也到位：ready。
+    await mkdir(join(root, 'source/story/roles/主要角色'), { recursive: true })
+    await writeFile(join(root, 'source/story/roles/主要角色/甲.md'), '# 甲\n', 'utf8')
     const ready = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
     assert.deepEqual(ready, { work: '真机作品', phase: 'ready', next: 'story_gate' })
 

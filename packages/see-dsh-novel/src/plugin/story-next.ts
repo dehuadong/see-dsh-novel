@@ -1,17 +1,20 @@
 /**
  * `story_next` 的行为契约。
  *
- * 纯函数：读盘的三个探针由调用方给（`core/work.ts` 的 `workProbes`），因此可以
+ * 纯函数：读盘的七项探针由调用方给（`core/work.ts` 的 `workProbes`），因此可以
  * 在任何运行时里直接做消费者测试。阶段按「命中即止」的顺序判定，四个值穷尽
  * 且互斥。
  */
 import type { JsonSchema } from '../core/types.js'
-import type { WorkProbes } from '../core/work.js'
+import type { FoundationProbes } from '../core/work.js'
 
 /** 本能力能报出的阶段。阶段随能力增加而扩展，不预先登记未实现的阶段。 */
 export const PHASES = ['unbound', 'foundation', 'draft', 'ready'] as const
 
-/** 每个阶段对应的下一步工具名；`runtime.commands` 再把它暴露成命令。 */
+/** 角色卡由两步写入；缺卡时路牌指向第一步。 */
+export const CAST_INDEX_STEP = 'story_foundation_cast_index'
+
+/** 每个阶段的基础下一步；`draft` 会按缺什么改用 `CAST_INDEX_STEP`。 */
 export const NEXT_STEPS = {
   unbound: 'story_work_create',
   foundation: 'story_foundation_outline',
@@ -22,8 +25,8 @@ export const NEXT_STEPS = {
 /** 工具名，注册与测试共用同一个常量，避免两处字面量漂移。 */
 export const STORY_NEXT_NAME = 'story_next'
 
-/** 判定阶段所需的事实：core 的三个探针，加上探得到的作品标题。 */
-export interface StoryProbeState extends WorkProbes {
+/** 判定阶段所需的事实：七项探针，加上探得到的作品标题。 */
+export interface StoryProbeState extends FoundationProbes {
   title: string | null
 }
 
@@ -35,22 +38,28 @@ export interface StoryNext {
 }
 
 /**
- * 按文件说真话：内容在、身份缺是合法状态（`ready` 且 `work` 为 null）。
- * @param state 三个探针与作品标题
+ * 按文件说真话：内容在、身份缺是合法状态。
+ * @param state 七项探针与作品标题
  * @returns 阶段、下一步与作品标题
  */
 export function storyNext(state: StoryProbeState): StoryNext {
   const work = state.hasWork ? state.title : null
-  // 先判「什么都没有」再判「没有大纲」：details 段允许先播种状态清单再写大纲，
-  // 状态在而大纲缺属于「基础设定没写完」，不该被说成「未立项」。
-  if (!state.hasWork && !state.hasFrame && !state.hasState) {
+  // 先判「什么都没有」：七项全假才是未立项。
+  if (!state.hasWork && !state.hasFrame && !state.hasVolumeMap && !state.hasRulesMd
+    && !state.hasRulesJson && !state.hasPendingHooks && !state.hasRoleCard) {
     return { work, phase: 'unbound', next: NEXT_STEPS.unbound }
   }
-  if (!state.hasFrame) {
+  // 大纲缺任一份：还停在 outline 段。
+  if (!state.hasFrame || !state.hasVolumeMap) {
     return { work, phase: 'foundation', next: NEXT_STEPS.foundation }
   }
-  if (!state.hasState) {
+  // 规则或伏笔池缺：补 details。
+  if (!state.hasRulesMd || !state.hasRulesJson || !state.hasPendingHooks) {
     return { work, phase: 'draft', next: NEXT_STEPS.draft }
+  }
+  // 只剩角色卡：指向 cast_index，不指 details（details 不写卡）。
+  if (!state.hasRoleCard) {
+    return { work, phase: 'draft', next: CAST_INDEX_STEP }
   }
   return { work, phase: 'ready', next: NEXT_STEPS.ready }
 }
@@ -75,3 +84,4 @@ export const storyNextOutput: JsonSchema = {
   },
   required: ['work', 'phase', 'next'],
 }
+
