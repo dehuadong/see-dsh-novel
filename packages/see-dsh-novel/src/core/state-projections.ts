@@ -61,6 +61,9 @@ function table(title: string, headers: ReadonlyArray<string>, rows: ReadonlyArra
 
 /** 伏笔池投影；按起始章节 → 最近推进 → id 排序。 */
 export function renderHooksProjection(state: HooksState, language: ProjectionLanguage = 'zh'): string {
+  if (state === null || typeof state !== 'object' || !Array.isArray(state.hooks)) {
+    throw new Error('hooks 状态必须是 { hooks: [...] }')
+  }
   const title = language === 'en' ? '# Pending Hooks' : '# 伏笔池'
   const headers = language === 'en'
     ? ['hook_id', 'start_chapter', 'type', 'status', 'last_advanced_chapter', 'expected_payoff', 'notes']
@@ -80,6 +83,9 @@ export function renderChapterSummariesProjection(
   state: ChapterSummariesState,
   language: ProjectionLanguage = 'zh',
 ): string {
+  if (state === null || typeof state !== 'object' || !Array.isArray(state.rows)) {
+    throw new Error('章节摘要状态必须是 { rows: [...] }')
+  }
   const title = language === 'en' ? '# Chapter Summaries' : '# 章节摘要'
   const headers = language === 'en'
     ? ['Chapter', 'Title', 'Characters', 'Key Events', 'State Changes', 'Hook Activity', 'Mood', 'Chapter Type']
@@ -95,6 +101,9 @@ export function renderCurrentStateProjection(
   state: CurrentStateState,
   language: ProjectionLanguage = 'zh',
 ): string {
+  if (state === null || typeof state !== 'object' || !Array.isArray(state.facts) || typeof state.chapter !== 'number') {
+    throw new Error('当前状态必须是 { chapter, facts: [...] }')
+  }
   const title = language === 'en' ? '# Current State' : '# 当前状态'
   const chapterLabel = language === 'en' ? 'Current chapter' : '当前章节'
   const headers = language === 'en'

@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 
 import { countHooks, transitionHook, validateHooks } from '../src/core/hooks.ts'
-import { renderHooksProjection } from '../src/pipelines/long/hooks.ts'
+import { renderHooksProjection } from '../src/core/state-projections.ts'
 
 const hook = (over = {}) => ({
   hookId: 'H1',

@@ -20,7 +20,6 @@ import {
   renderCurrentStateProjection,
   renderHooksProjection,
 } from './state-projections.js'
-import { readWork } from './work.js'
 
 const STATE_DIR = 'source/story/state'
 
@@ -30,6 +29,13 @@ export const PROJECTION_PATHS = {
   pendingHooks: 'source/story/pending_hooks.md',
   chapterSummaries: 'source/story/chapter_summaries.md',
 } as const
+
+/** 每份投影的源 JSON；投影只有在源可读时才可重建。 */
+export const PROJECTION_SOURCES: Readonly<Record<string, string>> = {
+  [PROJECTION_PATHS.currentState]: `${STATE_DIR}/current_state.json`,
+  [PROJECTION_PATHS.pendingHooks]: `${STATE_DIR}/hooks.json`,
+  [PROJECTION_PATHS.chapterSummaries]: `${STATE_DIR}/chapter_summaries.json`,
+}
 
 /** `manifest.json` 的形状。 */
 export interface StateManifest {
@@ -111,16 +117,32 @@ async function missing(path: string): Promise<boolean> {
   }
 }
 
-/** 读一份 JSON；不存在返回 `undefined`，存在但非法则报错。 */
-async function readJsonIfPresent<T>(path: string): Promise<T | undefined> {
+/** 读一份 JSON 的三种结局：成功、缺失、内容坏了。 */
+interface JsonStatus<T> {
+  status: 'ok' | 'missing' | 'invalid'
+  value?: T
+}
+
+async function readJsonStatus<T>(path: string): Promise<JsonStatus<T>> {
   let raw: string
   try {
     raw = await readFile(path, 'utf8')
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
-    throw error
+    return { status: (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'missing' : 'invalid' }
   }
-  return JSON.parse(raw) as T
+  try {
+    return { status: 'ok', value: JSON.parse(raw) as T }
+  } catch {
+    return { status: 'invalid' }
+  }
+}
+
+/** 读 manifest 的语言；文件缺失或损坏时返回 undefined。 */
+export async function readManifestLanguage(root: string): Promise<ProjectionLanguage | undefined> {
+  const read = await readJsonStatus<StateManifest>(join(root, STATE_DIR, 'manifest.json'))
+  return read.status === 'ok' && (read.value?.language === 'en' || read.value?.language === 'zh')
+    ? read.value.language
+    : undefined
 }
 
 /**
@@ -128,40 +150,55 @@ async function readJsonIfPresent<T>(path: string): Promise<T | undefined> {
  * @param root 作品根
  * @param hooks 只在 `hooks.json` 缺失时使用
  */
+export interface StateSnapshotRead {
+  snapshot: StateSnapshot
+  /** 存在但解析失败的状态文件（相对作品根）。 */
+  invalid: string[]
+}
+
+/**
+ * 读现有快照：缺失的部分用默认值补，坏掉的文件记为 `invalid` 而不是抛错。
+ * @param root 作品根
+ * @param hooks 只在 `hooks.json` 缺失时使用
+ * @param language 没有 manifest 时的语言
+ */
+export async function inspectState(
+  root: string,
+  hooks: ReadonlyArray<PendingHook> = [],
+  language: ProjectionLanguage = 'zh',
+): Promise<StateSnapshotRead> {
+  const [manifest, currentState, hooksState, chapterSummaries] = await Promise.all([
+    readJsonStatus<StateManifest>(join(root, STATE_DIR, 'manifest.json')),
+    readJsonStatus<CurrentStateState>(join(root, STATE_DIR, 'current_state.json')),
+    readJsonStatus<HooksState>(join(root, STATE_DIR, 'hooks.json')),
+    readJsonStatus<ChapterSummariesState>(join(root, STATE_DIR, 'chapter_summaries.json')),
+  ])
+  const manifestValue = manifest.status === 'ok' ? manifest.value : undefined
+  const fallback = defaultStateSnapshot(hooks, manifestValue?.language ?? language)
+  const invalid = ([
+    ['manifest.json', manifest],
+    ['current_state.json', currentState],
+    ['hooks.json', hooksState],
+    ['chapter_summaries.json', chapterSummaries],
+  ] as const).filter(([, read]) => read.status === 'invalid').map(([name]) => `${STATE_DIR}/${name}`)
+  return {
+    snapshot: {
+      manifest: manifestValue ?? fallback.manifest,
+      currentState: currentState.value ?? fallback.currentState,
+      hooks: hooksState.value ?? fallback.hooks,
+      chapterSummaries: chapterSummaries.value ?? fallback.chapterSummaries,
+    },
+    invalid,
+  }
+}
+
+/** 只取快照；坏文件按默认值处理（播种与工具用）。 */
 export async function readStateSnapshot(
   root: string,
   hooks: ReadonlyArray<PendingHook> = [],
   language: ProjectionLanguage = 'zh',
 ): Promise<StateSnapshot> {
-  const [manifest, currentState, hooksState, chapterSummaries] = await Promise.all([
-    readJsonIfPresent<StateManifest>(join(root, STATE_DIR, 'manifest.json')),
-    readJsonIfPresent<CurrentStateState>(join(root, STATE_DIR, 'current_state.json')),
-    readJsonIfPresent<HooksState>(join(root, STATE_DIR, 'hooks.json')),
-    readJsonIfPresent<ChapterSummariesState>(join(root, STATE_DIR, 'chapter_summaries.json')),
-  ])
-  const fallback = defaultStateSnapshot(hooks, manifest?.language ?? language)
-  return {
-    manifest: manifest ?? fallback.manifest,
-    currentState: currentState ?? fallback.currentState,
-    hooks: hooksState ?? fallback.hooks,
-    chapterSummaries: chapterSummaries ?? fallback.chapterSummaries,
-  }
-}
-
-/**
- * 作品语言：已有 manifest 用它，否则读 `work.json`，再否则中文。
- * `work.json` 读不出来时退回中文，不让调用方失败。
- */
-export async function stateLanguage(root: string): Promise<ProjectionLanguage> {
-  const manifest = await readJsonIfPresent<StateManifest>(join(root, STATE_DIR, 'manifest.json'))
-  if (manifest?.language === 'zh' || manifest?.language === 'en') return manifest.language
-  try {
-    const work = await readWork(root)
-    if (work?.language === 'zh' || work?.language === 'en') return work.language
-  } catch {
-    // 坏掉的作品身份不阻断状态读取；语言退回中文。
-  }
-  return 'zh'
+  return (await inspectState(root, hooks, language)).snapshot
 }
 
 /** 生成「尚不存在」的状态写入项（JSON 与投影都补），交给同一次 commit 原子落盘。 */
@@ -170,9 +207,12 @@ export async function stateWritesIfMissing(
   hooks: ReadonlyArray<PendingHook>,
   language: ProjectionLanguage = 'zh',
 ): Promise<FileWrite[]> {
-  const snapshot = await readStateSnapshot(root, hooks, language)
+  const read = await inspectState(root, hooks, language)
   const writes: FileWrite[] = []
-  for (const write of [...stateJsonWrites(snapshot), ...stateProjectionWrites(snapshot)]) {
+  for (const write of [...stateJsonWrites(read.snapshot), ...stateProjectionWrites(read.snapshot)]) {
+    // 源 JSON 坏掉时不渲染投影：宁可缺一份，也不拿默认值覆盖作者的数据。
+    const source = PROJECTION_SOURCES[write.relativePath]
+    if (source !== undefined && read.invalid.includes(source)) continue
     if (await missing(join(root, write.relativePath))) writes.push(write)
   }
   return writes

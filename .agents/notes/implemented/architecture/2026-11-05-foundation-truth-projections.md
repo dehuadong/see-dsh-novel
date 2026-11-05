@@ -33,21 +33,20 @@ export function renderChapterSummariesProjection(state: ChapterSummariesState, l
 
 ### 保存：四份 JSON + 三份投影，一次提交
 
-`core/state.ts` 的 `defaultStateFiles(hooks, language)` 增加语言参数（默认 `zh`），返回七份写入项；`stateWritesIfMissing(root, hooks, language)` 只补缺失的 JSON 与缺失的投影，投影由**生效状态**渲染：
+`core/state.ts` 导出 `defaultStateSnapshot(hooks, language)`、`stateJsonWrites(snapshot)`、`stateProjectionWrites(snapshot)` 与 `inspectState(root, hooks, language)`（返回生效快照与「存在但解析失败」的文件清单）；`stateWritesIfMissing(root, hooks, language)` 只补缺失的 JSON 与缺失的投影，投影由生效快照渲染：
 
 - 首次 details：七份文件在同一次 `commitFoundation` 里落盘；
 - 投影被手删、JSON 还在：重跑 details 或自检按 JSON 重建，不覆盖 JSON；
 - JSON 被推进过（章节、伏笔）：重跑 details 不覆盖它们，投影也只在缺失时补。
 
-**语言显式传入，来源按「manifest → work.json → zh」**。`core/state.ts` 不读任何作品文件，只接受参数：
+**语言按「manifest → work.json → zh」解析，读取落在管线层**。`core/state.ts` 只读状态目录里的 `manifest.json`（导出 `readManifestLanguage`），不认识作品身份；作品语言由 `pipelines/long/language.ts` 的 `projectionLanguage(root)` 解析：
 
-- `story_foundation_details`：已有 `manifest.json` 就用它的 `language`（与源工程 `saveRuntimeStateSnapshot` 一致，`runtime-state-store.ts:157`），否则读 `work.json` 的 `language`，再没有就 `zh`；
-- `story_hooks`：同一个解析顺序（manifest → work.json → zh）；`work.json` 读不出来时退回 `zh`，不让工具失败；
-- 自检路径：只用 `manifest.json`，缺失则 `zh`——`work.json` 可能已损坏（`test/recovery.test.mjs:109-122`），读它会让 `apply` 失败。
+- `story_foundation_details` 与 `story_hooks` 都用 `projectionLanguage`：有 manifest 用它（与源工程 `saveRuntimeStateSnapshot` 一致，`runtime-state-store.ts:157`），否则读 `work.json`，再否则 `zh`；`work.json` 或 manifest 读不出来时退回 `zh`；
+- 自检路径只用 `manifest.json`（缺失或损坏则 `zh`），不读 `work.json`——它可能已损坏（`test/recovery.test.mjs:109-122`）。
 
 ### 自检只重建有源文件的投影
 
-`runtime.recovery` 的索引集合扩到三份投影，但**投影只有在源 JSON 存在时才可重建**：
+`runtime.recovery` 的索引集合扩到三份投影，但**投影只有在源 JSON 存在且可读时才可重建**；状态 JSON 存在却解析失败时报 `state-invalid`（不可修），不拿默认值覆盖：
 
 | 情形 | 发现 | 可修 |
 | --- | --- | --- |
@@ -73,7 +72,7 @@ export function renderChapterSummariesProjection(state: ChapterSummariesState, l
 
 收益：状态不再只有 JSON。一次 details 写七份文件——四份 JSON 加三份投影，同一次原子提交；作者打开作品就能读到伏笔池、当前状态与章节摘要，下一行的就绪判据也终于能看到 `pending_hooks.md`。伏笔表只剩一份渲染：`story_hooks` 的回执与落盘投影逐字一致，换行转义成 `<br>`、单元格 trim、末尾一个换行，与源工程格式对齐。
 
-落地：`packages/see-dsh-novel/src/core/state-projections.ts`（三个渲染函数与状态类型）、`src/core/state.ts`（`defaultStateSnapshot`、`stateJsonWrites`、`stateProjectionWrites`、`readStateSnapshot`、`stateLanguage`、七份播种）、`src/pipelines/long/hooks.ts`（改为复用 core 渲染）、`src/plugin/agent.ts`（`story_hooks` 按 manifest → work.json → zh 取语言）、`src/core/recovery.ts`（投影纳入自检：源 JSON 在则可重建，源缺失时不可修，另报 `projection-stale`）、`src/pipelines/long/tools.ts`（details 传语言）。
+落地：`packages/see-dsh-novel/src/core/state-projections.ts`（三个渲染函数与状态类型）、`src/core/state.ts`（`defaultStateSnapshot`、`stateJsonWrites`、`stateProjectionWrites`、`inspectState`、`readManifestLanguage`、`stateWritesIfMissing`）、`src/pipelines/long/language.ts`（`projectionLanguage`）、`src/plugin/agent.ts`（`story_hooks` 用 core 渲染与 `projectionLanguage`）、`src/core/recovery.ts`（投影纳入自检：源可读则重建，源缺失或损坏不可修，另报 `projection-stale`／`state-invalid`）、`src/pipelines/long/tools.ts`（details 传语言）。`pipelines/long/hooks.ts` 已删除，渲染只此一份。
 
 验证见 `test/state-projections.test.mjs`（排序、转义与末尾换行、中英表头、事实按 `validUntilChapter` 过滤、八列摘要、空表仍带表头）、`test/foundation.test.mjs`（投影与 JSON 同批落盘，`pending_hooks.md` 带表头与该次伏笔行）、`test/hooks.test.mjs`（回执与投影同一渲染）、`test/recovery.test.mjs`（删投影可修、源缺失不可修、`projection-stale` 只报告）。
 

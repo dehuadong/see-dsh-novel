@@ -10,7 +10,7 @@ import { join, resolve, sep } from 'node:path'
 import { readArtifacts } from './artifacts.js'
 import { commitFile, JOURNAL_FILE, pathExists } from './commit.js'
 import type { CommitJournal } from './commit.js'
-import { readStateSnapshot, stateJsonWrites, stateProjectionWrites } from './state.js'
+import { PROJECTION_SOURCES, inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
 
 /** 发现项的严重程度。 */
@@ -25,6 +25,7 @@ export const FINDING_CODES = [
   'state-missing',
   'hooks-missing',
   'projection-stale',
+  'state-invalid',
   'staging-active',
   'staging-rollback',
   'staging-cleanup',
@@ -59,12 +60,9 @@ const WORK_DIR = 'source/story'
 /** 三个可重建的索引；`hooks.json` 不在其中（伏笔池是创作事实）。 */
 const INDEX_FILES = ['manifest.json', 'current_state.json', 'chapter_summaries.json'] as const
 
-/** 三份投影与它们的源 JSON；只有源存在时投影才可重建。 */
-const PROJECTIONS: ReadonlyArray<{ path: string, source: string }> = [
-  { path: 'source/story/current_state.md', source: `${STATE_DIR}/current_state.json` },
-  { path: 'source/story/pending_hooks.md', source: `${STATE_DIR}/hooks.json` },
-  { path: 'source/story/chapter_summaries.md', source: `${STATE_DIR}/chapter_summaries.json` },
-]
+/** 三份投影与它们的源 JSON；只有源存在且可读时投影才可重建。 */
+const PROJECTIONS: ReadonlyArray<{ path: string, source: string }> = Object.entries(PROJECTION_SOURCES)
+  .map(([path, source]) => ({ path, source }))
 
 /** 进程是否还活着；`ESRCH` 才算已死，其它错误（如 `EPERM`）一律当活着，宁可不碰。 */
 export function pidAlive(pid: number): boolean {
@@ -235,7 +233,12 @@ async function tmpFindings(root: string, files: ReadonlyArray<string>): Promise<
 }
 
 /** 身份与索引：有工件就查索引，不管 `work.json` 是否可读。 */
-function contentFindings(hasWork: boolean, workValid: boolean, files: ReadonlyArray<string>): Finding[] {
+function contentFindings(
+  hasWork: boolean,
+  workValid: boolean,
+  files: ReadonlyArray<string>,
+  invalid: ReadonlyArray<string>,
+): Finding[] {
   const findings: Finding[] = []
   if (files.length === 0) {
     if (hasWork && workValid) {
@@ -269,10 +272,20 @@ function contentFindings(hasWork: boolean, workValid: boolean, files: ReadonlyAr
       fixable: false,
     })
   }
-  // 投影：源 JSON 在就重建，源 JSON 没了就不能拿空表冒充。
+  // 状态文件存在但读不出来：不猜内容，也不能把它当缺失去重建。
+  for (const path of invalid) {
+    findings.push({
+      code: 'state-invalid',
+      severity: 'error',
+      path,
+      detail: '状态文件存在但解析失败；先修内容，重建会覆盖作者可能手改的数据。',
+      fixable: false,
+    })
+  }
+  // 投影：源 JSON 存在且可读就重建，源没了或坏了不能拿空表冒充。
   for (const projection of PROJECTIONS) {
     const projectionPresent = files.includes(projection.path)
-    const sourcePresent = files.includes(projection.source)
+    const sourcePresent = files.includes(projection.source) && !invalid.includes(projection.source)
     if (!projectionPresent) {
       findings.push({
         code: 'state-missing',
@@ -280,7 +293,7 @@ function contentFindings(hasWork: boolean, workValid: boolean, files: ReadonlyAr
         path: projection.path,
         detail: sourcePresent
           ? `投影 ${projection.path} 缺失；可以按 ${projection.source} 重建。`
-          : `投影 ${projection.path} 与它的源 ${projection.source} 都缺失；重建会用空表掩盖丢失。`,
+          : `投影 ${projection.path} 的源 ${projection.source} 缺失或读不出来；重建会用空表掩盖丢失。`,
         fixable: sourcePresent,
       })
     } else if (!sourcePresent) {
@@ -342,7 +355,8 @@ export async function scanWorkspace(root: string): Promise<RecoveryScan> {
     })
   }
 
-  findings.push(...contentFindings(workExists, workValid, artifacts.files))
+  const stateRead = await inspectState(base)
+  findings.push(...contentFindings(workExists, workValid, artifacts.files, stateRead.invalid))
   findings.push(...await stagingFindings(base))
   findings.push(...await tmpFindings(base, artifacts.files))
   return { root: base, findings, digest: artifacts.digest, files: artifacts.files.length }
@@ -379,9 +393,9 @@ async function rollback(root: string, staging: string, journal: CommitJournal): 
  */
 export async function repairWorkspace(root: string, findings: ReadonlyArray<Finding>): Promise<string[]> {
   const base = resolve(root)
-  const snapshot = await readStateSnapshot(base)
+  const stateRead = await inspectState(base)
   const defaults = new Map(
-    [...stateJsonWrites(snapshot), ...stateProjectionWrites(snapshot)].map((write) => [write.relativePath, write.content]),
+    [...stateJsonWrites(stateRead.snapshot), ...stateProjectionWrites(stateRead.snapshot)].map((write) => [write.relativePath, write.content]),
   )
   const applied: string[] = []
   for (const finding of findings) {
@@ -391,7 +405,10 @@ export async function repairWorkspace(root: string, findings: ReadonlyArray<Find
       if (content === undefined) continue
       // 投影只有源 JSON 存在时才可重建；扫描已经按这个口径给了 fixable，这里再守一次。
       const projection = PROJECTIONS.find((item) => item.path === finding.path)
-      if (projection !== undefined && !(await pathExists(join(base, projection.source)))) continue
+      if (projection !== undefined) {
+        if (!(await pathExists(join(base, projection.source)))) continue
+        if (stateRead.invalid.includes(projection.source)) continue
+      }
       await commitFile(base, finding.path, content)
       applied.push(finding.path)
       continue

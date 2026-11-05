@@ -45,7 +45,7 @@ test('outline writes both outline documents', async () => {
   }
 })
 
-test('details writes book rules and seeds the four state files', async () => {
+test('details writes book rules and seeds the four state files plus three projections', async () => {
   const { root, tools, dispose, exec } = await harness()
   try {
     await tools.get('story_foundation_details').execute({
