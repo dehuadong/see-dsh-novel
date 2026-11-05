@@ -18,6 +18,7 @@ import { installStorySkills, packageRootOf } from '../pipelines/long/skills.js'
 import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
 import type { StoryNext } from './story-next.js'
+import { installRecoveryTool } from './recovery-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
 import { installInitCommand } from './work-command.js'
 import { installWorkTools } from './work-tools.js'
@@ -108,12 +109,14 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeInit = installInitCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
+  const disposeRecovery = installRecoveryTool(ctx)
   const disposeCast = installCastContext(ctx, PRESET_ID)
   const disposeSkills = installStorySkills(ctx, PACKAGE_ROOT)
 
   return (): void => {
     disposeSkills()
     disposeCast()
+    disposeRecovery()
     disposeTelemetry()
     disposeWork()
     disposeInit()

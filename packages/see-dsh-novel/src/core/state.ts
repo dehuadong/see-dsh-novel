@@ -44,11 +44,8 @@ async function missing(path: string): Promise<boolean> {
   }
 }
 
-/** 生成「尚不存在」的状态文件写入项，交给同一次 commit 原子落盘。 */
-export async function stateWritesIfMissing(
-  root: string,
-  hooks: ReadonlyArray<PendingHook>,
-): Promise<FileWrite[]> {
+/** 状态文件的默认内容；索引（前三项之外的 hooks 也在此）由 foundation 与自检共用。 */
+export function defaultStateFiles(hooks: ReadonlyArray<PendingHook>): FileWrite[] {
   const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
   const candidates: Array<[string, unknown]> = [
     ['manifest.json', { schemaVersion: 2, language: 'zh', lastAppliedChapter: 0, projectionVersion: 1 }],
@@ -56,12 +53,18 @@ export async function stateWritesIfMissing(
     ['hooks.json', { hooks: hooks.map(hookRecord) }],
     ['chapter_summaries.json', { rows: [] }],
   ]
+  return candidates.map(([name, value]) => ({ relativePath: `${STATE_DIR}/${name}`, content: json(value) }))
+}
 
+/** 生成「尚不存在」的状态文件写入项，交给同一次 commit 原子落盘。 */
+export async function stateWritesIfMissing(
+  root: string,
+  hooks: ReadonlyArray<PendingHook>,
+): Promise<FileWrite[]> {
   const writes: FileWrite[] = []
-  for (const [name, value] of candidates) {
-    if (await missing(join(root, STATE_DIR, name))) {
-      writes.push({ relativePath: `${STATE_DIR}/${name}`, content: json(value) })
-    }
+  for (const write of defaultStateFiles(hooks)) {
+    const name = write.relativePath.slice(STATE_DIR.length + 1)
+    if (await missing(join(root, STATE_DIR, name))) writes.push(write)
   }
   return writes
 }

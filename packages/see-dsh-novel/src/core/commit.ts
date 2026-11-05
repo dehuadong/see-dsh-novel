@@ -1,8 +1,8 @@
 /**
  * 整批写入：先 staging，再备份目标，再 rename 到位；失败用备份回滚。
  *
- * 不引入持久 journal：本阶段写入方是单进程单次调用，跨进程恢复属于
- * `runtime.recovery` 那一行。
+ * 暂存目录里写一份 `journal.json`（阶段 + 属主 pid + 写入/删除清单），让崩溃后的
+ * 下一次运行能判断这批文件改到哪一步；认领与回滚由 `runtime.recovery` 负责。
  */
 import { cp, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
@@ -18,6 +18,19 @@ export interface CommitResult {
   deleted: string[]
 }
 
+/** 暂存目录里的提交日志文件名。 */
+export const JOURNAL_FILE = 'journal.json'
+
+/** 一次提交的阶段与内容；写到一半的日志由自检按「读不出来」处理。 */
+export interface CommitJournal {
+  version: 1
+  /** 写这批文件的进程；自检用 liveness 判断属主是否已经死了。 */
+  pid: number
+  phase: 'prepared' | 'applied'
+  writes: string[]
+  deletes: string[]
+}
+
 /** 路径存在与否；只把 ENOENT 当成「不在」，其它错误照常抛出。 */
 export async function pathExists(path: string): Promise<boolean> {
   try {
@@ -27,6 +40,11 @@ export async function pathExists(path: string): Promise<boolean> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
     throw error
   }
+}
+
+/** 写一份提交日志；调用方决定失败时是否吞掉。 */
+async function writeJournal(staging: string, journal: CommitJournal): Promise<void> {
+  await writeFile(join(staging, JOURNAL_FILE), `${JSON.stringify(journal, null, 2)}\n`, 'utf8')
 }
 
 /**
@@ -45,6 +63,13 @@ export async function commitFoundation(
   const backupDir = join(staging, 'backup')
   const touched = [...writes.map((write) => write.relativePath), ...deletes]
   const applied: string[] = []
+  const journal: CommitJournal = {
+    version: 1,
+    pid: process.pid,
+    phase: 'prepared',
+    writes: writes.map((write) => write.relativePath),
+    deletes: [...deletes],
+  }
 
   try {
     await mkdir(workDir, { recursive: true })
@@ -64,6 +89,9 @@ export async function commitFoundation(
       await cp(target, backup)
     }
 
+    // 从这里开始才有东西需要回收：先落「准备应用」，再动目标。
+    await writeJournal(staging, journal)
+
     for (const { relativePath } of writes) {
       const target = resolve(base, relativePath)
       await mkdir(dirname(target), { recursive: true })
@@ -74,6 +102,14 @@ export async function commitFoundation(
 
     for (const relativePath of deletes) {
       await rm(resolve(base, relativePath), { force: true })
+    }
+
+    // 标记已经是尽力而为：写失败不能让下面的 catch 把已应用的文件回滚掉。
+    // 失败时删掉 prepared 日志，留下的目录只会被自检报成「读不出来」。
+    try {
+      await writeJournal(staging, { ...journal, phase: 'applied' })
+    } catch {
+      await rm(join(staging, JOURNAL_FILE), { force: true })
     }
 
     return { written: writes.map((write) => write.relativePath), deleted: [...deletes] }
@@ -117,7 +153,8 @@ export async function commitFile(root: string, relativePath: string, content: st
   const target = resolve(root, relativePath)
   const dir = dirname(target)
   await mkdir(dir, { recursive: true })
-  const tmp = join(dir, `.tmp-${randomUUID()}`)
+  // 临时文件名带 pid：崩溃后自检能判断这个残留的属主是否还活着。
+  const tmp = join(dir, `.tmp-${process.pid}-${randomUUID()}`)
   try {
     await writeFile(tmp, content, 'utf8')
     await rename(tmp, target)

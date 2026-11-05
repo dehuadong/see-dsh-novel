@@ -1,6 +1,6 @@
 # Agent Note: runtime.recovery —— 工作区自检、索引重建与残留暂存回收
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -13,7 +13,7 @@ Status: proposed
 
 本行交付：一个自检工具（报告 + 可修则修），覆盖「索引缺失」与「提交残留」两类；章节级对账明确留给章节流水线。
 
-## Proposal
+## Decision
 
 ### 自检与修复是两步
 
@@ -97,26 +97,20 @@ Status: proposed
 
 **把自检塞进 `story_next`。** 少一个工具。否掉：`story_next` 每轮都可能被调用，扫描要列目录、读 JSON，不该成为路牌成本。
 
-## Acceptance criteria
+## Consequences
 
-- 空工作区：一条 `unbound`（`info`、`fixable: false`）；`apply: true` 不写任何文件。
-- 只有 `work.json`：一条 `foundation-empty`；不写文件。
-- 有 `source/story/` 内容、缺 `work.json`：一条 `work-missing`（`warning`、`fixable: false`）；`apply: true` 不创建 `work.json`。
-- 缺任一索引文件（三个各测一次）：一条 `state-missing`（`fixable: true`）；`apply: true` 写回与 `defaultStateFiles` 逐字节一致的内容，重新扫描不再报，`applied` 列出该路径；**不**创建 `hooks.json`。
-- 缺 `hooks.json`：一条 `hooks-missing`（`fixable: false`）；`apply: true` 不创建它。
-- `work.json` 非法：一条 `work-invalid`（`error`、`fixable: false`）；`apply: true` 不改写任何文件。
-- 暂存回收：`phase: "prepared"` 且属主已死 → `apply: true` 用备份还原目标、删掉新增文件与暂存目录；`phase: "applied"` → 只删暂存目录；属主活着的目录原样保留；没有 journal 或 journal 读不出来的目录只报告；工作区根与 `source/story/**` 里属主已死的 `.tmp-<pid>-<uuid>` 报 `tmp-residue` 并在 `apply: true` 时删除，属主活着或旧格式的只报告。
-- 标记写失败：注入一个「写 `applied` 标记会失败」的文件写入，断言 `commitFoundation` 仍然成功、文件已经就位、不会被自己的 `catch` 回滚，暂存目录被清理；再让清理也失败，断言留下的目录里**没有** `journal.json`，扫描只报 `staging-unknown`、不选 `staging-rollback`。
-- 摘要与确认：输出带 `digestBefore`／`digestAfter`／`approvedDigest`／`needsReconfirm`；重建内容与缺失前一致时 `digestAfter` 回到认可过的那一版、`needsReconfirm: false`；构造一个「作者已认可旧摘要、重建写回不同的 manifest」的用例，断言 `needsReconfirm: true`。
-- 工具输出 schema 在运行时子集内；`test/host.test.mjs` 的工具清单同批加 `story_recover`；`test/foundation.test.mjs` 对 `stateWritesIfMissing` 的断言不回归。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/recovery.ts`；consumer `packages/see-dsh-novel/test/recovery.test.mjs`；工具注册与提交日志改动在 `src/plugin/recovery-tool.ts` 与 `src/core/commit.ts`，同批更新 `test/foundation.test.mjs`；realRun `artifacts/real-runs/runtime.recovery.json`。
-- 真实运行：在有基础设定的工作区删掉 `state/manifest.json`，调 `story_recover` 看到 `state-missing`，`apply: true` 后文件重建、`story_next` 仍报 `ready`、摘要与删除前一致；再造一个死属主的 `prepared` 暂存目录，`apply: true` 后被还原并删除。
+收益：工作区被手滑或崩溃弄坏之后，作者不必翻目录猜——`story_recover` 会把「少了什么、能不能补、补完要不要重新确认」一次说清；能安全重建的索引直接补回，属主已死的提交残留按日志回滚或清理，不必人工拆暂存目录。
 
-## Risks
+落地的代码：`src/core/commit.ts` 的 `commitFoundation` 在备份之后、rename 之前写 `journal.json`（`version/pid/phase/writes/deletes`），rename 与删除完成后尽力改写 `phase: "applied"`；改写失败先删日志再清理，绝不让 `catch` 回滚已应用的文件。`commitFile` 的临时文件改名为 `.tmp-<pid>-<uuid>`。`src/core/state.ts` 抽出 `defaultStateFiles(hooks)`，`stateWritesIfMissing` 与自检共用同一份默认内容。`src/core/recovery.ts` 导出 `scanWorkspace`（发现清单 + 摘要）、`repairWorkspace`（重建索引、回滚/清理暂存、删属主已死的临时文件）、`parseJournal`、`pidAlive`。`src/plugin/recovery-tool.ts` 注册 `story_recover`，从会话里读最近一次认可回执的摘要，输出 `digestBefore`／`digestAfter`／`approvedDigest`／`needsReconfirm`。`src/plugin/agent.ts` 注册并保持相反顺序注销。
 
-- 章节级对账没有交付，要等 P2／P3；本行只到工作区与提交两级。
+验证见 `test/recovery.test.mjs`（空工作区、只有 work、内容无身份、坏身份、三个索引逐个重建且摘要回到原值、hooks 不重建、死属主 prepared 回滚、死属主 applied 只清理、活属主不动、无日志/半截日志只报告、临时文件按属主、`commitFoundation` 成功与失败都不留暂存、工具应用并给 `needsReconfirm`、健康工作区无发现、两张 schema 在子集内）与 `test/host.test.mjs`（工具清单含 `story_recover`）。
+
+代价与已知限制：
+
+- 章节级对账没有交付，要等 P2／P3；这条能力只到工作区与提交两级。
 - 属主判定用 pid：pid 被系统复用到一个无关进程时会误判为「活着」，结果只是留着不给修，不会误删。
 - `pid` 只有本机意义：跨机器共享的工作区上，日志里的 pid 判定不可靠，工具会把残留当「属主活着」保留。
 - 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
 - `needsReconfirm` 依据的是会话里能读到的那次认可：如果当前会话没读过旧回执（换过会话），它会是 `false`，作者要自己按摘要判断。
 - `.tmp-*` 的属主判定与暂存同理：pid 被复用会误判为「活着」而保留临时文件，不会误删；旧格式的临时文件永远只报告，靠人工清理。
+- `applied` 标记写失败这条路径没有注入式测试（没有为测试开注入口）：测试覆盖的是它的可观察后果——提交成功/失败都不留暂存目录、没有日志的残留只会被报 `staging-unknown`。
