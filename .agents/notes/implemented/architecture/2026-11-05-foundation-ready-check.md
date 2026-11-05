@@ -49,7 +49,7 @@ export interface FoundationProbes {
 
 ### 与面板和闸门的关系
 
-- 面板的「有没有基础设定」按同一份文件清单判断：订阅 `work.json`、`story_frame.md`、`volume_map.md`、`book_rules.md`、`book_rules.json`、`pending_hooks.md` 六个锚点，六个都 live 才算有设定；不再用 `manifest.json`，也不再是「大纲或状态有一个就算」；
+- 面板的「有没有基础设定」按同一份文件清单判断：订阅 `story_frame.md`、`volume_map.md`、`book_rules.md`、`book_rules.json`、`pending_hooks.md` 五个锚点，五个都 live 才算有设定；`work.json` 单独判「立没立项」，不参与「设定齐不齐」——面板对「有内容但没身份」仍显示闸门并提示身份缺失。不再用 `manifest.json`，也不再是「大纲或状态有一个就算」；
 - 面板数不了角色卡：客户端资源通道按路径订阅，没有列目录能力，`story/roles/` 下有哪些文件客户端不知道。因此面板判「文件齐全」而不是「就绪」，`ready` 只由 `story_next` 判；这是 DSH 客户端机制的强制偏差，登记在 `docs/dsh-mapping.md`；
 - `ready` 变严之后，面板的签核仍由 `story_gate` 决定，不会因为面板认为「设定齐全」就放行；
 - `story_gate` 的签核条件（工件非空 + 摘要 + 作者确认）不变；本行只让路牌与面板说真话。
@@ -76,6 +76,6 @@ export interface FoundationProbes {
 
 - 角色卡只数 `.md` 文件，不校验内容；空文件也算一张，与源工程一致。
 - 四个目录名同时认中文与英文；复刻只写中文目录，英文目录兼容历史文件。
-- 面板判「六份文件齐全」，不数角色卡；`ready` 只由 `story_next` 判，偏差已登记在 `docs/dsh-mapping.md`。
+- 面板判「五份设定文件齐全」（身份单独判），不数角色卡；`ready` 只由 `story_next` 判，偏差已登记在 `docs/dsh-mapping.md`。
 - `runtime.load`／`runtime.session-binding` 的回执里仍写着旧探针口径（三个探针）；两行状态不依赖该描述，重读回执时需知道探针清单已由本行更新。
 - `draft` 在源工程没有对应词，是复刻的路牌词汇；含义以上表为准。

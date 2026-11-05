@@ -34,6 +34,6 @@
 ### 就绪判据：角色卡只能由会话路牌数
 
 - 源工程做法：状态接口用 `isBookFoundationComplete` 判断完成——六份文件（作品身份、大纲两份、book rules 两份、伏笔池）加 `story/roles/` 任一目录里的至少一张角色卡。
-- 复刻做法：`story_next` 按同一份清单判 `ready`；客户端面板订阅同样的六份文件判断「设定齐全」，但不数角色卡。
+- 复刻做法：`story_next` 按同一份清单判 `ready`；客户端面板订阅其中的五份设定文件判断「设定齐全」（身份单独判），但不数角色卡。
 - 原因：客户端资源通道按路径订阅，没有列目录能力，`story/roles/` 下有什么文件客户端拿不到；因此「≥1 张角色卡」只能由宿主侧判。
 - 验证：`packages/see-dsh-novel/test/ready-check.test.mjs` 覆盖七项判据与四个角色目录；`test/host.test.mjs` 覆盖四阶段与 `draft` 的两种下一步；面板测试断言六个文件锚点。
