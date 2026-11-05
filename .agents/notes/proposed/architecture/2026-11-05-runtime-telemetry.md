@@ -37,7 +37,7 @@ Status: proposed
 
 ```json
 {
-  "summary": { "delegations": 1, "incomplete": 0, "diagnostics": 0, "durationMs": 42000,
+  "summary": { "delegations": 1, "incomplete": 0, "diagnostics": 0, "unaccounted": 0, "durationMs": 42000,
     "usage": { "uncachedInputTokens": 0, "outputTokens": 0, "cacheReadTokens": 0, "cacheWriteTokens": 0 } },
   "delegations": [
     { "childSessionId": "session-…", "label": "writer", "mode": "one-shot", "depth": 1,
@@ -51,9 +51,11 @@ Status: proposed
 - `state` 的判定顺序：目录行 `activity === 'running'` **且** `subagentTiming` 有 `active` 开区间 → `running`（住着且在跑）；否则 `lastTurnCompleted === true` → `completed`、`false` → `incomplete`；都没有（或子会话读不到、没有本地会话）→ `unknown`。枚举固定四值，不猜。
   `activity` 只是「这个会话现在还住着没有」的驻留事实，单用会把轮次之间空闲的 continuable 子会话说成在跑；`active` 只说明「有一个还没关的轮次」，单用会被进程崩溃留下的未闭合轮次骗到。两个一起成立才算 `running`。
 - `label`、`usage`、`durationMs` 读不到时是 `null`，不写 0：0 会被当成「真的没花」；`label` 缺省是 one-shot 的正常形态，不是错误。
+- **求和只加读得到的行**：`summary.durationMs` 是返回集合里非 `null` 耗时之和（全为 `null` 时是 `null`）；`summary.usage` 四个桶分别对非 `null` 的 usage 求和（全为 `null` 时是 `null`）；`summary.unaccounted` 数「`usage` 或 `durationMs` 为 `null`」的行数，让作者知道这两个合计是部分的，而不是把缺失当 0 摊进总数。
+- `summary.delegations`、`summary.incomplete` 只数返回的 `delegations`；`summary.diagnostics` 数全部诊断行（诊断不按 `limit` 截断，它们通常为 0，是异常信号）。
 - `diagnostics` 沿用目录的 `reason`，不进 `delegations`、不计入 `incomplete`。
-- `summary` 只统计返回的这 `limit` 条，字段名与含义在工具描述里写明，避免作者把分页当成全量。
-- 排序：沿用 `listDescendants` 返回的目录顺序（父目录事件序，即创建顺序；该 API 不返回 `createdAt`，不另造排序键），取最后 `limit` 条，与「最近一次委派」的直觉一致。
+- `limit` 只截 `delegations`：按目录顺序取最后 `limit` 条；`diagnostics` 全量返回。
+- 排序：沿用 `listDescendants` 返回的目录顺序（父目录事件序，即创建顺序；该 API 不返回 `createdAt`，不另造排序键）。
 
 ### 服务缺失时明确报错
 
@@ -77,7 +79,8 @@ Status: proposed
 - 有一次子代理委派后：`delegations` 里出现该子会话，`childSessionId`、`mode`、`depth`、`state` 齐备；`label` 是字符串或 `null`（one-shot 允许缺省）；`durationMs` 是非负整数或 `null`；`usage` 是四个非负整数桶或 `null`；`state` 是四个固定值之一，只有 `activity` 与 `active` 同时成立才是 `running`。
 - `incomplete` 的子会话（最近一轮没有正常收尾）在 `summary.incomplete` 里被计数，对应条目的 `state` 是 `incomplete`。
 - `diagnostic` 行只出现在 `diagnostics` 里并带 `reason`，不计入 `delegations`／`incomplete`；`external` 模式没有本地会话，条目仍返回，`usage`／`durationMs` 为 `null`、`state` 为 `unknown`。`mode: 'unknown'` 不会以 `child` 行出现——未知模式本身就是一条 `diagnostic`（`reason: 'unsupported'`）。
-- `limit` 生效：只返回最近 `limit` 条，`summary` 与返回集合一致。
+- `limit` 只截 `delegations`（目录顺序的最后 `limit` 条），`diagnostics` 全量返回；`summary.delegations`／`summary.incomplete` 与返回的 `delegations` 一致，`summary.diagnostics` 与返回的 `diagnostics` 一致。
+- 求和不把缺失当 0：`summary.durationMs` 与 `summary.usage` 只加非 `null` 的行，全为 `null` 时是 `null`；`summary.unaccounted` 等于返回集合里 `usage` 或 `durationMs` 为 `null` 的行数。构造一个「一个本地子会话 + 一个 external 子会话」的假服务面断言这一点。
 - `subagents`／`sessionQuery` 缺失时返回错误文本并点名缺失的服务。
 - `test/host.test.mjs` 的工具清单同批加 `story_telemetry`；`test/telemetry.test.mjs` 用假的服务面覆盖上述分支（含 diagnostic、无本地会话、`activity: running`）。
 - 实现与证据：implementation `packages/see-dsh-novel/src/plugin/telemetry-tool.ts`（工具与聚合）与 `src/plugin/agent.ts`（注册）；consumer `packages/see-dsh-novel/test/telemetry.test.mjs`；realRun `artifacts/real-runs/runtime.telemetry.json`。
