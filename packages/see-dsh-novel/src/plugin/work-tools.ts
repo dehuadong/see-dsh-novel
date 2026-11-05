@@ -89,13 +89,15 @@ interface CreateArgs {
   metadata?: { targetChapters?: number, chapterWordCount?: number }
 }
 
-/** 身份一句话描述；卡片与测试共用。 */
-function describe(work: Work): string {
+/** 身份一句话描述；工具卡片与命令回执共用。 */
+export function describeWork(work: Work): string {
   const scope = [
     work.metadata.targetChapters === undefined ? '' : `目标 ${work.metadata.targetChapters} 章`,
     work.metadata.chapterWordCount === undefined ? '' : `单章 ${work.metadata.chapterWordCount} 字`,
   ].filter((part) => part !== '').join('，')
-  return `《${work.title}》：${work.profile}，${work.language}，${work.status}${scope === '' ? '' : `（${scope}）`}`
+  // 标题本身可能带书名号（命令输入保留原样），别包第二层。
+  const title = work.title.startsWith('《') && work.title.endsWith('》') ? work.title : `《${work.title}》`
+  return `${title}：${work.profile}，${work.language}，${work.status}${scope === '' ? '' : `（${scope}）`}`
 }
 
 /**
@@ -119,7 +121,7 @@ export function installWorkTools(ctx: PluginContext): Disposer {
     parameters: workCreateParameters,
     output: {
       schema: workCreateOutput,
-      render: (_args: unknown, value: { work: Work }) => [{ type: 'text' as const, text: `已立项${describe(value.work)}` }],
+      render: (_args: unknown, value: { work: Work }) => [{ type: 'text' as const, text: `已立项${describeWork(value.work)}` }],
     },
     async execute(args: CreateArgs, exec: ExecuteContext): Promise<{ work: Work }> {
       return {
@@ -141,7 +143,7 @@ export function installWorkTools(ctx: PluginContext): Disposer {
       schema: workShowOutput,
       render: (_args: unknown, value: { work: Work | null }) => [{
         type: 'text' as const,
-        text: value.work === null ? '这个工作区还没有立项（没有 work.json）' : describe(value.work),
+        text: value.work === null ? '这个工作区还没有立项（没有 work.json）' : describeWork(value.work),
       }],
     },
     execute: async (_args: Record<string, never>, exec: ExecuteContext): Promise<{ work: Work | null }> => ({

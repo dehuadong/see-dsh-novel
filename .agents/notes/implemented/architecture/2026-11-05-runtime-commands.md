@@ -1,6 +1,6 @@
 # Agent Note: runtime.commands —— 立项的命令行入口
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -10,7 +10,7 @@ Status: proposed
 
 DSH 的 command 是会话内的确定性入口；它仍然要求作者已经打开一个会话。无头（不打开会话、直接跑一次）需要项目自己的 CLI，本行不交付——解析函数是纯函数，将来无头入口复用同一段「解析 → `writeWork`」。
 
-## Proposal
+## Decision
 
 ### 命令形态
 
@@ -73,18 +73,13 @@ type InitInput = { title: string, language?: string, targetChapters?: number, ch
 
 **用短名 `init`。** 与参考工程一致。否掉：同一条命令面里通用词更容易撞。
 
-## Acceptance criteria
+## Consequences
 
-- `/story-init 《夜行测试》` 在会话工作区根写出 `work.json`：标题保留书名号，`language` 为 `zh`，`profile` 为 `longform-novel`，`status` 为 `draft`；命令返回成功文本，包含标题与下一步提示。
-- `/story-init 标题 --lang en --chapters 80 --words 2500`：`language` 为 `en`，`metadata` 为 `{ targetChapters: 80, chapterWordCount: 2500 }`。
-- 语法错误返回 `kind: 'error'`，文本点名参数且不写文件：缺标题、未知选项、重复选项、`--chapters 2.5`、`--chapters abc`。
-- 语义错误转出 `writeWork` 的文本并保持 `kind: 'error'`：`--lang fr`、`--chapters 0`。
-- 已经存在 `work.json` 时返回错误，原文件不变；坏 `work.json` 时返回字段错误，不覆盖。
-- `parseInitInput` 单独测试：标题含空格、`--` 之后的内容、重复选项、数字字面量。
-- 实现与证据：implementation `packages/see-dsh-novel/src/plugin/init-command.ts`（解析与命令）与 `src/plugin/agent.ts`（注册）；consumer `packages/see-dsh-novel/test/init-command.test.mjs`，同批更新 `test/host.test.mjs` 的命令清单；realRun `artifacts/real-runs/runtime.commands.json`。
-- 真实运行：在空工作区打开写作会话，敲 `/story-init 《…》 --lang zh`，会话里出现成功回执、`work.json` 落盘；随后 `story_next` 报 `foundation`，面板显示「已立项，还没有基础设定」。
+`src/plugin/init-command.ts` 导出 `COMMAND_INIT`（`story-init`）、`InitInput` 与纯函数 `parseInitInput`：切词、认 `--lang`／`--chapters`／`--words`、`--` 之后全当标题、整数字面量转 `number`，错误按参数点名。`installInitCommand(ctx)` 注册命令，处理器把 `workingDirectory.ensure` 与 `writeWork` 一起包在 `try/catch` 里，异常与语义错误都转成 `{ kind: 'error', text }`，成功时用 `describeWork` 输出身份与下一步提示。`src/plugin/agent.ts` 注册并在注销链里收尾；`describeWork` 从 `work-tools.ts` 导出复用，并对已经带书名号的标题不再包第二层。
 
-## Risks
+验证见 `test/init-command.test.mjs`（解析的标题/选项/`--`/错误分支、命令写盘与回执、第二次立项与坏 `work.json`、语法与语义错误都不写文件）与 `test/host.test.mjs`（命令清单四条）。真实运行回执由 Verify 阶段写到 `artifacts/real-runs/runtime.commands.json`；回执要能看出 `/story-init` 的成功文本与 `work.json` 落盘，以及随后的 `story_next` 阶段与面板状态。
+
+代价与已知限制：
 
 - 标题里出现 `--lang` 这类字样会被当成选项：用 `--` 分隔兜底，但作者要知道这条规则。
 - 命令只写身份，不建 `source/story/` 骨架；空工作区敲完目录里仍然只有 `work.json`（骨架由基础设定写）。

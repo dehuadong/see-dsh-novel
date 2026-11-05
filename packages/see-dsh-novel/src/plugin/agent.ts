@@ -18,6 +18,7 @@ import { installStorySkills, packageRootOf } from '../pipelines/long/skills.js'
 import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
 import type { StoryNext } from './story-next.js'
+import { installInitCommand } from './init-command.js'
 import { installWorkTools } from './work-tools.js'
 
 export const name = 'see-dsh-novel-agent'
@@ -103,6 +104,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeFoundation = installFoundationTools(ctx)
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
+  const disposeInit = installInitCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeCast = installCastContext(ctx, PRESET_ID)
   const disposeSkills = installStorySkills(ctx, PACKAGE_ROOT)
@@ -110,6 +112,7 @@ export function apply(ctx: PluginContext): Disposer {
   return (): void => {
     disposeSkills()
     disposeCast()
+    disposeInit()
     disposeWork()
     disposeCommands()
     disposeGate()

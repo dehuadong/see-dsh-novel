@@ -60,9 +60,9 @@ capabilities:
     title: DSH command/headless 入口（init/export 至少一条）
     reference: inkos:packages/cli/src/commands/
     dsh: commands
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/plugin/init-command.ts
+    consumer: packages/see-dsh-novel/test/init-command.test.mjs
+    realRun: artifacts/real-runs/runtime.commands.json
     status: missing
   - id: runtime.telemetry
     title: 每次委派的 usage／耗时／失败回执
