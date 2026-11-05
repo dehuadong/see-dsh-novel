@@ -49,9 +49,10 @@ export interface FoundationProbes {
 
 ### 与面板和闸门的关系
 
-- 面板的「已立项，还没有基础设定」判断仍用它自己的锚点（身份、大纲、状态清单）。客户端拿不到目录列表，无法数角色卡，因此**不能**复用这份判据；这是 DSH 客户端机制的强制偏差，登记在 `docs/dsh-mapping.md`（源做法：状态接口按六份文件加角色卡判完成 → 复刻：面板只用固定锚点判断「有没有设定」→ 原因：client 资源通道按路径订阅，没有列目录能力 → 验证：面板测试只断言锚点，`story_next` 独立判 `ready`）；
-- `ready` 变严之后，面板的签核仍由 `story_gate` 决定，不会因为面板认为「有设定」就放行；
-- `story_gate` 的签核条件（工件非空 + 摘要 + 作者确认）不变；本行只让路牌说真话。
+- 面板的「有没有基础设定」按同一份文件清单判断：订阅 `work.json`、`story_frame.md`、`volume_map.md`、`book_rules.md`、`book_rules.json`、`pending_hooks.md` 六个锚点，六个都 live 才算有设定；不再用 `manifest.json`，也不再是「大纲或状态有一个就算」；
+- 面板数不了角色卡：客户端资源通道按路径订阅，没有列目录能力，`story/roles/` 下有哪些文件客户端不知道。因此面板判「文件齐全」而不是「就绪」，`ready` 只由 `story_next` 判；这是 DSH 客户端机制的强制偏差，登记在 `docs/dsh-mapping.md`；
+- `ready` 变严之后，面板的签核仍由 `story_gate` 决定，不会因为面板认为「设定齐全」就放行；
+- `story_gate` 的签核条件（工件非空 + 摘要 + 作者确认）不变；本行只让路牌与面板说真话。
 
 ## Alternatives considered
 
@@ -70,10 +71,10 @@ export interface FoundationProbes {
 - `story_next`：大纲不齐 → `foundation`；大纲齐但缺 book rules／`pending_hooks.md` → `draft` 且 next 指向 `story_foundation_details`；缺角色卡 → `draft` 且 next 指向 `story_foundation_cast_index`；全部齐全 → `ready`；七个探针全假 → `unbound`。
 - 只有 `manifest.json` 而没有真值文件时不再是 `ready`；真值文件齐全但没有 `manifest.json` 时是 `ready`。
 - `test/host.test.mjs` 的四阶段阶梯用例同批改为新判据（补齐真值文件与角色卡，覆盖 `draft` 的两种 next）；`test/work.test.mjs` 的探针用例（含 `hasState` 梯度）按七字段重写；`test/proposal.test.mjs` 的立项后阶段仍是 `foundation`（只有身份，没有工件）。
-- 面板不改：`src/client/StoryView.tsx` 的锚点逻辑保留，偏差按上面「与面板的关系」登记进 `docs/dsh-mapping.md`；本行的消费者测试不碰客户端。
+- 面板同批改：`src/client/StoryView.tsx` 订阅六个文件锚点，`hasFoundation` 改为「六个都 live」，去掉 `manifest.json` 与「大纲或状态任一个」的或判断；角色卡仍不查，偏差按上面「与面板的关系」登记进 `docs/dsh-mapping.md`。
 - `runtime.load` 与 `runtime.session-binding` 的历史回执写的是旧探针口径（「三个探针、四阶段映射」）；它们证明的是加载与会话绑定，探针清单由本行拥有并在此更新，回执不重录，差异记在 Risks。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/work.ts`；consumer `packages/see-dsh-novel/test/ready-check.test.mjs`；阶段逻辑改动在 `src/plugin/story-next.ts`，同批更新 `test/host.test.mjs`、`test/work.test.mjs`；realRun `artifacts/real-runs/foundation.ready-check.json`。
-- 真实运行：在已有基础设定的工作区调 `story_next` 得到 `ready`；删掉一张角色卡后再调得到 `draft`；恢复后再得到 `ready`。
+- 实现与证据：implementation `packages/see-dsh-novel/src/core/work.ts`；consumer `packages/see-dsh-novel/test/ready-check.test.mjs`；阶段逻辑改动在 `src/plugin/story-next.ts`，面板改动在 `src/client/StoryView.tsx`，同批更新 `test/host.test.mjs`、`test/work.test.mjs`；realRun `artifacts/real-runs/foundation.ready-check.json`。
+- 真实运行：在已有基础设定的工作区调 `story_next` 得到 `ready`；把四个角色目录里的卡全部移走后再调得到 `draft`（`next` 指向 `story_foundation_cast_index`）；移回后恢复 `ready`。
 
 ## Risks
 

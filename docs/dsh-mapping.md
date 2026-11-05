@@ -31,9 +31,9 @@
 - 原因：出树插件没有自定义 RPC 出口，自造会话事件会让持久化整份拒读；原生确认又与会话权限策略绑死，单一通道在 `danger-full-access` 下恒拒。
 - 验证：`packages/see-dsh-novel/test/approval.test.mjs` 覆盖两条通道与各类拒绝；真实运行记录在 `artifacts/real-runs/foundation.approval.json`。
 
-### 就绪判据：会话路牌判七项，面板只判「有没有设定」
+### 就绪判据：角色卡只能由会话路牌数
 
 - 源工程做法：状态接口用 `isBookFoundationComplete` 判断完成——六份文件（作品身份、大纲两份、book rules 两份、伏笔池）加 `story/roles/` 任一目录里的至少一张角色卡。
-- 复刻做法：`story_next` 按同一份清单判 `ready`；客户端面板拿不到目录列表，只用固定锚点（身份、大纲、状态清单）判断「已立项且已有设定」，用于显示开工按钮。
-- 原因：客户端资源通道按路径订阅，没有列目录能力，无法数角色卡；面板用粗判据不妨碍 `story_next` 说真话，签核仍由 `story_gate` 决定。
-- 验证：`packages/see-dsh-novel/test/ready-check.test.mjs` 覆盖七项判据与角色卡目录；`test/host.test.mjs` 覆盖四阶段与 `draft` 的两种下一步；面板测试只断言锚点。
+- 复刻做法：`story_next` 按同一份清单判 `ready`；客户端面板订阅同样的六份文件判断「设定齐全」，但不数角色卡。
+- 原因：客户端资源通道按路径订阅，没有列目录能力，`story/roles/` 下有什么文件客户端拿不到；因此「≥1 张角色卡」只能由宿主侧判。
+- 验证：`packages/see-dsh-novel/test/ready-check.test.mjs` 覆盖七项判据与四个角色目录；`test/host.test.mjs` 覆盖四阶段与 `draft` 的两种下一步；面板测试断言六个文件锚点。
