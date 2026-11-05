@@ -76,9 +76,9 @@ Status: implemented
 
 ## Consequences
 
-`src/client/index.ts` 导出 `START_TEXT(cwd)` 并给视图注入 `start(sessionId, cwd)`：`prompt([{ type: 'text', text }], 'queue')`，无绑定或 `RemoteResult.ok !== true` 返回 `'failed'`，抛错不吞、由视图映射成结果未知。`StoryView.tsx` 的 `Phase` 扩到 `idle`／`submitting`／`resumed`／`resume-failed`／`started`／`start-unknown`，空态屏在「通道可读、身份在、两个锚点都不在」时渲染「开始基础设定」；闸门屏与空态屏都按 `running` → `started` → 其余的顺序决定显示，`running` 为真时两屏都只显示「会话正在运行…」且不渲染任何按钮。`started` 由「见过这一轮跑起来、又结束」收尾（`sawTurn` ref），回到探针判定；`start-unknown` 只管空态屏，不随 `running` 解除。切换会话重置本地状态，在途结果用 `currentSession` 栅栏丢弃。
+`src/client/index.ts` 导出 `START_TEXT(cwd)` 并给视图注入 `start(sessionId, cwd)`：`prompt([{ type: 'text', text }], 'queue')`，无绑定或 `RemoteResult.ok !== true` 返回 `'failed'`，抛错不吞、由视图映射成结果未知。`StoryView.tsx` 的 `Phase` 扩到 `idle`／`submitting`／`resumed`／`resume-failed`／`started`／`start-unknown`，空态屏在「通道可读、身份在、两个锚点都不在」时渲染「开始基础设定」；两屏共用一条状态行，按 `running` → `started` → 其余的顺序决定，`running` 为真时两屏都只显示「会话正在运行…」且不渲染任何按钮。`started` 由「见过这一轮跑起来、又结束」收尾（`sawTurn` ref），回到探针判定；`start-unknown` 只管空态屏，不随 `running` 解除，也不挡住闸门上的认可。切换会话重置本地状态，在途结果用 `currentSession` 栅栏丢弃。
 
-验证见 `test/client.test.mjs`（开工按钮的可见条件与一次点击、确定失败可重试与结果未知不给按钮、`running` 抑制两类按钮、`started` 在观察到的一轮结束后解除、身份缺时没有按钮、`START_TEXT` 的稳定语义、`start` 注入面的 payload／`queue` 模式与无绑定失败），真实运行回执由 Verify 阶段写到 `artifacts/real-runs/panel.foundation-start.json`。
+验证见 `test/client.test.mjs`，真实运行回执由 Verify 阶段写到 `artifacts/real-runs/panel.foundation-start.json`；回执要能看出一次点击只投出一条 `prompt`（`user/message` 内容是 `START_TEXT`，随后 `turn/start`）、写的过程中面板显示「会话正在运行…」、这一轮结束后落在作者确认闸门。
 
 代价与已知限制：
 

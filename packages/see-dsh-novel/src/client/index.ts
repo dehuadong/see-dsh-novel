@@ -37,9 +37,13 @@ export const RESUME_TEXT = '作者刚在面板确认了 foundation（若那之�
  * @param cwd 面板看到的工作区路径；会话没有记录目录时省略
  */
 export function START_TEXT(cwd: string | undefined): string {
-  const where = cwd === undefined ? '' : `面板看到的工作区是 ${cwd}。`
-  return `作者在面板上点了「开始基础设定」。${where}`
-    + '请先调用 story_work_show 读身份，并核对你当前的工作目录是不是这个目录：读不到或不是同一个目录就停下并告诉作者。'
+  const where = cwd === undefined
+    ? '面板没有拿到这个会话的工作区路径。'
+    : `面板看到的工作区是 ${cwd}。`
+  const check = cwd === undefined
+    ? '请先调用 story_work_show 读身份：读不到就停下并告诉作者。'
+    : '请先调用 story_work_show 读身份，并核对你当前的工作目录是不是这个目录：读不到或不是同一个目录就停下并告诉作者。'
+  return `作者在面板上点了「开始基础设定」。${where}${check}`
     + '再用 story_next 核对阶段：阶段不是 foundation 就停手并报告，不要重复写。'
     + '阶段是 foundation 时按顺序写：story_foundation_outline → story_foundation_details → '
     + 'story_foundation_cast_index → story_foundation_cast_documents。'
@@ -53,6 +57,14 @@ export function START_TEXT(cwd: string | undefined): string {
 export function apply(ctx: Context): void {
   ctx.effect(() => installStyles(), 'see-dsh-novel: panel styles')
 
+  /** 投一条排队消息；没有绑定时是确定失败，`prompt` 的抛错照常向上抛。 */
+  const promptQueue = async (sessionId: SessionId, text: string): Promise<ResumeOutcome> => {
+    const binding = ctx.sessions.binding(sessionId)
+    if (binding === undefined) return 'failed'
+    const result = await binding.session.prompt([{ type: 'text', text }], 'queue')
+    return result.ok === true ? 'ok' : 'failed'
+  }
+
   const viewInject = (): ViewInjected => ({
     canCommand: (sessionId: SessionId): boolean => ctx.sessions.binding(sessionId) !== undefined,
     runCommand: async (sessionId: SessionId, line: string): Promise<CommandOutcome> => {
@@ -60,18 +72,8 @@ export function apply(ctx: Context): void {
       if (binding === undefined) return 'unbound'
       return outcomeOf(await binding.session.command(line))
     },
-    resume: async (sessionId: SessionId): Promise<ResumeOutcome> => {
-      const binding = ctx.sessions.binding(sessionId)
-      if (binding === undefined) return 'failed'
-      const result = await binding.session.prompt([{ type: 'text', text: RESUME_TEXT }], 'queue')
-      return result.ok === true ? 'ok' : 'failed'
-    },
-    start: async (sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome> => {
-      const binding = ctx.sessions.binding(sessionId)
-      if (binding === undefined) return 'failed'
-      const result = await binding.session.prompt([{ type: 'text', text: START_TEXT(cwd) }], 'queue')
-      return result.ok === true ? 'ok' : 'failed'
-    },
+    resume: (sessionId: SessionId): Promise<ResumeOutcome> => promptQueue(sessionId, RESUME_TEXT),
+    start: (sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome> => promptQueue(sessionId, START_TEXT(cwd)),
   })
 
   let eligible = false

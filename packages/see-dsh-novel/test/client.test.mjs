@@ -514,6 +514,54 @@ test('started clears when the observed turn ends', async () => {
   assert.equal(tree.root.findAllByType('button').length, 1, '这一轮结束后回到开工按钮')
 })
 
+test('a double click starts the foundation once', async () => {
+  installDocumentStub()
+  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  const button = tree.root.findAllByType('button')[0]
+  await act(async () => {
+    button.props.onClick()
+    button.props.onClick()
+  })
+  assert.equal(starts.length, 1)
+})
+
+test('switching sessions clears the start state', async () => {
+  installDocumentStub()
+  const other = 'session-2'
+  const { tree, props } = await renderView({ state: twoSessionState(other), statuses: ['failed', 'failed', 'live'] })
+  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
+  assert.match(textOf(tree), /已开始基础设定/)
+
+  await act(async () => {
+    tree.update(React.createElement(StoryView, { ...props, sessionId: other }))
+  })
+  assert.doesNotMatch(textOf(tree), /已开始基础设定/)
+  assert.deepEqual(tree.root.findAllByType('button').map((node) => node.children.join('')), ['开始基础设定'])
+})
+
+test('a start-unknown panel still lets the author approve once the foundation lands', async () => {
+  installDocumentStub()
+  const { tree, props, calls } = await renderView({
+    statuses: ['failed', 'failed', 'live'],
+    start: () => { throw new Error('rpc down') },
+  })
+  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
+  assert.match(textOf(tree), /没能确认会话是否收到开工指令/)
+
+  // 指令其实送达了、基础设定写了出来：闸门要恢复可用，不能因为一个开工状态卡死。
+  await act(async () => {
+    tree.update(React.createElement(StoryView, {
+      ...props,
+      useResource: () => ({ status: 'live', value: undefined, failure: undefined }),
+    }))
+  })
+  const buttons = tree.root.findAllByType('button')
+  assert.deepEqual(buttons.map((node) => node.children.join('')), ['查看待确认', '认可', '退回'])
+
+  await act(async () => { buttons[1].props.onClick() })
+  assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-approve' }])
+})
+
 test('the start button never appears without an identity file', async () => {
   installDocumentStub()
   const none = await renderView({ statuses: ['failed', 'failed', 'failed'] })

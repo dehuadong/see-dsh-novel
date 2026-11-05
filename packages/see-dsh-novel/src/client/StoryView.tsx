@@ -47,8 +47,16 @@ const START_LABEL = '开始基础设定'
  */
 type Phase = 'idle' | 'submitting' | 'resumed' | 'resume-failed' | 'started' | 'start-unknown'
 
+/** 认可已经落定的两种结局；它们的屏不再接受第二次认可。 */
+type ApproveSettled = 'resumed' | 'resume-failed'
+
+/** 认可是否已经落定。 */
+function isApproveSettled(phase: Phase): phase is ApproveSettled {
+  return phase === 'resumed' || phase === 'resume-failed'
+}
+
 /** 认可后的状态文案；两种都意味着按钮不再可用。 */
-function settledText(phase: 'resumed' | 'resume-failed'): string {
+function settledText(phase: ApproveSettled): string {
   return phase === 'resumed'
     ? '已确认，正在继续…'
     : '已确认；会话没能自动继续，在「对话」里说一句「继续」即可。'
@@ -142,6 +150,17 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   }, [phase, sessionRunning])
 
   /**
+   * 取一次点击的入口：已经在处理中、或认可已经落定时不再接受新的点击。
+   * 返回 `stillHere` 判别函数；拿不到入口时返回 `undefined`。
+   */
+  function begin(): (() => boolean) | undefined {
+    if (phaseRef.current === 'submitting' || isApproveSettled(phaseRef.current)) return undefined
+    const startedFor = sessionId
+    moveTo('submitting')
+    return () => currentSession.current === startedFor
+  }
+
+  /**
    * 提交一条确认命令；认可成功后再把「继续」投回会话。
    * 一次点击完成两步，失败时如实区分「确认没成功」与「确认了但没继续」；
    * 调用方抛错时也要落到一句可见的失败，不能把「正在执行」挂着。
@@ -149,10 +168,8 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
    * @param line 要提交的斜杠命令
    */
   async function submit(label: string, line: string): Promise<void> {
-    if (phaseRef.current !== 'idle') return
-    const startedFor = sessionId
-    const stillHere = (): boolean => currentSession.current === startedFor
-    moveTo('submitting')
+    const stillHere = begin()
+    if (stillHere === undefined) return
     setNotice(`正在执行「${label}」…`)
     try {
       const outcome = await runCommand(sessionId, line)
@@ -190,10 +207,8 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
    * 不再给按钮——请求可能已经被宿主接受，再点一次会排出第二轮。
    */
   async function startFoundation(): Promise<void> {
-    if (phaseRef.current !== 'idle') return
-    const startedFor = sessionId
-    const stillHere = (): boolean => currentSession.current === startedFor
-    moveTo('submitting')
+    const stillHere = begin()
+    if (stillHere === undefined) return
     setNotice('正在开始基础设定…')
     try {
       const outcome = await start(sessionId, cwd)
@@ -213,16 +228,21 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     }
   }
 
+  /** 两屏共用的状态行：会话运行中优先于「刚开工」。 */
+  const status = sessionRunning
+    ? '会话正在运行，结束后这里会按实际文件重新判定。'
+    : phase === 'started'
+      ? '已开始基础设定，这一轮结束后这里会按实际文件重新判定。'
+      : undefined
+
   const body: ReactNode[] = []
   if (channel === 'unavailable') {
     body.push(<p key="none" className="sdn-muted">读不到工作区状态（文件资源通道不可用），暂时不能确认。</p>)
   } else if (channel === 'loading') {
     body.push(<p key="loading" className="sdn-muted">正在读取工作区…</p>)
   } else if (!hasFoundation) {
-    if (sessionRunning) {
-      body.push(<p key="running" className="sdn-muted">会话正在运行，结束后这里会按实际文件重新判定。</p>)
-    } else if (phase === 'started') {
-      body.push(<p key="started" className="sdn-muted">已开始基础设定，这一轮结束后这里会按实际文件重新判定。</p>)
+    if (status !== undefined) {
+      body.push(<p key="status" className="sdn-muted">{status}</p>)
     } else if (phase === 'start-unknown') {
       body.push(
         <p key="unknown" className="sdn-muted">
@@ -248,6 +268,8 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     body.push(<p key="preset-loading" className="sdn-muted">正在读取会话预设…</p>)
   } else if (preset !== PRESET_ID) {
     body.push(<p key="preset-other" className="sdn-muted">这是一部作品，但当前会话用的是预设「{preset}」，不能在这里确认基础设定。</p>)
+  } else if (status !== undefined) {
+    body.push(<p key="status" className="sdn-muted">{status}</p>)
   } else {
     body.push(<p key="gate" className="sdn-muted">作者确认闸门：这一版基础设定需要作者认可，才允许签核定稿。</p>)
     if (!identified) {
@@ -257,11 +279,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         </p>,
       )
     }
-    if (sessionRunning) {
-      body.push(<p key="running" className="sdn-muted">会话正在运行，结束后这里会按实际文件重新判定。</p>)
-    } else if (phase === 'started') {
-      body.push(<p key="started" className="sdn-muted">已开始基础设定，这一轮结束后这里会按实际文件重新判定。</p>)
-    } else if (phase === 'resumed' || phase === 'resume-failed') {
+    if (isApproveSettled(phase)) {
       body.push(<p key="settled" className="sdn-muted">{settledText(phase)}</p>)
     } else if (canCommand(sessionId)) {
       body.push(
