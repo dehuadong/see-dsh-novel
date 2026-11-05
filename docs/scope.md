@@ -21,6 +21,7 @@
   - 确认后继续：`panel.gate-resume`（作者在面板认可之后，把「继续」投回会话，agent 复核回执再接着干；退回是停止信号，不唤醒）。
   - 立项后开工：`panel.foundation-start`（「已立项，还没有基础设定」状态给出「开始基础设定」，一键把开工指令投回会话，agent 起一轮写设定）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
+  - P1 保真债（复审发现，按行序补齐后才进入 P2）：`foundation.rule-contract`（book_rules 的版本与严格读取）+ `foundation.ready-check`（五段齐全且至少一张角色卡）+ `foundation.truth-projections`（三份 truth 投影）+ `foundation.control-docs`（author_intent／current_focus／brief）+ `foundation.hook-ledger`（dependsOn／paysOffInArc 与六动作）+ `runtime.commit-safety`（路径包含、串行化、失败保留日志）+ `proposal.execution-brief`（instruction 与默认规模）。这些行补的是源工程已有、复刻侧缺失或放宽的行为，不是新能力。
 - **P2 章前规划与上下文**：`plan.outline` + `plan.chapter` + `context.brief` + `context.retrieval`。
 - **P3 正文生产**：`chapter.write` + `chapter.review` + `chapter.revise`。
 - **P4 结算与定稿**：`chapter.summary` + `chapter.settle` + `chapter.finalize`。
