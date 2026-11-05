@@ -99,6 +99,7 @@ function allowedEntries(facts: PackageFacts): ReadonlyArray<RegExp> {
   return [
     /^package\.json$/,
     /^skills\/[\w-]+\/SKILL\.md$/,
+    /^skills\/[\w-]+\/references\/[\w-]+\.md$/,
     ...declared.map((target) => new RegExp(`^${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)),
   ]
 }

@@ -14,6 +14,7 @@ function facts(overrides = {}) {
       'lib/client.js',
       'cordis.patch.yml',
       'skills/longform-writing/SKILL.md',
+      'skills/longform-writing/references/foundation-design.md',
       'skills/story-proposal/SKILL.md',
     ],
     manifest: {

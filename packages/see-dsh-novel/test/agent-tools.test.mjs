@@ -92,6 +92,13 @@ test('the packaged skill exposes its method body', () => {
   assert.match(skill.description, /长篇/)
   assert.match(skill.content, /^# 长篇写作方法/m)
   assert.match(skill.content, /提及不等于推进/)
+  // 技能束：SKILL.md 负责方法路由，四份参考文件承载细节方法。
+  assert.match(skill.content, /references\/foundation-design\.md/)
+  assert.match(skill.content, /references\/state-projection\.md/)
+  for (const reference of ['foundation-design', 'reader-contract-and-progression', 'scene-dialogue-and-length-budget', 'state-projection']) {
+    const path = join(packageRoot, 'skills/longform-writing/references', `${reference}.md`)
+    assert.ok(readFileSync(path, 'utf8').trim().length > 0, `缺少参考文件 ${reference}.md`)
+  }
   assert.deepEqual(skill.invocation, { modelInvocable: true, userInvocable: true })
 })
 
