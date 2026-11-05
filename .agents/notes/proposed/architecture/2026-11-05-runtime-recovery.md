@@ -49,7 +49,7 @@ Status: proposed
 - journal 读不出来（写了一半、JSON 坏了、`phase` 不是两个已知值）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
 - 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
 
-`commitFile` 也会留痕：它在目标目录写 `.tmp-<uuid>`，rename 之前崩溃就把临时文件留在原地。工作区根（`work.json`）与 `source/story/**` 里都可能出现；后者里时还会计入工件摘要。文件名改成 `.tmp-<pid>-<uuid>`，回收时按 pid 判属主：属主已死的才删（`tmp-residue`，`warning`，**可修**）；属主活着的是另一个正在写的进程，保留；文件名不带 pid（旧格式）的无法判活，只报告。临时文件从未成为目标内容，删除是安全的，删除后摘要回到应有的值。
+`commitFile` 也会留痕：它在目标目录写 `.tmp-<pid>-<uuid>`（本行把原来的 `.tmp-<uuid>` 加上 pid），rename 之前崩溃就把临时文件留在原地。工作区根（`work.json`）与 `source/story/**` 里都可能出现；后者里时还会计入工件摘要。回收时按 pid 判属主：属主已死的才删（`tmp-residue`，`warning`，**可修**）；属主活着的是另一个正在写的进程，保留；文件名不带 pid（旧格式）的无法判活，只报告。临时文件从未成为目标内容，删除是安全的，删除后摘要回到应有的值。
 
 属主判定用 `process.kill(pid, 0)`：抛 `ESRCH` 即已死；`EPERM` 视为活着（不是本用户的进程也不能碰）。
 
