@@ -230,6 +230,7 @@ test('a bad limit and missing services fail loud', async () => {
   const definition = registered.get(TELEMETRY_NAME)
   await assert.rejects(definition.execute({ limit: 0 }, exec), /limit 必须是正整数/)
   await assert.rejects(definition.execute({ limit: 2.5 }, exec), /limit 必须是正整数/)
+  await assert.rejects(definition.execute({ limit: 500 }, exec), /limit 不能超过 200/)
 
   // 服务缺失：点名缺的是哪一个。
   const bare = { tools: { register: () => () => {} }, get: () => undefined }
@@ -237,6 +238,19 @@ test('a bad limit and missing services fail loud', async () => {
   await assert.rejects(
     readTelemetry({ ...bare, get: (name) => (name === 'subagents' ? { listDescendants: async () => [] } : undefined) }, exec, {}),
     /sessionQuery/,
+  )
+})
+
+test('a cancelled call rethrows instead of reporting an unreadable child', async () => {
+  const controller = new AbortController()
+  controller.abort()
+  const { ctx, registered } = services({
+    rows: [{ kind: 'child', id: 'session-child', depth: 1, mode: 'one-shot', activity: 'inactive' }],
+  })
+  installTelemetryTool(ctx)
+  await assert.rejects(
+    registered.get(TELEMETRY_NAME).execute({}, { ...exec, signal: controller.signal }),
+    /not found/,
   )
 })
 

@@ -82,9 +82,9 @@ Status: implemented
 
 收益：作者与主编都能在不离开会话的情况下回答「这一趟派出去花了多少、跑了多久、收尾没有」；数据就是会话里已有的投影，不需要任何新的写入，也不会让基础设定的摘要变化。
 
-`src/plugin/telemetry-tool.ts` 注册只读工具 `story_telemetry`（参数 `limit`，默认 20、上限 200）：通过 `ctx.get('subagents')` 取目录、`ctx.get('sessionQuery')` 读子会话投影，`listDescendants(rootSessionId)` 的 `child` 行进入 `delegations`、`diagnostic` 行进入 `diagnostics`（带 `reason`）。每行读 `tokenUsage` 的四个桶与 `subagentTiming` 的 `settledMs`／`active`／`lastTurnCompleted`，`state` 按「驻留 + 未闭合轮次 → running；否则最近一轮收尾 → completed／incomplete；否则 unknown」判定；`settledMs` 缺失只让 `durationMs` 为 `null`，不改变状态。读不到本地会话（external）或缺 `mode`／`depth` 的行仍回一条记录（值为 `null`），并在 `diagnostics` 里记 `unavailable`／`unsupported`，不猜默认值。`summary` 只覆盖返回的 `limit` 行：合计只加非 `null` 的值、零行为 0、`partial` 数缺值的行，`diagnostics` 全量返回。观察用完通过 `[Symbol.dispose]` 释放。`src/plugin/agent.ts` 注册并保持相反顺序注销；`src/core/types.ts` 增补 `SessionLike.id`、`SessionObservationLike`、`SessionQueryLike`、`SubagentRowLike`、`SubagentsLike` 五个手写面。
+`src/plugin/telemetry-tool.ts` 注册只读工具 `story_telemetry`（参数 `limit`：默认 20，超过 200 或不是正整数时报错，不静默截断）：通过 `ctx.get('subagents')` 取目录、`ctx.get('sessionQuery')` 读子会话投影，`listDescendants(rootSessionId)` 的 `child` 行进入 `delegations`、`diagnostic` 行进入 `diagnostics`（带 `reason`）。每行读 `tokenUsage` 的四个桶与 `subagentTiming` 的 `settledMs`／`active`／`lastTurnCompleted`，`state` 按「驻留 + 未闭合轮次 → running；否则最近一轮收尾 → completed／incomplete；否则 unknown」判定；`settledMs` 缺失只让 `durationMs` 为 `null`，不改变状态。缺 `mode`／`depth` 的 `child` 行不进 `delegations`，记一条 `unsupported` 诊断且不占 `limit`；返回窗口内读不出本地会话的子会话仍回一条记录（值为 `null`）并记 `unavailable`。取消照常抛出。`summary` 只覆盖返回的 `limit` 行：合计只加非 `null` 的值、零行为 0、`partial` 数缺值的行；`diagnostics` 覆盖全部诊断行与窗口内的 `unavailable`。观察用完通过 `[Symbol.dispose]` 释放。`src/plugin/agent.ts` 注册并保持相反顺序注销；`src/core/types.ts` 增补 `SessionLike.id`、`SessionObservationLike`、`SessionQueryLike`、`SubagentRowLike`、`SubagentsLike` 五个手写面。
 
-验证见 `test/telemetry.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_telemetry`）。真实运行由 Verify 阶段验证，回执产出到 `artifacts/real-runs/runtime.telemetry.json`。
+验证见 `test/telemetry.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_telemetry`）。
 
 代价与已知限制：
 

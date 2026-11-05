@@ -200,7 +200,8 @@ function limitOf(value: unknown): number {
   if (limit === undefined || !Number.isInteger(limit) || limit <= 0) {
     throw new Error(`limit 必须是正整数，实际是 ${JSON.stringify(value)}`)
   }
-  return Math.min(limit, MAX_LIMIT)
+  if (limit > MAX_LIMIT) throw new Error(`limit 不能超过 ${MAX_LIMIT}，实际是 ${limit}`)
+  return limit
 }
 
 /** 宿主把释放方法挂在 `[Symbol.dispose]` 上（`SessionObservation extends Disposable`）。 */
