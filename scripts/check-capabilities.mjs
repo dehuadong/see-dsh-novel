@@ -21,7 +21,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LEDGER_PATH = join(ROOT, 'capabilities.yaml')
 const REAL_RUN_DIR = 'artifacts/real-runs'
 
-const FIELDS = ['id', 'title', 'reference', 'dsh', 'implementation', 'consumer', 'realRun', 'status']
+const FIELDS = ['id', 'title', 'source', 'dsh', 'implementation', 'consumer', 'realRun', 'status']
 const STATUSES = ['missing', 'verified']
 const ID_RE = /^[a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
@@ -121,7 +121,7 @@ function validateRow(row, index, seenIds) {
   if (!ID_RE.test(id)) fail(`${where} id 不合法：${JSON.stringify(row.id)}`)
   else if (seenIds.has(id)) fail(`${where} id 重复：${id}`)
   else seenIds.add(id)
-  for (const field of ['title', 'reference', 'dsh']) {
+  for (const field of ['title', 'source', 'dsh']) {
     if (typeof row[field] !== 'string' || !row[field].trim()) fail(`${where} ${field} 必须是非空字符串`)
   }
   if (!STATUSES.includes(row.status)) fail(`${where} status 不合法：${JSON.stringify(row.status)}`)

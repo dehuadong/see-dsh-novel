@@ -10,7 +10,7 @@ version: 1
 capabilities:
   - id: runtime.load
     title: 插件／预设加载，注册 story_next，client 骨架可见
-    reference: inkos:packages/core/src/harness/runtime.ts
+    source: inkos:packages/core/src/harness/runtime.ts
     dsh: bundle/preset + client
     implementation: packages/see-dsh-novel
     consumer: packages/see-dsh-novel/test/host.test.mjs
@@ -18,7 +18,7 @@ capabilities:
     status: verified
   - id: runtime.agent-tools
     title: 写作预设的工具面：persona／指令／只读文件／联网检索／技能／子代理／ask-user／todo；不开放通用写工具
-    reference: inkos:packages/core/src/harness/builtin-profiles.ts
+    source: inkos:packages/core/src/harness/builtin-profiles.ts
     dsh: preset plugins + skills
     implementation: packages/see-dsh-novel/cordis.patch.yml
     consumer: packages/see-dsh-novel/test/agent-tools.test.mjs
@@ -26,7 +26,7 @@ capabilities:
     status: verified
   - id: runtime.client-ui
     title: 面板客户端基线：slots 注册、React/JSX 构建、类型化 props、样式安装
-    reference: inkos:packages/studio/
+    source: inkos:packages/studio/
     dsh: client plugin + slots
     implementation: packages/see-dsh-novel/src/client/index.ts
     consumer: packages/see-dsh-novel/test/client.test.mjs
@@ -34,7 +34,7 @@ capabilities:
     status: verified
   - id: runtime.package-check
     title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致
-    reference: dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs
+    source: dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs
     dsh: scripts + pnpm pack
     implementation: packages/see-dsh-novel/src/tools/packaging.ts
     consumer: packages/see-dsh-novel/test/packaging.test.mjs
@@ -42,7 +42,7 @@ capabilities:
     status: verified
   - id: runtime.boundary-check
     title: 边界校验：源码不得 import 参考工程；@deepseek-ai 只允许预设与前端半边的 type-only 引用
-    reference: none:项目护栏（AGENTS.md 前言与铁律 3）
+    source: none:项目护栏（AGENTS.md 前言与铁律 3）
     dsh: scripts + node
     implementation: packages/see-dsh-novel/src/tools/boundary.ts
     consumer: packages/see-dsh-novel/test/source-boundary.test.mjs
@@ -50,7 +50,7 @@ capabilities:
     status: verified
   - id: runtime.session-binding
     title: 作品身份 work.json、会话按工作目录绑定、面板显示立项状态
-    reference: inkos:packages/core/src/harness/session-binding.ts
+    source: inkos:packages/core/src/harness/session-binding.ts
     dsh: workingDirectory + tools.register + client
     implementation: packages/see-dsh-novel/src/core/work.ts
     consumer: packages/see-dsh-novel/test/work.test.mjs
@@ -58,7 +58,7 @@ capabilities:
     status: verified
   - id: runtime.commands
     title: DSH command/headless 入口（init/export 至少一条）
-    reference: inkos:packages/cli/src/commands/
+    source: inkos:packages/cli/src/commands/
     dsh: commands
     implementation: packages/see-dsh-novel/src/plugin/work-command.ts
     consumer: packages/see-dsh-novel/test/work-command.test.mjs
@@ -66,7 +66,7 @@ capabilities:
     status: verified
   - id: runtime.telemetry
     title: 每次委派的 usage／耗时／失败回执
-    reference: inkos:packages/core/src/harness/execution-evidence.ts
+    source: inkos:packages/core/src/harness/execution-evidence.ts
     dsh: subagents + sessionQuery + projections
     implementation: packages/see-dsh-novel/src/plugin/telemetry-tool.ts
     consumer: packages/see-dsh-novel/test/telemetry.test.mjs
@@ -74,7 +74,7 @@ capabilities:
     status: verified
   - id: runtime.recovery
     title: 自检／恢复（workspace/work 索引重建）
-    reference: inkos:packages/core/src/utils/atomic-file-set.ts
+    source: inkos:packages/core/src/utils/atomic-file-set.ts
     dsh: tools.register + journaled commit
     implementation: packages/see-dsh-novel/src/core/recovery.ts
     consumer: packages/see-dsh-novel/test/recovery.test.mjs
@@ -82,7 +82,7 @@ capabilities:
     status: verified
   - id: proposal.creative
     title: 创意提案：对话收敛创意、结构化提案与确认卡、确认后按确认参数创建作品
-    reference: inkos:packages/core/src/agent/agent-tools.ts
+    source: inkos:packages/core/src/agent/agent-tools.ts
     dsh: tools.register + approval
     implementation: packages/see-dsh-novel/src/plugin/proposal-tool.ts
     consumer: packages/see-dsh-novel/test/proposal.test.mjs
@@ -90,7 +90,7 @@ capabilities:
     status: verified
   - id: panel.gate-resume
     title: 作者闸门面板：认可后把「继续」投回会话，让 agent 复核回执并接着干；退回不唤醒
-    reference: inkos:packages/core/src/harness/system-prompt.ts
+    source: inkos:packages/core/src/harness/system-prompt.ts
     dsh: client session.prompt
     implementation: packages/see-dsh-novel/src/client/index.ts
     consumer: packages/see-dsh-novel/test/client.test.mjs
@@ -98,7 +98,7 @@ capabilities:
     status: verified
   - id: panel.foundation-start
     title: 立项后面板给出「开始基础设定」：一键把开工指令投回会话，agent 起一轮写设定
-    reference: inkos:packages/core/src/harness/system-prompt.ts
+    source: inkos:packages/core/src/harness/system-prompt.ts
     dsh: client session.prompt
     implementation: packages/see-dsh-novel/src/client/index.ts
     consumer: packages/see-dsh-novel/test/client.test.mjs
@@ -106,7 +106,7 @@ capabilities:
     status: verified
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
-    reference: inkos:packages/core/src/agents/architect.ts
+    source: inkos:packages/core/src/agents/architect.ts
     dsh: subagents
     implementation: packages/see-dsh-novel/src/pipelines/long
     consumer: packages/see-dsh-novel/test/foundation.test.mjs
@@ -114,7 +114,7 @@ capabilities:
     status: verified
   - id: foundation.hooks
     title: pendingHooks 种子、id/status 语义、投影一致
-    reference: inkos:packages/core/src/state/state-reducer.ts
+    source: inkos:packages/core/src/state/state-reducer.ts
     dsh: storage
     implementation: packages/see-dsh-novel/src/core/hooks.ts
     consumer: packages/see-dsh-novel/test/hooks.test.mjs
@@ -122,7 +122,7 @@ capabilities:
     status: verified
   - id: foundation.approval
     title: 作者确认闸门与回执
-    reference: inkos:packages/core/src/interaction/session.ts
+    source: inkos:packages/core/src/interaction/session.ts
     dsh: client + tools.register + commands + approval
     implementation: packages/see-dsh-novel/src/pipelines/long/gate.ts
     consumer: packages/see-dsh-novel/test/approval.test.mjs
@@ -130,7 +130,7 @@ capabilities:
     status: verified
   - id: cast.single-authority
     title: roles:index／role:* 唯一人物权威，major/minor 均进入 brief/context
-    reference: inkos:packages/core/src/references/reference-context.ts
+    source: inkos:packages/core/src/references/reference-context.ts
     dsh: storage + systemPrompt.context()
     implementation: packages/see-dsh-novel/src/pipelines/long/cast.ts
     consumer: packages/see-dsh-novel/test/cast.test.mjs
@@ -138,7 +138,7 @@ capabilities:
     status: verified
   - id: plan.outline
     title: 全书计划／卷图
-    reference: inkos:packages/core/src/pipeline/persisted-governed-plan.ts
+    source: inkos:packages/core/src/pipeline/persisted-governed-plan.ts
     dsh: tools.register + storage
     implementation: null
     consumer: null
@@ -146,7 +146,7 @@ capabilities:
     status: missing
   - id: plan.chapter
     title: 章纲 memo/threadRefs、闸门
-    reference: inkos:packages/core/src/agents/planner.ts
+    source: inkos:packages/core/src/agents/planner.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -154,7 +154,7 @@ capabilities:
     status: missing
   - id: context.brief
     title: 角色 brief 装配、预算、trace、whitelist
-    reference: inkos:packages/core/src/harness/context-compiler.ts
+    source: inkos:packages/core/src/harness/context-compiler.ts
     dsh: systemPrompt.context()
     implementation: null
     consumer: null
@@ -162,7 +162,7 @@ capabilities:
     status: missing
   - id: context.retrieval
     title: 摘要／伏笔／卷／素材检索与来源标注
-    reference: inkos:packages/core/src/retrieval/local-search.ts
+    source: inkos:packages/core/src/retrieval/local-search.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -170,7 +170,7 @@ capabilities:
     status: missing
   - id: chapter.write
     title: 首版正文
-    reference: inkos:packages/core/src/agents/writer.ts
+    source: inkos:packages/core/src/agents/writer.ts
     dsh: subagents
     implementation: null
     consumer: null
@@ -178,7 +178,7 @@ capabilities:
     status: missing
   - id: chapter.review
     title: observations/severity/quote 校验
-    reference: inkos:packages/core/src/pipeline/chapter-review.ts
+    source: inkos:packages/core/src/pipeline/chapter-review.ts
     dsh: subagents
     implementation: null
     consumer: null
@@ -186,7 +186,7 @@ capabilities:
     status: missing
   - id: chapter.revise
     title: patch/polish/rewrite/deslop
-    reference: inkos:packages/core/src/agents/reviser.ts
+    source: inkos:packages/core/src/agents/reviser.ts
     dsh: subagents
     implementation: null
     consumer: null
@@ -194,7 +194,7 @@ capabilities:
     status: missing
   - id: chapter.summary
     title: 结构化摘要
-    reference: inkos:packages/core/src/pipeline/chapter-persistence.ts
+    source: inkos:packages/core/src/pipeline/chapter-persistence.ts
     dsh: storage
     implementation: null
     consumer: null
@@ -202,7 +202,7 @@ capabilities:
     status: missing
   - id: chapter.settle
     title: fact/hook 抽取、状态草案、conflict 校验
-    reference: inkos:packages/core/src/agents/settler-tool.ts
+    source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: tools.register + storage
     implementation: null
     consumer: null
@@ -210,7 +210,7 @@ capabilities:
     status: missing
   - id: chapter.finalize
     title: 定稿与阶段推进
-    reference: inkos:packages/core/src/pipeline/runner.ts
+    source: inkos:packages/core/src/pipeline/runner.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -218,7 +218,7 @@ capabilities:
     status: missing
   - id: chapter.reopen
     title: 重开与回滚
-    reference: inkos:packages/core/src/state/chapter-workspace.ts
+    source: inkos:packages/core/src/state/chapter-workspace.ts
     dsh: storage
     implementation: null
     consumer: null
@@ -226,7 +226,7 @@ capabilities:
     status: missing
   - id: chapter.move-delete
     title: 删章／移章重排、引用与检索同步
-    reference: inkos:packages/core/src/state/chapter-delete.ts
+    source: inkos:packages/core/src/state/chapter-delete.ts
     dsh: storage
     implementation: null
     consumer: null
@@ -234,7 +234,7 @@ capabilities:
     status: missing
   - id: state.check
     title: 语义对账，只读 findings
-    reference: inkos:packages/core/src/state/state-validator.ts
+    source: inkos:packages/core/src/state/state-validator.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -242,7 +242,7 @@ capabilities:
     status: missing
   - id: artifact.identity
     title: 虚拟路径、artifactId/revision、跨作品隔离
-    reference: inkos:packages/core/src/harness/artifact-revisions.ts
+    source: inkos:packages/core/src/harness/artifact-revisions.ts
     dsh: storage
     implementation: null
     consumer: null
@@ -250,7 +250,7 @@ capabilities:
     status: missing
   - id: export.work
     title: 导出（原子替换）
-    reference: inkos:packages/core/src/interaction/export-artifact.ts
+    source: inkos:packages/core/src/interaction/export-artifact.ts
     dsh: commands
     implementation: null
     consumer: null
@@ -258,7 +258,7 @@ capabilities:
     status: missing
   - id: backup.restore
     title: 备份／恢复含素材 sidecar
-    reference: inkos:packages/cli/src/book-backup.ts
+    source: inkos:packages/cli/src/book-backup.ts
     dsh: commands
     implementation: null
     consumer: null
@@ -266,7 +266,7 @@ capabilities:
     status: missing
   - id: materials.import
     title: EPUB/PDF/文本导入、去重、用途
-    reference: inkos:packages/core/src/materials/ingest.ts
+    source: inkos:packages/core/src/materials/ingest.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -274,7 +274,7 @@ capabilities:
     status: missing
   - id: search.unified
     title: 记忆／素材／技能统一检索
-    reference: inkos:packages/core/src/retrieval/local-search.ts
+    source: inkos:packages/core/src/retrieval/local-search.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -282,7 +282,7 @@ capabilities:
     status: missing
   - id: panel.workbench
     title: 工作台、阶段按钮、作者确认
-    reference: inkos:packages/studio/src/pages/
+    source: inkos:packages/studio/src/pages/
     dsh: client
     implementation: null
     consumer: null
@@ -290,7 +290,7 @@ capabilities:
     status: missing
   - id: panel.logs
     title: 调用日志
-    reference: inkos:packages/studio/src/components/
+    source: inkos:packages/studio/src/components/
     dsh: client
     implementation: null
     consumer: null
@@ -298,7 +298,7 @@ capabilities:
     status: missing
   - id: panel.analysis
     title: 分析／节奏
-    reference: inkos:packages/studio/src/pages/
+    source: inkos:packages/studio/src/pages/
     dsh: client
     implementation: null
     consumer: null
@@ -306,7 +306,7 @@ capabilities:
     status: missing
   - id: short.outline
     title: 短篇大纲（v1 后）
-    reference: inkos:packages/core/src/pipeline/short-fiction-runner.ts
+    source: inkos:packages/core/src/pipeline/short-fiction-runner.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -314,7 +314,7 @@ capabilities:
     status: missing
   - id: short.batch-draft
     title: 短篇批量草稿（v1 后）
-    reference: inkos:packages/core/src/agents/short-fiction.ts
+    source: inkos:packages/core/src/agents/short-fiction.ts
     dsh: subagents
     implementation: null
     consumer: null
@@ -322,7 +322,7 @@ capabilities:
     status: missing
   - id: short.review-revise
     title: 短篇审校与修订（v1 后）
-    reference: inkos:packages/core/src/pipeline/detection-runner.ts
+    source: inkos:packages/core/src/pipeline/detection-runner.ts
     dsh: subagents
     implementation: null
     consumer: null
@@ -330,7 +330,7 @@ capabilities:
     status: missing
   - id: short.package
     title: 短篇打包（v1 后）
-    reference: inkos:packages/core/src/pipeline/short-production-state.ts
+    source: inkos:packages/core/src/pipeline/short-production-state.ts
     dsh: commands
     implementation: null
     consumer: null
@@ -338,7 +338,7 @@ capabilities:
     status: missing
   - id: script.spec
     title: 剧本规格（v1 后）
-    reference: inkos:packages/core/src/interactive-film/graph-schema.ts
+    source: inkos:packages/core/src/interactive-film/graph-schema.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -346,7 +346,7 @@ capabilities:
     status: missing
   - id: script.scenes
     title: 剧本分场（v1 后）
-    reference: inkos:packages/core/src/agents/script-storyboard.ts
+    source: inkos:packages/core/src/agents/script-storyboard.ts
     dsh: tools.register
     implementation: null
     consumer: null
@@ -354,7 +354,7 @@ capabilities:
     status: missing
   - id: script.scriptset
     title: 剧本集（v1 后）
-    reference: inkos:packages/core/src/interactive-film/authoring-store.ts
+    source: inkos:packages/core/src/interactive-film/authoring-store.ts
     dsh: storage
     implementation: null
     consumer: null
@@ -362,7 +362,7 @@ capabilities:
     status: missing
   - id: script.review-revise
     title: 剧本审校与修订（v1 后）
-    reference: inkos:packages/core/src/pipeline/script-storyboard-runner.ts
+    source: inkos:packages/core/src/pipeline/script-storyboard-runner.ts
     dsh: subagents
     implementation: null
     consumer: null
@@ -370,7 +370,7 @@ capabilities:
     status: missing
   - id: radar.topic
     title: 选题／市场雷达：从概念产出方向候选（v1 后补强）
-    reference: inkos:packages/core/src/agents/radar.ts
+    source: inkos:packages/core/src/agents/radar.ts
     dsh: subagents + tools.register
     implementation: null
     consumer: null
@@ -378,7 +378,7 @@ capabilities:
     status: missing
   - id: forecast.plot
     title: 剧情预演：分支剧情候选与非正式草案（v1 后补强）
-    reference: inkos:packages/core/src/forecast/runner.ts
+    source: inkos:packages/core/src/forecast/runner.ts
     dsh: subagents + storage
     implementation: null
     consumer: null

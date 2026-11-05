@@ -1,11 +1,20 @@
 # AGENTS.md — 工作区执行约定
 
-> inkos项目是复刻对象。本项目高保真实现，其代码、内容与注释不标注来源、不建立关联：不在代码、注释、prompt 或正文里写"这段来自 inkos 的某文件/某段"这类归属说明；该条**不限制**复用inkos工程的 prompt 文案、方法正文、结构或数据形状；需要复用时按独立项目口径命名与放置，不在实现里标注来源。
-> 复刻目标运行时：只用 DSH 原生机制（Skill / Preset / Plugin / Subagent / 文件与 Session 状态），不 import、不运行源工程代码，不引入其`inkos`源工程的 Provider、Agent 循环、CLI、存储或调度。
+> **源工程**是 `inkos/`：本项目是在 DSH 上对它的**高保真复刻**，不是另做一个同级实现。默认必须复刻源工程的行为；只有 DSH 机制无法等价、或源行为本身不可观测时才允许偏差，且必须登记（见「保真原则」）。
+> 复刻时不在代码、注释、prompt 或正文里写来源归属（"这段来自 inkos 的某文件/某段"）；该条**不限制**复用源工程的 prompt 文案、方法正文、结构或数据形状——复用时按独立项目口径命名与放置，不标注来源。
+> 复刻目标运行时：只用 DSH 原生机制（Skill / Preset / Plugin / Subagent / 文件与 Session 状态），不 import、不运行源工程代码，不引入其 Provider、Agent 循环、CLI、存储或调度。
+
+## 保真原则
+
+- 术语：`inkos/` 是**源工程**，本仓库是**复刻**；不叫「参考工程」。
+- **行为等价优先于「能跑」**：每一行能力都对应源工程的一个纵向能力，判定标准是行为是否一致，不是测试是否通过。
+- **偏差只有两种合法来源**：DSH 机制强制（证据留在 session、确认走 approval、面板走 client 插件等），或源行为不可观测。两者都要写进 [`docs/dsh-mapping.md`](docs/dsh-mapping.md) 的「偏差登记」，格式是「源行为 → DSH 落点 → 原因 → 验证」。
+- **不得以简化代替复刻**：缺字段、缺文件、放宽校验、把一段流程合并或拆分，都算**保真债**，必须当行补齐或记入 [`docs/scope.md`](docs/scope.md) 的后续阶段，不允许以「已记录」当作已合理。
+- 账本的 `source:` 字段记**源工程证据位置**（`inkos:…` 模块路径），不叫 reference。
 
 ## 铁律
 
-1. **一个 PR 只做一个纵向能力**：对应 `capabilities.yaml` 的 `id`，同时包含参考源工程证据 → DSH 落点 → 实现 → 消费者 → 契约测试；缺一项 CI 拒绝。禁止只拆文件／只改文档／只改存储的 PR。
+1. **一个 PR 只做一个纵向能力**：对应 `capabilities.yaml` 的 `id`，同时包含源工程证据 → DSH 落点 → 实现 → 消费者 → 契约测试；缺一项 CI 拒绝。禁止只拆文件／只改文档／只改存储的 PR。
 2. **状态只来自证据**：`capabilities.yaml` 的 `status` 只能由 `check-capabilities` 依据测试与真实运行证据生成；人工只能写 `missing`。不建第二套状态表、交付盘点、进度看板、"已实现／已验收"清单。
 3. **只用 DSH 运行时**：Provider → DSH `llm`；Agent 循环 → DSH agent loop + `subagents`；CLI → DSH command / headless；存储 → 作品内容落盘为文档，DSH storage/session 或既有 SQLite 只做索引（一作品一库，不新建独立存储服务）；调度 → DSH jobs/schedule；技能 → DSH `skills` 服务 + 文件系统；上下文注入 → DSH `systemPrompt.context()`，不自定义 prompt 拼装层重复方法正文。
 4. **状态只有两种**：`missing` 与 `verified`；不设待重验、旧口径等中间状态。能力状态只由第 2 条的证据生成。

@@ -1,14 +1,14 @@
 /**
  * 源码依赖来源的边界检查（仓库工具，不进包）。
  *
- * 只看依赖说明符指向谁：参考工程（`inkos`／`deepseek-harness`）一律不许，
+ * 只看依赖说明符指向谁：源工程（`inkos`／`deepseek-harness`）一律不许，
  * 宿主包（`@deepseek-ai/*`）只许在预设的 agent 半边与浏览器半边 type-only 引用。
  * 分层方向由 `test/boundaries.test.mjs` 管，这里不重复。
  */
 
 /** 问题码。 */
 export type BoundaryCode =
-  | 'reference-import'
+  | 'source-import'
   | 'host-value-import'
   | 'host-import-outside-allowed-layers'
   | 'dynamic-host-import'
@@ -31,8 +31,8 @@ export interface SourceFile {
 /** 允许引用宿主类型的层；`client` 与 `plugin` 是预设的前后两半，其余层一律不许。 */
 const HOST_ALLOWED_LAYERS = ['client/', 'plugin/']
 
-/** 参考工程的目录名；在仓库根是目录联接。 */
-const REFERENCE_NAMES = ['inkos', 'deepseek-harness']
+/** 源工程的目录名；在仓库根是目录联接。 */
+const SOURCE_SEGMENTS = ['inkos', 'deepseek-harness']
 
 /**
  * 去掉行注释与块注释，保留字符串与模板字面量里的内容。
@@ -74,15 +74,15 @@ export function stripComments(text: string): string {
 }
 
 /**
- * 说明符是否指向参考工程。
+ * 说明符是否指向源工程。
  *
  * 只认契约里列出的形态：裸包名、`inkos/…` 子路径，以及相对路径里出现该段
  * （`../inkos/x`、`./vendor/inkos/x`）。scoped 包（`@scope/inkos`）与别的前缀不算。
  */
-export function isReferenceSpecifier(specifier: string): boolean {
+export function isSourceSpecifier(specifier: string): boolean {
   const normalized = specifier.replace(/\\/g, '/')
   const relative = normalized.startsWith('./') || normalized.startsWith('../')
-  return REFERENCE_NAMES.some((name) => {
+  return SOURCE_SEGMENTS.some((name) => {
     if (relative) return normalized.split('/').includes(name)
     return normalized === name || normalized.startsWith(`${name}/`)
   })
@@ -108,7 +108,7 @@ interface Dependency {
 /** 说明符 + 上下文 → 问题码；判定顺序在这一处。 */
 export function classifyDependency(dependency: Dependency, path: string): BoundaryCode[] {
   const { specifier, typeOnly, dynamic } = dependency
-  if (isReferenceSpecifier(specifier)) return ['reference-import']
+  if (isSourceSpecifier(specifier)) return ['source-import']
   if (!isHostSpecifier(specifier)) return []
   if (dynamic) return ['dynamic-host-import']
   const codes: BoundaryCode[] = []

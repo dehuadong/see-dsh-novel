@@ -5,7 +5,7 @@ import {
   boundaryProblems,
   classifyDependency,
   isHostSpecifier,
-  isReferenceSpecifier,
+  isSourceSpecifier,
   stripComments,
 } from '../src/tools/boundary.ts'
 
@@ -21,7 +21,7 @@ test('a clean file has no problems', () => {
   assert.deepEqual(problems, [])
 })
 
-test('reference imports are rejected in any layer', () => {
+test('source imports are rejected in any layer', () => {
   const problems = boundaryProblems([
     { path: 'core/a.ts', text: "import x from 'inkos/packages/core/x.js'\n" },
     { path: 'core/b.ts', text: "import x from '../../inkos/x.js'\n" },
@@ -29,7 +29,7 @@ test('reference imports are rejected in any layer', () => {
     { path: 'plugin/d.ts', text: "const z = require('inkos/z')\n" },
     { path: 'core/e.ts', text: "import './vendor/inkos/e.js'\n" },
   ])
-  assert.deepEqual(codes(problems), Array(5).fill('reference-import'))
+  assert.deepEqual(codes(problems), Array(5).fill('source-import'))
 })
 
 test('host value imports are rejected; type-only ones pass', () => {
@@ -108,21 +108,21 @@ test('declarations without from do not leak into the next statement', () => {
 })
 
 test('specifiers: exact, subpath, relative, and the host scope', () => {
-  assert.equal(isReferenceSpecifier('inkos'), true)
-  assert.equal(isReferenceSpecifier('inkos/x'), true)
-  assert.equal(isReferenceSpecifier('../../inkos/x'), true)
-  assert.equal(isReferenceSpecifier('./vendor/inkos/x'), true)
-  assert.equal(isReferenceSpecifier('deepseek-harness/packages/x'), true)
-  assert.equal(isReferenceSpecifier('@scope/inkos'), false, 'scoped 包不算')
-  assert.equal(isReferenceSpecifier('my-inkos-wrapper'), false)
-  assert.equal(isReferenceSpecifier('node:fs'), false)
+  assert.equal(isSourceSpecifier('inkos'), true)
+  assert.equal(isSourceSpecifier('inkos/x'), true)
+  assert.equal(isSourceSpecifier('../../inkos/x'), true)
+  assert.equal(isSourceSpecifier('./vendor/inkos/x'), true)
+  assert.equal(isSourceSpecifier('deepseek-harness/packages/x'), true)
+  assert.equal(isSourceSpecifier('@scope/inkos'), false, 'scoped 包不算')
+  assert.equal(isSourceSpecifier('my-inkos-wrapper'), false)
+  assert.equal(isSourceSpecifier('node:fs'), false)
   assert.equal(isHostSpecifier('@deepseek-ai/cordis'), true)
   assert.equal(isHostSpecifier('@deepseek-ai'), true)
   assert.equal(isHostSpecifier('@other/x'), false)
 })
 
 test('the classifier is the single dispatch point', () => {
-  assert.deepEqual(classifyDependency({ specifier: 'inkos/x', typeOnly: false, dynamic: false }, 'client/x.ts'), ['reference-import'])
+  assert.deepEqual(classifyDependency({ specifier: 'inkos/x', typeOnly: false, dynamic: false }, 'client/x.ts'), ['source-import'])
   assert.deepEqual(classifyDependency({ specifier: '@deepseek-ai/x', typeOnly: true, dynamic: false }, 'core/x.ts'), ['host-import-outside-allowed-layers'])
   assert.deepEqual(classifyDependency({ specifier: '@deepseek-ai/x', typeOnly: false, dynamic: true }, 'core/x.ts'), ['dynamic-host-import'])
   assert.deepEqual(classifyDependency({ specifier: 'node:fs', typeOnly: false, dynamic: false }, 'core/x.ts'), [])
