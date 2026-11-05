@@ -1,13 +1,27 @@
 /**
- * 打包产物与 manifest 的对账。
+ * 打包产物与 manifest 的对账（仓库工具，不进包）。
  *
- * 只吃「已经读出来的事实」：条目路径、包内 manifest、已解析的 patch 行、客户端脚本
- * 文本、esbuild 的入口结果、根版本表。读归档与解析 YAML 在脚本层，这里可以纯数据测。
+ * 只吃「已经读出来的事实」：条目路径、包内 manifest、已解析的 patch 行、preset 的
+ * 插件名、客户端脚本、esbuild 入口结果。读归档与解析 YAML 在脚本层，这里可纯数据测。
  */
 
-/** 一条问题；`code` 稳定，`detail` 给人读。 */
+/** 问题码；与 note 的表格一一对应。 */
+export type PackageProblemCode =
+  | 'files-entry-missing'
+  | 'export-target-missing'
+  | 'pack-patch-missing'
+  | 'patch-module-unexported'
+  | 'patch-row-missing'
+  | 'patch-invalid'
+  | 'unexpected-entry'
+  | 'install-hook'
+  | 'undeclared-import'
+  | 'bundle-not-self-contained'
+  | 'client-id-missing'
+
+/** 一条问题。 */
 export interface PackageProblem {
-  code: string
+  code: PackageProblemCode
   detail: string
 }
 
@@ -35,19 +49,15 @@ export interface PackageFacts {
     exports?: Readonly<Record<string, unknown>>
     dsh?: { bundle?: { patch?: unknown } }
     scripts?: Readonly<Record<string, unknown>>
-    dependencies?: Readonly<Record<string, unknown>>
-    devDependencies?: Readonly<Record<string, unknown>>
-    optionalDependencies?: Readonly<Record<string, unknown>>
-    peerDependencies?: Readonly<Record<string, unknown>>
   }
   /** 已解析的 patch 行；解析失败时传 `null`。 */
   patchRows: ReadonlyArray<PatchRow> | null
+  /** preset 行 `config.plugins` 里的模块名。 */
+  presetPlugins: ReadonlyArray<string>
   /** 包内 `lib/client.js` 的文本。 */
   clientText: string
   /** 每个打包入口的 esbuild 结果。 */
   bundles: ReadonlyArray<EntryBundle>
-  /** 根 `devDependencies` 里的 `@deepseek-ai/*` 版本。 */
-  rootVersions: Readonly<Record<string, string>>
 }
 
 /** 安装期会被 npm 自动执行的脚本；发布包里不该有。 */
@@ -55,14 +65,6 @@ export const INSTALL_HOOKS = [
   'preinstall', 'install', 'postinstall', 'prepare',
   'prepublishOnly', 'prepack', 'postpack', 'publish', 'postpublish',
 ] as const
-
-/** 包里允许出现的文件；新增产物时要同批更新。 */
-const ALLOWED_ENTRY = [
-  /^package\.json$/,
-  /^lib\/(index|agent|client)\.js$/,
-  /^skills\/[\w-]+\/SKILL\.md$/,
-  /^cordis\.patch\.yml$/,
-]
 
 /** 去掉 `./` 与首尾斜杠，统一再比。 */
 function normalize(path: string): string {
@@ -76,7 +78,7 @@ function filesEntryPresent(entry: string, entries: ReadonlyArray<string>): boole
 }
 
 /** `exports` 的字符串目标（去掉 `./`）。 */
-function exportTargets(exports: Readonly<Record<string, unknown>> | undefined): string[] {
+export function exportTargets(exports: Readonly<Record<string, unknown>> | undefined): string[] {
   if (exports === undefined) return []
   const targets: string[] = []
   for (const value of Object.values(exports)) {
@@ -90,18 +92,15 @@ function exportTargets(exports: Readonly<Record<string, unknown>> | undefined): 
   return [...new Set(targets)]
 }
 
-/** 依赖字段里所有 `name -> spec`。 */
-function dependencyEntries(manifest: PackageFacts['manifest']): Array<[string, string]> {
-  const fields = ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'] as const
-  const pairs: Array<[string, string]> = []
-  for (const field of fields) {
-    const record = manifest[field]
-    if (record === undefined) continue
-    for (const [name, spec] of Object.entries(record)) {
-      if (typeof spec === 'string') pairs.push([name, spec])
-    }
-  }
-  return pairs
+/** 允许出现的条目：清单声明的入口、patch 与包清单，加上契约里的技能文档。 */
+function allowedEntries(facts: PackageFacts): ReadonlyArray<RegExp> {
+  const patchPath = typeof facts.manifest.dsh?.bundle?.patch === 'string' ? normalize(facts.manifest.dsh.bundle.patch) : undefined
+  const declared = [...exportTargets(facts.manifest.exports), ...(patchPath === undefined ? [] : [patchPath])]
+  return [
+    /^package\.json$/,
+    /^skills\/[\w-]+\/SKILL\.md$/,
+    ...declared.map((target) => new RegExp(`^${target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`)),
+  ]
 }
 
 /**
@@ -111,7 +110,7 @@ function dependencyEntries(manifest: PackageFacts['manifest']): Array<[string, s
  */
 export function packagingProblems(facts: PackageFacts): PackageProblem[] {
   const problems: PackageProblem[] = []
-  const push = (code: string, detail: string): void => { problems.push({ code, detail }) }
+  const push = (code: PackageProblemCode, detail: string): void => { problems.push({ code, detail }) }
   const { entries, manifest, packageName } = facts
   const entrySet = new Set(entries)
 
@@ -119,8 +118,7 @@ export function packagingProblems(facts: PackageFacts): PackageProblem[] {
     if (!filesEntryPresent(entry, entries)) push('files-entry-missing', entry)
   }
 
-  const targets = exportTargets(manifest.exports)
-  for (const target of targets) {
+  for (const target of exportTargets(manifest.exports)) {
     if (!entrySet.has(target)) push('export-target-missing', target)
   }
 
@@ -135,39 +133,30 @@ export function packagingProblems(facts: PackageFacts): PackageProblem[] {
     if (!rows.some((row) => row.id === `preset-${packageName}` && row.name === '@deepseek-ai/dsh-agent-preset')) {
       push('patch-row-missing', `preset-${packageName}`)
     }
-    if (!rows.some((row) => row.name === `${packageName}/agent`)) push('patch-row-missing', `${packageName}/agent`)
+    if (!facts.presetPlugins.includes(`${packageName}/agent`)) push('patch-row-missing', `${packageName}/agent`)
     for (const row of rows) {
       const name = row.name
-      if (typeof name !== 'string' || !name.startsWith(packageName)) continue
-      const rest = name.slice(packageName.length).replace(/^\//, '')
+      if (typeof name !== 'string') continue
+      if (name !== packageName && !name.startsWith(`${packageName}/`)) continue
+      const rest = name === packageName ? '' : name.slice(packageName.length + 1)
       const key = rest === '' ? '.' : `./${rest}`
       if (manifest.exports === undefined || !(key in manifest.exports)) push('patch-module-unexported', name)
     }
   }
 
+  const allowed = allowedEntries(facts)
   for (const entry of entries) {
-    if (!ALLOWED_ENTRY.some((pattern) => pattern.test(entry))) push('unexpected-entry', entry)
+    if (!allowed.some((pattern) => pattern.test(entry))) push('unexpected-entry', entry)
   }
 
   for (const hook of INSTALL_HOOKS) {
     if (manifest.scripts?.[hook] !== undefined) push('install-hook', hook)
   }
 
-  const dependencies = dependencyEntries(manifest)
-  for (const [name, spec] of dependencies) {
-    if (/^(workspace|file|link):/.test(spec)) push('local-dependency', `${name}: ${spec}`)
-    const pinned = facts.rootVersions[name]
-    if (pinned !== undefined && spec !== pinned) push('version-drift', `${name}: ${spec} != ${pinned}`)
-  }
-
-  const declared = new Set(dependencies.map(([name]) => name))
   for (const bundle of facts.bundles) {
-    if (bundle.inputs !== 1) {
-      push('bundle-not-self-contained', `${bundle.entry} 打包后有 ${bundle.inputs} 个输入`)
-    }
+    if (bundle.inputs !== 1) push('bundle-not-self-contained', `${bundle.entry} 打包后有 ${bundle.inputs} 个输入`)
     for (const imported of bundle.imports) {
       if (imported.startsWith('node:')) continue
-      if (declared.has(imported)) continue
       push('undeclared-import', `${bundle.entry} -> ${imported}`)
     }
   }

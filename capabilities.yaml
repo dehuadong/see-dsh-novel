@@ -36,7 +36,7 @@ capabilities:
     title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致
     reference: dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs
     dsh: scripts + pnpm pack
-    implementation: packages/see-dsh-novel/src/core/packaging.ts
+    implementation: packages/see-dsh-novel/src/tools/packaging.ts
     consumer: packages/see-dsh-novel/test/packaging.test.mjs
     realRun: artifacts/real-runs/runtime.package-check.json
     status: missing

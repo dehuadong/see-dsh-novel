@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 
-import { packagingProblems } from '../src/core/packaging.ts'
+import { packagingProblems } from '../src/tools/packaging.ts'
 
 /** 一份通过检查的事实；每个用例只改一处。 */
 function facts(overrides = {}) {
@@ -32,12 +32,13 @@ function facts(overrides = {}) {
       { id: 'preset-see-dsh-novel', name: '@deepseek-ai/dsh-agent-preset' },
       { id: 'see-dsh-novel-story', name: 'see-dsh-novel/agent' },
     ],
+    presetPlugins: ['@deepseek-ai/dsh-persona', 'see-dsh-novel/agent'],
     clientText: 'window.__ModuleLoader__.load({ id: "see-dsh-novel", factory })',
     bundles: [
       { entry: 'lib/index.js', imports: [], inputs: 1 },
       { entry: 'lib/agent.js', imports: ['node:fs', 'node:path'], inputs: 1 },
+      { entry: 'lib/client.js', imports: [], inputs: 1 },
     ],
-    rootVersions: { '@deepseek-ai/dsh-tools': '0.2.2-rc.1' },
     ...overrides,
   }
 }
@@ -65,11 +66,12 @@ test('a single missing entry still satisfies the files prefix', () => {
   assert.equal(problems[0].detail, 'lib/agent.js')
 })
 
-test('exports, patch and allowed set are checked against the entries', () => {
+test('exports, patch and the allowed set are checked against the entries', () => {
   const missingPatch = packagingProblems(facts({
     manifest: { ...facts().manifest, dsh: { bundle: { patch: './missing.yml' } } },
   }))
-  assert.deepEqual(codes(missingPatch), ['pack-patch-missing'])
+  // 声明指向不存在的 patch 时，真正在包里的 cordis.patch.yml 反而成了未声明条目。
+  assert.deepEqual(codes(missingPatch), ['pack-patch-missing', 'unexpected-entry'])
 
   const stray = packagingProblems(facts({ entries: [...facts().entries, 'src/index.ts', 'lib/extra.js'] }))
   assert.deepEqual(codes(stray), ['unexpected-entry', 'unexpected-entry'])
@@ -81,31 +83,26 @@ test('patch rows must resolve to exports and to the expected rows', () => {
   }))
   assert.deepEqual(codes(unexported), ['patch-module-unexported'])
 
+  // `see-dsh-novel-story` 是 id，不是名字；不能被当成子路径。
+  assert.deepEqual(packagingProblems(facts()), [])
+
   const missingPreset = packagingProblems(facts({
     patchRows: facts().patchRows.filter((row) => row.id !== 'preset-see-dsh-novel'),
   }))
   assert.ok(codes(missingPreset).includes('patch-row-missing'))
 
+  const notInPreset = packagingProblems(facts({ presetPlugins: ['@deepseek-ai/dsh-persona'] }))
+  assert.deepEqual(codes(notInPreset), ['patch-row-missing'])
+
   const unparsable = packagingProblems(facts({ patchRows: null }))
   assert.deepEqual(codes(unparsable), ['patch-invalid'])
 })
 
-test('install hooks, local specs and version drift are reported', () => {
+test('install hooks are rejected', () => {
   const hooks = packagingProblems(facts({
     manifest: { ...facts().manifest, scripts: { build: 'x', prepack: 'node x.mjs' } },
   }))
   assert.deepEqual(codes(hooks), ['install-hook'])
-
-  const local = packagingProblems(facts({
-    manifest: { ...facts().manifest, dependencies: { x: 'workspace:*', y: 'file:../y', z: 'link:../z' } },
-  }))
-  assert.equal(local.filter((problem) => problem.code === 'local-dependency').length, 3)
-
-  const drift = packagingProblems(facts({
-    manifest: { ...facts().manifest, dependencies: { '@deepseek-ai/dsh-tools': '0.2.1' } },
-    rootVersions: { '@deepseek-ai/dsh-tools': '0.2.2-rc.1' },
-  }))
-  assert.deepEqual(codes(drift), ['version-drift'])
 })
 
 test('bundles must be self-contained and declare their imports', () => {
@@ -118,12 +115,6 @@ test('bundles must be self-contained and declare their imports', () => {
     bundles: [{ entry: 'lib/agent.js', imports: [], inputs: 2 }],
   }))
   assert.deepEqual(codes(chunked), ['bundle-not-self-contained'])
-
-  const declared = packagingProblems(facts({
-    manifest: { ...facts().manifest, dependencies: { esbuild: '^0.28.0' } },
-    bundles: [{ entry: 'lib/agent.js', imports: ['esbuild', 'node:fs'], inputs: 1 }],
-  }))
-  assert.deepEqual(codes(declared), [])
 })
 
 test('the client bundle must carry the loader id', () => {

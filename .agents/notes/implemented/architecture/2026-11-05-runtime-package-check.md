@@ -20,7 +20,7 @@ Status: implemented
 | 层 | 位置 | 做什么 |
 | --- | --- | --- |
 | 读归档 | `scripts/pack-tar.mjs`（仓库工具，不进包） | 从 `.tgz` 字节里读条目：普通文件、目录；拒绝链接、绝对路径、`..`、重复条目 |
-| 判定 | `packages/see-dsh-novel/src/core/packaging.ts` | 纯函数：输入条目清单、包内 manifest、已解析的 patch 行（id 与 name 列表）、客户端脚本文本、esbuild 结果、根版本表；输出问题码列表。不读 YAML |
+| 判定 | `packages/see-dsh-novel/src/tools/packaging.ts` | 纯函数：输入条目清单、包内 manifest、已解析的 patch 行（id 与 name 列表）、preset 插件名、客户端脚本文本、esbuild 结果；输出问题码列表。不读 YAML，也不在 `core`（`core` 是产品共享层，这里是仓库工具，`files`／`exports` 都不含它） |
 | 编排 | `scripts/check-package.mjs` | `pnpm pack` 到临时目录、读盘、跑 esbuild、调判定、打印报告、退出码 |
 
 tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写入、状态播种），归档工具属于仓库工具，与参考工程把它放在 `scripts/release/tar.mjs` 是同一个位置。判定函数不读字节，只吃「条目路径 + 需要的文本」，可以在测试里直接构造。
@@ -39,14 +39,11 @@ tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写�
 | `patch-module-unexported` | patch 里任何 `see-dsh-novel`／`see-dsh-novel/<sub>` 必须对应 `exports` 的 `.`／`./<sub>` |
 | `patch-row-missing` | patch 解析后必须有根行 `see-dsh-novel`、preset 行 `preset-see-dsh-novel`（`name: @deepseek-ai/dsh-agent-preset`）与预设内的 `see-dsh-novel/agent` |
 | `patch-invalid` | `cordis.patch.yml` 解析不出任何行（脚本层的 YAML 解析失败也归到这里） |
-| `unexpected-entry` | 条目必须落在允许集合内：`package.json`、`lib/(index\|agent\|client)\.js`、`skills/[\w-]+/SKILL\.md`、`cordis.patch.yml` |
+| `unexpected-entry` | 条目必须落在允许集合内：`package.json`、`exports` 声明的入口、`dsh.bundle.patch`、`skills/[\w-]+/SKILL\.md`（集合从清单推，不再另抄一份） |
 | `install-hook` | manifest 的 `scripts` 里不得出现 `preinstall`／`install`／`postinstall`／`prepare`／`prepublishOnly`／`prepack`／`postpack`／`publish`／`postpublish` |
-| `local-dependency` | 依赖字段里出现 `workspace:`／`file:`／`link:` |
-| `version-drift` | 依赖里 `@deepseek-ai/*` 的版本与根 `devDependencies` 不一致（根里没有就不判） |
-| `undeclared-import` | 每个打包入口（`lib/index.js`、`lib/agent.js`）的 esbuild metafile：imports 只能是 `node:` 内置或已声明依赖；每个入口 inputs 必须是 1（自包含） |
+| `undeclared-import` | 每个打包入口（从 `exports` 推出的 `lib/*.js`）的 esbuild metafile：imports 只能是 `node:` 内置（本包没有任何运行时依赖） |
+| `bundle-not-self-contained` | 每个入口的 metafile inputs 必须是 1（不把包内源码漏成外部引用） |
 | `client-id-missing` | `lib/client.js` 里必须出现 `id: "<manifest.name>"`（与参考一样锚到 JSON 字符串形式），而不是任意出现名字 |
-
-`local-dependency` 与 `version-drift` 今天不会触发（本包没有依赖字段），保留它们是给将来加依赖时用的，测试用合成 manifest 覆盖。
 
 ### 脚本
 
@@ -98,7 +95,7 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 
 收益：发出去或装上去的那份产物，和 manifest 是同一件事。CI 与本地都从 `pnpm run check-package` 得到同一个结论——真实 `.tgz` 里有 7 个条目、`exports` 的四个目标齐全、patch 的 21 行都能被解析、两个打包入口自包含（各 1 个输入、只 import `node:`），客户端脚本带着 `id: "see-dsh-novel"`。
 
-三层职责固定下来：`scripts/pack-tar.mjs` 只从 gzip 字节读条目（拒绝链接、绝对路径、`..`、同名条目、空归档，出错即 `tar-read-error`）；`packages/see-dsh-novel/src/core/packaging.ts` 的 `packagingProblems` 只吃已读出的事实（条目、包内 manifest、已解析的 patch 行、客户端文本、esbuild 结果、根版本表），因此可以纯数据测；`scripts/check-package.mjs` 负责「先查源码 hook 再打包」、临时目录、esbuild 与打印。判定覆盖 `files-entry-missing`、`export-target-missing`、`pack-patch-missing`、`patch-module-unexported`、`patch-row-missing`、`patch-invalid`、`unexpected-entry`、`install-hook`、`local-dependency`、`version-drift`、`undeclared-import`、`bundle-not-self-contained`、`client-id-missing` 十三类问题。
+三层职责固定下来：读归档（拒绝链接、绝对路径、`..`、同名条目、空归档，出错即 `tar-read-error`）、纯数据判定、编排与打印。判定规则以 Decision 的表格为准，这里不复述。
 
 `verify` 链是 `typecheck → build → check-package → verify-notes → check-capabilities → test`；CI 收成一条 `pnpm run verify`，在 `ubuntu-latest` 与 `windows-latest` 上各跑一次，Agent Note 的 base ref 在 job 级 env。
 
@@ -113,4 +110,3 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 - `install-hook` 只看脚本名不判断内容；命名相同的无害脚本也会被拦。
 - 本行不覆盖「安装成功」：版本要求、profile 权限、host 与 client 的装载顺序仍可能让 `install_bundle` 失败。
 - CI 的 Windows runner 让每次推送多一份机器时间；慢了可以先只让 `ubuntu-latest` 跑 `verify`，Windows 只在 PR 上跑。
-- `local-dependency` 与 `version-drift` 今天恒不触发（本包没有依赖字段），只有合成 fixture 的证据。
