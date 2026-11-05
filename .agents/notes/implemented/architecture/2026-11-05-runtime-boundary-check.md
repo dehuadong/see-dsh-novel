@@ -1,6 +1,6 @@
 # Agent Note: runtime.boundary-check —— 源码只连 DSH，不连参考工程
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -10,7 +10,7 @@ Status: proposed
 
 本行的脚本只回答一个问题：**这个源码树有没有连到 DSH 之外的东西**。它不重复 `package-check`（查 tarball 里残留了什么），也不重复 `boundaries.test.mjs`（查目录之间的依赖方向）。
 
-## Proposal
+## Decision
 
 ### 一条脚本，一个纯函数
 
@@ -70,22 +70,20 @@ typecheck → build → check-package → check-boundary → verify-notes → ch
 
 **把规则写进 `AGENTS.md` 靠人遵守。** 零成本。否掉：铁律已经写了「只用 DSH 运行时」，仍然需要机械检查兜底；文档管意图，脚本管事实。
 
-## Acceptance criteria
+## Consequences
 
-- `pnpm run check-boundary` 在当前源码树退出码 0，打印扫描的文件数。
-- 合成文件 `import x from 'inkos/packages/core/x.js'` → `reference-import`；`import x from '../../inkos/x.js'` → `reference-import`；`import x from 'deepseek-harness/packages/y'` → `reference-import`。
-- 合成文件 `import { z } from '@deepseek-ai/dsh-tools'` → `host-value-import`；`const z = require('@deepseek-ai/dsh-tools')` → `host-value-import`；`const z = await import('@deepseek-ai/dsh-tools')` → `dynamic-host-import`。
-- 合成文件 `core/x.ts` 里 `import type {} from '@deepseek-ai/cordis'` → `host-import-outside-allowed-layers`；同样的行放在 `plugin/x.ts` 或 `client/x.tsx` 里不报；`tools/packaging.ts` 里只出现字符串 `'@deepseek-ai/dsh-agent-preset'`（没有导入语句）不报。
-- 注释里出现「inkos」不算问题；`import type { X } from '@deepseek-ai/dsh-tools'` 不报。
-- 有问题时退出码非零、stderr 每行一个 `code path: detail`。
-- 账本行的 `reference` 改成 `none:项目护栏（AGENTS.md 前言与铁律 3）`，明示没有参考源证据；不改 `docs/dsh-mapping.md`（它只记机制映射）。
-- 实现与证据：implementation `packages/see-dsh-novel/src/tools/boundary.ts`；consumer `packages/see-dsh-novel/test/boundary-check.test.mjs`；脚本 `scripts/check-boundary.mjs`、根 `package.json` 的 `verify` 链、`capabilities.yaml` 的 `reference`／implementation／consumer／realRun 字段同批更新；realRun `artifacts/real-runs/runtime.boundary-check.json`。
-- 真实运行：`pnpm run check-boundary` 在真实源码树上通过；再用 `--root` 指向一个含 `import 'inkos/x'` 的临时目录，脚本报 `reference-import` 并退出 1。
+收益：源码里出现一条指向参考工程的 import，或者宿主包不是 `import type`，在 `pnpm run verify` 就会失败，而不是等到装包或运行时。当前源码树（33 个 `.ts`／`.tsx`）干净通过：15 条 `@deepseek-ai` 导入全在 `client/` 且都是 type-only，没有一条参考工程导入。
 
-## Risks
+判定在 `packages/see-dsh-novel/src/tools/boundary.ts`（仓库工具，不进产物）：`stripComments` 先去掉行注释与块注释（字符串与模板字面量保留），再按行首语句取说明符；`boundaryProblems` 只回答依赖来源——`reference-import`（`inkos`／`deepseek-harness` 整段或路径段）、`host-value-import`、`host-import-outside-allowed-layers`（`core/`／`pipelines/`／`tools/` 引用宿主包，type-only 也算）、`dynamic-host-import`（只报这一条）。分层方向仍由 `test/boundaries.test.mjs` 管，两件事不重叠。
 
-- 只扫描 `.ts`／`.tsx`：`.mjs` 脚本里如果出现参考工程 import 不会被这条检查覆盖（脚本本身不 import 参考工程，但这是缺口）。
-- 说明符用正则匹配：把包名起成 `my-inkos-wrapper` 之类会误报（当前没有这种包，也没有计划）。
-- `import { type X }` 被判为值导入：这是写法约定，不是运行时事实；团队要按 `import type` 写。
-- 动态导入只报不拦：报出来之后仍可能换个写法绕过；检查的是「出现」而不是「不可执行」。
-- 与 `runtime.package-check` 有分工但也有重叠：一个看 tarball 里残留的宿主 import，一个看源码的依赖来源；`plugin/` 的值导入两边都会报，这是有意的双保险。
+`scripts/check-boundary.mjs` 默认扫 `packages/see-dsh-novel/src`，也接受 `--root <dir>` 给对照用；`verify` 链是 `typecheck → build → check-package → check-boundary → verify-notes → check-capabilities → test`，CI 的两条 runner 随 `pnpm run verify` 一起跑。
+
+验证见 `test/boundary-check.test.mjs`：干净文件、参考工程三类写法（裸包／相对路径／export from）、`require` 与副作用导入、动态导入只报一条、`core` 与 `tools` 的层规则、注释与字符串不算依赖、说明符判定（`@scope/inkos` 命中、`my-inkos-wrapper` 不命中）。
+
+### 代价与已知限制
+
+- 只扫描 `.ts`／`.tsx`：`.mjs` 脚本里出现参考工程 import 不会被覆盖（当前脚本没有）。
+- 静态语句只认行首：写在别的语句同一行的 import 不会被抓到（当前代码风格都按行首写）。
+- `import { type X }` 判为值导入：这是写法约定，不是运行时事实；团队统一按 `import type` 写。
+- 动态导入只报不拦：换成别的写法仍可能绕过；检查的是「出现」。
+- 与 `runtime.package-check` 有重叠：`plugin/` 的值导入两边都报，这是有意的双保险。
