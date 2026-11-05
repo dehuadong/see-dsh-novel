@@ -18,7 +18,7 @@ DSH 的 command 是会话内的确定性入口；它仍然要求作者已经打�
 /story-init <标题> [--lang zh|en] [--chapters N] [--words N]
 ```
 
-- 标题是必填的剩余文本：允许空格与书名号，首尾空白去掉；`--` 之后的内容一律当标题。
+- 标题是必填的剩余文本：允许空格与书名号，首尾空白去掉；`--` 之后的内容按原文取回，内部空白保留。
 - `--lang` 只认 `zh`／`en`；省略时不传，由 `writeWork` 用默认值 `zh`。
 - `--chapters`／`--words` 对应 `metadata.targetChapters`／`metadata.chapterWordCount`；解析时把字面量转成 `number` 再交给 `writeWork`（`positiveInteger` 只认 `number`）。
 - 参考工程 `book create` 还有 `--genre`／`--platform`；`work.json` v1 只有 `profile`、`language` 与两个规模字段，这两个参数不进本行——加字段是版本升级。
@@ -27,23 +27,23 @@ DSH 的 command 是会话内的确定性入口；它仍然要求作者已经打�
 
 ### 解析与校验各管一段
 
-`parseInitInput(rawInput: string): InitInput` 只做**语法**：切词、认选项、要求标题非空（空标题就是缺参数）、数字必须是整数字面量并转成 `number`、拒绝未知或重复选项。语法错误抛 `Error`，消息点名参数（如 `--chapters 必须是整数`）。
+`parseWorkCreate(rawInput: string): WorkCreateArgs`（`work-command.ts`）只做**语法**：切词、认选项、要求标题非空（空标题就是缺参数）、数字必须是整数字面量并转成 `number`、拒绝未知或重复选项。语法错误抛 `Error`，消息点名参数（如 `--chapters 必须是整数`）。选项表把「取值校验 + 落点」放在一项里，新增选项只改这张表。
 
 **语义**留给 `writeWork`：语言枚举、正整数、目录与 `work.json` 的读写冲突都由它负责（`core/work.ts`）。标题非空两边都会检查——解析层是「有没有这个参数」，`writeWork` 是「写进去的值是不是空的」；命令层不重复枚举与数值规则，所以 `--lang fr` 的错误文本是 `writeWork` 的「…: 字段 language 只能是 zh/en…」，带文件路径。
 
-`InitInput` 与 `WorkCreateInput` 的四个字段同形，但类型不同：前者是解析后的 `string`／`number`，后者的字段是 `unknown`（给工具入参留的宽类型）：
+`WorkCreateArgs` 与 `WorkCreateInput` 的四个字段同形，但类型不同：前者是解析后的 `string`／`number`，后者的字段是 `unknown`（给工具入参留的宽类型）：
 
 ```ts
-type InitInput = { title: string, language?: string, targetChapters?: number, chapterWordCount?: number }
+type WorkCreateArgs = { title: string, language?: string, targetChapters?: number, chapterWordCount?: number }
 ```
 
-抛出与捕获：命令处理器把 `parseInitInput` 与 `writeWork` 一起包在 `try/catch` 里，`catch` 返回 `{ kind: 'error', text: (error as Error).message }`；成功的输出见下。不依赖「抛错会被宿主渲染成 error」这条隐含行为——命令的 kind 由处理器显式决定，测试才能断言。
+抛出与捕获：命令处理器把 `workingDirectory.ensure`、`parseWorkCreate` 与 `writeWork` 一起包在 `try/catch` 里（所以工作区解析失败也落成一条命令错误，而不是把异常交给宿主渲染），`catch` 返回 `{ kind: 'error', text }`，`text` 取 `Error.message`、非 `Error` 的值用 `String(error)`。成功的输出见下。命令的 kind 由处理器显式决定，测试才能断言。
 
 ### 行为
 
-1. `workingDirectory.ensure(invocation.agent)` 取当前工作区；
-2. `parseInitInput(invocation.rawInput)`；
-3. `writeWork(root, input)`；
+1. `workingDirectory.ensure(invocation.agent)` 取当前工作区；空目录报错；
+2. `parseWorkCreate(invocation.rawInput)`；
+3. `writeWork(root, args)`；
 4. 成功返回：
 
 ```
@@ -51,7 +51,7 @@ type InitInput = { title: string, language?: string, targetChapters?: number, ch
 下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。
 ```
 
-已经立项的工作区再敲一次，转出 `writeWork` 的「已经存在，不覆盖」；坏 `work.json` 转出字段错误。
+身份那一行由 `core/work.ts` 的 `describeWork` 生成（工具卡片与命令回执共用）；标题已经带书名号时不再包第二层。已经立项的工作区再敲一次，转出 `writeWork` 的「已经存在，不覆盖」；坏 `work.json` 转出字段错误。
 
 ### 不唤醒会话
 
@@ -59,7 +59,7 @@ type InitInput = { title: string, language?: string, targetChapters?: number, ch
 
 ### 归属与作用域
 
-放 `src/plugin/init-command.ts`，与 `work-tools.ts` 同级：立项是运行时级能力。`agent.ts` 注册它并并入现有注销。它和 `story_*` 工具一样只在 `see-dsh-novel` 预设的会话里可见——不是全局命令面；同一会话里可能撞名的是同一预设挂载的其它命令。
+放 `src/plugin/work-command.ts`，与 `work-tools.ts` 同级：立项是运行时级能力。`agent.ts` 注册它并并入现有注销（先注销后注册的 `work-tools`，再注销命令）。它和 `story_*` 工具一样只在 `see-dsh-novel` 预设的会话里可见——不是全局命令面；同一会话里可能撞名的是同一预设挂载的其它命令。
 
 ## Alternatives considered
 
@@ -75,9 +75,9 @@ type InitInput = { title: string, language?: string, targetChapters?: number, ch
 
 ## Consequences
 
-`src/plugin/init-command.ts` 导出 `COMMAND_INIT`（`story-init`）、`InitInput` 与纯函数 `parseInitInput`：切词、认 `--lang`／`--chapters`／`--words`、`--` 之后全当标题、整数字面量转 `number`，错误按参数点名。`installInitCommand(ctx)` 注册命令，处理器把 `workingDirectory.ensure` 与 `writeWork` 一起包在 `try/catch` 里，异常与语义错误都转成 `{ kind: 'error', text }`，成功时用 `describeWork` 输出身份与下一步提示。`src/plugin/agent.ts` 注册并在注销链里收尾；`describeWork` 从 `work-tools.ts` 导出复用，并对已经带书名号的标题不再包第二层。
+`src/plugin/work-command.ts` 导出 `COMMAND_INIT`（`story-init`）、`WorkCreateArgs` 与纯函数 `parseWorkCreate`：切词带位置、认 `--lang`／`--chapters`／`--words`、`--` 之后按原文取回标题、整数字面量转 `number`，错误按参数点名。`installInitCommand(ctx)` 注册命令，处理器把 `workingDirectory.ensure`、解析与 `writeWork` 一起包在 `try/catch` 里，异常与语义错误都转成 `{ kind: 'error', text }`，成功时用 `describeWork` 输出身份与下一步提示。`src/plugin/agent.ts` 注册并在注销链里按相反顺序收尾；`describeWork` 由 `core/work.ts` 拥有（工具卡片与命令回执共用），已经带书名号的标题不再包第二层。
 
-验证见 `test/init-command.test.mjs`（解析的标题/选项/`--`/错误分支、命令写盘与回执、第二次立项与坏 `work.json`、语法与语义错误都不写文件）与 `test/host.test.mjs`（命令清单四条）。真实运行回执由 Verify 阶段写到 `artifacts/real-runs/runtime.commands.json`；回执要能看出 `/story-init` 的成功文本与 `work.json` 落盘，以及随后的 `story_next` 阶段与面板状态。
+验证见 `test/work-command.test.mjs`（解析的标题/选项/`--`/错误分支、命令写盘与逐字回执、第二次立项与坏 `work.json`、语法与语义错误都不写文件）与 `test/host.test.mjs`（命令清单四条）；`test/work.test.mjs` 另有「标题已带书名号不再包第二层」的工具卡片断言。真实运行回执由 Verify 阶段写到 `artifacts/real-runs/runtime.commands.json`；回执要能看出 `/story-init` 的成功文本与 `work.json` 落盘，以及随后的 `story_next` 阶段与面板状态。
 
 代价与已知限制：
 

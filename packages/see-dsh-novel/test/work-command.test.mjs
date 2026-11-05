@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { COMMAND_INIT, installInitCommand, parseInitInput } from '../src/plugin/init-command.ts'
+import { COMMAND_INIT, installInitCommand, parseWorkCreate } from '../src/plugin/work-command.ts'
 import { WORK_FILE } from '../src/core/work.ts'
 
 /** 一个空的临时工作区。 */
@@ -42,26 +42,30 @@ async function exists(path) {
   }
 }
 
-test('parseInitInput reads the title and the three options', () => {
-  assert.deepEqual(parseInitInput('《夜行测试》'), { title: '《夜行测试》' })
+test('parseWorkCreate reads the title and the three options', () => {
+  assert.deepEqual(parseWorkCreate('《夜行测试》'), { title: '《夜行测试》' })
   assert.deepEqual(
-    parseInitInput('  夜行 测试  --lang en --chapters 80 --words 2500 '),
+    parseWorkCreate('  夜行 测试  --lang en --chapters 80 --words 2500 '),
     { title: '夜行 测试', language: 'en', targetChapters: 80, chapterWordCount: 2500 },
   )
 })
 
-test('parseInitInput treats everything after -- as the title', () => {
-  assert.deepEqual(parseInitInput('-- 带 --lang 的标题'), { title: '带 --lang 的标题' })
+test('parseWorkCreate keeps the title as the author wrote it', () => {
+  // `--` 之后是标题原文：内部空白、`--` 字样都按原样保留。
+  assert.deepEqual(parseWorkCreate('-- 带 --lang 的标题'), { title: '带 --lang 的标题' })
+  assert.deepEqual(parseWorkCreate('-- 夜行   测试'), { title: '夜行   测试' })
+  // 标题词被选项隔开时无法按原文取回，退回单空格连接。
+  assert.deepEqual(parseWorkCreate('夜行 --lang zh 测试'), { title: '夜行 测试', language: 'zh' })
 })
 
-test('parseInitInput reports the parameter it could not read', () => {
-  assert.throws(() => parseInitInput(''), /缺少标题/)
-  assert.throws(() => parseInitInput('--lang zh'), /缺少标题/)
-  assert.throws(() => parseInitInput('标题 --foo bar'), /未知选项 --foo/)
-  assert.throws(() => parseInitInput('标题 --lang zh --lang en'), /--lang 重复/)
-  assert.throws(() => parseInitInput('标题 --lang'), /--lang 缺少取值/)
-  assert.throws(() => parseInitInput('标题 --chapters 2.5'), /--chapters 必须是整数/)
-  assert.throws(() => parseInitInput('标题 --chapters abc'), /--chapters 必须是整数/)
+test('parseWorkCreate reports the parameter it could not read', () => {
+  assert.throws(() => parseWorkCreate(''), /缺少标题/)
+  assert.throws(() => parseWorkCreate('--lang zh'), /缺少标题/)
+  assert.throws(() => parseWorkCreate('标题 --foo bar'), /未知选项 --foo/)
+  assert.throws(() => parseWorkCreate('标题 --lang zh --lang en'), /--lang 重复/)
+  assert.throws(() => parseWorkCreate('标题 --lang'), /--lang 缺少取值/)
+  assert.throws(() => parseWorkCreate('标题 --chapters 2.5'), /--chapters 必须是整数/)
+  assert.throws(() => parseWorkCreate('标题 --chapters abc'), /--chapters 必须是整数/)
 })
 
 test('the command writes work.json and reports the identity', async () => {
@@ -73,11 +77,11 @@ test('the command writes work.json and reports the identity', async () => {
 
     const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '《夜行测试》 --lang en --chapters 80 --words 2500' })
     assert.equal(result.kind, 'success')
-    assert.match(result.text, /已立项《夜行测试》/)
-    assert.match(result.text, /en/)
-    assert.match(result.text, /目标 80 章/)
-    assert.match(result.text, /单章 2500 字/)
-    assert.match(result.text, /下一步/)
+    assert.equal(
+      result.text,
+      '已立项《夜行测试》：longform-novel，en，draft（目标 80 章，单章 2500 字）\n'
+        + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
+    )
 
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.title, '《夜行测试》')

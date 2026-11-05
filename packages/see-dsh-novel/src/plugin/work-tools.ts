@@ -7,7 +7,7 @@
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../core/types.js'
 import { WORK_LANGUAGES, WORK_PROFILES, WORK_STATUSES } from '../core/work.js'
 import type { Work } from '../core/work.js'
-import { readWork, writeWork } from '../core/work.js'
+import { describeWork, readWork, writeWork } from '../core/work.js'
 
 /** 立项工具名。 */
 export const WORK_CREATE_NAME = 'story_work_create'
@@ -87,17 +87,6 @@ interface CreateArgs {
   title: string
   language?: string
   metadata?: { targetChapters?: number, chapterWordCount?: number }
-}
-
-/** 身份一句话描述；工具卡片与命令回执共用。 */
-export function describeWork(work: Work): string {
-  const scope = [
-    work.metadata.targetChapters === undefined ? '' : `目标 ${work.metadata.targetChapters} 章`,
-    work.metadata.chapterWordCount === undefined ? '' : `单章 ${work.metadata.chapterWordCount} 字`,
-  ].filter((part) => part !== '').join('，')
-  // 标题本身可能带书名号（命令输入保留原样），别包第二层。
-  const title = work.title.startsWith('《') && work.title.endsWith('》') ? work.title : `《${work.title}》`
-  return `${title}：${work.profile}，${work.language}，${work.status}${scope === '' ? '' : `（${scope}）`}`
 }
 
 /**

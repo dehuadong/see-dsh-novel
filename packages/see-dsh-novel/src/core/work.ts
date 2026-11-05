@@ -181,8 +181,7 @@ export async function workProbes(root: string): Promise<WorkProbes> {
  * @param input 作者给出的标题、语言与目标规模
  * @returns 落盘的身份对象
  */
-export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
-  const base = resolve(root)
+export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {  const base = resolve(root)
   const path = join(base, WORK_FILE)
   if (await pathExists(path)) {
     // 内容坏了先按字段报错：作者手改出错时，「已经不存在的字段」比「已存在」更有用。
@@ -213,4 +212,22 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
   }
   await commitFile(base, WORK_FILE, `${JSON.stringify(work, null, 2)}\n`)
   return work
+}
+
+/**
+ * 身份的一句话描述；工具卡片、命令回执与测试共用。
+ *
+ * 标题可能已经带书名号（命令输入按原样保存），这时不再包第二层：
+ * 首尾都是书名号的标题按作者写的样子输出。
+ * @param work 身份对象
+ * @returns 形如 `《标题》：profile，language，status（目标 N 章）`
+ */
+export function describeWork(work: Work): string {
+  const scope = [
+    work.metadata.targetChapters === undefined ? '' : `目标 ${work.metadata.targetChapters} 章`,
+    work.metadata.chapterWordCount === undefined ? '' : `单章 ${work.metadata.chapterWordCount} 字`,
+  ].filter((part) => part !== '').join('，')
+  const bracketed = work.title.startsWith('《') && work.title.endsWith('》')
+  const title = bracketed ? work.title : `《${work.title}》`
+  return `${title}：${work.profile}，${work.language}，${work.status}${scope === '' ? '' : `（${scope}）`}`
 }

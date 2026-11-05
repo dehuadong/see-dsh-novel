@@ -262,6 +262,20 @@ test('the work tools create, show and refuse to overwrite', async () => {
   }
 })
 
+test('a title that already carries book marks is not wrapped twice', async () => {
+  const root = await workspace()
+  try {
+    const { registered, ctx } = services(root)
+    installWorkTools(ctx)
+    const created = await registered.get(WORK_CREATE_NAME).execute({ title: '《上》《下》' }, exec)
+    const text = registered.get(WORK_SHOW_NAME).output.render({}, created)[0].text
+    assert.match(text, /《上》《下》/)
+    assert.doesNotMatch(text, /《《上》/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('a broken identity file makes both tools fail with the file and field', async () => {
   const root = await workspace()
   try {
