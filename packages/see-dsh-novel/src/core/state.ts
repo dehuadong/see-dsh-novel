@@ -9,6 +9,7 @@ import { join } from 'node:path'
 
 import type { FileWrite } from './commit.js'
 import type { HooksState } from './hooks.js'
+import { validateHooks } from './hooks.js'
 import type { PendingHook } from './types.js'
 import type {
   ChapterSummariesState,
@@ -131,16 +132,34 @@ function isManifest(value: unknown): value is StateManifest {
     && typeof value.lastAppliedChapter === 'number' && value.projectionVersion === 1
 }
 
+function isFact(value: unknown): boolean {
+  if (!isRecord(value)) return false
+  return typeof value.subject === 'string' && typeof value.predicate === 'string' && typeof value.object === 'string'
+    && typeof value.validFromChapter === 'number' && typeof value.sourceChapter === 'number'
+    && (value.validUntilChapter === null || typeof value.validUntilChapter === 'number')
+}
+
 function isCurrentState(value: unknown): value is CurrentStateState {
-  return isRecord(value) && typeof value.chapter === 'number' && Array.isArray(value.facts)
+  return isRecord(value) && typeof value.chapter === 'number'
+    && Array.isArray(value.facts) && value.facts.every(isFact)
 }
 
 function isHooksState(value: unknown): value is HooksState {
-  return isRecord(value) && Array.isArray(value.hooks)
+  if (!isRecord(value) || !Array.isArray(value.hooks)) return false
+  try {
+    validateHooks({ hooks: value.hooks } as HooksState)
+    return true
+  } catch {
+    return false
+  }
 }
 
+const SUMMARY_FIELDS = ['title', 'characters', 'events', 'stateChanges', 'hookActivity', 'mood', 'chapterType'] as const
+
 function isChapterSummaries(value: unknown): value is ChapterSummariesState {
-  return isRecord(value) && Array.isArray(value.rows)
+  return isRecord(value) && Array.isArray(value.rows) && value.rows.every((row) => isRecord(row)
+    && typeof row.chapter === 'number'
+    && SUMMARY_FIELDS.every((field) => typeof row[field] === 'string'))
 }
 
 /** 读一份 JSON 的三种结局：成功、缺失、内容坏了。 */
