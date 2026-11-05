@@ -39,7 +39,11 @@ export function renderChapterSummariesProjection(state: ChapterSummariesState, l
 - 投影被手删、JSON 还在：重跑 details 或自检按 JSON 重建，不覆盖 JSON；
 - JSON 被推进过（章节、伏笔）：重跑 details 不覆盖它们，投影也只在缺失时补。
 
-**语言显式传入**，不在 `core/state.ts` 里读 `work.json`：`story_foundation_details` 读 `work.json` 的 `language`（没有就 `zh`）后传给播种函数；自检路径不读 `work.json`（它可能坏掉），语言从已有 `manifest.json` 取，缺失则 `zh`。
+**语言显式传入，来源按「manifest → work.json → zh」**。`core/state.ts` 不读任何作品文件，只接受参数：
+
+- `story_foundation_details`：已有 `manifest.json` 就用它的 `language`（与源工程 `saveRuntimeStateSnapshot` 一致，`runtime-state-store.ts:157`），否则读 `work.json` 的 `language`，再没有就 `zh`；
+- `story_hooks`：同一个解析顺序（manifest → work.json → zh）；`work.json` 读不出来时退回 `zh`，不让工具失败；
+- 自检路径：只用 `manifest.json`，缺失则 `zh`——`work.json` 可能已损坏（`test/recovery.test.mjs:109-122`），读它会让 `apply` 失败。
 
 ### 自检只重建有源文件的投影
 
@@ -69,7 +73,7 @@ export function renderChapterSummariesProjection(state: ChapterSummariesState, l
 
 - `story_foundation_details` 一次写入 7 个文件：四份 `source/story/state/*.json` 与三份 `source/story/{current_state,pending_hooks,chapter_summaries}.md`；投影标题、表头、列序、空表、末尾换行与源工程一致。
 - 中文作品（`work.json` 的 `language: "zh"` 或缺失）得到中文标题与表头；`language: "en"` 得到 `# Pending Hooks`／`# Current State`／`# Chapter Summaries`。
-- 伏笔投影排序与转义：`|` → `\|`、换行 → `<br>`、单元格 trim；`story_hooks` 工具回执与落盘投影逐字一致（同一次调用）。
+- 伏笔投影排序与转义：`|` → `\|`、换行 → `<br>`、单元格 trim；`story_hooks` 工具回执与落盘投影逐字一致（同一语言来源：manifest → work.json → zh；`work.json` 读不出来时工具仍按 `zh` 返回）。
 - 当前状态投影过滤 `validUntilChapter < chapter`，正文前有 `> 当前章节: N`；章节摘要按章节号排序、八列。
 - 重跑 details：已有 JSON 与投影不覆盖；删掉某份投影后重跑只补缺失的那份、按 JSON 重建。
 - 自检：删 `pending_hooks.md`（`hooks.json` 在）→ `state-missing` 可修，`apply` 补回且 JSON 不变；同时删 `hooks.json` 与 `pending_hooks.md` → `state-missing` 不可修，`apply` 不生成空投影；`pending_hooks.md` 在而 `hooks.json` 缺 → `projection-stale` 不可修。
