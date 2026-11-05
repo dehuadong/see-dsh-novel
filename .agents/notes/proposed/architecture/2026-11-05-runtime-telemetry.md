@@ -24,10 +24,10 @@ Status: proposed
 
 对每个 `child`：
 
-- **身份**：行里的 `mode`（one-shot／continuable／external／unknown）与 `label`。`label` 对 one-shot 允许缺省，所以按可空处理；子会话自己的 `subagent` 投影是同一份事实的副本，用于核对，不单独作为来源。
+- **身份**：行里的 `mode`（one-shot／continuable／external）与 `label`。`label` 对 one-shot 允许缺省，所以按可空处理；子会话自己的 `subagent` 投影是同一份事实的副本，用于核对，不单独作为来源。
 - **用量**：子会话的 `tokenUsage` 投影，四个互不重叠的桶——`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`。不自己扫 `assistant/message` 求和使用量：那条读日志的路子已经被宿主的投影取代，而投影连缓存分桶都算好了。
 - **耗时**：子会话的 `subagentTiming` 投影：`settledMs`（已结束轮次的累计毫秒）加 `active` 开区间（`through - since`）。
-- **状态**：先看目录行的 `activity`（`running`／`inactive`）——它表示「这个子会话现在还住着没有」，是活性事实；再看 `subagentTiming.lastTurnCompleted`——`true`／`false` 分别对应 `completed`／`incomplete`。`active` 只说明「有一个还没关的轮次」，进程被杀留下的未闭合轮次会让它永远看起来开着，所以不用它判活。
+- **状态**：目录行的 `activity` 与子会话 `subagentTiming` 的 `active` 一起用——两个都成立才是「住着且在跑」；单独的 `activity` 只是驻留，单独的 `active` 可能来自崩溃留下的未闭合轮次。终态由 `lastTurnCompleted` 给（`true` → `completed`、`false` → `incomplete`），两者都没有就是 `unknown`。
 
 读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。`external`／`unknown` 模式没有本地会话，`observeSession` 会报找不到——这类行按「读不到」处理，不算失败。
 
@@ -48,11 +48,12 @@ Status: proposed
 }
 ```
 
-- `state` 的判定顺序：目录行 `activity === 'running'` → `running`；否则 `lastTurnCompleted === true` → `completed`、`false` → `incomplete`；都没有（或子会话读不到）→ `unknown`。枚举固定四值，不猜。
+- `state` 的判定顺序：目录行 `activity === 'running'` **且** `subagentTiming` 有 `active` 开区间 → `running`（住着且在跑）；否则 `lastTurnCompleted === true` → `completed`、`false` → `incomplete`；都没有（或子会话读不到、没有本地会话）→ `unknown`。枚举固定四值，不猜。
+  `activity` 只是「这个会话现在还住着没有」的驻留事实，单用会把轮次之间空闲的 continuable 子会话说成在跑；`active` 只说明「有一个还没关的轮次」，单用会被进程崩溃留下的未闭合轮次骗到。两个一起成立才算 `running`。
 - `label`、`usage`、`durationMs` 读不到时是 `null`，不写 0：0 会被当成「真的没花」；`label` 缺省是 one-shot 的正常形态，不是错误。
 - `diagnostics` 沿用目录的 `reason`，不进 `delegations`、不计入 `incomplete`。
 - `summary` 只统计返回的这 `limit` 条，字段名与含义在工具描述里写明，避免作者把分页当成全量。
-- 排序：按子会话创建时间升序，取最近 `limit` 条（即最后 N 条），与「最近一次委派」的直觉一致。
+- 排序：沿用 `listDescendants` 返回的目录顺序（父目录事件序，即创建顺序；该 API 不返回 `createdAt`，不另造排序键），取最后 `limit` 条，与「最近一次委派」的直觉一致。
 
 ### 服务缺失时明确报错
 
@@ -73,9 +74,9 @@ Status: proposed
 ## Acceptance criteria
 
 - 当前会话没有子代理时：`story_telemetry` 返回 `summary.delegations: 0` 与空 `delegations`，不报错。
-- 有一次子代理委派后：`delegations` 里出现该子会话，`childSessionId`、`mode`、`depth`、`state` 齐备；`label` 是字符串或 `null`（one-shot 允许缺省）；`durationMs` 是非负整数或 `null`；`usage` 是四个非负整数桶或 `null`；`state` 是四个固定值之一，且 `running` 来自目录行的 `activity`。
+- 有一次子代理委派后：`delegations` 里出现该子会话，`childSessionId`、`mode`、`depth`、`state` 齐备；`label` 是字符串或 `null`（one-shot 允许缺省）；`durationMs` 是非负整数或 `null`；`usage` 是四个非负整数桶或 `null`；`state` 是四个固定值之一，只有 `activity` 与 `active` 同时成立才是 `running`。
 - `incomplete` 的子会话（最近一轮没有正常收尾）在 `summary.incomplete` 里被计数，对应条目的 `state` 是 `incomplete`。
-- `diagnostic` 行只出现在 `diagnostics` 里并带 `reason`，不计入 `delegations`／`incomplete`；`external`／`unknown` 模式没有本地会话时，条目仍返回，`usage`／`durationMs` 为 `null`、`state` 由 `activity` 决定。
+- `diagnostic` 行只出现在 `diagnostics` 里并带 `reason`，不计入 `delegations`／`incomplete`；`external` 模式没有本地会话，条目仍返回，`usage`／`durationMs` 为 `null`、`state` 为 `unknown`。`mode: 'unknown'` 不会以 `child` 行出现——未知模式本身就是一条 `diagnostic`（`reason: 'unsupported'`）。
 - `limit` 生效：只返回最近 `limit` 条，`summary` 与返回集合一致。
 - `subagents`／`sessionQuery` 缺失时返回错误文本并点名缺失的服务。
 - `test/host.test.mjs` 的工具清单同批加 `story_telemetry`；`test/telemetry.test.mjs` 用假的服务面覆盖上述分支（含 diagnostic、无本地会话、`activity: running`）。
