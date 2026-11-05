@@ -20,7 +20,7 @@ Status: proposed
 | 层 | 位置 | 做什么 |
 | --- | --- | --- |
 | 读归档 | `scripts/pack-tar.mjs`（仓库工具，不进包） | 从 `.tgz` 字节里读条目：普通文件、目录；拒绝链接、绝对路径、`..`、重复条目 |
-| 判定 | `packages/see-dsh-novel/src/core/packaging.ts` | 纯函数：输入条目清单、manifest、patch 文本、客户端脚本文本、esbuild 结果、根版本表；输出问题码列表 |
+| 判定 | `packages/see-dsh-novel/src/core/packaging.ts` | 纯函数：输入条目清单、包内 manifest、已解析的 patch 行（id 与 name 列表）、客户端脚本文本、esbuild 结果、根版本表；输出问题码列表。不读 YAML |
 | 编排 | `scripts/check-package.mjs` | `pnpm pack` 到临时目录、读盘、跑 esbuild、调判定、打印报告、退出码 |
 
 tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写入、状态播种），归档工具属于仓库工具，与参考工程把它放在 `scripts/release/tar.mjs` 是同一个位置。判定函数不读字节，只吃「条目路径 + 需要的文本」，可以在测试里直接构造。
@@ -38,6 +38,7 @@ tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写�
 | `pack-patch-missing` | `dsh.bundle.patch` 指向的文件在条目里 |
 | `patch-module-unexported` | patch 里任何 `see-dsh-novel`／`see-dsh-novel/<sub>` 必须对应 `exports` 的 `.`／`./<sub>` |
 | `patch-row-missing` | patch 解析后必须有根行 `see-dsh-novel`、preset 行 `preset-see-dsh-novel`（`name: @deepseek-ai/dsh-agent-preset`）与预设内的 `see-dsh-novel/agent` |
+| `patch-invalid` | `cordis.patch.yml` 解析不出任何行（脚本层的 YAML 解析失败也归到这里） |
 | `unexpected-entry` | 条目必须落在允许集合内：`package.json`、`lib/(index\|agent\|client)\.js`、`skills/[\w-]+/SKILL\.md`、`cordis.patch.yml` |
 | `install-hook` | manifest 的 `scripts` 里不得出现 `preinstall`／`install`／`postinstall`／`prepare`／`prepublishOnly`／`prepack`／`postpack`／`publish`／`postpublish` |
 | `local-dependency` | 依赖字段里出现 `workspace:`／`file:`／`link:` |
@@ -51,12 +52,15 @@ tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写�
 
 `scripts/check-package.mjs`（`node --import tsx` 运行）：
 
-1. 在 `packages/see-dsh-novel` 跑 `pnpm pack --pack-destination <临时目录>`；
-2. `scripts/pack-tar.mjs` 读条目与内容；读失败 → `tar-read-error`，退出 1；
-3. 读包内 `package.json`、`cordis.patch.yml`（`yaml` 解析出所有 `name` 与行 id）、根 `devDependencies`；
-4. 用 esbuild 对包内 `lib/index.js`、`lib/agent.js` 各打一次 metafile（`packages: 'external'`），收集 imports 与 inputs 数；
-5. 调 `packagingProblems`，打印报告：`ok`、tarball 的 sha256、条目数、各检查项、imports；有问题时 stderr 列问题码并退出 1；
-6. 临时目录在 `finally` 里删除。
+1. 先读**源码** `packages/see-dsh-novel/package.json`，有 install hook 直接 `install-hook` 退出——检查要在 `pnpm pack` 执行它们**之前**，否则等于检查已经跑过的脚本；
+2. 在 `packages/see-dsh-novel` 跑 `pnpm pack --pack-destination <临时目录>`；
+3. `scripts/pack-tar.mjs` 读条目与内容；读失败 → `tar-read-error`，退出 1；
+4. 读包内 `package.json`、`cordis.patch.yml`（`yaml` 解析成行 id 与 name 列表，解析失败 → `patch-invalid`），再读根 `devDependencies`；
+5. 用 esbuild 对包内 `lib/index.js`、`lib/agent.js` 各打一次 metafile（`packages: 'external'`），收集 imports 与 inputs 数；
+6. 调 `packagingProblems`，打印报告：`ok`、tarball 的 sha256、条目数、各检查项、imports；有问题时 stderr 列问题码并退出 1；
+7. 临时目录在 `finally` 里删除。
+
+包内 manifest 的 install hook 仍然要查一次（源码与产物理论上应一致，但检查产物才算对账）；源码那次是为了「不让 hook 跑起来」。
 
 ### 接进 `verify`
 
@@ -85,7 +89,7 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 ## Acceptance criteria
 
 - `pnpm run check-package` 在当前包上退出码 0，stdout 报告含 tarball sha256、条目数（当前 7 条：`package.json`、`lib/index.js`、`lib/agent.js`、`lib/client.js`、`cordis.patch.yml`、两份 `SKILL.md`）与 `ok: true`。
-- 条目录里出现 `package/src/index.ts` → `unexpected-entry`；出现 `package/lib/extra.js` → `unexpected-entry`（允许集合精确到三个入口文件）；出现 `package/lib/../x.js` 或同名条目 → 读取器报错，脚本以 `tar-read-error` 退出 1；条目为空同理。
+- 条目录里出现 `package/src/index.ts` → `unexpected-entry`；出现 `package/lib/extra.js` → `unexpected-entry`（允许集合精确到三个入口文件）；出现 `package/lib/../x.js`、符号链接条目或同名条目 → 读取器报错，脚本以 `tar-read-error` 退出 1（`scripts/pack-tar.test.mjs` 用合成字节覆盖这三类）；条目为空同理。
 - 条目里整目录缺 `lib/` → `files-entry-missing lib` 加三条 `export-target-missing`；只缺 `lib/agent.js` 时只报 `export-target-missing lib/agent.js`（`files` 的目录前缀仍然满足）。
 - 包内 manifest 把 `dsh.bundle.patch` 指向不存在的文件 → `pack-patch-missing`。
 - patch 里出现 `see-dsh-novel/tools` 而 `exports` 没有 `./tools` → `patch-module-unexported`。
@@ -96,7 +100,7 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 - 包内 `lib/index.js` 留一个 `import 'esbuild'` → `undeclared-import esbuild`；把 `lib/index.js` 改成 import 一个包内文件（inputs 变 2）→ `undeclared-import` 的 inputs 断言报错。
 - 包内 `lib/client.js` 不含 `id: "see-dsh-novel"` → `client-id-missing`。
 - 有问题时退出码非零、stderr 列问题码；通过时不写工作区任何文件（临时目录已清理）。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；脚本 `scripts/check-package.mjs`、`scripts/pack-tar.mjs` 与根 `package.json` 的 `verify` 链；realRun `artifacts/real-runs/runtime.package-check.json`（含 `date`、`sessionId`、`tests.passed: true` 与非空 `receipts`，与其他行同形）。
+- 实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；`scripts/pack-tar.mjs` 由 `scripts/pack-tar.test.mjs` 覆盖（合成一份带链接、`..`、重复条目的 tar 字节），根 `test` 脚本同时跑 `scripts/*.test.mjs`；`scripts/check-package.mjs` 与根 `package.json` 的 `verify` 链；realRun `artifacts/real-runs/runtime.package-check.json`（含 `date`、`sessionId`、`tests.passed: true` 与非空 `receipts`，与其他行同形）。
 - 真实运行：`pnpm run check-package` 在真实 `pnpm pack` 产物上通过；再人为改动一次（把 `files` 里的 `lib` 去掉）重跑，脚本报错并以非零码退出，随后恢复。
 
 ## Risks
