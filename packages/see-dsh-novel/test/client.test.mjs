@@ -424,6 +424,16 @@ test('the identity file decides between 未立项 and 已立项 without touching
   const complete = await renderView()
   assert.doesNotMatch(textOf(complete.tree), /身份文件缺失/)
   assert.equal(complete.tree.root.findAllByType('button').length, 3)
+
+  // 一个锚点在就算有设定：闸门照旧，不因另一个锚点缺失而改口。
+  const mixed = await renderView({ statuses: ['live', 'failed', 'live'] })
+  assert.match(textOf(mixed.tree), /作者确认闸门/)
+  assert.equal(mixed.tree.root.findAllByType('button').length, 3)
+
+  // 身份通道读不到：不能说成「缺失」，整块按通道不可用处理。
+  const unreadableIdentity = await renderView({ statuses: ['live', 'live', 'none'] })
+  assert.match(textOf(unreadableIdentity.tree), /读不到工作区状态/)
+  assert.doesNotMatch(textOf(unreadableIdentity.tree), /身份文件缺失/)
 })
 
 test('command outcomes map to the four visible states', async () => {

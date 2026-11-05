@@ -236,7 +236,7 @@ test('the work tools create, show and refuse to overwrite', async () => {
     const show = registered.get(WORK_SHOW_NAME)
     assert.equal((await show.execute({}, exec)).work, null)
 
-    const created = await create.execute({ title: '工具立项', language: 'en', targetChapters: 20 }, exec)
+    const created = await create.execute({ title: '工具立项', language: 'en', metadata: { targetChapters: 20 } }, exec)
     assert.equal(created.work.title, '工具立项')
     assert.equal(created.work.language, 'en')
     assert.equal(created.work.metadata.targetChapters, 20)
@@ -269,7 +269,8 @@ test('a broken identity file makes both tools fail with the file and field', asy
     const { registered, ctx } = services(root)
     installWorkTools(ctx)
     await assert.rejects(registered.get(WORK_SHOW_NAME).execute({}, exec), /work\.json: /)
-    await assert.rejects(registered.get(WORK_CREATE_NAME).execute({ title: 'x' }, exec), /已经存在/)
+    // 坏文件先报字段，而不是「已存在」——作者手改出错时前者才有用。
+    await assert.rejects(registered.get(WORK_CREATE_NAME).execute({ title: 'x' }, exec), /字段 version/)
   } finally {
     await cleanup(root)
   }

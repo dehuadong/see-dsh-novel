@@ -194,7 +194,11 @@ export async function workProbes(root: string): Promise<WorkProbes> {
 export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
   const base = resolve(root)
   const path = join(base, WORK_FILE)
-  if (await exists(path)) fail(path, '已经存在，不覆盖；改身份请手改这一份文件')
+  if (await exists(path)) {
+    // 内容坏了先按字段报错：作者手改出错时，「已经不存在的字段」比「已存在」更有用。
+    await readWork(base)
+    fail(path, '已经存在，不覆盖；改身份请手改这一份文件')
+  }
 
   const title = text(input.title, path, 'title')
   const language = oneOf(input.language ?? 'zh', WORK_LANGUAGES, path, 'language') as WorkLanguage

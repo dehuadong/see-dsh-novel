@@ -55,12 +55,17 @@ function successNotice(line: string): string {
 
 type ResourceStatus = 'none' | 'loading' | 'live' | 'failed'
 
-/** 两个锚点合成一个三态：任一存在即作品；都在加载就先等；都报缺失才算没有。 */
-function workState(states: ReadonlyArray<ResourceStatus>): ResourceStatus {
-  if (states.includes('live')) return 'live'
-  if (states.includes('loading')) return 'loading'
-  if (states.includes('failed')) return 'failed'
-  return 'none'
+/** 通道状态：读不到、在读、都能读。能读之后再分别看身份与设定在不在。 */
+type ChannelState = 'unavailable' | 'loading' | 'ready'
+
+/**
+ * 先把「读不到」与「在读」判掉：三个探针里任何一个没通道或还在加载，
+ * 都不能对作者断言「有没有作品」。
+ */
+function channelState(statuses: ReadonlyArray<ResourceStatus>): ChannelState {
+  if (statuses.includes('none')) return 'unavailable'
+  if (statuses.includes('loading')) return 'loading'
+  return 'ready'
 }
 
 /**
@@ -94,9 +99,11 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
   const manifest = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_MANIFEST}`)
   const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
-  const work = workState([outline.status, manifest.status])
+  const channel = channelState([outline.status, manifest.status, identity.status])
   // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
   const identified = identity.status === 'live'
+  // 任一锚点存在就算有基础设定；两个都确认缺失才算还没有。
+  const hasFoundation = outline.status === 'live' || manifest.status === 'live'
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
   // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求
@@ -153,11 +160,11 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   }
 
   const body: ReactNode[] = []
-  if (work === 'none') {
+  if (channel === 'unavailable') {
     body.push(<p key="none" className="sdn-muted">读不到工作区状态（文件资源通道不可用），暂时不能确认。</p>)
-  } else if (work === 'loading') {
+  } else if (channel === 'loading') {
     body.push(<p key="loading" className="sdn-muted">正在读取工作区…</p>)
-  } else if (work === 'failed') {
+  } else if (!hasFoundation) {
     body.push(identified
       ? <p key="empty" className="sdn-muted">已立项，还没有基础设定。让本会话跑一遍基础设定，再来这里确认。</p>
       : <p key="empty" className="sdn-muted">尚未立项。当前工作区既没有 work.json，也没有 source/story/。</p>)

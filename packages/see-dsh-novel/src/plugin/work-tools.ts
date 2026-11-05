@@ -39,15 +39,22 @@ const WORK_SCHEMA: JsonSchema = {
   required: ['version', 'id', 'title', 'profile', 'language', 'status', 'metadata', 'createdAt', 'updatedAt'],
 }
 
-/** 立项参数：标题必填，语言默认中文。 */
+/** 立项参数：标题必填，语言默认中文，规模放在 `metadata` 里。 */
 export const workCreateParameters: JsonSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
     title: { type: 'string', description: '作品标题，作者在对话里确认过的那个' },
     language: { type: 'string', enum: [...WORK_LANGUAGES], description: '正文语言，默认 zh' },
-    targetChapters: { type: 'integer', description: '目标章数；可选' },
-    chapterWordCount: { type: 'integer', description: '单章目标字数；可选' },
+    metadata: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        targetChapters: { type: 'integer', description: '目标章数；可选' },
+        chapterWordCount: { type: 'integer', description: '单章目标字数；可选' },
+      },
+      required: [],
+    },
   },
   required: ['title'],
 }
@@ -79,8 +86,7 @@ export const workShowOutput: JsonSchema = {
 interface CreateArgs {
   title: string
   language?: string
-  targetChapters?: number
-  chapterWordCount?: number
+  metadata?: { targetChapters?: number, chapterWordCount?: number }
 }
 
 /** 身份一句话描述；卡片与测试共用。 */
@@ -116,7 +122,14 @@ export function installWorkTools(ctx: PluginContext): Disposer {
       render: (_args: unknown, value: { work: Work }) => [{ type: 'text' as const, text: `已立项${describe(value.work)}` }],
     },
     async execute(args: CreateArgs, exec: ExecuteContext): Promise<{ work: Work }> {
-      return { work: await writeWork(await workRoot(exec), args) }
+      return {
+        work: await writeWork(await workRoot(exec), {
+          title: args.title,
+          language: args.language,
+          targetChapters: args.metadata?.targetChapters,
+          chapterWordCount: args.metadata?.chapterWordCount,
+        }),
+      }
     },
   } as ToolDefinition<CreateArgs, { work: Work }>)
 
