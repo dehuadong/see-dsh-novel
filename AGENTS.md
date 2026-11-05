@@ -19,7 +19,9 @@
 ## DSH 插件与预设
 
 在开发deepseek-harness 插件时遇到问题可参阅deepseek-harness官方源码工程包 `deepseek-harness/packages`（仓库根下的目录联接）
-
+DSH UI设计判断参考`deepseek-harness/docs/ui-design-review-cases.zh.md`
+Web UI 样式参考`deepseek-harness/docs/web-styling.zh.md`
+DSH  UI统一圆角规范`deepseek-harness/docs/ui-radius.zh.md`
 
 ## 工程工作流 
 
