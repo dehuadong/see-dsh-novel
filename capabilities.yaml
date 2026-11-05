@@ -146,7 +146,7 @@ capabilities:
     status: verified
   - id: foundation.ready-check
     title: 基础设定就绪判据：五段齐全且至少一张角色卡，而不是只看大纲与状态清单
-    source: inkos:packages/core/src/state/manager.ts
+    source: inkos:packages/core/src/utils/outline-paths.ts
     dsh: tools.register
     implementation: null
     consumer: null
