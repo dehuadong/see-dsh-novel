@@ -34,8 +34,8 @@ capabilities:
     status: verified
   - id: runtime.package-check
     title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致
-    reference: inkos:scripts/verify-no-workspace-protocol.mjs
-    dsh: scripts + npm pack
+    reference: dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs
+    dsh: scripts + pnpm pack
     implementation: null
     consumer: null
     realRun: null
