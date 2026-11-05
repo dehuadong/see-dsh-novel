@@ -97,6 +97,8 @@ export interface CommandResultLike {
 export interface CommandDefinitionLike {
   name: string
   description: string
+  /** 声明这个命令接受自由文本输入；输入框据此先让作者补参数再派发。 */
+  input?: { hint: string }
   handler(invocation: CommandInvocationLike): CommandResultLike | Promise<CommandResultLike>
 }
 

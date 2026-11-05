@@ -111,6 +111,8 @@ export function installInitCommand(ctx: PluginContext): Disposer {
   return ctx.commands.register({
     name: COMMAND_INIT,
     description: '在当前工作区立项：写下 work.json（标题、语言、目标章数与单章字数）。',
+    // 不声明 input 时，命令在候选菜单里一选中就派发，作者来不及补参数。
+    input: { hint: '《标题》 [--lang zh|en] [--chapters N] [--words N]' },
     async handler(invocation: CommandInvocationLike): Promise<CommandResultLike> {
       try {
         const root = await ctx.workingDirectory.ensure(invocation.agent)

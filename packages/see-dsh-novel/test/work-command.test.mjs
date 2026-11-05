@@ -74,6 +74,8 @@ test('the command writes work.json and reports the identity', async () => {
     const { commands, ctx } = services(root)
     const dispose = installInitCommand(ctx)
     assert.deepEqual([...commands.keys()], [COMMAND_INIT])
+    // 不声明 input 时输入框会在选中命令后立即派发，参数没有机会输入。
+    assert.match(commands.get(COMMAND_INIT).input.hint, /--chapters N/)
 
     const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '《夜行测试》 --lang en --chapters 80 --words 2500' })
     assert.equal(result.kind, 'success')
