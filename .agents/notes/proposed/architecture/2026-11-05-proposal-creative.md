@@ -14,7 +14,7 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 
 ### `story_propose` 工具
 
-参数（除 `title`、`summary` 外都可选，缺的按作品默认值走）：
+参数（`title` 与 `summary` 必填，其余可选，缺的按作品默认值走）：
 
 | 参数 | 含义 |
 | --- | --- |
@@ -86,9 +86,9 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 - 作者在对话里给出方向、缺的项由模型追问；信息够后模型调 `story_propose`，确认条上出现标题、题材／平台、语言、目标章数与单章字数。
 - 确认条允许 → `work.json` 出现且只有它：`title`、`language`、`metadata.targetChapters`／`chapterWordCount`／`genre`／`platform` 与提案一致；`source/story/` 不存在；`story_next` 报 `foundation`；工具返回 `created: true`。
 - 拒绝或取消 → 工作区没有任何新文件，工具返回 `created: false` 与对应 `outcome`；模型据此问作者要改什么。
-- 没有 `approval` 服务（或策略 `never`）→ 不写盘，返回 `outcome: "unavailable"` 与替代路径的提示。
+- 没有 `approval` 服务、策略 `never`、或 `approval.request` 自己返回 `unavailable`：三者都不写盘，工具返回 `created: false`、`outcome: "unavailable"` 与替代路径的提示。
 - 已存在 `work.json` → 工具报错且不改写原文件。
-- 校验：空标题、非法 `language`、`chapters`／`chapterWords` 非正整数时报错，不落盘；未给的字段按默认（`zh`，无目标规模）。
+- 校验：空标题、空 `summary`、非法 `language`、`chapters`／`chapterWords` 非正整数时报错，不落盘；未给的字段按默认（`zh`，无目标规模）。
 - `work.json` 里多出的 `genre`／`platform` 能被 `parseWork` 读回、被 `describeWork` 展示；旧格式 `work.json`（没有这两个字段）照常解析。
 - 技能 `story-proposal` 随包注册（`test/host.test.mjs` 的技能清单断言同批更新），`story_propose` 进 `src/plugin/agent.ts` 的注册与注销顺序，工具清单断言同批更新。
 - 身份字段：`story_work_create` 与 `/story-init` 都能写 `genre`／`platform`，`story_work_show` 的输出 schema 能原样读回；旧格式 `work.json` 照常解析。
