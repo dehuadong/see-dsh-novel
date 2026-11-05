@@ -61,11 +61,18 @@ async function seedFoundation(root) {
 
 const DEAD_PID = 999999
 
-/** 造一个残留的暂存目录；`phase` 决定回收规则。 */
-async function stagingFixture(root, { phase, journal = true, pid = DEAD_PID, writes = ['source/story/outline/story_frame.md'] }) {
+/** 造一个残留的暂存目录；`phase` 决定回收规则，`pending` 表示还有没搬走的 staged 文件。 */
+async function stagingFixture(root, {
+  phase,
+  journal = true,
+  pid = DEAD_PID,
+  writes = ['source/story/outline/story_frame.md'],
+  pending = true,
+}) {
   const dir = join(root, 'source', '.staging-fixture')
   await mkdir(join(dir, 'backup', 'source/story/outline'), { recursive: true })
   await mkdir(join(dir, 'work'), { recursive: true })
+  if (pending && writes.length > 0) await writeFile(join(dir, 'work', 'staged.md'), 'staged\n', 'utf8')
   if (journal) {
     await writeFile(join(dir, 'journal.json'), JSON.stringify({ version: 1, pid, phase, writes, deletes: [] }), 'utf8')
   }
@@ -220,6 +227,29 @@ test('a dead prepared staging is rolled back from its backup', async () => {
     const applied = await repairWorkspace(root, scan.findings)
     assert.deepEqual(applied, ['source/.staging-fixture'])
     assert.equal(await readFile(target, 'utf8'), original)
+    assert.equal(await exists(staging), false)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a prepared staging whose files were all moved is cleaned, not rolled back', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    const target = join(root, 'source/story/outline/story_frame.md')
+    const applied = '# 已应用\n'
+    await writeFile(target, applied, 'utf8')
+    // 日志停在 prepared（applied 标记没写成），但 work/ 已经空了：rename 全做完了。
+    const staging = await stagingFixture(root, { phase: 'prepared', pending: false })
+    await writeFile(join(staging, 'backup/source/story/outline/story_frame.md'), '# 旧大纲\n', 'utf8')
+
+    const scan = await scanWorkspace(root)
+    assert.ok(scan.findings.some((entry) => entry.code === 'staging-cleanup'))
+    assert.equal(scan.findings.some((entry) => entry.code === 'staging-rollback'), false)
+
+    await repairWorkspace(root, scan.findings)
+    assert.equal(await readFile(target, 'utf8'), applied, '已应用的文件不被回滚')
     assert.equal(await exists(staging), false)
   } finally {
     await cleanup(root)

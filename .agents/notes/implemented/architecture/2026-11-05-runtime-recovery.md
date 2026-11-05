@@ -44,10 +44,12 @@ Status: implemented
 扫描 `source/.staging-*` 目录：
 
 - 有 journal 且 `pid` 还活着 → `staging-active`（`info`，不修）：那是一次正在进行的提交，碰它会把并发写弄坏；
-- 有 journal、属主已死、`phase: "prepared"` → `staging-rollback`（`warning`，**可修**）：按 journal 把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
 - 有 journal、属主已死、`phase: "applied"` → `staging-cleanup`（`info`，**可修**）：文件都已就位，只删暂存目录；
+- 有 journal、属主已死、`phase: "prepared"` → 按进展分两种：`work/` 里已经没有 staged 文件（且这次提交没有删除项）说明 rename 全做完了、只差标记，记 `staging-cleanup`；否则记 `staging-rollback`（`warning`，**可修**）——把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
 - journal 读不出来（写了一半、JSON 坏了、`phase` 不是两个已知值）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
 - 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
+
+「`prepared` 但 staged 已搬空」这一条专门兜住「`applied` 标记没写成、删日志也失败、清理也失败」的叠加情况：那种残留日志还是 `prepared`，但工作已经做完，按 `work/` 是否为空就能判出来，不会被误当成没写完而回滚。
 
 `commitFile` 也会留痕：它在目标目录写 `.tmp-<pid>-<uuid>`（本行把原来的 `.tmp-<uuid>` 加上 pid），rename 之前崩溃就把临时文件留在原地。工作区根（`work.json`）与 `source/story/**` 里都可能出现；后者里时还会计入工件摘要。回收时按 pid 判属主：属主已死的才删（`tmp-residue`，`warning`，**可修**）；属主活着的是另一个正在写的进程，保留；文件名不带 pid（旧格式）的无法判活，只报告。临时文件从未成为目标内容，删除是安全的，删除后摘要回到应有的值。
 
@@ -101,7 +103,7 @@ Status: implemented
 
 收益：工作区被手滑或崩溃弄坏之后，作者不必翻目录猜——`story_recover` 会把「少了什么、能不能补、补完要不要重新确认」一次说清；能安全重建的索引直接补回，属主已死的提交残留按日志回滚或清理，不必人工拆暂存目录。
 
-落地的代码：`src/core/commit.ts` 的 `commitFoundation` 在备份之后、rename 之前写 `journal.json`（`version/pid/phase/writes/deletes`），rename 与删除完成后尽力改写 `phase: "applied"`；改写或删日志失败都不进入回滚路径，已应用的文件不会被自己撤销。`commitFile` 的临时文件名是 `.tmp-<pid>-<uuid>`。`src/core/state.ts` 的 `defaultStateFiles(hooks)` 是状态文件默认内容的唯一来源，`stateWritesIfMissing` 与自检共用。`src/core/recovery.ts` 导出 `FINDING_CODES`（发现分类的唯一来源，工具 schema 的枚举取自它）、`scanWorkspace`（发现清单 + 摘要）、`repairWorkspace`（重建索引、回滚/清理暂存、删属主已死的临时文件）、`parseJournal`、`pidAlive`；日志里的路径经 `contained()` 收回作品根，越界路径不写不删。`src/plugin/recovery-tool.ts` 注册 `story_recover`，输出**修复前**的发现（修完再看会「什么都没发现」）与修复前后的摘要、作者认可过的摘要、`needsReconfirm`，文字回执同时给出两个短摘要；回执来源 `DECISION_SOURCES` 移进 `pipelines/long/contract.ts`，面板与自检共用。`src/plugin/agent.ts` 注册并保持相反顺序注销。
+这条能力只读会话与文件、只写三种索引与暂存残留，不引入新的服务或存储。发现分类以 `FINDING_CODES` 为唯一来源，工具 schema 的枚举直接取自它；状态文件的默认内容以 `defaultStateFiles` 为唯一来源，foundation 与自检共用，两边不会漂移。提交日志只记阶段、属主与清单，不做锁；回滚只认「属主已死 + `prepared` + 还没搬空」，已应用的写入不会被撤销。日志里的路径一律收回作品根内，越界路径既不写也不删。
 
 验证见 `test/recovery.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_recover`）。
 
@@ -113,4 +115,4 @@ Status: implemented
 - 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
 - `needsReconfirm` 依据的是会话里能读到的那次认可：如果当前会话没读过旧回执（换过会话），它会是 `false`，作者要自己按摘要判断。
 - `.tmp-*` 的属主判定与暂存同理：pid 被复用会误判为「活着」而保留临时文件，不会误删；旧格式的临时文件永远只报告，靠人工清理。
-- `applied` 标记写失败这条路径没有注入式测试（没有为测试开注入口）：测试覆盖的是它的可观察后果——提交成功/失败都不留暂存目录、没有日志的残留只会被报 `staging-unknown`。
+- 「`work/` 已搬空」是间接证据：如果提交只有删除项，判不出删除做到哪一步，一律按回滚处理（宁可恢复也不留下删了一半的状态）。

@@ -97,6 +97,16 @@ async function entriesOf(dir: string) {
   }
 }
 
+/** 递归数目录里的文件；不存在按 0 处理。 */
+async function countFiles(dir: string): Promise<number> {
+  let total = 0
+  for (const entry of await entriesOf(dir)) {
+    if (entry.isDirectory()) total += await countFiles(join(dir, entry.name))
+    else if (entry.isFile()) total += 1
+  }
+  return total
+}
+
 /** 提交残留：暂存目录按日志阶段处理，日志读不出来只报告。 */
 async function stagingFindings(root: string): Promise<Finding[]> {
   const findings: Finding[] = []
@@ -133,13 +143,28 @@ async function stagingFindings(root: string): Promise<Finding[]> {
       continue
     }
     if (journal.phase === 'prepared') {
-      findings.push({
-        code: 'staging-rollback',
-        severity: 'warning',
-        path,
-        detail: `属主进程 ${journal.pid} 已退出，提交停在应用之前；可以用备份还原。`,
-        fixable: true,
-      })
+      // 日志没来得及改成 applied 时，用「staged 文件是否已经全部搬走」判进展：
+      // 全搬空了说明 rename 已完成，剩下的只是没写成的标记与清理。
+      const pending = (journal.deletes.length === 0 && journal.writes.length > 0)
+        ? await countFiles(join(dir, 'work'))
+        : 1
+      if (pending === 0) {
+        findings.push({
+          code: 'staging-cleanup',
+          severity: 'info',
+          path,
+          detail: `属主进程 ${journal.pid} 已退出；写入都已完成，只差清理暂存目录。`,
+          fixable: true,
+        })
+      } else {
+        findings.push({
+          code: 'staging-rollback',
+          severity: 'warning',
+          path,
+          detail: `属主进程 ${journal.pid} 已退出，提交没走完；可以用备份还原。`,
+          fixable: true,
+        })
+      }
     } else {
       findings.push({
         code: 'staging-cleanup',
@@ -266,20 +291,14 @@ export async function scanWorkspace(root: string): Promise<RecoveryScan> {
     }
   }
 
-  if (!workExists && artifacts.files.length === 0 && !workDirExists) {
+  if (!workExists && artifacts.files.length === 0) {
     findings.push({
       code: 'unbound',
       severity: 'info',
       path: null,
-      detail: '还没有立项，也没有作品内容。',
-      fixable: false,
-    })
-  } else if (!workExists && artifacts.files.length === 0) {
-    findings.push({
-      code: 'unbound',
-      severity: 'info',
-      path: null,
-      detail: '没有 work.json，source/story/ 也是空的；还没立项。',
+      detail: workDirExists
+        ? '没有 work.json，source/story/ 也是空的；还没立项。'
+        : '还没有立项，也没有作品内容。',
       fixable: false,
     })
   } else if (!workExists) {
