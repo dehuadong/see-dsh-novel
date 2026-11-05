@@ -60,7 +60,7 @@ Status: proposed
 
 ### 注入面
 
-`ViewInjected` 增加 `start(sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome>`（复用 `'ok' | 'failed'`），`index.ts` 里与 `resume` 并列实现，共用同一条 `prompt(..., 'queue')` 路径；抛错不吞，由视图映射成 `start-unknown`。`RESUME_TEXT` 与 `START_TEXT(cwd)` 都由 `index.ts` 导出，测试断言稳定语义（提到 `story_work_show`、四个 foundation 工具、`不要自行签核`、工作区路径），不锁整句。
+`ViewInjected` 增加 `start(sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome>`（复用 `'ok' | 'failed'`），`index.ts` 里与 `resume` 并列实现，共用同一条 `prompt(..., 'queue')` 路径；抛错不吞，由视图映射成 `start-unknown`。`RESUME_TEXT` 与 `START_TEXT(cwd)` 都由 `index.ts` 导出；文本的稳定语义按「验收」第一条断言，不锁整句。
 
 ## Alternatives considered
 
@@ -82,9 +82,9 @@ Status: proposed
 - 会话 `running` 从真变假之后，`started` 解除，面板按探针重新判定：任一锚点存在就落在闸门屏。
 - `start` 返回 `'failed'` 时文案是「已立项，但没能自动开始…」、按钮恢复可点；`prompt` 抛错时文案是「没能确认会话是否收到开工指令…」、不再给按钮，出口是对话。
 - `start-unknown` 只管空态屏：不渲染开工按钮，也不随 `running` 解除；一旦探针看到基础设定，闸门屏照常显示（那里没有开工按钮）。
-- 连点只产生一条 `prompt`；切换会话后到达的旧结果不画到新会话，`started`／`start-unknown` 随切换重置；重挂之后按钮回来，重复投递由 agent 的阶段检查挡住。
+- 连点只产生一条 `prompt`；切换会话后到达的旧结果不画到新会话，`started`／`start-unknown` 随切换重置；重挂之后按钮回来，重复投递只在模型遵守阶段检查时被缓解。
 - 身份缺、已有基础设定、通道不可用这几种屏都不出现开工按钮。
-- 投出的消息让 agent 先 `story_work_show` 并核对 `cwd`；再用 `story_next` 核对阶段：工作目录对不上或阶段不是 `foundation` 时，agent 报告并停手，不盲写、不重复写。
+- 投出的消息让 agent 先 `story_work_show` 并核对 `cwd`；再用 `story_next` 核对阶段：工作目录对不上或阶段不是 `foundation` 时，agent 报告并停手；模型遵守时不会盲写或重复写。
 - 实现与证据：implementation `packages/see-dsh-novel/src/client/index.ts`（`START_TEXT(cwd)`、`start` 注入面）与 `StoryView.tsx`（空态分支的按钮、`started`／`start-unknown` 状态、`running` 驱动的收尾与闸门抑制）；consumer `packages/see-dsh-novel/test/client.test.mjs`；realRun `artifacts/real-runs/panel.foundation-start.json`。
 - 真实运行：在只有 `work.json` 的空工作区打开面板，点「开始基础设定」，会话里出现新的一轮并按顺序写基础设定；写的过程中面板显示「会话正在运行…」，这一轮结束后自动落在作者确认闸门。
 
