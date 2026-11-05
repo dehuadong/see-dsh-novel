@@ -1,6 +1,6 @@
 # Agent Note: runtime.session-binding —— 作品身份与绑定
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -8,7 +8,7 @@ Status: proposed
 
 参考工程给每部作品一份清单（`inkos:packages/core/src/harness/work-store.ts` 写在 `works/<id>/work.json`，结构见 `contracts.ts` 的 `WorkManifestSchema`：`version/id/title/profileId/language/status/lineage/artifacts/metadata/createdAt/updatedAt`），会话按 `bookId` 绑定到作品（`session-binding.ts` 把 session kind 映射成 profile 与 workId），命令都要求作品 id。本项目一个工作区就是一部作品，但同样需要这份身份与绑定。
 
-## Proposal
+## Decision
 
 ### `work.json` 放在工作区根
 
@@ -113,24 +113,22 @@ foundation 工具不因缺少 `work.json` 而拒绝写入：那会把已经验�
 
 **在面板里解析 `work.json` 显示标题。** 面板更好看。否掉：文件资源不带正文；为显示标题加一条读文件通道，超出本行范围。
 
-## Acceptance criteria
+## Consequences
 
-- `story_work_create` 在会话工作区根写出 `work.json`：字段齐全、时间戳为 ISO、`profile` 为 `longform-novel`；第二次调用报错且不改原文件。
-- 缺 `title`、`language` 不在 `zh`/`en`、`targetChapters`／`chapterWordCount` 不是正整数时，工具报错且不落盘。
-- `story_work_create` 返回 `{ work }`、`story_work_show` 返回 `{ work: Work | null }`（没有 `work.json` 时 `work` 为 `null`），形状符合各自注册的 schema。
-- `work.json` 存在但内容非法（未知字段、版本不符、类型不对）时，`story_next`、`story_work_show`、`story_work_create` 都抛错，报错里带文件路径与字段名。
-- `story_next` 在四种探针组合上分别返回 `unbound`／`foundation`／`draft`／`ready` 与对应 `next`；`work` 在读得到 `work.json` 时是标题、否则为 `null`。
-- 面板：文件通道不可用时提示；两个锚点缺失时是「未立项」或「已立项，还没有基础设定」；锚点存在时保留现有确认闸门，`work.json` 缺失只追加一行提示。
-- 没有 `work.json` 的工作区，foundation 工具行为与现在一致（既有用例回归）。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/work.ts`（清单读写、严格解析、探针），同批改 `packages/see-dsh-novel/src/plugin/story-next.ts`（`PHASES`、`storyNext(state)`、输出 schema）、`packages/see-dsh-novel/src/plugin/work-tools.ts`（两个工具）与 `src/plugin/client.ts`（身份提示）；consumer `packages/see-dsh-novel/test/work.test.mjs`，同批更新 `test/host.test.mjs`（工具清单、`storyNext`）与 `test/client.test.mjs`（身份提示）；realRun `artifacts/real-runs/runtime.session-binding.json`。
-- 真实运行：在一个空工作区让 agent 立项（标题／语言／章数），看到 `work.json` 落盘、`story_next` 报告 `foundation`、面板显示「已立项，还没有基础设定」。
+身份与读文件：`src/core/work.ts` 定义 `WORK_FILE`、四个枚举、`Work`／`WorkMetadata`／`WorkProbes`、`parseWork`（严格：未知字段、版本、枚举、正整数、时间戳都按「文件 + 字段」报错）、`readWork`、`workProbes`（三个探针只看存在性）与 `writeWork`（校验输入、`id` 取目录名、`profile` 固定 `longform-novel`、`status: draft`、时间戳取同一次 `toISOString()`，已存在则报错不覆盖）。`src/core/commit.ts` 新增单文件原语 `commitFile`：同目录 `.tmp-<uuid>` 写完 `rename`，失败删临时文件；它不建 `source/`，也不做备份——那是 `commitFoundation` 的职责。
 
-## Risks
+阶段与工具：`src/plugin/story-next.ts` 的 `PHASES` 扩到 `unbound`／`foundation`／`draft`／`ready`，`NEXT_STEPS` 把阶段映射到 `story_work_create`／`story_foundation_outline`／`story_foundation_details`／`story_gate`；`storyNext(state)` 按「什么都没有 → 没有大纲 → 没有状态清单 → 全都有」的顺序判定，`work` 取读到的标题或 `null`，所以「内容在、身份缺」是合法的 `ready`。`src/plugin/work-tools.ts` 注册 `story_work_create`（返回 `{ work }`）与 `story_work_show`（返回 `{ work: Work | null }`），两者都要求所属 agent、都用 `workingDirectory.ensure` 解析作品根。`src/plugin/agent.ts` 的 `story_next` 从常量升级为读盘：先 `workProbes`、再按需 `readWork`，坏文件直接抛错。
+
+面板：`StoryView` 增加第三个探针 `/work.json`，只当存在性信号（资源通道不带正文，不解析 JSON）。两个锚点都缺时按身份分成「尚未立项」与「已立项，还没有基础设定」；锚点存在时保留原有闸门，身份缺失只追加一行提示，按钮照旧。
+
+验证见 `test/work.test.mjs`（写入字段与幂等、输入校验、严格解析的各类坏值、坏 JSON、探针真值表、四阶段映射、`commitFile` 残留、两个工具的创建／查看／拒绝覆盖、坏身份文件让两个工具报错、四张 schema 都在运行时子集内），`test/host.test.mjs`（工具清单扩到十个、`story_next` 在空工作区到 `ready` 的四级读数、卡片渲染）与 `test/client.test.mjs`（身份三态与闸门）；真实运行回执见 `artifacts/real-runs/runtime.session-binding.json`。
+
+代价与已知限制：
 
 - `work.json` 在根目录，`export.work` 与 `backup.restore` 必须把它算进产物清单，否则导出的作品没有身份。
 - `id` 取目录名，只作标识；将来若有逻辑按 `id` 找目录，工作区改名就会断——这条限制要一直成立。
-- `status` 目前没有推进路径（立项即 `draft`），推进属于章节定稿／导出的活；本行只定义字段与默认值。
+- `status` 目前没有推进路径（立项即 `draft`），推进属于章节定稿／导出的活。
 - 面板读不到标题，只能显示状态；作者想确认作品名要回到对话。
 - 作者显式改过工作目录之后，工具按当前目录、面板按会话记录目录，二者可能指向不同的 `work.json`；`story_next` 与 `story_work_show` 是权威读数，这条限制来自既有资源通道。
-- 严格解析意味着手改 `work.json` 加字段会让 `story_next` 报错——这是想要的（宁可炸），报错里要指明文件与字段。
+- 严格解析意味着手改 `work.json` 加字段会让 `story_next` 报错——这是想要的（宁可炸）。
 - 两个写原语（`commitFoundation` 与 `commitFile`）并存；后续行若需要多文件事务，应复用前者而不是再写一个。

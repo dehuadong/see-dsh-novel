@@ -51,10 +51,10 @@ capabilities:
   - id: runtime.session-binding
     title: 作品身份 work.json、会话按工作目录绑定、面板显示立项状态
     reference: inkos:packages/core/src/harness/session-binding.ts
-    dsh: storage + tools.register + client
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: workingDirectory + tools.register + client
+    implementation: packages/see-dsh-novel/src/core/work.ts
+    consumer: packages/see-dsh-novel/test/work.test.mjs
+    realRun: artifacts/real-runs/runtime.session-binding.json
     status: missing
   - id: runtime.commands
     title: DSH command/headless 入口（init/export 至少一条）
