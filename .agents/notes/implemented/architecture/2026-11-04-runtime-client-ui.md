@@ -17,7 +17,7 @@ Status: implemented
 - `index.ts`：`export const inject = ['slots', 'sessions']`、`export function apply(ctx: Context)`；负责注册哨兵、按预设条件注册「作品」视图、安装样式。视图注册的判定逻辑（哨兵 → `eligible`、`slots.inject` → `declared`、两者都真才注册）原样搬过来，不改行为。
 - `StoryView.tsx`：面板主体。props 是 `ConvViewProps & InjectFace<ViewInjected>`——`sessionId`／`useSessions` 来自 slot 的 owner props，`useResource` 是全局标准 props（`GlobalStandardProps`，`ConvViewProps` 一并带上），`canCommand`／`runCommand` 来自注册时的 `inject` 工厂，两半拼起来才是完整 props；`inject` 工厂写成带返回类型的函数，让 `register({ …, inject }, StoryView)` 的组件与面之间对得上。
 - `EligibilitySentinel.tsx`：挂在 `conversation.session.header.utilities` 的空组件，只上报预设是否匹配。
-- `preset.ts`：预设 id、两个槽位名、`presetOf`／`presetSelector`。宿主运行时把预设投影成 `string | null`，但 0.2.1-rc.5 的客户端投影映射没有声明 `agentPreset`，所以这里局部写出 `PresetCarrier` 并按 `??` 合并两处来源（投影与保留行），`null` 与 `undefined` 都归成「还没读到」。等宿主把它登记进投影映射，这个接口与断言一起删掉。
+- `preset.ts`：预设 id、两个槽位名、`presetOf`／`presetSelector`。宿主运行时把预设投影成 `string | null`，但 0.2.2-rc.1 的客户端投影映射（`SessionProjectionMap`）只登记了 `inbox`，没有声明 `agentPreset`，所以这里局部写出 `PresetCarrier` 并按 `??` 合并两处来源（投影与保留行），`null` 与 `undefined` 都归成「还没读到」。等宿主把它登记进投影映射，这个接口与断言一起删掉。
 - `outcome.ts`：`outcomeOf` 把 `session.command` 的返回折成四态；返回类型从宿主服务面推出来（`SessionBinding['session']['command']`），不手写形状；结果不是预期对象时按失败处理。
 - `styles.ts`：`installStyles()` 用 `document.createElement('style')` 建一个样式元素挂到 `document.head`，返回清理函数；`ctx.effect` 里调用。不用 CSS 文件——单文件产物没有 CSS 通道。
 - `types.ts`：只放本项目自己的语义类型（命令结果的四种映射、`ViewInjected` 的形状、从 `ctx.sessions.binding` 推出的 `SessionId`）；`ConvViewProps`、`InjectFace`、`Context`、`ctx.sessions`、`useResource` 全部用宿主包的真类型。
@@ -46,14 +46,14 @@ Status: implemented
 | 包 | 用途 |
 | --- | --- |
 | `react@18.3.1`、`@types/react@18` | JSX 与类型 |
-| `@deepseek-ai/cordis@4.0.5` | `apply(ctx)` 的 `Context` |
-| `@deepseek-ai/dsh-client-ui-conversation@0.2.1-rc.5` | `ConvViewProps` 与 slot 声明 |
-| `@deepseek-ai/dsh-client-ui-slots@0.2.1-rc.5`、`@deepseek-ai/dsh-client-ui-renderer@0.2.1-rc.5`、`@deepseek-ai/dsh-client-ui-session@0.2.1-rc.5` | slot 注册面、`InjectFace`、`useSessions` 的声明合并 |
-| `@deepseek-ai/dsh-client-resources@0.2.1-rc.5` | `useResource` 作为标准 props 的声明 |
-| `@deepseek-ai/dsh-api-session-controller@0.2.1-rc.5` | `Context.sessions`（`ctx.sessions.binding`）的声明 |
+| `@deepseek-ai/cordis@4.1.0` | `apply(ctx)` 的 `Context` |
+| `@deepseek-ai/dsh-client-ui-conversation@0.2.2-rc.1` | `ConvViewProps` 与 slot 声明 |
+| `@deepseek-ai/dsh-client-ui-slots@0.2.2-rc.1`、`@deepseek-ai/dsh-client-ui-renderer@0.2.2-rc.1`、`@deepseek-ai/dsh-client-ui-session@0.2.2-rc.1` | slot 注册面、`InjectFace`、`useSessions` 的声明合并 |
+| `@deepseek-ai/dsh-client-resources@0.2.2-rc.1` | `useResource` 作为标准 props 的声明 |
+| `@deepseek-ai/dsh-api-session-controller@0.2.2-rc.1` | `Context.sessions`（`ctx.sessions.binding`）的声明 |
 | `react-test-renderer@18.3.1`、`@types/react-test-renderer@18` | 组件测试 |
 
-版本对齐**已安装的宿主**（0.2.1-rc.5；`app.asar` 里就是这个版本，cordis 4.0.5）。仓库里链接的 DSH 源码工程是 0.2.2-alpha.2，不拿它当对齐目标。这些包只参与构建、类型检查与测试，运行时由宿主模块表提供，所以进 devDependencies，不进 `dependencies`。
+版本对齐**已安装的宿主**：`app.asar` 里的 `@deepseek-ai/dsh-desktop-runtime` 是 0.2.2-rc.1，随附 cordis 4.1.0，所以这几个包跟它同版本；仓库里链接的 DSH 源码工程是 0.2.2-alpha.2，不拿它当对齐目标。这些包只参与构建、类型检查与测试，运行时由宿主模块表提供，所以进 devDependencies，不进 `dependencies`。宿主升级时同批改这一组版本、跑 `pnpm install` 与 `pnpm run verify`，再用一次真实运行确认面板与命令在装载期没有变化。
 
 ### 测试
 

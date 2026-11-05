@@ -16,7 +16,8 @@ export const VIEW_SLOT = 'conversation.view'
 export const SENTINEL_SLOT = 'conversation.session.header.utilities'
 
 /**
- * 运行时携带、但 0.2.1-rc.5 的客户端投影映射里没有登记 `agentPreset` 的那部分会话行。
+ * 运行时携带、但 0.2.2-rc.1 的客户端投影映射（`SessionProjectionMap` 只登记了
+ * `inbox`）里没有 `agentPreset` 的那部分会话行。
  *
  * 宿主运行时把预设投影成 `string | null`（`null` 表示还没决定预设），客户端类型
  * 没有跟着声明，所以这里局部写出读取面并按 `??` 语义合并两处来源。等宿主把它
