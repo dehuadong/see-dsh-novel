@@ -42,12 +42,12 @@ capabilities:
     status: verified
   - id: runtime.boundary-check
     title: 边界校验：源码不得 import 参考工程；@deepseek-ai 只允许预设与前端半边的 type-only 引用
-    reference: 'none:项目护栏（AGENTS.md 前言与铁律 3）'
+    reference: none:项目护栏（AGENTS.md 前言与铁律 3）
     dsh: scripts + node
     implementation: packages/see-dsh-novel/src/tools/boundary.ts
     consumer: packages/see-dsh-novel/test/boundary-check.test.mjs
     realRun: artifacts/real-runs/runtime.boundary-check.json
-    status: missing
+    status: verified
   - id: runtime.session-binding
     title: 作品身份 work.json、会话按工作目录绑定、面板显示立项状态
     reference: inkos:packages/core/src/harness/session-binding.ts

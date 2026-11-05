@@ -1,0 +1,16 @@
+{
+  "capability": "runtime.boundary-check",
+  "date": "2026-11-05",
+  "sessionId": "session-3995b578-1e73-4260-9d5a-7af0924f20fd",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "192 passed — 边界检查 7 例（干净文件、参考工程三种写法、require 与副作用导入、动态导入只报一条、层规则含 type-only、注释与字符串不算依赖、说明符判定）"
+  },
+  "receipts": [
+    "`pnpm run check-boundary` 在真实源码树上通过：`{ ok: true, files: 33 }`（`packages/see-dsh-novel/src` 下 33 个 `.ts`／`.tsx`）",
+    "对照：`--root` 指向一个含四条坏导入的临时目录，退出码 1，stderr 依次为 `reference-import bad.ts: inkos/packages/core/x.js`、`reference-import bad.ts: deepseek-harness/packages/y`、`host-value-import bad.ts: @deepseek-ai/dsh-tools`、`host-import-outside-allowed-layers bad.ts: @deepseek-ai/dsh-tools`、`dynamic-host-import bad.ts: @deepseek-ai/dsh-tools`；随后删除临时目录",
+    "真实源码里的 15 条 `@deepseek-ai` 导入全部在 `client/` 且是 `import type`（`client/EligibilitySentinel.tsx`、`index.ts`、`outcome.ts`、`preset.ts`、`StoryView.tsx`、`types.ts`），没有一条指向 `inkos` 或 `deepseek-harness`",
+    "`verify` 链为 `typecheck → build → check-package → check-boundary → verify-notes → check-capabilities → test`；CI 的 `ubuntu-latest` 与 `windows-latest` 随 `pnpm run verify` 一起跑"
+  ]
+}
