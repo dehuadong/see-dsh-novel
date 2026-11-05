@@ -6,7 +6,7 @@ Status: proposed
 
 `AGENTS.md` 的铁律写着：复刻只依赖 DSH 原生机制，不 import、不运行参考工程的代码。这条规则今天没有任何机械检查：`test/boundaries.test.mjs` 管的是**分层方向**（pipeline 之间、`client` 只认宿主客户端包、产品层不碰 `tools`），不检查依赖的**来源**。源码里出现 `import … from 'inkos/…'` 或相对路径钻进 `inkos/`、`deepseek-harness/`，测试与构建都可能照样通过——`inkos/` 与 `deepseek-harness/` 在本仓库是目录联接，本地解析得到，换台机器就断。
 
-宿主包是另一半。现在 18 处 `@deepseek-ai` 全是 `import type`，都在 `client/`；`plugin/` 一条也没有。这个状态靠的是约定，不是检查：`runtime.package-check` 的 `undeclared-import` 只能看到**产物里残留**的宿主 import（宿主半边的值导入会以裸说明符留在 `lib/agent.js`，因此会被抓到；`client` 半边的值导入会被内联，这条就看不见）。源码层面更早的反馈没有。
+宿主包是另一半。现在 15 条 `from '@deepseek-ai/…'` 导入语句全是 `import type`，都在 `client/`；`plugin/` 一条也没有（另有三处是注释与一个字符串常量，不是导入）。这个状态靠的是约定，不是检查：`runtime.package-check` 的 `undeclared-import` 只能看到**产物里残留**的宿主 import（宿主半边的值导入会以裸说明符留在 `lib/agent.js`，因此会被抓到；`client` 半边的值导入会被内联，这条就看不见）。源码层面更早的反馈没有。
 
 本行的脚本只回答一个问题：**这个源码树有没有连到 DSH 之外的东西**。它不重复 `package-check`（查 tarball 里残留了什么），也不重复 `boundaries.test.mjs`（查目录之间的依赖方向）。
 
@@ -26,11 +26,11 @@ Status: proposed
 | code | 判据 |
 | --- | --- |
 | `reference-import` | 说明符命中参考工程：`inkos`、`inkos/…`、`deepseek-harness`、`deepseek-harness/…`，或相对路径里出现 `../inkos`／`../deepseek-harness` |
-| `host-value-import` | `from '@deepseek-ai/…'` 或 `require('@deepseek-ai/…')` 不是 `import type` 形式 |
-| `host-import-outside-preset` | `@deepseek-ai/…` 出现在 `core/`、`pipelines/`、`tools/` 下的**导入语句**里 |
-| `dynamic-host-import` | `import('@deepseek-ai/…')` 动态导入：按值依赖对待，直接报 |
+| `host-value-import` | 静态 `from '@deepseek-ai/…'` 或 `require('@deepseek-ai/…')` 不是 `import type` 形式；在 `core/`／`pipelines/`／`tools/` 里同时命中层规则时，两条都报 |
+| `host-import-outside-allowed-layers` | `@deepseek-ai/…` 出现在 `core/`、`pipelines/`、`tools/` 下的**静态导入语句**里（`client/` 与 `plugin/` 是允许的宿主类型层） |
+| `dynamic-host-import` | `import('@deepseek-ai/…')` 动态导入：按值依赖对待，**只报这一条**（不再叠加层规则） |
 
-两点说明：
+三条判定规则、两点说明：
 
 - **为什么 `tools/` 也要查**：它是仓库工具（不进产物），但它同样不该依赖宿主客户端包——工具跑在 Node 脚本里，`@deepseek-ai/dsh-client-*` 在那种运行时不存在。`packaging.ts` 里出现的 `'@deepseek-ai/dsh-agent-preset'` 是字符串常量，不是导入语句，规则不会误报。
 - **为什么 `plugin/` 与 `client/` 放行 type-only**：预设的 agent 半边（`plugin/`）与浏览器半边（`client/`）都需要宿主的类型来编译；`import type` 在构建时被擦除，不留运行时依赖。
@@ -52,9 +52,9 @@ Status: proposed
 typecheck → build → check-package → check-boundary → verify-notes → check-capabilities → test
 ```
 
-### 把规则写进 `docs/dsh-mapping.md`
+### reference 指向规则的所有者
 
-`docs/dsh-mapping.md` 是本行的 `reference`，但它现在只记机制映射，没有依赖边界这一条。同批在「偏差登记」之前加一节「依赖边界」，写清：源码不 import 参考工程（含 `inkos/` 与 `deepseek-harness/` 两个目录联接）、宿主包只允许 `import type`、由 `check-boundary` 机械检查。规则与它的检查从此在同一个文件里，reference 不再指向一份没有该规则的文件。
+`docs/dsh-mapping.md` 只记机制映射与偏差，依赖边界不归它；规则的所有者是 `AGENTS.md` 的铁律 3（「只用 DSH 运行时，不 import、不运行源工程代码」）。本行的 `reference` 因此改成 `AGENTS.md`，不往 `dsh-mapping.md` 里再抄一份规则——同一事实一个家。
 
 ## Alternatives considered
 
@@ -73,11 +73,11 @@ typecheck → build → check-package → check-boundary → verify-notes → ch
 - `pnpm run check-boundary` 在当前源码树退出码 0，打印扫描的文件数。
 - 合成文件 `import x from 'inkos/packages/core/x.js'` → `reference-import`；`import x from '../../inkos/x.js'` → `reference-import`；`import x from 'deepseek-harness/packages/y'` → `reference-import`。
 - 合成文件 `import { z } from '@deepseek-ai/dsh-tools'` → `host-value-import`；`const z = require('@deepseek-ai/dsh-tools')` → `host-value-import`；`const z = await import('@deepseek-ai/dsh-tools')` → `dynamic-host-import`。
-- 合成文件 `core/x.ts` 里 `import type {} from '@deepseek-ai/cordis'` → `host-import-outside-preset`；同样的行放在 `plugin/x.ts` 或 `client/x.tsx` 里不报；`tools/packaging.ts` 里只出现字符串 `'@deepseek-ai/dsh-agent-preset'`（没有导入语句）不报。
+- 合成文件 `core/x.ts` 里 `import type {} from '@deepseek-ai/cordis'` → `host-import-outside-allowed-layers`；同样的行放在 `plugin/x.ts` 或 `client/x.tsx` 里不报；`tools/packaging.ts` 里只出现字符串 `'@deepseek-ai/dsh-agent-preset'`（没有导入语句）不报。
 - 注释里出现「inkos」不算问题；`import type { X } from '@deepseek-ai/dsh-tools'` 不报。
 - 有问题时退出码非零、stderr 每行一个 `code path: detail`。
-- `docs/dsh-mapping.md` 新增「依赖边界」一节，写明本行的三条规则与检查脚本；账本行的 `reference` 仍指向它。
-- 实现与证据：implementation `packages/see-dsh-novel/src/tools/boundary.ts`；consumer `packages/see-dsh-novel/test/boundary-check.test.mjs`；脚本 `scripts/check-boundary.mjs`、根 `package.json` 的 `verify` 链、`docs/dsh-mapping.md` 与 `capabilities.yaml` 的 implementation／consumer／realRun 字段同批更新；realRun `artifacts/real-runs/runtime.boundary-check.json`。
+- 账本行的 `reference` 改成 `AGENTS.md`；不改 `docs/dsh-mapping.md`（它只记机制映射）。
+- 实现与证据：implementation `packages/see-dsh-novel/src/tools/boundary.ts`；consumer `packages/see-dsh-novel/test/boundary-check.test.mjs`；脚本 `scripts/check-boundary.mjs`、根 `package.json` 的 `verify` 链、`capabilities.yaml` 的 `reference`／implementation／consumer／realRun 字段同批更新；realRun `artifacts/real-runs/runtime.boundary-check.json`。
 - 真实运行：`pnpm run check-boundary` 在真实源码树上通过；再用 `--root` 指向一个含 `import 'inkos/x'` 的临时目录，脚本报 `reference-import` 并退出 1。
 
 ## Risks
