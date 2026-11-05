@@ -1,7 +1,7 @@
 {
   "capability": "runtime.package-check",
   "date": "2026-11-05",
-  "sessionId": "cli:pnpm run check-package",
+  "sessionId": "session-3995b578-1e73-4260-9d5a-7af0924f20fd",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
@@ -12,5 +12,6 @@
     "三个入口的 esbuild metafile：`lib/index.js` 与 `lib/client.js` imports 为空、inputs 1；`lib/agent.js` imports 只有 `node:fs/promises`、`node:path`、`node:crypto`、`node:fs`、`node:url`，inputs 1——打包后的 host 自包含，没有把 devDependency 漏成外部引用",
     "对照：把 `files` 改成 `['seed','skills','cordis.patch.yml']` 后重跑，退出码 1，stderr 依次为 `files-entry-missing seed`、`export-target-missing lib/index.js`、`export-target-missing lib/agent.js`、`export-target-missing lib/client.js`、`client-id-missing see-dsh-novel`；随后恢复清单并重跑通过",
     "`verify` 链为 `typecheck → build → check-package → verify-notes → check-capabilities → test`；CI 在 `ubuntu-latest` 与 `windows-latest` 上各跑一次 `pnpm run verify`，Agent Note 的 base ref 在 job 级 env"
-  ]
+  ],
+  "command": "pnpm run check-package"
 }

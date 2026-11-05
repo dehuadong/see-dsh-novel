@@ -57,107 +57,110 @@ function readPatch(text) {
   return { rows: rows.length === 0 ? null : rows, presetPlugins }
 }
 
-/** 打印问题并结束。 */
+/** 打印问题并把退出码置 1；不结束进程，让 `finally` 的清理照常执行。 */
 function fail(lines) {
   for (const line of lines) process.stderr.write(`${line}\n`)
   process.exitCode = 1
 }
 
-const sourceManifest = readJson(join(packageRoot, 'package.json'))
-const sourceHooks = INSTALL_HOOKS.filter((hook) => sourceManifest.scripts?.[hook] !== undefined)
-if (sourceHooks.length > 0) {
-  fail([...sourceHooks.map((hook) => `install-hook ${hook}`), '源码 manifest 里有安装期 hook，先移除再打包'])
-  process.exit()
-}
+/** 主流程；每处失败只 `return`，临时目录由 `finally` 收拾。 */
+async function main() {
+  const sourceManifest = readJson(join(packageRoot, 'package.json'))
+  const sourceHooks = INSTALL_HOOKS.filter((hook) => sourceManifest.scripts?.[hook] !== undefined)
+  if (sourceHooks.length > 0) {
+    fail([...sourceHooks.map((hook) => `install-hook ${hook}`), '源码 manifest 里有安装期 hook，先移除再打包'])
+    return
+  }
 
-if (process.env.npm_execpath === undefined) {
-  fail(['请通过 pnpm 脚本运行：pnpm run check-package'])
-  process.exit()
-}
+  if (process.env.npm_execpath === undefined) {
+    fail(['请通过 pnpm 脚本运行：pnpm run check-package'])
+    return
+  }
 
-const temp = mkdtempSync(join(tmpdir(), 'see-dsh-novel-pack-'))
-try {
+  const temp = mkdtempSync(join(tmpdir(), 'see-dsh-novel-pack-'))
   try {
-    execFileSync(process.execPath, [process.env.npm_execpath, 'pack', '--pack-destination', temp], {
-      cwd: packageRoot,
-      encoding: 'utf8',
-      windowsHide: true,
-      stdio: ['ignore', 'pipe', 'pipe'],
+    try {
+      execFileSync(process.execPath, [process.env.npm_execpath, 'pack', '--pack-destination', temp], {
+        cwd: packageRoot,
+        encoding: 'utf8',
+        windowsHide: true,
+        stdio: ['ignore', 'pipe', 'pipe'],
+      })
+    } catch (error) {
+      fail([`pack-failed ${error instanceof Error ? error.message : String(error)}`])
+      return
+    }
+
+    const tarballs = readdirSync(temp).filter((name) => name.endsWith('.tgz'))
+    if (tarballs.length !== 1) {
+      fail([`pack-failed 应产出一个 tarball，实际 ${tarballs.length} 个`])
+      return
+    }
+
+    const tarball = join(temp, tarballs[0])
+    const bytes = readFileSync(tarball)
+    let entries
+    try {
+      entries = readPackageEntries(bytes)
+    } catch (error) {
+      fail([
+        `tar-read-error ${error instanceof Error ? error.message : String(error)}`,
+        '归档读不出来，后面的对账没有意义',
+      ])
+      return
+    }
+
+    const contents = new Map(entries.map((entry) => [entry.path, entry.content]))
+    const manifest = JSON.parse(contents.get('package.json').toString('utf8'))
+    const patchText = contents.get('cordis.patch.yml')?.toString('utf8')
+    const patch = patchText === undefined ? { rows: null, presetPlugins: [] } : readPatch(patchText)
+    const clientText = contents.get('lib/client.js')?.toString('utf8') ?? ''
+
+    // 入口从 exports 推，不另抄一份：清单声明了哪些 lib/*.js 就查哪些。
+    const bundleEntries = exportTargets(manifest.exports).filter((target) => /^lib\/.+\.js$/.test(target))
+    const extracted = join(temp, 'extracted')
+    for (const [path, content] of contents) {
+      const target = join(extracted, path)
+      mkdirSync(dirname(target), { recursive: true })
+      writeFileSync(target, content)
+    }
+    const { build } = await import('esbuild')
+    const bundles = []
+    for (const entry of bundleEntries) {
+      if (!contents.has(entry)) continue
+      const result = await build({
+        entryPoints: [join(extracted, entry)],
+        bundle: true,
+        packages: 'external',
+        write: false,
+        metafile: true,
+        platform: 'node',
+        format: 'esm',
+        logLevel: 'silent',
+      })
+      const output = Object.values(result.metafile.outputs)[0]
+      bundles.push({
+        entry,
+        // esbuild 会重复列出同一路径；去重后更像「声明了哪些外部模块」。
+        imports: [...new Set((output?.imports ?? []).map((item) => item.path))],
+        inputs: Object.keys(result.metafile.inputs).length,
+      })
+    }
+
+    const problems = packagingProblems({
+      packageName: manifest.name,
+      entries: entries.map((entry) => entry.path),
+      manifest,
+      patchRows: patch.rows,
+      presetPlugins: patch.presetPlugins,
+      clientText,
+      bundles,
     })
-  } catch (error) {
-    fail([`pack-failed ${error instanceof Error ? error.message : String(error)}`])
-    process.exit()
-  }
 
-  const tarballs = readdirSync(temp).filter((name) => name.endsWith('.tgz'))
-  if (tarballs.length !== 1) {
-    fail([`pack-failed 应产出一个 tarball，实际 ${tarballs.length} 个`])
-    process.exit()
-  }
-
-  const tarball = join(temp, tarballs[0])
-  const bytes = readFileSync(tarball)
-  let entries
-  try {
-    entries = readPackageEntries(bytes)
-  } catch (error) {
-    fail([
-      `tar-read-error ${error instanceof Error ? error.message : String(error)}`,
-      '归档读不出来，后面的对账没有意义',
-    ])
-    process.exit()
-  }
-
-  const contents = new Map(entries.map((entry) => [entry.path, entry.content]))
-  const manifest = JSON.parse(contents.get('package.json').toString('utf8'))
-  const patchText = contents.get('cordis.patch.yml')?.toString('utf8')
-  const patch = patchText === undefined ? { rows: null, presetPlugins: [] } : readPatch(patchText)
-  const clientText = contents.get('lib/client.js')?.toString('utf8') ?? ''
-
-  // 入口从 exports 推，不另抄一份：清单声明了哪些 lib/*.js 就查哪些。
-  const bundleEntries = exportTargets(manifest.exports).filter((target) => /^lib\/.+\.js$/.test(target))
-  const extracted = join(temp, 'extracted')
-  for (const [path, content] of contents) {
-    const target = join(extracted, path)
-    mkdirSync(dirname(target), { recursive: true })
-    writeFileSync(target, content)
-  }
-  const { build } = await import('esbuild')
-  const bundles = []
-  for (const entry of bundleEntries) {
-    if (!contents.has(entry)) continue
-    const result = await build({
-      entryPoints: [join(extracted, entry)],
-      bundle: true,
-      packages: 'external',
-      write: false,
-      metafile: true,
-      platform: 'node',
-      format: 'esm',
-      logLevel: 'silent',
-    })
-    const output = Object.values(result.metafile.outputs)[0]
-    bundles.push({
-      entry,
-      // esbuild 会重复列出同一路径；去重后更像「声明了哪些外部模块」。
-      imports: [...new Set((output?.imports ?? []).map((item) => item.path))],
-      inputs: Object.keys(result.metafile.inputs).length,
-    })
-  }
-
-  const problems = packagingProblems({
-    packageName: manifest.name,
-    entries: entries.map((entry) => entry.path),
-    manifest,
-    patchRows: patch.rows,
-    presetPlugins: patch.presetPlugins,
-    clientText,
-    bundles,
-  })
-
-  if (problems.length > 0) {
-    fail([...problems.map((problem) => `${problem.code} ${problem.detail}`), `打包检查失败：${problems.length} 个问题`])
-  } else {
+    if (problems.length > 0) {
+      fail([...problems.map((problem) => `${problem.code} ${problem.detail}`), `打包检查失败：${problems.length} 个问题`])
+      return
+    }
     process.stdout.write(`${JSON.stringify({
       ok: true,
       package: manifest.name,
@@ -169,7 +172,9 @@ try {
       patchRows: patch.rows?.length ?? 0,
       bundles,
     }, null, 2)}\n`)
+  } finally {
+    if (existsSync(temp)) rmSync(temp, { recursive: true, force: true })
   }
-} finally {
-  if (existsSync(temp)) rmSync(temp, { recursive: true, force: true })
 }
+
+await main()

@@ -52,8 +52,8 @@ tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写�
 1. 先读**源码** `packages/see-dsh-novel/package.json`，有 install hook 直接 `install-hook` 退出——检查要在 `pnpm pack` 执行它们**之前**，否则等于检查已经跑过的脚本；
 2. 在 `packages/see-dsh-novel` 跑 `pnpm pack --pack-destination <临时目录>`；
 3. `scripts/pack-tar.mjs` 读条目与内容；读失败 → `tar-read-error`，退出 1；
-4. 读包内 `package.json`、`cordis.patch.yml`（`yaml` 解析成行 id 与 name 列表，解析失败 → `patch-invalid`），再读根 `devDependencies`；
-5. 用 esbuild 对包内 `lib/index.js`、`lib/agent.js` 各打一次 metafile（`packages: 'external'`），收集 imports 与 inputs 数；
+4. 读包内 `package.json`、`cordis.patch.yml`（`yaml` 解析成行 id 与 name 列表，解析失败 → `patch-invalid`），
+5. 用 esbuild 对 `exports` 里声明的每个 `lib/*.js` 各打一次 metafile（`packages: 'external'`），收集 imports 与 inputs 数；
 6. 调 `packagingProblems`，打印报告：`ok`、tarball 的 sha256、条目数、各检查项、imports；有问题时 stderr 列问题码并退出 1；
 7. 临时目录在 `finally` 里删除。
 
@@ -93,20 +93,20 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 
 ## Consequences
 
-收益：发出去或装上去的那份产物，和 manifest 是同一件事。CI 与本地都从 `pnpm run check-package` 得到同一个结论——真实 `.tgz` 里有 7 个条目、`exports` 的四个目标齐全、patch 的 21 行都能被解析、两个打包入口自包含（各 1 个输入、只 import `node:`），客户端脚本带着 `id: "see-dsh-novel"`。
+收益：发出去或装上去的那份产物，和 manifest 是同一件事。CI 与本地都从 `pnpm run check-package` 得到同一个结论——真实 `.tgz` 里有 7 个条目、`exports` 的四个目标齐全、patch 的 21 行都能被解析、三个打包入口自包含（各 1 个输入、只 import `node:`），客户端脚本带着 `id: "see-dsh-novel"`。
 
 三层职责固定下来：读归档（拒绝链接、绝对路径、`..`、同名条目、空归档，出错即 `tar-read-error`）、纯数据判定、编排与打印。判定规则以 Decision 的表格为准，这里不复述。
 
 `verify` 链是 `typecheck → build → check-package → verify-notes → check-capabilities → test`；CI 收成一条 `pnpm run verify`，在 `ubuntu-latest` 与 `windows-latest` 上各跑一次，Agent Note 的 base ref 在 job 级 env。
 
-验证见 `test/packaging.test.mjs`（十三类问题的合成事实，含「整目录缺 lib 时 files 与 exports 各报什么」与「只缺一个入口时 files 前缀仍满足」）与 `scripts/pack-tar.test.mjs`（链接、pax 长路径、`..`、绝对路径、同名条目、空归档）。
+验证见 `test/packaging.test.mjs`（十一类问题的合成事实，含「整目录缺 lib 时 files 与 exports 各报什么」与「只缺一个入口时 files 前缀仍满足」）与 `scripts/pack-tar.test.mjs`（链接、pax 长路径、`..`、绝对路径、同名条目、空归档）。
 
 ### 代价与已知限制
 
 - tar 读取器只覆盖普通文件与目录；pax 长路径与 GNU 长名已处理，其它扩展头遇到再补。
 - `pnpm pack` 比 dry-run 慢，且要在临时目录落盘；这是「检查真实产物」的代价。
 - `undeclared-import` 用 esbuild 再解一次入口；`lib` 若拆成多 chunk，`inputs === 1` 的断言要放宽。
-- 允许集合精确到文件名：新增构建产物必须同批更新白名单，否则报 `unexpected-entry`——这是有意的摩擦。
+- 允许集合从 `exports` 与 `dsh.bundle.patch` 推导：把入口写进清单即自动允许，清单之外的文件（源码、测试、多余 chunk）都会报 `unexpected-entry`。
 - `install-hook` 只看脚本名不判断内容；命名相同的无害脚本也会被拦。
 - 本行不覆盖「安装成功」：版本要求、profile 权限、host 与 client 的装载顺序仍可能让 `install_bundle` 失败。
 - CI 的 Windows runner 让每次推送多一份机器时间；慢了可以先只让 `ubuntu-latest` 跑 `verify`，Windows 只在 PR 上跑。

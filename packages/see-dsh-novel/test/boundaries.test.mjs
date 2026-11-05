@@ -77,3 +77,27 @@ test('the client layer imports only host client packages, react, and its own fil
   }
   assert.deepEqual(offenders, [])
 })
+
+/**
+ * `src/tools` 是仓库工具（打包对账等），不是产品层：产品三层不得 import 它，
+ * 只有仓库脚本与测试可以。反向依赖一旦出现，工具代码就会被打进产物。
+ */
+test('product layers never import the tools layer', () => {
+  const offenders = []
+  const walk = (dir) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name)
+      if (entry.isDirectory()) {
+        walk(path)
+        continue
+      }
+      if (!entry.name.endsWith('.ts') && !entry.name.endsWith('.tsx')) continue
+      const text = readFileSync(path, 'utf8')
+      for (const match of text.matchAll(/from\s+'([^']+)'/g)) {
+        if (match[1].includes('/tools/')) offenders.push(`${path} -> ${match[1]}`)
+      }
+    }
+  }
+  for (const layer of ['core', 'pipelines', 'client', 'plugin']) walk(`packages/see-dsh-novel/src/${layer}`)
+  assert.deepEqual(offenders, [])
+})
