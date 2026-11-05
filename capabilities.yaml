@@ -151,7 +151,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/work.ts
     consumer: packages/see-dsh-novel/test/ready-check.test.mjs
     realRun: artifacts/real-runs/foundation.ready-check.json
-    status: missing
+    status: verified
   - id: foundation.truth-projections
     title: truth 投影：current_state.md／pending_hooks.md／chapter_summaries.md 与 JSON 同步生成
     source: inkos:packages/core/src/state/state-projections.ts

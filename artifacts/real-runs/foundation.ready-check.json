@@ -1,0 +1,16 @@
+{
+  "capability": "foundation.ready-check",
+  "date": "2026-11-05",
+  "sessionId": "session-17b1fe67-2867-433d-9607-2e51e5536710",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "215 passed — ready-check 5 例（七项判据、四个角色目录、只认 .md、manifest 单独不算、必需文件缺时不数卡、draft 两种 next）＋ work 11 例（探针逐项、四阶段）＋ host 5 例（真机工作区 foundation→draft→cast_index→ready）＋ client 29 例（六个锚点与五份设定文件判定）"
+  },
+  "receipts": [
+    "真实运行（`work-empty-2`，session `session-b113e1fa-126b-47f9-8af2-9090239eaea9`）：七项探针齐全时调 `story_next`，工具卡返回「阶段 ready · 夜行测试」",
+    "对照：把 `源/story/roles` 四个目录下的全部 `.md` 移出工作区后，探针变为 `hasRoleCard: false`，再调 `story_next`（session `session-d782ea5f-1775-4d52-a405-7f16417f3252`）返回「阶段 draft · 夜行测试」，`next` 为 `story_foundation_cast_index`",
+    "恢复全部角色卡后探针回到 `hasRoleCard: true`，再调 `story_next`（session `session-17b1fe67-2867-433d-9607-2e51e5536710`）返回「阶段 ready · 夜行测试」",
+    "七项探针与源工程的清单一致：`hasWork`／`hasFrame`／`hasVolumeMap`／`hasRulesMd`／`hasRulesJson`／`hasPendingHooks`／`hasRoleCard`；`manifest.json` 不参与判据"
+  ]
+}

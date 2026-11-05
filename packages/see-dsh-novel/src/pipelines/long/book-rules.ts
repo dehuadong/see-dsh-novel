@@ -10,9 +10,11 @@ import { join } from 'node:path'
 
 import type { JsonSchema } from '../../core/types.js'
 
+import { STORY_RULES_JSON, STORY_RULES_MD } from '../../core/story-paths.js'
+
 /** 两个文件的位置；写入方与读取方共用。 */
-export const BOOK_RULES_MD = 'source/story/book_rules.md'
-export const BOOK_RULES_JSON = 'source/story/book_rules.json'
+export const BOOK_RULES_MD = STORY_RULES_MD
+export const BOOK_RULES_JSON = STORY_RULES_JSON
 
 export interface Protagonist {
   name: string

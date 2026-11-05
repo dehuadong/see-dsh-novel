@@ -7,6 +7,7 @@
  */
 import type { JsonSchema, PendingHook } from '../../core/types.js'
 import type { DecisionSources } from '../../core/receipts.js'
+import { ROLE_DIR_NAMES } from '../../core/story-paths.js'
 import { bookRulesDataSchema } from './book-rules.js'
 
 export type RoleTier = 'major' | 'minor'
@@ -21,7 +22,7 @@ export type { BookRulesInput as BookRulesData } from './book-rules.js'
 export type { PendingHook }
 
 /** 角色级别 → 磁盘目录名。读取方与写入方共用同一张表。 */
-export const ROLE_DIRS: Record<RoleTier, string> = { major: '主要角色', minor: '次要角色' }
+export const ROLE_DIRS: Record<RoleTier, string> = ROLE_DIR_NAMES
 
 /** Windows／POSIX 都不接受的文件名字符。 */
 const UNSAFE_NAME = /[/\\:*?"<>|]/g

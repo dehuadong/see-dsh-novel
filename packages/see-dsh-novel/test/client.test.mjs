@@ -226,7 +226,7 @@ test('the preset reader tolerates both projection channels', () => {
 /** 直接渲染 StoryView，绕过条件注册：组件行为单独测。 */
 async function renderView({
   state = sessionState('see-dsh-novel'),
-  statuses = ['live', 'live', 'live'],
+  statuses = ['live', 'live', 'live', 'live', 'live', 'live'],
   canCommand = true,
   outcome = 'ok',
   runCommand,
@@ -236,9 +236,8 @@ async function renderView({
   start,
   sessionId = SESSION,
 } = {}) {
-  // 三个状态的写法保留给旧用例：`[设定, 忽略, 身份]` 展开成五份设定文件同值。
-  // 六个状态时按 `[大纲, 卷图, 规则 md, 规则 json, 伏笔池, 身份]` 逐项给。
-  const six = statuses.length >= 6 ? statuses : [...Array(5).fill(statuses[0]), statuses[2]]
+  // 六个状态按 `[大纲, 卷图, 规则 md, 规则 json, 伏笔池, 身份]` 逐项给。
+  const six = statuses
   const foundationPaths = ['story_frame.md', 'volume_map.md', 'book_rules.md', 'book_rules.json', 'pending_hooks.md']
   const requests = []
   const foundationIndex = (address) => {
@@ -403,13 +402,13 @@ test('the view reports failure and unmatched results in words', async () => {
 
 test('the view degrades without workspace state, preset, or a session binding', async () => {
   installDocumentStub()
-  const unreadable = await renderView({ statuses: ['none', 'none', 'none'] })
+  const unreadable = await renderView({ statuses: ['none', 'none', 'none', 'none', 'none', 'none'] })
   assert.match(textOf(unreadable.tree), /读不到工作区状态/)
 
-  const loading = await renderView({ statuses: ['loading', 'loading', 'loading'] })
+  const loading = await renderView({ statuses: ['loading', 'loading', 'loading', 'loading', 'loading', 'loading'] })
   assert.match(textOf(loading.tree), /正在读取工作区/)
 
-  const empty = await renderView({ statuses: ['failed', 'failed', 'failed'] })
+  const empty = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'failed'] })
   assert.match(textOf(empty.tree), /尚未立项/)
   assert.match(textOf(empty.tree), /当前工作区：\/work/)
 
@@ -427,13 +426,13 @@ test('the view degrades without workspace state, preset, or a session binding', 
 test('the identity file decides between 未立项 and 已立项 without touching the gate', async () => {
   installDocumentStub()
 
-  // 已立项、还没有基础设定：两个锚点都缺，身份在。
-  const created = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  // 已立项、还没有基础设定：五份设定文件都缺，身份在。
+  const created = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
   assert.match(textOf(created.tree), /已立项，还没有基础设定/)
   assert.doesNotMatch(textOf(created.tree), /尚未立项/)
 
   // 有基础设定、身份缺：闸门照旧，只加一行提示。
-  const missing = await renderView({ statuses: ['live', 'live', 'failed'] })
+  const missing = await renderView({ statuses: ['live', 'live', 'live', 'live', 'live', 'failed'] })
   assert.match(textOf(missing.tree), /身份文件缺失/)
   assert.match(textOf(missing.tree), /作者确认闸门/)
   assert.equal(missing.tree.root.findAllByType('button').length, 3)
@@ -457,14 +456,14 @@ test('the identity file decides between 未立项 and 已立项 without touching
   assert.equal(mixed.tree.root.findAllByType('button').length, 1)
 
   // 身份通道读不到：不能说成「缺失」，整块按通道不可用处理。
-  const unreadableIdentity = await renderView({ statuses: ['live', 'live', 'none'] })
+  const unreadableIdentity = await renderView({ statuses: ['live', 'live', 'live', 'live', 'live', 'none'] })
   assert.match(textOf(unreadableIdentity.tree), /读不到工作区状态/)
   assert.doesNotMatch(textOf(unreadableIdentity.tree), /身份文件缺失/)
 })
 
 test('the empty state offers one click to start the foundation', async () => {
   installDocumentStub()
-  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
   assert.match(textOf(tree), /已立项，还没有基础设定/)
 
   const buttons = tree.root.findAllByType('button')
@@ -479,13 +478,13 @@ test('the empty state offers one click to start the foundation', async () => {
 test('start failures split into a retryable failure and an unknown outcome', async () => {
   installDocumentStub()
 
-  const failed = await renderView({ statuses: ['failed', 'failed', 'live'], startOutcome: 'failed' })
+  const failed = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'], startOutcome: 'failed' })
   await act(async () => { failed.tree.root.findAllByType('button')[0].props.onClick() })
   assert.match(textOf(failed.tree), /已立项，但没能自动开始/)
   assert.equal(failed.tree.root.findAllByType('button').length, 1, '确定失败后按钮恢复')
 
   const unknown = await renderView({
-    statuses: ['failed', 'failed', 'live'],
+    statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
     start: () => { throw new Error('rpc down') },
   })
   await act(async () => { unknown.tree.root.findAllByType('button')[0].props.onClick() })
@@ -497,7 +496,7 @@ test('a running session suppresses both the start button and the approval button
   installDocumentStub()
 
   const empty = await renderView({
-    statuses: ['failed', 'failed', 'live'],
+    statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
     state: sessionState('see-dsh-novel', '/work', true),
   })
   assert.match(textOf(empty.tree), /会话正在运行/)
@@ -511,7 +510,7 @@ test('a running session suppresses both the start button and the approval button
 
 test('started clears when the observed turn ends', async () => {
   installDocumentStub()
-  const { tree, props } = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  const { tree, props } = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
   await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
   assert.match(textOf(tree), /已开始基础设定/)
 
@@ -535,7 +534,7 @@ test('started clears when the observed turn ends', async () => {
 
 test('a double click starts the foundation once', async () => {
   installDocumentStub()
-  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
   const button = tree.root.findAllByType('button')[0]
   await act(async () => {
     button.props.onClick()
@@ -547,7 +546,7 @@ test('a double click starts the foundation once', async () => {
 test('switching sessions clears the start state', async () => {
   installDocumentStub()
   const other = 'session-2'
-  const { tree, props } = await renderView({ state: twoSessionState(other), statuses: ['failed', 'failed', 'live'] })
+  const { tree, props } = await renderView({ state: twoSessionState(other), statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
   await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
   assert.match(textOf(tree), /已开始基础设定/)
 
@@ -561,7 +560,7 @@ test('switching sessions clears the start state', async () => {
 test('a start-unknown panel still lets the author approve once the foundation lands', async () => {
   installDocumentStub()
   const { tree, props, calls } = await renderView({
-    statuses: ['failed', 'failed', 'live'],
+    statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
     start: () => { throw new Error('rpc down') },
   })
   await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
@@ -583,7 +582,7 @@ test('a start-unknown panel still lets the author approve once the foundation la
 
 test('the start button never appears without an identity file', async () => {
   installDocumentStub()
-  const none = await renderView({ statuses: ['failed', 'failed', 'failed'] })
+  const none = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'failed'] })
   assert.match(textOf(none.tree), /尚未立项/)
   assert.equal(none.tree.root.findAllByType('button').length, 0)
 })

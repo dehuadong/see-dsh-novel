@@ -22,13 +22,13 @@ import {
   renderHooksProjection,
 } from './state-projections.js'
 
-const STATE_DIR = 'source/story/state'
+import { STATE_DIR, STORY_CHAPTER_SUMMARIES_MD, STORY_CURRENT_STATE_MD, STORY_PENDING_HOOKS } from './story-paths.js'
 
 /** 三份投影的位置；与 JSON 的状态目录分开。 */
 export const PROJECTION_PATHS = {
-  currentState: 'source/story/current_state.md',
-  pendingHooks: 'source/story/pending_hooks.md',
-  chapterSummaries: 'source/story/chapter_summaries.md',
+  currentState: STORY_CURRENT_STATE_MD,
+  pendingHooks: STORY_PENDING_HOOKS,
+  chapterSummaries: STORY_CHAPTER_SUMMARIES_MD,
 } as const
 
 /** 每份投影的源 JSON；投影只有在源可读时才可重建。 */

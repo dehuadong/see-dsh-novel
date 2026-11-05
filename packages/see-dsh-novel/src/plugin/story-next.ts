@@ -14,6 +14,11 @@ export const PHASES = ['unbound', 'foundation', 'draft', 'ready'] as const
 /** 角色卡由两步写入；缺卡时路牌指向第一步。 */
 export const CAST_INDEX_STEP = 'story_foundation_cast_index'
 
+/** 就绪清单：顺序即判定顺序。加一项只改这里。 */
+const OUTLINE_PROBES = ['hasFrame', 'hasVolumeMap'] as const
+const RULES_PROBES = ['hasRulesMd', 'hasRulesJson', 'hasPendingHooks'] as const
+const ALL_PROBES = ['hasWork', ...OUTLINE_PROBES, ...RULES_PROBES, 'hasRoleCard'] as const
+
 /** 每个阶段的基础下一步；`draft` 会按缺什么改用 `CAST_INDEX_STEP`。 */
 export const NEXT_STEPS = {
   unbound: 'story_work_create',
@@ -44,17 +49,17 @@ export interface StoryNext {
  */
 export function storyNext(state: StoryProbeState): StoryNext {
   const work = state.hasWork ? state.title : null
+  const missing = (keys: ReadonlyArray<keyof FoundationProbes>): boolean => keys.some((key) => !state[key])
   // 先判「什么都没有」：七项全假才是未立项。
-  if (!state.hasWork && !state.hasFrame && !state.hasVolumeMap && !state.hasRulesMd
-    && !state.hasRulesJson && !state.hasPendingHooks && !state.hasRoleCard) {
+  if (ALL_PROBES.every((key) => !state[key])) {
     return { work, phase: 'unbound', next: NEXT_STEPS.unbound }
   }
   // 大纲缺任一份：还停在 outline 段。
-  if (!state.hasFrame || !state.hasVolumeMap) {
+  if (missing(OUTLINE_PROBES)) {
     return { work, phase: 'foundation', next: NEXT_STEPS.foundation }
   }
   // 规则或伏笔池缺：补 details。
-  if (!state.hasRulesMd || !state.hasRulesJson || !state.hasPendingHooks) {
+  if (missing(RULES_PROBES)) {
     return { work, phase: 'draft', next: NEXT_STEPS.draft }
   }
   // 只剩角色卡：指向 cast_index，不指 details（details 不写卡）。
