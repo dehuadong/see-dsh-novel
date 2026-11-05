@@ -21,13 +21,13 @@ Status: implemented
 
 ### 规则
 
-说明符从三类语法里取：静态 `import … from 'X'`、`export … from 'X'`、`require('X')`／`import('X')`。注释里的「inkos」不算——规则只针对依赖。
+说明符从四类语法里取：静态 `import … from 'X'`、`export … from 'X'`、副作用导入 `import 'X'`、`require('X')`／`import('X')`。注释里的「inkos」不算——规则只针对依赖；同一行的 `export const S = "…from 'x'"` 也不是依赖。
 
 | code | 判据 |
 | --- | --- |
 | `reference-import` | 说明符命中参考工程：`inkos`、`inkos/…`、`deepseek-harness`、`deepseek-harness/…`，或相对路径里出现 `../inkos`／`../deepseek-harness` |
 | `host-value-import` | 静态 `from '@deepseek-ai/…'` 或 `require('@deepseek-ai/…')` 不是 `import type` 形式；在 `core/`／`pipelines/`／`tools/` 里同时命中层规则时，两条都报 |
-| `host-import-outside-allowed-layers` | `@deepseek-ai/…` 出现在 `core/`、`pipelines/`、`tools/` 下的**静态导入语句**里（`client/` 与 `plugin/` 是允许的宿主类型层） |
+| `host-import-outside-allowed-layers` | `@deepseek-ai/…` 出现在 `client/` 与 `plugin/` **之外**的任何导入语句里——`core/`、`pipelines/`、`tools/` 以及将来新增的层都算（type-only 也不例外） |
 | `dynamic-host-import` | `import('@deepseek-ai/…')` 动态导入：按值依赖对待，**只报这一条**（不再叠加层规则） |
 
 三条判定规则、两点说明：
@@ -46,11 +46,7 @@ Status: implemented
 
 ### 接进 `verify`
 
-根 `package.json` 加 `"check-boundary": "node --import tsx scripts/check-boundary.mjs"`，`verify` 链：
-
-```
-typecheck → build → check-package → check-boundary → verify-notes → check-capabilities → test
-```
+根 `package.json` 加 `"check-boundary": "node --import tsx scripts/check-boundary.mjs"`，排在 `check-package` 之后；完整链由根 `package.json` 的 `verify` 拥有。
 
 ### reference 指向规则的所有者
 
@@ -76,9 +72,9 @@ typecheck → build → check-package → check-boundary → verify-notes → ch
 
 判定在 `packages/see-dsh-novel/src/tools/boundary.ts`（仓库工具，不进产物）：`stripComments` 先去掉行注释与块注释（字符串与模板字面量保留），再按行首语句取说明符；`boundaryProblems` 只回答依赖来源——`reference-import`（`inkos`／`deepseek-harness` 整段或路径段）、`host-value-import`、`host-import-outside-allowed-layers`（`core/`／`pipelines/`／`tools/` 引用宿主包，type-only 也算）、`dynamic-host-import`（只报这一条）。分层方向仍由 `test/boundaries.test.mjs` 管，两件事不重叠。
 
-`scripts/check-boundary.mjs` 默认扫 `packages/see-dsh-novel/src`，也接受 `--root <dir>` 给对照用；`verify` 链是 `typecheck → build → check-package → check-boundary → verify-notes → check-capabilities → test`，CI 的两条 runner 随 `pnpm run verify` 一起跑。
+`scripts/check-boundary.mjs` 默认扫 `packages/see-dsh-novel/src`，也接受 `--root <dir>` 给对照用；CI 的两条 runner 随根 `package.json` 的 `pnpm run verify` 一起跑。
 
-验证见 `test/boundary-check.test.mjs`：干净文件、参考工程三类写法（裸包／相对路径／export from）、`require` 与副作用导入、动态导入只报一条、`core` 与 `tools` 的层规则、注释与字符串不算依赖、说明符判定（`@scope/inkos` 命中、`my-inkos-wrapper` 不命中）。
+验证见 `test/source-boundary.test.mjs`：干净文件、参考工程三类写法（裸包／相对路径／export from）、`require` 与副作用导入、动态导入只报一条、`core` 与 `tools` 的层规则、注释与字符串不算依赖、说明符判定（`@scope/inkos` 命中、`my-inkos-wrapper` 不命中）。
 
 ### 代价与已知限制
 

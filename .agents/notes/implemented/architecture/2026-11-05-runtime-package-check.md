@@ -61,11 +61,7 @@ tar 读取器不放进 `core`：`core` 是产品共享层（类型、原子写�
 
 ### 接进 `verify`
 
-根 `package.json` 加 `"check-package": "node --import tsx scripts/check-package.mjs"`，`verify` 链排在 `build` 之后：
-
-```
-typecheck → build → check-package → verify-notes → check-capabilities → test
-```
+根 `package.json` 加 `"check-package": "node --import tsx scripts/check-package.mjs"`；这一步排在 `build` 之后，完整链由根 `package.json` 的 `verify` 拥有。
 
 `pnpm pack` 会执行 `prepack`／`prepare`／`postpack` 这些 hook；本包不该有它们，脚本用 `install-hook` 规则检查，而不是靠 pack 时「看它有没有副作用」。
 
@@ -97,7 +93,7 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 
 三层职责固定下来：读归档（拒绝链接、绝对路径、`..`、同名条目、空归档，出错即 `tar-read-error`）、纯数据判定、编排与打印。判定规则以 Decision 的表格为准，这里不复述。
 
-`verify` 链是 `typecheck → build → check-package → verify-notes → check-capabilities → test`；CI 收成一条 `pnpm run verify`，在 `ubuntu-latest` 与 `windows-latest` 上各跑一次，Agent Note 的 base ref 在 job 级 env。
+`verify` 链见根 `package.json`（`check-boundary` 随后一行加入）；CI 收成一条 `pnpm run verify`，在 `ubuntu-latest` 与 `windows-latest` 上各跑一次，Agent Note 的 base ref 在 job 级 env。
 
 验证见 `test/packaging.test.mjs`（十一类问题的合成事实，含「整目录缺 lib 时 files 与 exports 各报什么」与「只缺一个入口时 files 前缀仍满足」）与 `scripts/pack-tar.test.mjs`（链接、pax 长路径、`..`、绝对路径、同名条目、空归档）。
 

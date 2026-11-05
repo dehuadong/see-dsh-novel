@@ -45,7 +45,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      # 与本地同一条链：typecheck → build → check-package → verify-notes
+      # 与本地同一条链：typecheck → build → check-package → check-boundary → verify-notes
       # → check-capabilities → test。给 verify 加步骤时不用改这里。
       - name: Verify
         run: pnpm run verify

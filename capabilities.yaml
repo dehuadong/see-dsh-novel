@@ -45,7 +45,7 @@ capabilities:
     reference: none:项目护栏（AGENTS.md 前言与铁律 3）
     dsh: scripts + node
     implementation: packages/see-dsh-novel/src/tools/boundary.ts
-    consumer: packages/see-dsh-novel/test/boundary-check.test.mjs
+    consumer: packages/see-dsh-novel/test/source-boundary.test.mjs
     realRun: artifacts/real-runs/runtime.boundary-check.json
     status: verified
   - id: runtime.session-binding

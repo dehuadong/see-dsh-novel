@@ -18,7 +18,7 @@ export interface BoundaryProblem {
   code: BoundaryCode
   /** 相对扫描根的路径，`/` 分隔。 */
   path: string
-  /** 出问题的说明符或语句。 */
+  /** 出问题的说明符。 */
   detail: string
 }
 
@@ -28,11 +28,11 @@ export interface SourceFile {
   text: string
 }
 
-/** 允许引用宿主类型的层；`client` 与 `plugin` 是预设的前后两半。 */
+/** 允许引用宿主类型的层；`client` 与 `plugin` 是预设的前后两半，其余层一律不许。 */
 const HOST_ALLOWED_LAYERS = ['client/', 'plugin/']
 
 /** 参考工程的目录名；在仓库根是目录联接。 */
-const REFERENCE_SEGMENTS = ['inkos', 'deepseek-harness']
+const REFERENCE_NAMES = ['inkos', 'deepseek-harness']
 
 /**
  * 去掉行注释与块注释，保留字符串与模板字面量里的内容。
@@ -73,11 +73,19 @@ export function stripComments(text: string): string {
   return out
 }
 
-/** 说明符是否指向参考工程：整段相等或以它开头，或路径里出现该段。 */
+/**
+ * 说明符是否指向参考工程。
+ *
+ * 只认契约里列出的形态：裸包名、`inkos/…` 子路径，以及相对路径里出现该段
+ * （`../inkos/x`、`./vendor/inkos/x`）。scoped 包（`@scope/inkos`）与别的前缀不算。
+ */
 export function isReferenceSpecifier(specifier: string): boolean {
   const normalized = specifier.replace(/\\/g, '/')
-  return REFERENCE_SEGMENTS.some((segment) =>
-    normalized === segment || normalized.startsWith(`${segment}/`) || normalized.split('/').includes(segment))
+  const relative = normalized.startsWith('./') || normalized.startsWith('../')
+  return REFERENCE_NAMES.some((name) => {
+    if (relative) return normalized.split('/').includes(name)
+    return normalized === name || normalized.startsWith(`${name}/`)
+  })
 }
 
 /** 说明符是否指向宿主包。 */
@@ -90,6 +98,78 @@ function hostLayerAllowed(path: string): boolean {
   return HOST_ALLOWED_LAYERS.some((layer) => path.startsWith(layer))
 }
 
+/** 一条依赖：说明符、是否 type-only、是不是动态导入。 */
+interface Dependency {
+  specifier: string
+  typeOnly: boolean
+  dynamic: boolean
+}
+
+/** 说明符 + 上下文 → 问题码；判定顺序在这一处。 */
+export function classifyDependency(dependency: Dependency, path: string): BoundaryCode[] {
+  const { specifier, typeOnly, dynamic } = dependency
+  if (isReferenceSpecifier(specifier)) return ['reference-import']
+  if (!isHostSpecifier(specifier)) return []
+  if (dynamic) return ['dynamic-host-import']
+  const codes: BoundaryCode[] = []
+  if (!typeOnly) codes.push('host-value-import')
+  if (!hostLayerAllowed(path)) codes.push('host-import-outside-allowed-layers')
+  return codes
+}
+
+/**
+ * 逐行收集静态依赖，只从行首关键字起算。
+ *
+ * 上一条没有 `from` 的语句不会和下一条的 `from` 配对：`import './setup.js'` 是
+ * 独立的副作用导入；`export const S = "…"` 不是依赖语句，直接跳过。
+ */
+function staticDependencies(text: string): Dependency[] {
+  const dependencies: Dependency[] = []
+  const lines = text.split(/\r?\n/)
+  let pending: { typeOnly: boolean } | undefined
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (pending !== undefined) {
+      const from = /\bfrom\s*['"]([^'"]+)['"]/.exec(trimmed)
+      if (from?.[1] !== undefined) {
+        dependencies.push({ specifier: from[1], typeOnly: pending.typeOnly, dynamic: false })
+        pending = undefined
+      } else if (trimmed.includes(';') || trimmed === '') {
+        pending = undefined
+      }
+      continue
+    }
+
+    const start = /^(import|export)\b([\s\S]*)$/.exec(trimmed)
+    if (start === null) continue
+    const keyword = start[1]
+    const rest = (start[2] ?? '').trimStart()
+    // 动态导入 `import('x')` 由下面的括号扫描处理。
+    if (rest.startsWith('(')) continue
+    // `export const`／`export function` 之类不是依赖语句；只有 `export {…} from`、
+    // `export * from`、`export type {…} from` 才可能有 from。
+    if (keyword === 'export' && !/^(type\b|\{|\*)/.test(rest)) continue
+
+    const typeOnly = /^type\b/.test(rest)
+    const afterType = typeOnly ? rest.replace(/^type\b/, '').trimStart() : rest
+
+    const sideEffect = /^['"]([^'"]+)['"]/.exec(afterType)
+    if (sideEffect?.[1] !== undefined) {
+      dependencies.push({ specifier: sideEffect[1], typeOnly: false, dynamic: false })
+      continue
+    }
+
+    const from = /\bfrom\s*['"]([^'"]+)['"]/.exec(afterType)
+    if (from?.[1] !== undefined) {
+      dependencies.push({ specifier: from[1], typeOnly, dynamic: false })
+      continue
+    }
+    pending = { typeOnly }
+  }
+  return dependencies
+}
+
 /**
  * 检查一批源码文件。
  * @param files 相对路径与文本
@@ -97,45 +177,17 @@ function hostLayerAllowed(path: string): boolean {
  */
 export function boundaryProblems(files: ReadonlyArray<SourceFile>): BoundaryProblem[] {
   const problems: BoundaryProblem[] = []
-  const push = (code: BoundaryCode, path: string, detail: string): void => { problems.push({ code, path, detail }) }
-
   for (const file of files) {
     const text = stripComments(file.text)
-
-    // 静态 import／export：`import type` 才算 type-only；内联 `{ type X }` 不放行。
-    // 只认行首语句，避免把字符串里的 "import … from …" 当成依赖。
-    for (const match of text.matchAll(/^[ \t]*(import|export)\s+(type\s+)?[\s\S]*?\bfrom\s*['"]([^'"]+)['"]/gm)) {
-      const [, , typeOnly, specifier] = match
-      if (specifier === undefined) continue
-      const isTypeOnly = typeOnly !== undefined
-      if (isReferenceSpecifier(specifier)) {
-        push('reference-import', file.path, specifier)
-        continue
-      }
-      if (!isHostSpecifier(specifier)) continue
-      if (!isTypeOnly) push('host-value-import', file.path, specifier)
-      // 层规则与 type-only 无关：core/pipelines/tools 不该引用宿主类型，哪怕只是类型。
-      if (!hostLayerAllowed(file.path)) push('host-import-outside-allowed-layers', file.path, specifier)
-    }
-
-    // 副作用导入 `import 'x'`：没有 type 形式，按值依赖算。
-    for (const match of text.matchAll(/\bimport\s*['"]([^'"]+)['"]/g)) {
-      const specifier = match[1]
-      if (specifier === undefined) continue
-      if (isReferenceSpecifier(specifier)) push('reference-import', file.path, specifier)
-      else if (isHostSpecifier(specifier)) push('host-value-import', file.path, specifier)
-    }
-
-    // require 与动态 import：宿主包一律按值依赖；动态导入只报 dynamic 一条。
+    const dependencies = staticDependencies(text)
     for (const match of text.matchAll(/\b(require|import)\s*\(\s*['"]([^'"]+)['"]\s*\)/g)) {
-      const [, kind, specifier] = match
-      if (specifier === undefined) continue
-      if (isReferenceSpecifier(specifier)) {
-        push('reference-import', file.path, specifier)
-        continue
+      if (match[2] === undefined) continue
+      dependencies.push({ specifier: match[2], typeOnly: false, dynamic: match[1] === 'import' })
+    }
+    for (const dependency of dependencies) {
+      for (const code of classifyDependency(dependency, file.path)) {
+        problems.push({ code, path: file.path, detail: dependency.specifier })
       }
-      if (!isHostSpecifier(specifier)) continue
-      push(kind === 'import' ? 'dynamic-host-import' : 'host-value-import', file.path, specifier)
     }
   }
   return problems

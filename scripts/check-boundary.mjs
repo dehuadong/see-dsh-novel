@@ -18,7 +18,7 @@ const scanRoot = rootIndex >= 0 && args[rootIndex + 1] !== undefined
   ? args[rootIndex + 1]
   : join(root, 'packages/see-dsh-novel/src')
 
-/** 递归收集 `.ts`／`.tsx`。 */
+/** 递归收集 `.ts`／`.tsx`；目录读不出来按 `root-invalid` 收场。 */
 function collect(directory) {
   const files = []
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -32,7 +32,13 @@ function collect(directory) {
   return files
 }
 
-const paths = collect(scanRoot)
+let paths
+try {
+  paths = collect(scanRoot)
+} catch (error) {
+  process.stderr.write(`root-invalid ${scanRoot}: ${error instanceof Error ? error.message : String(error)}\n`)
+  process.exit(1)
+}
 const files = paths.map((path) => ({
   path: relative(scanRoot, path).split(sep).join('/'),
   text: readFileSync(path, 'utf8'),
