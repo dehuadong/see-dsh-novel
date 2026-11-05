@@ -9,7 +9,7 @@ import React from 'react'
 import * as jsxRuntime from 'react/jsx-runtime'
 import { act, create } from 'react-test-renderer'
 
-import { apply, RESUME_TEXT } from '../src/client/index.ts'
+import { apply, RESUME_TEXT, START_TEXT } from '../src/client/index.ts'
 import { outcomeOf } from '../src/client/outcome.ts'
 import { presetOf } from '../src/client/preset.ts'
 import { StoryView } from '../src/client/StoryView.tsx'
@@ -48,21 +48,21 @@ function installDocumentStub() {
 }
 
 /** 一个会话行 + 投影的假快照。 */
-function sessionState(preset, cwd = '/work') {
+function sessionState(preset, cwd = '/work', running = false) {
   return {
     ids: [SESSION],
-    byId: { [SESSION]: { sessionId: SESSION, cwd } },
+    byId: { [SESSION]: { sessionId: SESSION, cwd, running } },
     projectionsBySession: { [SESSION]: { values: preset === undefined ? {} : { agentPreset: preset } } },
   }
 }
 
 /** 两个都属于本预设的会话：测面板实例在会话之间复用时的行为。 */
-function twoSessionState(other) {
+function twoSessionState(other, running = false) {
   return {
     ids: [SESSION, other],
     byId: {
-      [SESSION]: { sessionId: SESSION, cwd: '/work' },
-      [other]: { sessionId: other, cwd: '/work' },
+      [SESSION]: { sessionId: SESSION, cwd: '/work', running },
+      [other]: { sessionId: other, cwd: '/work', running },
     },
     projectionsBySession: {
       [SESSION]: { values: { agentPreset: 'see-dsh-novel' } },
@@ -232,10 +232,13 @@ async function renderView({
   runCommand,
   resumeOutcome = 'ok',
   resume,
+  startOutcome = 'ok',
+  start,
   sessionId = SESSION,
 } = {}) {
   const calls = []
   const resumes = []
+  const starts = []
   const props = {
     sessionId,
     useSessions: selectorOf(state),
@@ -256,9 +259,13 @@ async function renderView({
       resumes.push(id)
       return resume === undefined ? resumeOutcome : resume()
     },
+    start: async (id, cwd) => {
+      starts.push({ sessionId: id, cwd })
+      return start === undefined ? startOutcome : start()
+    },
   }
   const tree = await render(React.createElement(StoryView, props))
-  return { tree, props, calls, resumes }
+  return { tree, props, calls, resumes, starts }
 }
 
 test('the view shows the gate and dispatches the three commands', async () => {
@@ -434,6 +441,126 @@ test('the identity file decides between 未立项 and 已立项 without touching
   const unreadableIdentity = await renderView({ statuses: ['live', 'live', 'none'] })
   assert.match(textOf(unreadableIdentity.tree), /读不到工作区状态/)
   assert.doesNotMatch(textOf(unreadableIdentity.tree), /身份文件缺失/)
+})
+
+test('the empty state offers one click to start the foundation', async () => {
+  installDocumentStub()
+  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  assert.match(textOf(tree), /已立项，还没有基础设定/)
+
+  const buttons = tree.root.findAllByType('button')
+  assert.deepEqual(buttons.map((node) => node.children.join('')), ['开始基础设定'])
+
+  await act(async () => { buttons[0].props.onClick() })
+  assert.deepEqual(starts, [{ sessionId: SESSION, cwd: '/work' }])
+  assert.match(textOf(tree), /已开始基础设定/)
+  assert.equal(tree.root.findAllByType('button').length, 0)
+})
+
+test('start failures split into a retryable failure and an unknown outcome', async () => {
+  installDocumentStub()
+
+  const failed = await renderView({ statuses: ['failed', 'failed', 'live'], startOutcome: 'failed' })
+  await act(async () => { failed.tree.root.findAllByType('button')[0].props.onClick() })
+  assert.match(textOf(failed.tree), /已立项，但没能自动开始/)
+  assert.equal(failed.tree.root.findAllByType('button').length, 1, '确定失败后按钮恢复')
+
+  const unknown = await renderView({
+    statuses: ['failed', 'failed', 'live'],
+    start: () => { throw new Error('rpc down') },
+  })
+  await act(async () => { unknown.tree.root.findAllByType('button')[0].props.onClick() })
+  assert.match(textOf(unknown.tree), /没能确认会话是否收到开工指令/)
+  assert.equal(unknown.tree.root.findAllByType('button').length, 0, '结果未知时不给按钮')
+})
+
+test('a running session suppresses both the start button and the approval buttons', async () => {
+  installDocumentStub()
+
+  const empty = await renderView({
+    statuses: ['failed', 'failed', 'live'],
+    state: sessionState('see-dsh-novel', '/work', true),
+  })
+  assert.match(textOf(empty.tree), /会话正在运行/)
+  assert.doesNotMatch(textOf(empty.tree), /让本会话跑一遍/)
+  assert.equal(empty.tree.root.findAllByType('button').length, 0)
+
+  const gate = await renderView({ state: sessionState('see-dsh-novel', '/work', true) })
+  assert.match(textOf(gate.tree), /会话正在运行/)
+  assert.equal(gate.tree.root.findAllByType('button').length, 0)
+})
+
+test('started clears when the observed turn ends', async () => {
+  installDocumentStub()
+  const { tree, props } = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
+  assert.match(textOf(tree), /已开始基础设定/)
+
+  await act(async () => {
+    tree.update(React.createElement(StoryView, {
+      ...props,
+      useSessions: selectorOf(sessionState('see-dsh-novel', '/work', true)),
+    }))
+  })
+  assert.match(textOf(tree), /会话正在运行/)
+
+  await act(async () => {
+    tree.update(React.createElement(StoryView, {
+      ...props,
+      useSessions: selectorOf(sessionState('see-dsh-novel', '/work', false)),
+    }))
+  })
+  assert.match(textOf(tree), /已立项，还没有基础设定/)
+  assert.equal(tree.root.findAllByType('button').length, 1, '这一轮结束后回到开工按钮')
+})
+
+test('the start button never appears without an identity file', async () => {
+  installDocumentStub()
+  const none = await renderView({ statuses: ['failed', 'failed', 'failed'] })
+  assert.match(textOf(none.tree), /尚未立项/)
+  assert.equal(none.tree.root.findAllByType('button').length, 0)
+})
+
+test('START_TEXT names the checks the agent must run before writing', () => {
+  const text = START_TEXT('/work')
+  assert.match(text, /面板看到的工作区是 \/work/)
+  assert.match(text, /story_work_show/)
+  assert.match(text, /story_next/)
+  for (const tool of [
+    'story_foundation_outline',
+    'story_foundation_details',
+    'story_foundation_cast_index',
+    'story_foundation_cast_documents',
+  ]) {
+    assert.match(text, new RegExp(tool))
+  }
+  assert.match(text, /阶段不是 foundation 就停手/)
+  assert.match(text, /不要自行签核/)
+})
+
+test('the start inject face sends one queue-mode prompt with the cwd', async () => {
+  installDocumentStub()
+  const prompts = []
+  const binding = {
+    session: {
+      prompt: async (content, mode) => {
+        prompts.push({ content, mode })
+        return { ok: true, value: { accepted: true } }
+      },
+    },
+  }
+  const { face, dispose } = await mountEligible(() => binding)
+
+  assert.equal(await face.start(SESSION, '/work'), 'ok')
+  assert.equal(prompts.length, 1)
+  assert.equal(prompts[0].mode, 'queue')
+  assert.deepEqual(prompts[0].content, [{ type: 'text', text: START_TEXT('/work') }])
+
+  await dispose()
+  // 没有会话绑定：确定失败，不调用 prompt。
+  const detached = await mountEligible()
+  assert.equal(await detached.face.start(SESSION, '/work'), 'failed')
+  await detached.dispose()
 })
 
 test('command outcomes map to the four visible states', async () => {

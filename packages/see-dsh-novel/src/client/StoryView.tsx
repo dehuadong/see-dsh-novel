@@ -38,11 +38,17 @@ const COMMANDS = [
 const APPROVE = COMMANDS[1]
 const REJECT = COMMANDS[2]
 
-/** 一次点击的生命周期：空闲、提交中、已确认并继续、已确认但没继续。 */
-type Phase = 'idle' | 'running' | 'resumed' | 'resume-failed'
+/** 开工按钮的文案；只在「已立项、还没有基础设定」这一屏出现。 */
+const START_LABEL = '开始基础设定'
+
+/**
+ * 一次点击的生命周期：空闲、提交中、已确认并继续、已确认但没继续、
+ * 已开工（等这一轮开始/结束）、开工结果未知（指令可能已送达）。
+ */
+type Phase = 'idle' | 'submitting' | 'resumed' | 'resume-failed' | 'started' | 'start-unknown'
 
 /** 认可后的状态文案；两种都意味着按钮不再可用。 */
-function settledText(phase: Exclude<Phase, 'idle' | 'running'>): string {
+function settledText(phase: 'resumed' | 'resume-failed'): string {
   return phase === 'resumed'
     ? '已确认，正在继续…'
     : '已确认；会话没能自动继续，在「对话」里说一句「继续」即可。'
@@ -80,11 +86,11 @@ function failureNotice(outcome: Exclude<CommandOutcome, 'ok'>): string {
 }
 
 /**
- * 作品页：作者确认闸门与提交回执。
+ * 作品页：作者确认闸门、立项后的开工入口与提交回执。
  * @param props slot 的 owner 面加上注册时注入的业务面
  */
 export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): ReactNode {
-  const { sessionId, useSessions, useResource, canCommand, runCommand, resume } = props
+  const { sessionId, useSessions, useResource, canCommand, runCommand, resume, start } = props
   const [notice, setNotice] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   // 双击在同一帧内连发两次 onClick，state 还没来得及更新；用 ref 抢先占位。
@@ -95,8 +101,11 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   }
   // 在途的提交只对发起它的会话有效：面板实例会被复用，切换会话后旧结果必须丢弃。
   const currentSession = useRef<SessionId>(sessionId)
+  // 开工后要见过「这一轮真的跑起来」再结束 started：否则一次瞬时 false 就会把它清掉。
+  const sawTurn = useRef(false)
   const cwd = useSessions((state: SessionListState) => state.byId[sessionId]?.cwd)
   const preset = useSessions(presetSelector(sessionId))
+  const sessionRunning = useSessions((state: SessionListState) => state.byId[sessionId]?.running === true)
   const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
   const manifest = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_MANIFEST}`)
   const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
@@ -111,10 +120,26 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   // 会通过 stillHere 检查，把上一个会话的状态画到新会话上。
   useLayoutEffect(() => {
     currentSession.current = sessionId
+    sawTurn.current = false
     phaseRef.current = 'idle'
     setPhase('idle')
     setNotice('')
   }, [sessionId])
+
+  // 开工后的收尾：见过这一轮跑起来、又结束，就回到探针判定。会话级 running 也可能是
+  // 别的轮（作者自己补的那句），所以它只用来结束 started，不用来清 start-unknown。
+  useLayoutEffect(() => {
+    if (phase !== 'started') return
+    if (sessionRunning) {
+      sawTurn.current = true
+      return
+    }
+    if (sawTurn.current) {
+      sawTurn.current = false
+      phaseRef.current = 'idle'
+      setPhase('idle')
+    }
+  }, [phase, sessionRunning])
 
   /**
    * 提交一条确认命令；认可成功后再把「继续」投回会话。
@@ -127,7 +152,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     if (phaseRef.current !== 'idle') return
     const startedFor = sessionId
     const stillHere = (): boolean => currentSession.current === startedFor
-    moveTo('running')
+    moveTo('submitting')
     setNotice(`正在执行「${label}」…`)
     try {
       const outcome = await runCommand(sessionId, line)
@@ -160,16 +185,65 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     }
   }
 
+  /**
+   * 立项之后把开工指令投回会话。确定失败可以重试；抛错算结果未知，
+   * 不再给按钮——请求可能已经被宿主接受，再点一次会排出第二轮。
+   */
+  async function startFoundation(): Promise<void> {
+    if (phaseRef.current !== 'idle') return
+    const startedFor = sessionId
+    const stillHere = (): boolean => currentSession.current === startedFor
+    moveTo('submitting')
+    setNotice('正在开始基础设定…')
+    try {
+      const outcome = await start(sessionId, cwd)
+      if (!stillHere()) return
+      if (outcome === 'ok') {
+        sawTurn.current = false
+        moveTo('started')
+        setNotice('')
+        return
+      }
+      setNotice('已立项，但没能自动开始；在「对话」里说一句「开始写基础设定」即可。')
+      moveTo('idle')
+    } catch {
+      if (!stillHere()) return
+      setNotice('')
+      moveTo('start-unknown')
+    }
+  }
+
   const body: ReactNode[] = []
   if (channel === 'unavailable') {
     body.push(<p key="none" className="sdn-muted">读不到工作区状态（文件资源通道不可用），暂时不能确认。</p>)
   } else if (channel === 'loading') {
     body.push(<p key="loading" className="sdn-muted">正在读取工作区…</p>)
   } else if (!hasFoundation) {
-    body.push(identified
-      ? <p key="empty" className="sdn-muted">已立项，还没有基础设定。让本会话跑一遍基础设定，再来这里确认。</p>
-      : <p key="empty" className="sdn-muted">尚未立项。当前工作区既没有 work.json，也没有 source/story/。</p>)
-    if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
+    if (sessionRunning) {
+      body.push(<p key="running" className="sdn-muted">会话正在运行，结束后这里会按实际文件重新判定。</p>)
+    } else if (phase === 'started') {
+      body.push(<p key="started" className="sdn-muted">已开始基础设定，这一轮结束后这里会按实际文件重新判定。</p>)
+    } else if (phase === 'start-unknown') {
+      body.push(
+        <p key="unknown" className="sdn-muted">
+          没能确认会话是否收到开工指令：先看「对话」里有没有新的一轮；没有的话直接在对话里说一句「开始写基础设定」。
+        </p>,
+      )
+    } else if (identified) {
+      body.push(<p key="empty" className="sdn-muted">已立项，还没有基础设定。</p>)
+      if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
+      body.push(
+        <div key="start" className="sdn-row">
+          <button type="button" disabled={phase === 'submitting'} onClick={() => { void startFoundation() }}>
+            {START_LABEL}
+          </button>
+        </div>,
+      )
+      if (notice !== '') body.push(<p key="notice" className="sdn-muted">{notice}</p>)
+    } else {
+      body.push(<p key="empty" className="sdn-muted">尚未立项。当前工作区既没有 work.json，也没有 source/story/。</p>)
+      if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
+    }
   } else if (preset === undefined) {
     body.push(<p key="preset-loading" className="sdn-muted">正在读取会话预设…</p>)
   } else if (preset !== PRESET_ID) {
@@ -183,7 +257,11 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         </p>,
       )
     }
-    if (phase === 'resumed' || phase === 'resume-failed') {
+    if (sessionRunning) {
+      body.push(<p key="running" className="sdn-muted">会话正在运行，结束后这里会按实际文件重新判定。</p>)
+    } else if (phase === 'started') {
+      body.push(<p key="started" className="sdn-muted">已开始基础设定，这一轮结束后这里会按实际文件重新判定。</p>)
+    } else if (phase === 'resumed' || phase === 'resume-failed') {
       body.push(<p key="settled" className="sdn-muted">{settledText(phase)}</p>)
     } else if (canCommand(sessionId)) {
       body.push(
@@ -192,7 +270,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
             <button
               key={command.line}
               type="button"
-              disabled={phase === 'running'}
+              disabled={phase === 'submitting'}
               onClick={() => { void submit(command.label, command.line) }}
             >
               {command.label}

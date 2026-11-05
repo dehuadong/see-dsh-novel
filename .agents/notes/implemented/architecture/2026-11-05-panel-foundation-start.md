@@ -1,6 +1,6 @@
 # Agent Note: panel.foundation-start —— 立项之后一键开工
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -10,7 +10,7 @@ Status: proposed
 
 约束：面板读不到 `work.json` 正文（文件资源通道只给存在性），所以按钮不能带书名、也不能替作者补参数；它只能是一个触发器。
 
-## Proposal
+## Decision
 
 ### 只在「已立项、还没有基础设定」这一屏给按钮
 
@@ -74,21 +74,13 @@ Status: proposed
 
 **开工失败也锁死按钮。** 与认可一致。否掉：认可失败意味着回执已写下、重复点击会写两条；开工失败什么都没发生，锁死只会让作者重开会话。
 
-## Acceptance criteria
+## Consequences
 
-- 在「已立项、还没有基础设定」的面板上点一次「开始基础设定」：会话收到一条 `user/message`，内容包含 `cwd`、`story_work_show`、`story_next`、四个 `story_foundation_*` 工具名、「阶段不是 `foundation` 就停手」与「不要自行签核」；随后有 `turn/start`。这条文本的稳定语义由 `test/client.test.mjs` 断言，删掉任何一项都会让测试红。
-- 点完之后、`running` 还没被观察到时，两屏显示「已开始基础设定…」：开工按钮与三个确认按钮都不出现。
-- `running` 为真期间（不论是开工那一轮还是别的轮）：两屏都显示「会话正在运行…」，不出现开工按钮、也不出现三个确认按钮。
-- 会话 `running` 从真变假之后，`started` 解除，面板按探针重新判定：任一锚点存在就落在闸门屏。
-- `start` 返回 `'failed'` 时文案是「已立项，但没能自动开始…」、按钮恢复可点；`prompt` 抛错时文案是「没能确认会话是否收到开工指令…」、不再给按钮，出口是对话。
-- `start-unknown` 只管空态屏：不渲染开工按钮，也不随 `running` 解除；一旦探针看到基础设定，闸门屏照常显示（那里没有开工按钮）。
-- 连点只产生一条 `prompt`；切换会话后到达的旧结果不画到新会话，`started`／`start-unknown` 随切换重置；重挂之后按钮回来，重复投递只在模型遵守阶段检查时被缓解。
-- 身份缺、已有基础设定、通道不可用这几种屏都不出现开工按钮。
-- 投出的消息让 agent 先 `story_work_show` 并核对 `cwd`；再用 `story_next` 核对阶段：工作目录对不上或阶段不是 `foundation` 时，agent 报告并停手；模型遵守时不会盲写或重复写。
-- 实现与证据：implementation `packages/see-dsh-novel/src/client/index.ts`（`START_TEXT(cwd)`、`start` 注入面）与 `StoryView.tsx`（空态分支的按钮、`started`／`start-unknown` 状态、`running` 驱动的收尾与闸门抑制）；consumer `packages/see-dsh-novel/test/client.test.mjs`；realRun `artifacts/real-runs/panel.foundation-start.json`。
-- 真实运行：在只有 `work.json` 的空工作区打开面板，点「开始基础设定」，会话里出现新的一轮并按顺序写基础设定；写的过程中面板显示「会话正在运行…」，这一轮结束后自动落在作者确认闸门。
+`src/client/index.ts` 导出 `START_TEXT(cwd)` 并给视图注入 `start(sessionId, cwd)`：`prompt([{ type: 'text', text }], 'queue')`，无绑定或 `RemoteResult.ok !== true` 返回 `'failed'`，抛错不吞、由视图映射成结果未知。`StoryView.tsx` 的 `Phase` 扩到 `idle`／`submitting`／`resumed`／`resume-failed`／`started`／`start-unknown`，空态屏在「通道可读、身份在、两个锚点都不在」时渲染「开始基础设定」；闸门屏与空态屏都按 `running` → `started` → 其余的顺序决定显示，`running` 为真时两屏都只显示「会话正在运行…」且不渲染任何按钮。`started` 由「见过这一轮跑起来、又结束」收尾（`sawTurn` ref），回到探针判定；`start-unknown` 只管空态屏，不随 `running` 解除。切换会话重置本地状态，在途结果用 `currentSession` 栅栏丢弃。
 
-## Risks
+验证见 `test/client.test.mjs`（开工按钮的可见条件与一次点击、确定失败可重试与结果未知不给按钮、`running` 抑制两类按钮、`started` 在观察到的一轮结束后解除、身份缺时没有按钮、`START_TEXT` 的稳定语义、`start` 注入面的 payload／`queue` 模式与无绑定失败），真实运行回执由 Verify 阶段写到 `artifacts/real-runs/panel.foundation-start.json`。
+
+代价与已知限制：
 
 - 开工消息是作者口吻：会话记录上看起来像作者打的字，导出时要知道这条是面板代发的（与 `panel.gate-resume` 同一限制）。
 - 面板不能显示书名，按钮只能写「开始基础设定」；作者想确认是不是这本书，要回对话或看工作区路径。

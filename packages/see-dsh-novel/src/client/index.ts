@@ -30,6 +30,23 @@ export const RESUME_TEXT = '作者刚在面板确认了 foundation（若那之�
   + '不成立就把原因告诉作者。不要再次请作者确认。'
 
 /**
+ * 立项之后投回会话的开工指令。
+ *
+ * 先核对目录与阶段再动笔：面板按会话记录目录探针，工具按当前工作目录解析，
+ * 两者可能不是同一部作品；重挂面板后按钮会回来，阶段检查是重复投递的缓解。
+ * @param cwd 面板看到的工作区路径；会话没有记录目录时省略
+ */
+export function START_TEXT(cwd: string | undefined): string {
+  const where = cwd === undefined ? '' : `面板看到的工作区是 ${cwd}。`
+  return `作者在面板上点了「开始基础设定」。${where}`
+    + '请先调用 story_work_show 读身份，并核对你当前的工作目录是不是这个目录：读不到或不是同一个目录就停下并告诉作者。'
+    + '再用 story_next 核对阶段：阶段不是 foundation 就停手并报告，不要重复写。'
+    + '阶段是 foundation 时按顺序写：story_foundation_outline → story_foundation_details → '
+    + 'story_foundation_cast_index → story_foundation_cast_documents。'
+    + '写完停在作者确认闸门前，不要自行签核。'
+}
+
+/**
  * 注册面板：哨兵 + 条件注册的作品视图 + 样式。
  * @param ctx 客户端插件上下文
  */
@@ -47,6 +64,12 @@ export function apply(ctx: Context): void {
       const binding = ctx.sessions.binding(sessionId)
       if (binding === undefined) return 'failed'
       const result = await binding.session.prompt([{ type: 'text', text: RESUME_TEXT }], 'queue')
+      return result.ok === true ? 'ok' : 'failed'
+    },
+    start: async (sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome> => {
+      const binding = ctx.sessions.binding(sessionId)
+      if (binding === undefined) return 'failed'
+      const result = await binding.session.prompt([{ type: 'text', text: START_TEXT(cwd) }], 'queue')
       return result.ok === true ? 'ok' : 'failed'
     },
   })

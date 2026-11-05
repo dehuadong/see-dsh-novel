@@ -100,9 +100,9 @@ capabilities:
     title: 立项后面板给出「开始基础设定」：一键把开工指令投回会话，agent 起一轮写设定
     reference: inkos:packages/core/src/harness/system-prompt.ts
     dsh: client session.prompt
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/client/index.ts
+    consumer: packages/see-dsh-novel/test/client.test.mjs
+    realRun: artifacts/real-runs/panel.foundation-start.json
     status: missing
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema

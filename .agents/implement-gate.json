@@ -1,0 +1,49 @@
+{
+  "enabled": true,
+  "version": 2,
+  "codeExtensions": [
+    ".rs",
+    ".ts",
+    ".tsx",
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".py",
+    ".go",
+    ".java",
+    ".kt",
+    ".kts",
+    ".c",
+    ".h",
+    ".cc",
+    ".cpp",
+    ".hpp",
+    ".cs",
+    ".rb",
+    ".php",
+    ".swift",
+    ".scala",
+    ".lua",
+    ".sh",
+    ".ps1",
+    ".sql",
+    ".css",
+    ".scss",
+    ".html",
+    ".vue",
+    ".svelte",
+    ".astro"
+  ],
+  "codePaths": [
+    ".github/workflows/"
+  ],
+  "protected": [
+    ".agents/implement-gate.json",
+    ".agents/state/implement-gate"
+  ],
+  "commands": {
+    "planning": "^批准，使用(?:技能\\s*)?planning\\s+执行规划\\s+(.+)$",
+    "implement": "^批准，使用(?:技能\\s*)?implement\\s+执行实现\\s+(.+)$"
+  }
+}
