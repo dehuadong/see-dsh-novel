@@ -83,14 +83,14 @@ export function bookRulesDataSchema(): JsonSchema
 
 ## Acceptance criteria
 
-- `story_foundation_details` 落盘的 `book_rules.json` 第一项是 `"version": "2"`，其余字段与入参一致；`readBookRules` 读回同一对象，`body` 是 `.md` 去首尾空白的内容。
+- `story_foundation_details` 落盘的 `book_rules.json` 第一项是 `"version": "2"`；除 `narrativePerson`／`fanficMode` 会被 trim 外，其余字段与入参一致（trim 字段落盘为去空白后的值）。`readBookRules` 读回同一对象，`body` 是 `.md` 去首尾空白的内容。
 - 入参缺 `prohibitions`／`enableFullCastTracking`／`allowedDeviations`，或出现未知字段，或 `version` 不是 `"2"` → 校验失败、报错点名字段、**不写任何文件**。
 - 与源 schema 一致：`prohibitions: [""]`、`protagonist.name: ""` 合法；`narrativePerson: "  "` 被拒绝；`narrativePerson: " 第一人称 "` 读回为 `"第一人称"`。
 - `readBookRules` 在 `.json` 语法错或字段非法时抛错并点名文件与字段；缺 `book_rules.md` 或 `book_rules.json` 时抛错点名缺失路径；无 `version` 时报「version 必须是 \"2\"」，不自动补。
-- 字段表只有一处：`BOOK_RULES_DATA` schema 的字段集合与 `parseBookRules` 的接受集合一致（测试遍历两边比对），未知字段两边都拒。
+- 字段表只有一处：`BOOK_RULES_DATA` schema 的字段集合与 `BookRulesInput`（即 `Omit<BookRules, "version">`）一致——测试遍历两边的键比对；`version` 由校验器接受、schema 拒绝（模型不提供版本），两边都拒绝未知字段。
 - `test/foundation.test.mjs` 的 `book_rules.json` 期望同批改为含 `version`。
 - 实现与证据：implementation `packages/see-dsh-novel/src/pipelines/long/book-rules.ts`；consumer `packages/see-dsh-novel/test/book-rules.test.mjs`；写路径与 schema 改动在 `src/pipelines/long/tools.ts`、`src/pipelines/long/contract.ts`、`test/foundation.test.mjs`；realRun `artifacts/real-runs/foundation.rule-contract.json`。
-- 真实运行：在一个空工作区的会话里调 `story_foundation_details` 写一份基础设定，确认 `book_rules.json` 带 `version:"2"`；再用 `readBookRules` 读回同一对象；另造一份无 `version` 的文件确认读取报错。回执记录该会话 id 与两条命令输出。
+- 真实运行（可复现）：1) 在一个空工作区的会话里调 `story_foundation_details` 写一份基础设定；2) 用临时脚本 `.artifacts/read-rules.mjs`（导出 `readBookRules` 并打印结果）经 `node --import tsx` 读回，确认 `version:"2"` 且字段一致；3) 复制该文件去掉 `version` 再读一次，确认报错。回执记录会话 id、两条命令与输出。
 
 ## Risks
 
