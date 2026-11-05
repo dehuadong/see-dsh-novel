@@ -1,6 +1,6 @@
 # Agent Note: runtime.telemetry —— 按作品读回每笔委派
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -10,7 +10,7 @@ Status: proposed
 
 会话里其实已经有全部事实：父会话的目录里记着派出去的子会话，子会话自己的日志里有每一步的用量与轮次边界，宿主把它们折成了投影。缺的是一个**读回来的入口**：从「当前会话」出发，把子会话列出来，给出用量、耗时与是否正常结束。
 
-## Proposal
+## Decision
 
 ### 没有任何写入：只读会话已有的数据
 
@@ -73,20 +73,13 @@ Status: proposed
 
 **在 `story_next` 里顺带返回委派账。** 少一个工具。否掉：`story_next` 是路牌，输出 schema 小且稳定；账本条目数会随委派增长，塞进去会让它膨胀。
 
-## Acceptance criteria
+## Consequences
 
-- 当前会话没有子代理时：`story_telemetry` 返回 `summary.delegations: 0` 与空 `delegations`，不报错。
-- 有一次子代理委派后：`delegations` 里出现该子会话，`childSessionId`、`mode`、`depth`、`state` 齐备；`label` 是字符串或 `null`（one-shot 允许缺省）；`durationMs` 是非负整数或 `null`；`usage` 是四个非负整数桶或 `null`；`state` 是四个固定值之一，只有 `activity` 与 `active` 同时成立才是 `running`。
-- `incomplete` 的子会话（最近一轮没有正常收尾）在 `summary.incomplete` 里被计数，对应条目的 `state` 是 `incomplete`。
-- `diagnostic` 行只出现在 `diagnostics` 里并带 `reason`，不计入 `delegations`／`incomplete`；`external` 模式没有本地会话，条目仍返回，`usage`／`durationMs` 为 `null`、`state` 为 `unknown`。`mode: 'unknown'` 不会以 `child` 行出现——未知模式本身就是一条 `diagnostic`（`reason: 'unsupported'`）。
-- `limit` 只截 `delegations`（目录顺序的最后 `limit` 条），`diagnostics` 全量返回；`summary.delegations`／`summary.incomplete` 与返回的 `delegations` 一致，`summary.diagnostics` 与返回的 `diagnostics` 一致。
-- 求和不把缺失当 0：`summary.durationMs` 与 `summary.usage` 只加非 `null` 的行，零条委派时都是 `0`；`summary.partial` 等于返回集合里 `usage` 或 `durationMs` 为 `null` 的委派数。构造一个「一个本地子会话 + 一个 external 子会话」的假服务面断言：合计只含本地那条，`partial: 1`。
-- `subagents`／`sessionQuery` 缺失时返回错误文本并点名缺失的服务。
-- `test/host.test.mjs` 的工具清单同批加 `story_telemetry`；`test/telemetry.test.mjs` 用假的服务面覆盖上述分支（含 diagnostic、无本地会话、`activity: running`）。
-- 实现与证据：implementation `packages/see-dsh-novel/src/plugin/telemetry-tool.ts`（工具与聚合）与 `src/plugin/agent.ts`（注册）；consumer `packages/see-dsh-novel/test/telemetry.test.mjs`；realRun `artifacts/real-runs/runtime.telemetry.json`。
-- 真实运行：在一个有 `work.json` 的会话里让主编把一件小事派给子代理，随后调用 `story_telemetry`，能看到该子会话的 `state=completed`、耗时与用量四桶。
+`src/plugin/telemetry-tool.ts` 注册只读工具 `story_telemetry`（参数 `limit`，默认 20、上限 200）：通过 `ctx.get('subagents')` 取目录、`ctx.get('sessionQuery')` 读子会话投影，`listDescendants(rootSessionId)` 的 `child` 行进入 `delegations`、`diagnostic` 行进入 `diagnostics`（带 `reason`）。每行读 `tokenUsage` 的四个桶与 `subagentTiming` 的 `settledMs`／`active`／`lastTurnCompleted`，`state` 按「驻留 + 未闭合轮次 → running；否则最近一轮收尾 → completed／incomplete；否则 unknown」判定；读不到本地会话（external）时 `usage`／`durationMs` 为 `null`。`summary` 只覆盖返回的 `limit` 行：合计只加非 `null` 的值、零行为 0、`partial` 数缺值的行，`diagnostics` 全量返回。观察用完即 `dispose`。`src/plugin/agent.ts` 注册并保持相反顺序注销；`src/core/types.ts` 增补 `SessionLike.id`、`SessionObservationLike`、`SessionQueryLike`、`SubagentRowLike`、`SubagentsLike` 五个手写面。
 
-## Risks
+验证见 `test/telemetry.test.mjs`（空树、completed 行、驻留+未闭合轮次才算 running、崩溃残留不算、incomplete 计数、diagnostic 不进委派、无本地会话为 null 且 partial、limit 取最近 N、坏 limit 与服务缺失报错、两张 schema 在运行时子集内）与 `test/host.test.mjs`（工具清单加 `story_telemetry`）。真实运行回执由 Verify 阶段写到 `artifacts/real-runs/runtime.telemetry.json`。
+
+代价与已知限制：
 
 - 子会话的投影缺项（外部 provider、旧会话）时只能给 `null` 与 `unknown`；报告要如实，不补零。
 - `listDescendants` 会遍历父目录链；会话很多时是一次按需读，不作为每轮都调的工具。
