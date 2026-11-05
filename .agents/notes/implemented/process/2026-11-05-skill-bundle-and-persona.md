@@ -10,14 +10,14 @@ Status: implemented
 
 ## Decision
 
-技能束与 persona 按源工程结构复刻，内容独立命名、不标注来源。本笔记只覆盖四层里的**第 1、2 层**（harness prompt 的行为边界与技能束）；第 3 层（按角色拆的方法 prompt）与第 4 层（每轮上下文包）由 P2／P3 的能力行承载，不属本笔记的已落地范围。
+技能束与 persona 按源工程结构复刻，内容独立命名、不标注来源。
 
 - `skills/longform-writing/SKILL.md` 只留「场景与推进／人物与因果／伏笔生命周期／交稿前自检」的方法与**参考文件路由**（基础设定、读者契约与推进、场景对话与篇幅、状态投影各一份）；
 - 新增四份参考文件：`references/foundation-design.md`、`reader-contract-and-progression.md`、`scene-dialogue-and-length-budget.md`、`state-projection.md`，方法正文按源工程复刻成中文；
 - 预设 persona 补上源工程 harness prompt 的行为边界：最新用户消息优先、只有工具产生副作用、完成态只来自工具回执与落盘产物、确认动作不得用聊天文字代替、作者已确认的约束要完整继承、技能提供方法不授予执行权、缺必需输入只问一个关键问题；
 - 打包校验的允许集合加 `skills/*/references/*.md`，`test/agent-tools.test.mjs` 断言四份参考文件存在且 `SKILL.md` 路由到它们。
 
-按角色拆的方法 prompt（planner／writer／settler）与上下文包仍缺，由 P2／P3 的行承载：第 3 层落在 `plan.chapter`、`chapter.write`、`chapter.review`、`chapter.revise`、`chapter.settle`，第 4 层落在 `context.brief`、`context.retrieval`。这些义务写在行标题与 `docs/scope.md` 的阶段说明里，不靠本笔记的口头约定。
+第 3、4 层（角色方法 prompt、每轮上下文包）不在这篇笔记里，见 [`proposed/architecture/2026-11-05-prompt-assembly-layers.md`](../../proposed/architecture/2026-11-05-prompt-assembly-layers.md)。
 
 ## Alternatives considered
 
