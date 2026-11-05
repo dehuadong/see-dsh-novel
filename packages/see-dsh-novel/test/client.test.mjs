@@ -9,7 +9,7 @@ import React from 'react'
 import * as jsxRuntime from 'react/jsx-runtime'
 import { act, create } from 'react-test-renderer'
 
-import { apply } from '../src/client/index.ts'
+import { apply, RESUME_TEXT } from '../src/client/index.ts'
 import { outcomeOf } from '../src/client/outcome.ts'
 import { presetOf } from '../src/client/preset.ts'
 import { StoryView } from '../src/client/StoryView.tsx'
@@ -184,8 +184,17 @@ test('the preset reader tolerates both projection channels', () => {
 })
 
 /** 直接渲染 StoryView，绕过条件注册：组件行为单独测。 */
-async function renderView({ state = sessionState('see-dsh-novel'), statuses = ['live', 'live'], canCommand = true, outcome = 'ok', runCommand } = {}) {
+async function renderView({
+  state = sessionState('see-dsh-novel'),
+  statuses = ['live', 'live'],
+  canCommand = true,
+  outcome = 'ok',
+  runCommand,
+  resumeOutcome = 'ok',
+  resume,
+} = {}) {
   const calls = []
+  const resumes = []
   const props = {
     sessionId: SESSION,
     useSessions: selectorOf(state),
@@ -199,20 +208,71 @@ async function renderView({ state = sessionState('see-dsh-novel'), statuses = ['
       calls.push({ sessionId, line })
       return runCommand === undefined ? outcome : runCommand
     },
+    resume: async (sessionId) => {
+      resumes.push(sessionId)
+      return resume === undefined ? resumeOutcome : resume()
+    },
   }
   const tree = await render(React.createElement(StoryView, props))
-  return { tree, calls }
+  return { tree, calls, resumes }
 }
 
 test('the view shows the gate and dispatches the three commands', async () => {
   installDocumentStub()
-  const { tree, calls } = await renderView()
+  const { tree, calls, resumes } = await renderView()
   const buttons = tree.root.findAllByType('button')
   assert.deepEqual(buttons.map((node) => node.children.join('')), ['查看待确认', '认可', '退回'])
 
+  // 认可：先写回执，再把「继续」投回会话。
   await act(async () => { buttons[1].props.onClick() })
   assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-approve' }])
-  assert.match(textOf(tree), /已提交「认可」，结果在「对话」里/)
+  assert.deepEqual(resumes, [SESSION])
+  assert.match(textOf(tree), /已确认，正在继续…/)
+  assert.equal(tree.root.findAllByType('button').length, 0, '认可成功后按钮应消失')
+})
+
+test('a failed resume says the confirmation stands but the session did not continue', async () => {
+  installDocumentStub()
+  const { tree, resumes } = await renderView({ resumeOutcome: 'failed' })
+  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  assert.deepEqual(resumes, [SESSION])
+  assert.match(textOf(tree), /已确认；会话没能自动继续/)
+  assert.equal(tree.root.findAllByType('button').length, 0)
+})
+
+test('reject and review never wake the session', async () => {
+  installDocumentStub()
+  const reject = await renderView()
+  await act(async () => { reject.tree.root.findAllByType('button')[2].props.onClick() })
+  assert.deepEqual(reject.calls, [{ sessionId: SESSION, line: '/story-reject' }])
+  assert.deepEqual(reject.resumes, [])
+  assert.match(textOf(reject.tree), /已提交「退回」/)
+
+  const review = await renderView()
+  await act(async () => { review.tree.root.findAllByType('button')[0].props.onClick() })
+  assert.deepEqual(review.calls, [{ sessionId: SESSION, line: '/story-review' }])
+  assert.deepEqual(review.resumes, [])
+})
+
+test('a failed command does not wake the session and keeps the buttons', async () => {
+  installDocumentStub()
+  const { tree, resumes } = await renderView({ outcome: 'error' })
+  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  assert.deepEqual(resumes, [])
+  assert.match(textOf(tree), /提交失败，稍后再试/)
+  assert.equal(tree.root.findAllByType('button').length, 3)
+})
+
+test('a double click dispatches one command and one resume', async () => {
+  installDocumentStub()
+  const { tree, calls, resumes } = await renderView()
+  const button = tree.root.findAllByType('button')[1]
+  await act(async () => {
+    button.props.onClick()
+    button.props.onClick()
+  })
+  assert.equal(calls.length, 1)
+  assert.equal(resumes.length, 1)
 })
 
 test('the view reports failure and unmatched results in words', async () => {
@@ -284,6 +344,78 @@ test('the unbound notice is visible to the author', async () => {
   assert.match(textOf(tree), /当前会话还没有就绪，命令没有执行/)
 })
 
+test('the resume inject face sends one queue-mode continuation prompt', async () => {
+  installDocumentStub()
+  const prompts = []
+  const binding = {
+    session: {
+      prompt: async (content, mode) => {
+        prompts.push({ content, mode })
+        return { ok: true, value: { accepted: true } }
+      },
+    },
+  }
+  const { ctx, registrations, injected } = fakeContext(() => binding)
+  apply(ctx)
+  const releaseSentinel = injected.get(SENTINEL_SLOT)()
+  const releaseSlot = injected.get(SLOT)()
+  const sentinel = entryFor(registrations, SENTINEL_SLOT)
+  const sentinelTree = await render(React.createElement(sentinel.component, {
+    sessionId: SESSION,
+    useSessions: selectorOf(sessionState('see-dsh-novel')),
+    ...sentinel.spec.inject(),
+  }))
+  const face = entryFor(registrations, SLOT).spec.inject()
+
+  assert.deepEqual(await face.resume(SESSION), 'ok')
+  assert.equal(prompts.length, 1)
+  assert.equal(prompts[0].mode, 'queue')
+  assert.deepEqual(prompts[0].content, [{ type: 'text', text: RESUME_TEXT }])
+  assert.match(RESUME_TEXT, /story_gate/)
+  assert.match(RESUME_TEXT, /story_foundation_signoff/)
+  assert.match(RESUME_TEXT, /不要再次请作者确认/)
+  assert.doesNotMatch(RESUME_TEXT, /[0-9a-f]{64}/, '消息里不应带摘要')
+
+  await act(async () => { sentinelTree.unmount() })
+  releaseSlot()
+  releaseSentinel()
+})
+
+test('resume reports failure for a rejected prompt or a missing binding', async () => {
+  installDocumentStub()
+  const failing = { session: { prompt: async () => ({ ok: false }) } }
+  const first = fakeContext(() => failing)
+  apply(first.ctx)
+  const releaseSentinel = first.injected.get(SENTINEL_SLOT)()
+  const releaseSlot = first.injected.get(SLOT)()
+  const sentinel = entryFor(first.registrations, SENTINEL_SLOT)
+  const sentinelTree = await render(React.createElement(sentinel.component, {
+    sessionId: SESSION,
+    useSessions: selectorOf(sessionState('see-dsh-novel')),
+    ...sentinel.spec.inject(),
+  }))
+  assert.equal(await entryFor(first.registrations, SLOT).spec.inject().resume(SESSION), 'failed')
+  await act(async () => { sentinelTree.unmount() })
+  releaseSlot()
+  releaseSentinel()
+
+  // 没有会话绑定：直接失败，不调用 prompt。
+  const second = fakeContext()
+  apply(second.ctx)
+  const releaseSecondSentinel = second.injected.get(SENTINEL_SLOT)()
+  const releaseSecondSlot = second.injected.get(SLOT)()
+  const secondSentinel = entryFor(second.registrations, SENTINEL_SLOT)
+  const secondTree = await render(React.createElement(secondSentinel.component, {
+    sessionId: SESSION,
+    useSessions: selectorOf(sessionState('see-dsh-novel')),
+    ...secondSentinel.spec.inject(),
+  }))
+  assert.equal(await entryFor(second.registrations, SLOT).spec.inject().resume(SESSION), 'failed')
+  await act(async () => { secondTree.unmount() })
+  releaseSecondSlot()
+  releaseSecondSentinel()
+})
+
 test('the built client artifact keeps the module-loader handoff', () => {
   const source = readFileSync(join(packageRoot, 'lib', 'client.js'), 'utf8')
   assert.equal(/require\(["']\.\//.test(source), false, '产物里不应有相对 require')
@@ -314,3 +446,4 @@ test('the built client artifact keeps the module-loader handoff', () => {
   assert.equal(head.children.length, 1)
   assert.deepEqual([...injected.keys()].sort(), [SLOT, SENTINEL_SLOT].sort())
 })
+

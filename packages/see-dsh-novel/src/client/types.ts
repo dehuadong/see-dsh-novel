@@ -19,12 +19,17 @@ export type SessionId = Parameters<Context['sessions']['binding']>[0]
 /** 命令提交的结果；面板据此给出可见回执，而不是静默失败。 */
 export type CommandOutcome = 'ok' | 'unbound' | 'unmatched' | 'error'
 
+/** 投「继续」的结果：会话有没有被叫醒。 */
+export type ResumeOutcome = 'ok' | 'failed'
+
 /** 「作品」视图注册时注入的业务面。 */
 export interface ViewInjected {
   /** 当前会话能不能提交命令（有绑定的会话面）。 */
   canCommand(sessionId: SessionId): boolean
   /** 提交一条斜杠命令，把结果折成面板能说清的四态。 */
   runCommand(sessionId: SessionId, line: string): Promise<CommandOutcome>
+  /** 认可之后把「继续」投回会话，让 agent 复核回执再接着干。 */
+  resume(sessionId: SessionId): Promise<ResumeOutcome>
 }
 
 /** 哨兵注册时注入的业务面。 */

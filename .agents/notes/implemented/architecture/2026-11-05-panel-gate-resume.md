@@ -1,6 +1,6 @@
 # Agent Note: panel.gate-resume —— 认可之后让会话继续
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -14,7 +14,7 @@ Status: proposed
 
 门禁本身已经足够强（`story_foundation_signoff` 在摘要不匹配或最新决定是退回时拒绝），缺的是**确认之后把会话叫醒**这一环。
 
-## Proposal
+## Decision
 
 ### 一次点击，先写回执，再投「继续」
 
@@ -86,20 +86,16 @@ Status: proposed
 
 **退回后也唤醒一轮。** 让 agent 立刻开始改。否掉：退回时作者通常还没给修改意见，唤醒只会得到一句「请告诉我改哪里」；等作者自己说。
 
-## Acceptance criteria
+## Consequences
 
-- 点一次「认可」：会话里依次出现 `command/run`＋`command/done`（`story-approve` 成功）以及一条 `user/message`（包含「面板确认了 foundation」与 `story_foundation_signoff`），随后有 `turn/start`；agent 在新一轮里先调 `story_gate` 复核，再调 `story_foundation_signoff` 且返回 `signed`。
-- 若点击之后、新轮读到回执之前基础设定被改动：消息里的「已确认」已经过时，agent 按门禁结论说明「这一版还没有被确认，摘要已变化，需要作者对新版本重新确认」，不调用 `story_foundation_signoff`；这不属于「再次确认同一个版本」，也不能死等。
-- 认可成功后，本次挂载内按钮不再可点；连点不会产生第二条命令或第二轮。
-- 命令失败时**不**投消息；`resume` 返回 `'failed'` 时也**不**投，但回执仍然有效，面板文案是「已确认；会话没能自动继续…」。
-- 「退回」「查看」成功后不产生 `turn/start`。
-- 投出的消息文本包含 `story_gate` 与 `story_foundation_signoff`，且不含摘要。
-- 实现与证据：implementation `packages/see-dsh-novel/src/client/index.ts`（`resume` 注入面）与 `StoryView.tsx`（提交链路）；consumer `packages/see-dsh-novel/test/client.test.mjs`；realRun `artifacts/real-runs/panel.gate-resume.json`。
-- 真实运行：面板点「认可」，会话里出现新的一轮，agent 复核后调用 `story_foundation_signoff` 并成功签核。
+落到实现的：`src/client/index.ts` 导出 `RESUME_TEXT` 并给视图注入 `resume(sessionId)`（`prompt([{ type:'text', text }], 'queue')`，`RemoteResult.ok !== true` 或没有会话绑定时返回 `'failed'`）；`StoryView.tsx` 的 `submit` 是一次点击两步——命令成功且是 `/story-approve` 时接着调 `resume`，成功后把三个按钮换成状态行（`'已确认，正在继续…'` 或 `'已确认；会话没能自动继续，在「对话」里说一句「继续」即可。'`），两种都在本次挂载内不可再点。防重靠 `useRef` 的 `inFlight`／`done`：同一帧连点两次只会走一遍，state 的异步更新挡不住这一下。
 
-## Risks
+验证：`test/client.test.mjs` 14 例，新增或改写的覆盖「认可→投消息」「resume 失败文案」「退回／查看不唤醒」「命令失败不投且保留按钮」「连点只走一次」「`resume` 注入面的 payload 与 `queue` 模式」「prompt 拒绝与无绑定都返回 `failed`」「消息文本含两个工具名且不含摘要」；`pnpm run verify` 全绿。
 
-- 面板投的消息是用户口吻：会话记录上看起来像作者打的字。这是刻意的（点击就是作者的动作），但导出会话时要知道这条是面板代发的。
-- 连点的防重只在本次挂载内有效；跨挂载重复认可仍会起两轮，门禁只保证「摘要不匹配的确认不生效」。
-- `prompt` 的成败取决于会话是否可写（会话被归档、agent 正在阻塞等）；失败路径已定义，但作者仍要手动说一句才能继续。
-- 消息文本随产品演进会改，测试里断言的是「提到 `story_gate`」「不要再次确认」这类稳定语义，不锁整句。
+代价与已知限制：
+
+- 面板投的消息是用户口吻：会话记录上看起来像作者打的字。这是刻意的（点击就是作者的动作），导出会话时要知道这条是面板代发的。
+- 连点防重只在本次挂载内有效；跨挂载重复认可仍会起两轮，门禁只保证「摘要不匹配的确认不生效」。
+- `prompt` 的成败取决于会话是否可写（被归档、agent 正阻塞等）；失败路径已定义，作者仍要手动说一句才能继续。
+- 消息文本会随产品演进，测试断言的是「提到两个工具名」「不要再次请作者确认」这类稳定语义，不锁整句。
+- 宿主侧 `Agent.followup()` 这条路没有走：它能把「确认即继续」做到连面板都不需要，但要宿主代码碰 DSH 的内部消息结构与品牌类型，等真有“无面板确认”需求时再评估。

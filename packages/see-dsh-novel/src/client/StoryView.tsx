@@ -9,7 +9,7 @@ import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/clie
 import type {} from '@deepseek-ai/dsh-client-resources/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PRESET_ID, presetSelector } from './preset.js'
@@ -30,6 +30,19 @@ const COMMANDS = [
   { label: '认可', line: '/story-approve' },
   { label: '退回', line: '/story-reject' },
 ] as const
+
+/** 认可成功后要接着做的下一步：把「继续」投回会话。 */
+const APPROVE_LINE = '/story-approve'
+
+/** 认可之后的状态：正在继续、继续失败，或还没认可。 */
+type Settled = '' | 'resumed' | 'resume-failed'
+
+/** 认可后的状态文案；两种都意味着按钮不再可用。 */
+function settledText(settled: Exclude<Settled, ''>): string {
+  return settled === 'resumed'
+    ? '已确认，正在继续…'
+    : '已确认；会话没能自动继续，在「对话」里说一句「继续」即可。'
+}
 
 type ResourceStatus = 'none' | 'loading' | 'live' | 'failed'
 
@@ -54,17 +67,44 @@ function noticeOf(label: string, outcome: CommandOutcome): string {
  * @param props slot 的 owner 面加上注册时注入的业务面
  */
 export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): ReactNode {
-  const { sessionId, useSessions, useResource, canCommand, runCommand } = props
+  const { sessionId, useSessions, useResource, canCommand, runCommand, resume } = props
   const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [settled, setSettled] = useState<Settled>('')
+  // 双击在同一帧内连发两次 onClick，state 还没来得及更新；用 ref 抢先占位。
+  const inFlight = useRef(false)
+  const done = useRef(false)
   const cwd = useSessions((state: SessionListState) => state.byId[sessionId]?.cwd)
   const preset = useSessions(presetSelector(sessionId))
   const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
   const manifest = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_MANIFEST}`)
   const work = workState([outline.status, manifest.status])
 
-  function submit(label: string, line: string): void {
+  /**
+   * 提交一条确认命令；认可成功后再把「继续」投回会话。
+   * 一次点击完成两步，失败时如实区分「确认没成功」与「确认了但没继续」。
+   * @param label 按钮文案
+   * @param line 要提交的斜杠命令
+   */
+  async function submit(label: string, line: string): Promise<void> {
+    if (inFlight.current || done.current) return
+    inFlight.current = true
+    setBusy(true)
     setNotice(`正在执行「${label}」…`)
-    void runCommand(sessionId, line).then((outcome) => { setNotice(noticeOf(label, outcome)) })
+    try {
+      const outcome = await runCommand(sessionId, line)
+      if (outcome !== 'ok' || line !== APPROVE_LINE) {
+        setNotice(noticeOf(label, outcome))
+        return
+      }
+      const resumed = await resume(sessionId)
+      done.current = true
+      setSettled(resumed === 'ok' ? 'resumed' : 'resume-failed')
+      setNotice('')
+    } finally {
+      inFlight.current = false
+      setBusy(false)
+    }
   }
 
   const body: ReactNode[] = []
@@ -81,11 +121,18 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     body.push(<p key="preset-other" className="sdn-muted">这是一部作品，但当前会话用的是预设「{preset}」，不能在这里确认基础设定。</p>)
   } else {
     body.push(<p key="gate" className="sdn-muted">作者确认闸门：这一版基础设定需要作者认可，才允许签核定稿。</p>)
-    if (canCommand(sessionId)) {
+    if (settled !== '') {
+      body.push(<p key="settled" className="sdn-muted">{settledText(settled)}</p>)
+    } else if (canCommand(sessionId)) {
       body.push(
         <div key="actions" className="sdn-row">
           {COMMANDS.map((command) => (
-            <button key={command.line} type="button" onClick={() => { submit(command.label, command.line) }}>
+            <button
+              key={command.line}
+              type="button"
+              disabled={busy}
+              onClick={() => { void submit(command.label, command.line) }}
+            >
               {command.label}
             </button>
           ))}
