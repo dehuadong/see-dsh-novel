@@ -14,22 +14,22 @@ Status: implemented
 
 ### 没有任何写入：只读会话已有的数据
 
-本行不新增文件、不监听生命周期事件、不碰 `source/`。`story_telemetry` 是一个只读工具：在调用它的 agent 会话里，列子树、读每个子会话的投影，汇总成一份可读的回执。证据位置仍然是会话本身，符合 scope 与 `dsh-mapping.md` 的「证据留在 session」。
+这条能力不新增文件、不监听生命周期事件、不碰 `source/`。`story_telemetry` 是一个只读工具：在调用它的 agent 会话里，列子树、读每个子会话的投影，汇总成一份可读的回执。证据位置仍然是会话本身，符合 scope 与 `dsh-mapping.md` 的「证据留在 session」。
 
 不监听还有一个结构上的好处：预设插件挂在预设这一层，能看见进程里所有会话的事件；按事件流记账就必须自己再按作品/会话过滤，容易串账。工具只读调用者自己的子树，作用域由调用点决定，不需要额外的过滤规则。
 
-### 数据来源：三个已注册的投影 + 子代理目录
+### 数据来源：已注册的投影 + 子代理目录
 
-`subagents.listDescendants(rootSessionId)` 返回两类行：`kind: 'child'`（真正的子会话，带 `parentId`、`depth`、`mode`、`label?`、`activity`、`hasChildren`）与 `kind: 'diagnostic'`（目录读不通或模式未知，只有 `id` 与 `reason`）。只有 `child` 行进 `delegations`；`diagnostic` 行进 `diagnostics`，连同 `reason`（`corrupt`／`unsupported`／`unavailable`）一起报出来，不假装它是委派。
+`subagents.listDescendants(rootSessionId)` 返回两类行：`kind: 'child'`（真正的子会话，带 `depth`、`mode`、`label?`、`activity`）与 `kind: 'diagnostic'`（目录读不通或模式未知，只有 `id` 与 `reason`）。只有 `child` 行进 `delegations`；`diagnostic` 行进 `diagnostics`，连同 `reason`（`corrupt`／`unsupported`／`unavailable`）一起报出来，不假装它是委派。
 
 对每个 `child`：
 
-- **身份**：行里的 `mode`（one-shot／continuable／external）与 `label`。`label` 对 one-shot 允许缺省，所以按可空处理；子会话自己的 `subagent` 投影是同一份事实的副本，用于核对，不单独作为来源。
+- **身份**：行里的 `mode`（one-shot／continuable／external）与 `label`。`label` 对 one-shot 允许缺省，所以按可空处理。
 - **用量**：子会话的 `tokenUsage` 投影，四个互不重叠的桶——`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`。不自己扫 `assistant/message` 求和使用量：那条读日志的路子已经被宿主的投影取代，而投影连缓存分桶都算好了。
-- **耗时**：子会话的 `subagentTiming` 投影：`settledMs`（已结束轮次的累计毫秒）加 `active` 开区间（`through - since`）。
+- **耗时**：子会话的 `subagentTiming` 投影：`settledMs`（已结束轮次的累计毫秒）加 `active` 开区间（`through - since`）；`settledMs` 缺失时耗时是 `null`，**不影响**状态判断。
 - **状态**：目录行的 `activity` 与子会话 `subagentTiming` 的 `active` 一起用——两个都成立才是「住着且在跑」；单独的 `activity` 只是驻留，单独的 `active` 可能来自崩溃留下的未闭合轮次。终态由 `lastTurnCompleted` 给（`true` → `completed`、`false` → `incomplete`），两者都没有就是 `unknown`。
 
-读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。`external`／`unknown` 模式没有本地会话，`observeSession` 会报找不到——这类行按「读不到」处理，不算失败。
+读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。观察用完通过 `[Symbol.dispose]` 释放（宿主 `SessionObservation extends Disposable`，没有 `dispose()` 方法）。`external` 模式没有本地会话，`observeSession` 会报找不到：这类子会话仍回一行（值为 `null`），同时在 `diagnostics` 里记一条 `unavailable`。目录行缺 `mode`／`depth` 时同样记一条 `unsupported`，不猜默认值。
 
 ### `story_telemetry` 的输出
 
@@ -38,7 +38,7 @@ Status: implemented
 ```json
 {
   "summary": { "delegations": 1, "incomplete": 0, "diagnostics": 0, "partial": 0, "durationMs": 42000,
-    "usage": { "uncachedInputTokens": 0, "outputTokens": 0, "cacheReadTokens": 0, "cacheWriteTokens": 0 } },
+    "usage": { "uncachedInputTokens": 1200, "outputTokens": 800, "cacheReadTokens": 0, "cacheWriteTokens": 0 } },
   "delegations": [
     { "childSessionId": "session-…", "label": "writer", "mode": "one-shot", "depth": 1,
       "state": "completed", "durationMs": 42000,
@@ -69,20 +69,22 @@ Status: implemented
 
 **自己扫 `assistant/message.usage` 求和。** 不依赖投影。否掉：宿主的用法注记已经把这个读取路径标成不推荐，`tokenUsage` 投影是维护中的入口，还带缓存分桶。
 
-**把主智能体的用量也读进来。** 账更全。否掉：主会话自己的用量在会话与状态栏里已经可见，本行回答的是「派出去的那一段」，两件事分开。
+**把主智能体的用量也读进来。** 账更全。否掉：主会话自己的用量在会话与状态栏里已经可见；这条能力回答的是「派出去的那一段」，两件事分开。
 
 **在 `story_next` 里顺带返回委派账。** 少一个工具。否掉：`story_next` 是路牌，输出 schema 小且稳定；账本条目数会随委派增长，塞进去会让它膨胀。
 
 ## Consequences
 
-`src/plugin/telemetry-tool.ts` 注册只读工具 `story_telemetry`（参数 `limit`，默认 20、上限 200）：通过 `ctx.get('subagents')` 取目录、`ctx.get('sessionQuery')` 读子会话投影，`listDescendants(rootSessionId)` 的 `child` 行进入 `delegations`、`diagnostic` 行进入 `diagnostics`（带 `reason`）。每行读 `tokenUsage` 的四个桶与 `subagentTiming` 的 `settledMs`／`active`／`lastTurnCompleted`，`state` 按「驻留 + 未闭合轮次 → running；否则最近一轮收尾 → completed／incomplete；否则 unknown」判定；读不到本地会话（external）时 `usage`／`durationMs` 为 `null`。`summary` 只覆盖返回的 `limit` 行：合计只加非 `null` 的值、零行为 0、`partial` 数缺值的行，`diagnostics` 全量返回。观察用完即 `dispose`。`src/plugin/agent.ts` 注册并保持相反顺序注销；`src/core/types.ts` 增补 `SessionLike.id`、`SessionObservationLike`、`SessionQueryLike`、`SubagentRowLike`、`SubagentsLike` 五个手写面。
+收益：作者与主编都能在不离开会话的情况下回答「这一趟派出去花了多少、跑了多久、收尾没有」；数据就是会话里已有的投影，不需要任何新的写入，也不会让基础设定的摘要变化。
 
-验证见 `test/telemetry.test.mjs`（空树、completed 行、驻留+未闭合轮次才算 running、崩溃残留不算、incomplete 计数、diagnostic 不进委派、无本地会话为 null 且 partial、limit 取最近 N、坏 limit 与服务缺失报错、两张 schema 在运行时子集内）与 `test/host.test.mjs`（工具清单加 `story_telemetry`）。真实运行回执由 Verify 阶段写到 `artifacts/real-runs/runtime.telemetry.json`。
+`src/plugin/telemetry-tool.ts` 注册只读工具 `story_telemetry`（参数 `limit`，默认 20、上限 200）：通过 `ctx.get('subagents')` 取目录、`ctx.get('sessionQuery')` 读子会话投影，`listDescendants(rootSessionId)` 的 `child` 行进入 `delegations`、`diagnostic` 行进入 `diagnostics`（带 `reason`）。每行读 `tokenUsage` 的四个桶与 `subagentTiming` 的 `settledMs`／`active`／`lastTurnCompleted`，`state` 按「驻留 + 未闭合轮次 → running；否则最近一轮收尾 → completed／incomplete；否则 unknown」判定；`settledMs` 缺失只让 `durationMs` 为 `null`，不改变状态。读不到本地会话（external）或缺 `mode`／`depth` 的行仍回一条记录（值为 `null`），并在 `diagnostics` 里记 `unavailable`／`unsupported`，不猜默认值。`summary` 只覆盖返回的 `limit` 行：合计只加非 `null` 的值、零行为 0、`partial` 数缺值的行，`diagnostics` 全量返回。观察用完通过 `[Symbol.dispose]` 释放。`src/plugin/agent.ts` 注册并保持相反顺序注销；`src/core/types.ts` 增补 `SessionLike.id`、`SessionObservationLike`、`SessionQueryLike`、`SubagentRowLike`、`SubagentsLike` 五个手写面。
+
+验证见 `test/telemetry.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_telemetry`）。真实运行回执在 `artifacts/real-runs/runtime.telemetry.json`。
 
 代价与已知限制：
 
 - 子会话的投影缺项（外部 provider、旧会话）时只能给 `null` 与 `unknown`；报告要如实，不补零。
 - `listDescendants` 会遍历父目录链；会话很多时是一次按需读，不作为每轮都调的工具。
-- `sessionQuery` 是宿主服务，未装载时本行不可用；错误文本要能直接指向装载问题。
-- `state` 只反映「最近一轮是否正常收尾」，不区分失败原因（错误／中止／超限）；更细的终止原因要从子会话日志取，超出本行的投影读取口径。
+- `sessionQuery` 是宿主服务，未装载时这条能力不可用；错误文本要能直接指向装载问题。
+- `state` 只反映「最近一轮是否正常收尾」，不区分失败原因（错误／中止／超限）；更细的终止原因要从子会话日志取，超出当前的投影读取口径。
 - 工具读的是调用者自己的子树：作者在别的会话里问同一部作品时，看不到另一棵树的历史；这是「证据留在会话」的必然结果，不是缺陷。

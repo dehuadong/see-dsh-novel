@@ -67,7 +67,7 @@ capabilities:
   - id: runtime.telemetry
     title: 每次委派的 usage／耗时／失败回执
     reference: inkos:packages/core/src/harness/execution-evidence.ts
-    dsh: session log + events
+    dsh: subagents + sessionQuery + projections
     implementation: packages/see-dsh-novel/src/plugin/telemetry-tool.ts
     consumer: packages/see-dsh-novel/test/telemetry.test.mjs
     realRun: artifacts/real-runs/runtime.telemetry.json

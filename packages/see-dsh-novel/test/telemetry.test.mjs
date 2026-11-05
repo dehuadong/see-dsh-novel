@@ -37,11 +37,11 @@ function services({ rows = [], observations = {}, subagents, sessionQuery } = {}
 
 const exec = { agent: { session: { id: 'session-root', snapshotEvents: () => [] } } }
 
-/** 一份带投影的观察；`disposed` 用来断言释放过。 */
+/** 一份带投影的观察；宿主用 `[Symbol.dispose]` 释放，测试记一笔。 */
 function observation(values, disposed = []) {
   return {
     projections: { values },
-    dispose() { disposed.push(true) },
+    [Symbol.dispose]() { disposed.push(true) },
   }
 }
 
@@ -177,9 +177,33 @@ test('an unreadable child is null, counted as partial, and never zero-filled', a
   assert.equal(external.state, 'unknown')
   assert.equal(external.durationMs, null)
   assert.equal(external.usage, null)
+  assert.deepEqual(result.diagnostics, [{ childSessionId: 'session-external', reason: 'unavailable' }])
   assert.equal(result.summary.partial, 1)
   assert.equal(result.summary.durationMs, 42000, '合计只含读得到的那条')
   assert.equal(result.summary.usage.outputTokens, 800)
+})
+
+test('state does not depend on the duration being readable', async () => {
+  const { ctx, registered } = services({
+    rows: [{ kind: 'child', id: 'session-noduration', depth: 1, mode: 'one-shot', activity: 'inactive' }],
+    observations: { 'session-noduration': observation({ subagentTiming: { lastTurnCompleted: true } }) },
+  })
+  installTelemetryTool(ctx)
+  const result = await registered.get(TELEMETRY_NAME).execute({}, exec)
+  assert.equal(result.delegations[0].state, 'completed')
+  assert.equal(result.delegations[0].durationMs, null)
+  assert.equal(result.summary.partial, 1)
+})
+
+test('a child row without mode or depth is reported as a diagnostic, not guessed', async () => {
+  const { ctx, registered } = services({
+    rows: [{ kind: 'child', id: 'session-malformed', depth: undefined, mode: undefined }],
+    observations: { 'session-malformed': observation(completed) },
+  })
+  installTelemetryTool(ctx)
+  const result = await registered.get(TELEMETRY_NAME).execute({}, exec)
+  assert.deepEqual(result.delegations, [])
+  assert.deepEqual(result.diagnostics, [{ childSessionId: 'session-malformed', reason: 'unsupported' }])
 })
 
 test('limit keeps the most recent rows only', async () => {

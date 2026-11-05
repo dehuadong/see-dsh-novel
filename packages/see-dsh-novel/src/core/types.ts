@@ -153,10 +153,9 @@ export interface PluginContext {
   get(service: string): unknown
 }
 
-/** 会话查询返回的一份观察：一份不可变切面，用完释放。 */
+/** 会话查询返回的一份观察：一份不可变切面，用完通过 `[Symbol.dispose]` 释放。 */
 export interface SessionObservationLike {
   readonly projections?: { values?: Record<string, unknown> }
-  dispose?(): void
 }
 
 /** 宿主的会话查询服务面：按 id 读一个会话的投影。 */

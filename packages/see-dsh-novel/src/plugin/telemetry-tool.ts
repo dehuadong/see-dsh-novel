@@ -173,21 +173,17 @@ function usageOf(value: unknown): UsageBuckets | undefined {
   return buckets as UsageBuckets
 }
 
-/** 耗时与两个状态信号。 */
-function timingOf(value: unknown): { durationMs: number, lastTurnCompleted: boolean | undefined, openTurn: boolean } | undefined {
+/** 耗时（可能为 null）与两个状态信号；状态判断不依赖耗时是否可读。 */
+function timingOf(value: unknown): { durationMs: number | null, lastTurnCompleted: boolean | undefined, openTurn: boolean } | undefined {
   if (value === null || typeof value !== 'object') return undefined
   const projection = value as TimingProjection
   const settled = finite(projection.settledMs)
-  if (settled === undefined) return undefined
   const since = finite(projection.active?.since)
   const through = finite(projection.active?.through)
   const openTurn = since !== undefined && through !== undefined && through >= since
   const completed = typeof projection.lastTurnCompleted === 'boolean' ? projection.lastTurnCompleted : undefined
-  return {
-    durationMs: settled + (openTurn ? (through as number) - (since as number) : 0),
-    lastTurnCompleted: completed,
-    openTurn,
-  }
+  const durationMs = settled === undefined ? null : settled + (openTurn ? (through as number) - (since as number) : 0)
+  return { durationMs, lastTurnCompleted: completed, openTurn }
 }
 
 /** 状态判定：驻留 + 未闭合轮次才算在跑；否则看最近一轮是否正常收尾。 */
@@ -207,9 +203,14 @@ function limitOf(value: unknown): number {
   return Math.min(limit, MAX_LIMIT)
 }
 
-/** 释放一份观察；宿主用 `dispose`，没有就不释放。 */
+/** 宿主把释放方法挂在 `[Symbol.dispose]` 上（`SessionObservation extends Disposable`）。 */
+const SYMBOL_DISPOSE = (Symbol as unknown as { dispose?: symbol }).dispose
+
+/** 释放一份观察；宿主只提供 `[Symbol.dispose]`，没有这个符号就什么都不做。 */
 function release(observation: SessionObservationLike): void {
-  observation.dispose?.()
+  if (SYMBOL_DISPOSE === undefined) return
+  const dispose = (observation as Record<symbol, unknown>)[SYMBOL_DISPOSE]
+  if (typeof dispose === 'function') (dispose as () => void).call(observation)
 }
 
 /**
@@ -234,13 +235,22 @@ export async function readTelemetry(
   const limit = limitOf(args.limit)
   const rows = await subagents.listDescendants(rootSessionId, exec.signal)
   const children = rows.filter((row) => row.kind === 'child')
-  const diagnostics = rows
+  const diagnostics: Diagnostic[] = rows
     .filter((row) => row.kind === 'diagnostic')
-    .map((row) => ({ childSessionId: row.id, reason: row.reason ?? 'unknown' }))
+    .map((row) => ({
+      childSessionId: row.id,
+      // 宿主只会给三个值；缺省说明目录本身坏了，按「读不到」记。
+      reason: typeof row.reason === 'string' ? row.reason : 'unavailable',
+    }))
   const selected = children.slice(Math.max(0, children.length - limit))
 
   const delegations: Delegation[] = []
   for (const row of selected) {
+    if (typeof row.mode !== 'string' || typeof row.depth !== 'number') {
+      // 宿主的 child 行一定带 mode/depth；缺了说明这一行不完整，不猜默认值。
+      diagnostics.push({ childSessionId: row.id, reason: 'unsupported' })
+      continue
+    }
     let usage: UsageBuckets | undefined
     let timing: ReturnType<typeof timingOf>
     try {
@@ -252,35 +262,50 @@ export async function readTelemetry(
         release(observation)
       }
     } catch {
-      // 没有本地会话（external）或会话不可读：按「读不到」处理，不伪造数据。
+      // 没有本地会话（external）或会话读不出来：记一条诊断，行本身仍回（值为 null）。
+      diagnostics.push({ childSessionId: row.id, reason: 'unavailable' })
       usage = undefined
       timing = undefined
     }
     delegations.push({
       childSessionId: row.id,
       label: typeof row.label === 'string' ? row.label : null,
-      mode: typeof row.mode === 'string' ? row.mode : 'unknown',
-      depth: typeof row.depth === 'number' ? row.depth : 1,
+      mode: row.mode,
+      depth: row.depth,
       state: stateOf(row, timing),
       durationMs: timing?.durationMs ?? null,
       usage: usage ?? null,
     })
   }
 
-  const summary = {
-    delegations: delegations.length,
-    incomplete: delegations.filter((row) => row.state === 'incomplete').length,
-    diagnostics: diagnostics.length,
-    partial: delegations.filter((row) => row.usage === null || row.durationMs === null).length,
-    durationMs: delegations.reduce((total, row) => total + (row.durationMs ?? 0), 0),
-    usage: {
-      uncachedInputTokens: delegations.reduce((total, row) => total + (row.usage?.uncachedInputTokens ?? 0), 0),
-      outputTokens: delegations.reduce((total, row) => total + (row.usage?.outputTokens ?? 0), 0),
-      cacheReadTokens: delegations.reduce((total, row) => total + (row.usage?.cacheReadTokens ?? 0), 0),
-      cacheWriteTokens: delegations.reduce((total, row) => total + (row.usage?.cacheWriteTokens ?? 0), 0),
-    },
+  const usage = { uncachedInputTokens: 0, outputTokens: 0, cacheReadTokens: 0, cacheWriteTokens: 0 }
+  let incomplete = 0
+  let partial = 0
+  let durationMs = 0
+  for (const row of delegations) {
+    if (row.state === 'incomplete') incomplete += 1
+    if (row.usage === null || row.durationMs === null) partial += 1
+    durationMs += row.durationMs ?? 0
+    if (row.usage !== null) {
+      usage.uncachedInputTokens += row.usage.uncachedInputTokens
+      usage.outputTokens += row.usage.outputTokens
+      usage.cacheReadTokens += row.usage.cacheReadTokens
+      usage.cacheWriteTokens += row.usage.cacheWriteTokens
+    }
   }
-  return { summary, delegations, diagnostics }
+
+  return {
+    summary: {
+      delegations: delegations.length,
+      incomplete,
+      diagnostics: diagnostics.length,
+      partial,
+      durationMs,
+      usage,
+    },
+    delegations,
+    diagnostics,
+  }
 }
 
 /** 回执的一行文字摘要。 */
