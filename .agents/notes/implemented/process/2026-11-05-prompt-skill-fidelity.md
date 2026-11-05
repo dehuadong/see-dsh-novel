@@ -1,4 +1,4 @@
-# Agent Note: 提示词与技能束的复刻基线
+# Agent Note: 技能束与 persona 的复刻基线（第 1、2 层）
 
 Status: implemented
 
@@ -10,7 +10,7 @@ Status: implemented
 
 ## Decision
 
-技能束与 persona 按源工程结构复刻，内容独立命名、不标注来源：
+技能束与 persona 按源工程结构复刻，内容独立命名、不标注来源。本笔记只覆盖四层里的**第 1、2 层**（harness prompt 的行为边界与技能束）；第 3 层（按角色拆的方法 prompt）与第 4 层（每轮上下文包）由 P2／P3 的能力行承载，不属本笔记的已落地范围。
 
 - `skills/longform-writing/SKILL.md` 只留「场景与推进／人物与因果／伏笔生命周期／交稿前自检」的方法与**参考文件路由**（基础设定、读者契约与推进、场景对话与篇幅、状态投影各一份）；
 - 新增四份参考文件：`references/foundation-design.md`、`reader-contract-and-progression.md`、`scene-dialogue-and-length-budget.md`、`state-projection.md`，方法正文按源工程复刻成中文；
