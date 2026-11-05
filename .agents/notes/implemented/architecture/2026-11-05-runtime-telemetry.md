@@ -20,16 +20,21 @@ Status: implemented
 
 ### 数据来源：已注册的投影 + 子代理目录
 
-`subagents.listDescendants(rootSessionId)` 返回两类行：`kind: 'child'`（真正的子会话，带 `depth`、`mode`、`label?`、`activity`）与 `kind: 'diagnostic'`（目录读不通或模式未知，只有 `id` 与 `reason`）。只有 `child` 行进 `delegations`；`diagnostic` 行进 `diagnostics`，连同 `reason`（`corrupt`／`unsupported`／`unavailable`）一起报出来，不假装它是委派。
+`subagents.listDescendants(rootSessionId)` 返回两类行：`kind: 'child'`（真正的子会话，带 `depth`、`mode`、`label?`、`activity`）与 `kind: 'diagnostic'`（目录读不通或模式未知，只有 `id` 与 `reason`）。可用的 `child` 行进 `delegations`；目录自带的 `diagnostic` 行进 `diagnostics`，连同 `reason`（`corrupt`／`unsupported`／`unavailable`）一起报出来，不假装它是委派。
 
-对每个 `child`：
+`diagnostics` 里还有两类**由本工具判定**的条目，措辞与目录自带的原因一致：
+
+- 缺 `mode`／`depth` 的 `child` 行 → `unsupported`。这类行不用读会话就能判定，所以对全部子会话都判，不进 `delegations`，也不占 `limit` 的名额。
+- 返回窗口里读不出本地会话的 `child` 行 → `unavailable`（external 没有本地会话、旧会话读不到）。窗口之外的子会话不读，也就不产生这类条目——`summary.diagnostics` 因此不是整棵树的全量异常数，而是「目录异常 + 返回窗口内的读失败」。取消（`signal` 已 abort）照常抛出，不算读失败。
+
+对每个可用的 `child`：
 
 - **身份**：行里的 `mode`（one-shot／continuable／external）与 `label`。`label` 对 one-shot 允许缺省，所以按可空处理。
 - **用量**：子会话的 `tokenUsage` 投影，四个互不重叠的桶——`uncachedInputTokens`、`outputTokens`、`cacheReadTokens`、`cacheWriteTokens`。不自己扫 `assistant/message` 求和使用量：那条读日志的路子已经被宿主的投影取代，而投影连缓存分桶都算好了。
 - **耗时**：子会话的 `subagentTiming` 投影：`settledMs`（已结束轮次的累计毫秒）加 `active` 开区间（`through - since`）；`settledMs` 缺失时耗时是 `null`，**不影响**状态判断。
 - **状态**：目录行的 `activity` 与子会话 `subagentTiming` 的 `active` 一起用——两个都成立才是「住着且在跑」；单独的 `activity` 只是驻留，单独的 `active` 可能来自崩溃留下的未闭合轮次。终态由 `lastTurnCompleted` 给（`true` → `completed`、`false` → `incomplete`），两者都没有就是 `unknown`。
 
-读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。观察用完通过 `[Symbol.dispose]` 释放（宿主 `SessionObservation extends Disposable`，没有 `dispose()` 方法）。`external` 模式没有本地会话，`observeSession` 会报找不到：这类子会话仍回一行（值为 `null`），同时在 `diagnostics` 里记一条 `unavailable`。目录行缺 `mode`／`depth` 时同样记一条 `unsupported`，不猜默认值。
+读取子会话用宿主的 `sessionQuery.observeSession(id)`：它是「按 id 读一个会话投影」的正式入口，不用已经被取代的 `snapshotEvents`。观察用完通过 `[Symbol.dispose]` 释放（宿主 `SessionObservation extends Disposable`，没有 `dispose()` 方法）。
 
 ### `story_telemetry` 的输出
 
@@ -52,9 +57,9 @@ Status: implemented
   `activity` 只是「这个会话现在还住着没有」的驻留事实，单用会把轮次之间空闲的 continuable 子会话说成在跑；`active` 只说明「有一个还没关的轮次」，单用会被进程崩溃留下的未闭合轮次骗到。两个一起成立才算 `running`。
 - `label`、`usage`、`durationMs` 读不到时是 `null`，不写 0：0 会被当成「真的没花」；`label` 缺省是 one-shot 的正常形态，不是错误。
 - **求和只加读得到的行**：`summary.durationMs` 是返回集合里非 `null` 耗时之和，`summary.usage` 四个桶分别对非 `null` 的 usage 求和；没有任何一条委派时两个合计都是 `0`（空集之和），不是 `null`。`summary.partial` 数「至少一个字段缺失、因而某个合计只覆盖了部分行」的委派数，让作者知道合计是部分的，而不是把缺失当 0 摊进总数。
-- `summary.delegations`、`summary.incomplete` 只数返回的 `delegations`；`summary.diagnostics` 数全部诊断行（诊断不按 `limit` 截断，它们通常为 0，是异常信号）。
-- `diagnostics` 沿用目录的 `reason`，不进 `delegations`、不计入 `incomplete`。
-- `limit` 只截 `delegations`：按目录顺序取最后 `limit` 条；`diagnostics` 全量返回。
+- `summary.delegations`、`summary.incomplete` 只数返回的 `delegations`；`summary.diagnostics` 数返回的 `diagnostics`：目录自带的全部诊断行，加上全部 `unsupported` 行，加上返回窗口内的 `unavailable` 行。
+- `diagnostics` 的 `reason` 沿用目录原值或上面的两类判定；诊断不进 `delegations`、不计入 `incomplete`。
+- `limit` 只截 `delegations`：先剔除缺字段的行（它们不占名额），再按目录顺序取最后 `limit` 条；`diagnostics` 按上面口径返回，不按 `limit` 截断。
 - 排序：沿用 `listDescendants` 返回的目录顺序（父目录事件序，即创建顺序；该 API 不返回 `createdAt`，不另造排序键）。
 
 ### 服务缺失时明确报错
@@ -79,7 +84,7 @@ Status: implemented
 
 `src/plugin/telemetry-tool.ts` 注册只读工具 `story_telemetry`（参数 `limit`，默认 20、上限 200）：通过 `ctx.get('subagents')` 取目录、`ctx.get('sessionQuery')` 读子会话投影，`listDescendants(rootSessionId)` 的 `child` 行进入 `delegations`、`diagnostic` 行进入 `diagnostics`（带 `reason`）。每行读 `tokenUsage` 的四个桶与 `subagentTiming` 的 `settledMs`／`active`／`lastTurnCompleted`，`state` 按「驻留 + 未闭合轮次 → running；否则最近一轮收尾 → completed／incomplete；否则 unknown」判定；`settledMs` 缺失只让 `durationMs` 为 `null`，不改变状态。读不到本地会话（external）或缺 `mode`／`depth` 的行仍回一条记录（值为 `null`），并在 `diagnostics` 里记 `unavailable`／`unsupported`，不猜默认值。`summary` 只覆盖返回的 `limit` 行：合计只加非 `null` 的值、零行为 0、`partial` 数缺值的行，`diagnostics` 全量返回。观察用完通过 `[Symbol.dispose]` 释放。`src/plugin/agent.ts` 注册并保持相反顺序注销；`src/core/types.ts` 增补 `SessionLike.id`、`SessionObservationLike`、`SessionQueryLike`、`SubagentRowLike`、`SubagentsLike` 五个手写面。
 
-验证见 `test/telemetry.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_telemetry`）。真实运行回执在 `artifacts/real-runs/runtime.telemetry.json`。
+验证见 `test/telemetry.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_telemetry`）。真实运行由 Verify 阶段验证，回执产出到 `artifacts/real-runs/runtime.telemetry.json`。
 
 代价与已知限制：
 

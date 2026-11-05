@@ -242,15 +242,16 @@ export async function readTelemetry(
       // 宿主只会给三个值；缺省说明目录本身坏了，按「读不到」记。
       reason: typeof row.reason === 'string' ? row.reason : 'unavailable',
     }))
-  const selected = children.slice(Math.max(0, children.length - limit))
+  // 缺 mode/depth 的 child 行不用读会话就能判定：先挑出来记诊断，不占 limit 的名额。
+  const usable: SubagentRowLike[] = []
+  for (const row of children) {
+    if (typeof row.mode === 'string' && typeof row.depth === 'number') usable.push(row)
+    else diagnostics.push({ childSessionId: row.id, reason: 'unsupported' })
+  }
+  const selected = usable.slice(Math.max(0, usable.length - limit))
 
   const delegations: Delegation[] = []
   for (const row of selected) {
-    if (typeof row.mode !== 'string' || typeof row.depth !== 'number') {
-      // 宿主的 child 行一定带 mode/depth；缺了说明这一行不完整，不猜默认值。
-      diagnostics.push({ childSessionId: row.id, reason: 'unsupported' })
-      continue
-    }
     let usage: UsageBuckets | undefined
     let timing: ReturnType<typeof timingOf>
     try {
@@ -261,8 +262,9 @@ export async function readTelemetry(
       } finally {
         release(observation)
       }
-    } catch {
-      // 没有本地会话（external）或会话读不出来：记一条诊断，行本身仍回（值为 null）。
+    } catch (error) {
+      // 取消是调用方的事，照常抛；其余读不出的情况（external、旧会话）记一条诊断，行本身仍回。
+      if (exec.signal?.aborted === true) throw error
       diagnostics.push({ childSessionId: row.id, reason: 'unavailable' })
       usage = undefined
       timing = undefined
@@ -270,8 +272,9 @@ export async function readTelemetry(
     delegations.push({
       childSessionId: row.id,
       label: typeof row.label === 'string' ? row.label : null,
-      mode: row.mode,
-      depth: row.depth,
+      // 上面已按 `typeof` 过滤过；这里的断言只是让类型收窄。
+      mode: row.mode as string,
+      depth: row.depth as number,
       state: stateOf(row, timing),
       durationMs: timing?.durationMs ?? null,
       usage: usage ?? null,
