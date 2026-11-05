@@ -1,80 +1,111 @@
-# Agent Note: runtime.recovery —— 工作区自检与可重建的索引
+# Agent Note: runtime.recovery —— 工作区自检、索引重建与残留暂存回收
 
 Status: proposed
 
 ## Problem
 
-作品的真相在文件里，但文件会被人手动改动：`work.json` 被挪走、`source/story/state/` 下的索引被删、`hooks.json` 丢了。现在没有任何入口能回答「这个工作区现在还完整吗、少了什么、能不能补」，也没有补的办法——`story_next` 只会说阶段，`story_gate` 只算摘要，作者只能翻目录猜。
+作品的真相在文件里，但文件会被人手动改动，也会被进程崩溃留在半路：
 
-参考工程的对应模块做的是另一件事：`chapter-state-recovery.ts` 在审阅之后发现「状态投影与正文矛盾」时，只重算这一章的结算层，用观察列表把不一致讲清楚，重试仍不一致就带着观察报 `unresolved`。那是**章节级**的对账；本章节流水线还没落地（P2／P3），本行先把同一套「自检 → 报告 → 可修则修」的骨架放在**工作区级**：扫出缺失或坏掉的文件，能安全重建的重建，不能重建的如实报告。
+- 作者手滑删了 `source/story/state/manifest.json` 或 `current_state.json`，`story_next` 只会说阶段，不会告诉他少了索引；
+- `commitFoundation` 先写暂存目录 `source/.staging-<uuid>`、再逐个 rename；进程若在 rename 之间被杀，目录里留下 staged 文件与旧文件备份，没有任何东西会去认领它——`src/core/commit.ts` 的注释把这件事明确留给本行（「不引入持久 journal：跨进程恢复属于 `runtime.recovery` 那一行」）。
+
+参考工程有两半对应：`chapter-state-recovery.ts` 在审阅后按正文重算这一章的结算层，不一致就带观察报 `unresolved`；`atomic-file-set.ts` 的 `recoverAtomicFileSets` 扫 `.<prefix>-*` 事务目录，读 `journal.json`，属主进程已死时按阶段回滚后删除。第一半是**章节级**对账，需要章节文件、结算层与校验器（P2／P3）；第二半是**提交级**回收，现在就能做。
+
+本行交付：一个自检工具（报告 + 可修则修），覆盖「索引缺失」与「提交残留」两类；章节级对账明确留给章节流水线。
 
 ## Proposal
 
-### 一个只读扫描 + 一个显式修复
+### 自检与修复是两步
 
 工具 `story_recover`，参数 `apply`（布尔，默认 `false`）：
 
-- 默认只扫描并返回发现清单，不写任何文件；
-- `apply: true` 时，只修**可以安全重建**的项，然后重新扫描一遍，把修过的路径列在 `applied` 里。
+- 默认只扫描、返回发现清单，不写任何文件；
+- `apply: true` 时只修**无歧义**的项（重建缺失索引、回收属主已死的提交残留），修完重新扫描，把动过的路径列进 `applied`。
 
-扫描是纯函数组合（`src/core/recovery.ts`），工具只是执行壳：这样「什么算问题」与「怎么修」不依赖宿主，可以单独测。
+扫描与修复规则放在 `src/core/recovery.ts`：纯函数给出发现，执行壳只负责写盘与措辞。
 
-### 发现项
+### 提交日志：让回收有依据
 
-| code | 判据 | 可修 |
-| --- | --- | --- |
-| `unbound` | 工作区既没有 `work.json`，也没有 `source/story/` | 否（还没立项） |
-| `work-missing` | 有 `source/story/` 内容，但没有 `work.json` | 否（标题要作者给，不猜） |
-| `work-invalid` | `work.json` 存在但解析失败 | 否（身份不自动改写） |
-| `foundation-empty` | 已立项，但 `source/story/` 下没有任何文件 | 否（还没开始写设定） |
-| `state-missing` | `manifest.json`／`current_state.json`／`chapter_summaries.json` 缺失，且 `source/story/` 里已有其它文件 | **是**（写回默认内容） |
-| `hooks-missing` | `hooks.json` 缺失，且已有其它文件 | 否（伏笔池是创作事实，重建等于造假） |
+`commitFoundation` 增加一个轻量的 `journal.json`，写在暂存目录内：
 
-每条发现带 `code`、`severity`（`info`／`warning`／`error`）、`path`（相对作品根，没有就是 `null`）、`detail`（一句人话）、`fixable`。
+```json
+{ "version": 1, "pid": 12345, "phase": "prepared", "writes": ["source/story/outline/story_frame.md"], "deletes": [] }
+```
 
-### 修复只做「无歧义的重建」
+- staging 建好、备份做完、rename 之前写 `phase: "prepared"`；
+- 全部 rename 与删除成功、清理暂存之前改写 `phase: "applied"`。
 
-`state-missing` 写回的内容与 foundation 段播种的默认值一致（`schemaVersion: 2`、`lastAppliedChapter: 0`、`chapter: 0`、空 rows）；这些文件是**索引**，缺失时补一个空的是安全的。
+不引入跨进程锁，也不做恢复线程：日志只是在崩溃后让下一个人能判断「这批文件改到哪一步了」。
 
-不修的三类都有明确理由：`work.json` 承载身份（标题只能作者给）；`hooks.json` 是创作事实（补空等于声称没有伏笔）；`source/story/` 里的工件是作品内容（不能猜）。`work-invalid` 也不改写：坏掉的 JSON 可能还带着作者的手改，覆盖它比报错更糟。
+### 回收规则
 
-修复写入用 `commitFile`（单文件原子写），只写 `source/story/state/` 下的三个文件，不碰 `work.json` 与任何工件。
+扫描 `source/.staging-*` 目录：
 
-### 与门禁的关系
+- 有 journal 且 `pid` 还活着 → `staging-active`（`info`，不修）：那是一次正在进行的提交，碰它会把并发写弄坏；
+- 有 journal、属主已死、`phase: "prepared"` → `staging-rollback`（`warning`，**可修**）：按 journal 把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
+- 有 journal、属主已死、`phase: "applied"` → `staging-cleanup`（`info`，**可修**）：文件都已就位，只删暂存目录；
+- 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
 
-自检不改变门禁：`state-missing` 补回的是空索引，补之前与补之后的工件摘要都不含这些文件（摘要只覆盖 `source/story/`），所以作者已下的确认不会因此失效。`story_recover` 只回答「工作区能不能继续用」，签核仍然走 `story_gate`。
+属主判定用 `process.kill(pid, 0)`：抛 `ESRCH` 即已死；`EPERM` 视为活着（不是本用户的进程也不能碰）。
 
-### 章节级对账为什么不在这行
+### 索引重建
 
-参考工程的模块解决的是「这一章的正文与状态投影矛盾」；这需要章节文件、结算层与状态校验器，都属于 P2／P3。现在做它只能对空数据跑。本行交付的是它的前置：能把工作区修到「可以让章节流水线接手」的状态。
+`source/story/state/` 下的三个**索引**文件缺失时，按 foundation 段播种的默认内容写回：
+
+| code | 判据 | severity | 可修 |
+| --- | --- | --- | --- |
+| `unbound` | 既没有 `work.json`，也没有 `source/story/` | `info` | 否 |
+| `work-missing` | 有 `source/story/` 内容却没有 `work.json` | `warning` | 否（标题要作者给） |
+| `work-invalid` | `work.json` 存在但解析失败 | `error` | 否（身份不自动改写） |
+| `foundation-empty` | 已立项，但 `source/story/` 下没有文件 | `info` | 否 |
+| `state-missing` | `manifest.json`／`current_state.json`／`chapter_summaries.json` 缺失，且已有其它工件 | `warning` | **是** |
+| `hooks-missing` | `hooks.json` 缺失，且已有其它工件 | `warning` | 否（伏笔池是创作事实） |
+
+默认内容从 `state.ts` 取出共用：`stateWritesIfMissing` 改为调用一个导出的 `defaultStateFiles(hooks)`，自检只取其中三个、**不写 hooks**，所以两边不会漂移。默认值原样是 `manifest: { schemaVersion: 2, language: 'zh', lastAppliedChapter: 0, projectionVersion: 1 }`、`current_state: { chapter: 0, facts: [] }`、`chapter_summaries: { rows: [] }`。
+
+### 摘要与确认：索引也在摘要里
+
+`source/story/` 下的**所有**文件都进工件摘要（`core/artifacts.ts` 只扫这一个目录），三个索引文件也不例外。所以：
+
+- 重建写回的内容若与缺失前**完全一致**（foundation 播种后从未被章节推进过），摘要回到原值，作者之前的确认仍然有效；
+- 若内容不同（例如章节已推进、`lastAppliedChapter` 不是 0），摘要会变，**旧确认随之失效**——这是正确行为，工具必须在报告里给出修复前后的摘要，让作者知道需要重新确认，而不是宣称「修复不会动摘要」。
+
+回收暂存目录不碰工件，摘要不变。
+
+### 章节级对账为什么不在本行
+
+参考工程的 `chapter-state-recovery.ts` 需要「这一章的正文、结算产物、状态校验器」，三者都属于 P2／P3。现在做它只能对空数据跑，或者把「按正文重算」简化成写默认值——那正好是参考工程拒绝的做法（它宁可报 `unresolved` 也不伪造一致）。所以章节级对账等章节流水线落地后再按本行的「自检 → 报告 → 可修则修」形状补上。
 
 ## Alternatives considered
 
-**只报告，不修。** 最安全。否掉：`manifest.json` 这类索引被删是常见的手滑，补一个空索引既无歧义又省一次手改；把可修项也交给作者，等于让作者背工具该做的事。
+**只报告不修。** 最安全。否掉：缺索引与残留暂存都是常见的手滑或崩溃后果，重建空索引、删除已应用暂存无歧义；全交给作者等于让作者做工具该做的事。
 
-**什么都修：`work.json` 用目录名当标题、`hooks.json` 写空。** 一键恢复。否掉：标题是作者的决定，目录名不是作品名；空伏笔池会让后续章节「没有伏笔可回收」，比缺失更糟。
+**什么都修：用目录名当标题、`hooks.json` 写空、无 journal 的暂存直接删。** 一键。否掉：标题是作者的决定；空伏笔池比缺失更糟；没有 journal 就判断不了 rename 到哪一步，删了可能丢未应用的写入。
 
-**把自检做成定时任务（jobs）。** 不需要作者触发。否掉：工作区变化没有事件可订阅，定时扫描只是空转；作者在接手前跑一次就够。行里的 `dsh` 从 `jobs + storage` 改成 `tools.register + atomic write`，与实现对齐。
+**不写 journal，只做「残留目录存在」告警。** 少改提交原语。否掉：那样只能永远告警、永远等人工；既然崩溃后要判断阶段，最小代价就是在提交里多写一个几十字节的 JSON。
 
-**把自检塞进 `story_next`。** 少一个工具。否掉：`story_next` 每轮都可能被调用，扫描要列目录、读 JSON，不该成为路牌的成本；而且它的输出 schema 会膨胀。
+**用 jobs 定时扫描。** 不需要作者触发。否掉：工作区变化没有事件可订阅，定时扫描只是空转；作者在接手前跑一次足够。
 
-**恢复时也重建 `work.json`（从 `book_rules.json` 推标题）。** 看似智能。否掉：`book_rules` 是设定产物，标题可能只出现在文件第一行；从内容推身份是猜测，和「身份只由作者给」冲突。
+**把自检塞进 `story_next`。** 少一个工具。否掉：`story_next` 每轮都可能被调用，扫描要列目录、读 JSON，不该成为路牌成本。
 
 ## Acceptance criteria
 
-- 空工作区（没有 `work.json`、没有 `source/story/`）：扫描返回一条 `unbound`、`fixable: false`；`apply: true` 不写任何文件。
-- 只有 `work.json`：一条 `foundation-empty`（`info`）；不写文件。
-- 有工件、缺 `manifest.json`：一条 `state-missing`、`fixable: true`；`apply: true` 后写回默认 `manifest.json`，重新扫描不再报，`applied` 里列出该路径。
-- 缺 `hooks.json`：一条 `hooks-missing`、`fixable: false`；`apply: true` 不创建它。
-- `work.json` 内容非法：一条 `work-invalid`（`error`）、`fixable: false`；`apply: true` 不改写任何文件。
-- 修复前后 `readArtifacts` 的摘要一致（自检不碰工件）。
-- 工具输出 schema 在运行时子集内；`test/host.test.mjs` 的工具清单同批加 `story_recover`。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/recovery.ts`（扫描与重建规则）与 `src/plugin/recovery-tool.ts`（工具）；consumer `packages/see-dsh-novel/test/recovery.test.mjs`；realRun `artifacts/real-runs/runtime.recovery.json`。
-- 真实运行：在一个有基础设定的工作区删掉 `state/manifest.json`，调 `story_recover`（先看报告、再 `apply: true`），文件被重建、摘要不变、`story_next` 仍报 `ready`。
+- 空工作区：一条 `unbound`（`info`、`fixable: false`）；`apply: true` 不写任何文件。
+- 只有 `work.json`：一条 `foundation-empty`；不写文件。
+- 有 `source/story/` 内容、缺 `work.json`：一条 `work-missing`（`warning`、`fixable: false`）；`apply: true` 不创建 `work.json`。
+- 缺任一索引文件（三个各测一次）：一条 `state-missing`（`fixable: true`）；`apply: true` 写回与 `defaultStateFiles` 逐字节一致的内容，重新扫描不再报，`applied` 列出该路径；**不**创建 `hooks.json`。
+- 缺 `hooks.json`：一条 `hooks-missing`（`fixable: false`）；`apply: true` 不创建它。
+- `work.json` 非法：一条 `work-invalid`（`error`、`fixable: false`）；`apply: true` 不改写任何文件。
+- 暂存回收：`phase: "prepared"` 且属主已死 → `apply: true` 用备份还原目标、删掉新增文件与暂存目录；`phase: "applied"` → 只删暂存目录；属主活着的目录原样保留；没有 journal 的目录只报告。
+- 摘要：重建索引后，若写回内容与缺失前一致，`readArtifacts` 的摘要与缺失前相同；否则报告里给出前后摘要（测试用「章节已推进」的假 manifest 覆盖后者）。
+- 工具输出 schema 在运行时子集内；`test/host.test.mjs` 的工具清单同批加 `story_recover`；`test/foundation.test.mjs` 对 `stateWritesIfMissing` 的断言不回归。
+- 实现与证据：implementation `packages/see-dsh-novel/src/core/recovery.ts`；consumer `packages/see-dsh-novel/test/recovery.test.mjs`；工具注册与提交日志改动在 `src/plugin/recovery-tool.ts` 与 `src/core/commit.ts`，同批更新 `test/foundation.test.mjs`；realRun `artifacts/real-runs/runtime.recovery.json`。
+- 真实运行：在有基础设定的工作区删掉 `state/manifest.json`，调 `story_recover` 看到 `state-missing`，`apply: true` 后文件重建、`story_next` 仍报 `ready`、摘要与删除前一致；再造一个死属主的 `prepared` 暂存目录，`apply: true` 后被还原并删除。
 
 ## Risks
 
-- 只覆盖工作区级：章节正文与状态投影的矛盾对账要等 P2／P3 的章节流水线。
-- `state-missing` 补的是空索引：`manifest.json` 的 `lastAppliedChapter` 会回到 0，如果作者之前推进过章节（当前还没有章节能力），这个值会丢；等章节能力落地后要改成从章节文件推算。
-- `hooks-missing` 不修：伏笔池丢了只能靠重跑 details 段或人工补，工具只负责报警。
-- 扫描是只读的，但 `apply` 是写操作：它只写 `source/story/state/` 下三个索引文件，路径写死在代码里，不接受参数指定。
+- 章节级对账没有交付，要等 P2／P3；本行只到工作区与提交两级。
+- 属主判定用 pid：pid 被系统复用到一个无关进程时会误判为「活着」，结果只是留着不给修，不会误删。
+- `pid` 只有本机意义：跨机器共享的工作区上，日志里的 pid 判定不可靠，工具会把残留当「属主活着」保留。
+- 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
+- 摘要可能因重建而变化：工具会报告前后摘要，但不会替作者重新确认；作者要自己再走一次认可。
