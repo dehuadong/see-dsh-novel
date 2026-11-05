@@ -19,7 +19,7 @@ Status: implemented
 - 通道不可用或在加载 → 不给按钮（现状）。
 - 身份缺（`work.json` 探针不是 `live`）→ 不给按钮：还没立项时没有可开工的作品。
 - 有基础设定（任一锚点 `live`）→ 这一屏给的是作者确认闸门，不给开工按钮。
-- 只有「身份在、两个锚点都不在」时渲染「开始基础设定」。
+- 只有「身份在、两个锚点都不在、且认可尚未落定」时渲染「开始基础设定」。
 
 视图本身只在 `see-dsh-novel` 预设的会话里注册，所以这里不再重复判预设；会话绑定缺失由 `start` 返回 `'failed'` 走失败文案，不单独隐藏按钮。
 
@@ -60,7 +60,7 @@ Status: implemented
 
 ### 注入面
 
-`ViewInjected` 增加 `start(sessionId: SessionId, cwd: string | undefined): Promise<ResumeOutcome>`（复用 `'ok' | 'failed'`），`index.ts` 里与 `resume` 并列实现，共用同一条 `prompt(..., 'queue')` 路径；抛错不吞，由视图映射成 `start-unknown`。`RESUME_TEXT` 与 `START_TEXT(cwd)` 都由 `index.ts` 导出；文本的稳定语义按「验收」第一条断言，不锁整句。
+`ViewInjected` 增加 `start(sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome>`（复用 `'ok' | 'failed'`），`index.ts` 里与 `resume` 共用同一个 `promptQueue` 与 `prompt(..., 'queue')` 路径；抛错不吞，由视图映射成 `start-unknown`。`RESUME_TEXT` 与 `START_TEXT(cwd)` 都由 `index.ts` 导出；文本的稳定语义（工具名、阶段停手、不自行签核、工作区路径）由 `test/client.test.mjs` 断言，不锁整句。
 
 ## Alternatives considered
 
@@ -76,7 +76,7 @@ Status: implemented
 
 ## Consequences
 
-`src/client/index.ts` 导出 `START_TEXT(cwd)` 并给视图注入 `start(sessionId, cwd)`：`prompt([{ type: 'text', text }], 'queue')`，无绑定或 `RemoteResult.ok !== true` 返回 `'failed'`，抛错不吞、由视图映射成结果未知。`StoryView.tsx` 的 `Phase` 扩到 `idle`／`submitting`／`resumed`／`resume-failed`／`started`／`start-unknown`，空态屏在「通道可读、身份在、两个锚点都不在」时渲染「开始基础设定」；两屏共用一条状态行，按 `running` → `started` → 其余的顺序决定，`running` 为真时两屏都只显示「会话正在运行…」且不渲染任何按钮。`started` 由「见过这一轮跑起来、又结束」收尾（`sawTurn` ref），回到探针判定；`start-unknown` 只管空态屏，不随 `running` 解除，也不挡住闸门上的认可。切换会话重置本地状态，在途结果用 `currentSession` 栅栏丢弃。
+`src/client/index.ts` 导出 `START_TEXT(cwd)` 并给视图注入 `start(sessionId, cwd)`：`prompt([{ type: 'text', text }], 'queue')`，无绑定或 `RemoteResult.ok !== true` 返回 `'failed'`，抛错不吞、由视图映射成结果未知。`StoryView.tsx` 的 `Phase` 扩到 `idle`／`submitting`／`resumed`／`resume-failed`／`started`／`start-unknown`，空态屏在「通道可读、身份在、两个锚点都不在、认可尚未落定」时渲染「开始基础设定」；两屏共用一条状态行，按 `running` → `started` → 其余的顺序决定，`running` 为真时两屏都只显示「会话正在运行…」且不渲染任何按钮。`started` 由「见过这一轮跑起来、又结束」收尾（`sawTurn` ref），回到探针判定；`start-unknown` 只管空态屏，不随 `running` 解除，也不挡住闸门上的认可。切换会话重置本地状态，在途结果用 `currentSession` 栅栏丢弃。
 
 验证见 `test/client.test.mjs`，真实运行回执由 Verify 阶段写到 `artifacts/real-runs/panel.foundation-start.json`；回执要能看出一次点击只投出一条 `prompt`（`user/message` 内容是 `START_TEXT`，随后 `turn/start`）、写的过程中面板显示「会话正在运行…」、这一轮结束后落在作者确认闸门。
 
