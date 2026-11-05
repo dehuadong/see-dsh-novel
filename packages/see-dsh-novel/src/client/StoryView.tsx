@@ -20,9 +20,11 @@ const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 /**
  * 作品存在的判据：`file` 协议的 stat 只接受普通文件，探不到目录，
  * 所以用流水线必然先写下的两个锚点文件代替「source/story/ 存在」这层判断。
+ * 身份文件 `work.json` 单独探：它回答「立没立项」，不参与「有没有设定」。
  */
 const ANCHOR_OUTLINE = '/source/story/outline/story_frame.md'
 const ANCHOR_MANIFEST = '/source/story/state/manifest.json'
+const ANCHOR_WORK = '/work.json'
 
 /** 三个确认命令；按钮与命令成对写在这里，避免散落在渲染里。 */
 const COMMANDS = [
@@ -91,7 +93,10 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const preset = useSessions(presetSelector(sessionId))
   const outline = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_OUTLINE}`)
   const manifest = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_MANIFEST}`)
+  const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
   const work = workState([outline.status, manifest.status])
+  // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
+  const identified = identity.status === 'live'
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
   // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求
@@ -153,7 +158,9 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   } else if (work === 'loading') {
     body.push(<p key="loading" className="sdn-muted">正在读取工作区…</p>)
   } else if (work === 'failed') {
-    body.push(<p key="empty" className="sdn-muted">尚未绑定作品。当前工作区还没有 source/story/，先让本会话跑一遍基础设定。</p>)
+    body.push(identified
+      ? <p key="empty" className="sdn-muted">已立项，还没有基础设定。让本会话跑一遍基础设定，再来这里确认。</p>
+      : <p key="empty" className="sdn-muted">尚未立项。当前工作区既没有 work.json，也没有 source/story/。</p>)
     if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
   } else if (preset === undefined) {
     body.push(<p key="preset-loading" className="sdn-muted">正在读取会话预设…</p>)
@@ -161,6 +168,13 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     body.push(<p key="preset-other" className="sdn-muted">这是一部作品，但当前会话用的是预设「{preset}」，不能在这里确认基础设定。</p>)
   } else {
     body.push(<p key="gate" className="sdn-muted">作者确认闸门：这一版基础设定需要作者认可，才允许签核定稿。</p>)
+    if (!identified) {
+      body.push(
+        <p key="identity" className="sdn-muted">
+          身份文件缺失：这个工作区有基础设定，但没有 work.json；让主编补一次立项，导出与备份才有元信息。
+        </p>,
+      )
+    }
     if (phase === 'resumed' || phase === 'resume-failed') {
       body.push(<p key="settled" className="sdn-muted">{settledText(phase)}</p>)
     } else if (canCommand(sessionId)) {

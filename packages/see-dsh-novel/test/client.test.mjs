@@ -226,7 +226,7 @@ test('the preset reader tolerates both projection channels', () => {
 /** 直接渲染 StoryView，绕过条件注册：组件行为单独测。 */
 async function renderView({
   state = sessionState('see-dsh-novel'),
-  statuses = ['live', 'live'],
+  statuses = ['live', 'live', 'live'],
   canCommand = true,
   outcome = 'ok',
   runCommand,
@@ -240,7 +240,10 @@ async function renderView({
     sessionId,
     useSessions: selectorOf(state),
     useResource: (address) => ({
-      status: address.includes('story_frame') ? statuses[0] : statuses[1],
+      // 顺序与组件里的三个探针一致：大纲、状态清单、身份文件。
+      status: address.endsWith('/work.json')
+        ? statuses[2]
+        : address.includes('story_frame') ? statuses[0] : statuses[1],
       value: undefined,
       failure: undefined,
     }),
@@ -382,14 +385,14 @@ test('the view reports failure and unmatched results in words', async () => {
 
 test('the view degrades without workspace state, preset, or a session binding', async () => {
   installDocumentStub()
-  const unreadable = await renderView({ statuses: ['none', 'none'] })
+  const unreadable = await renderView({ statuses: ['none', 'none', 'none'] })
   assert.match(textOf(unreadable.tree), /读不到工作区状态/)
 
-  const loading = await renderView({ statuses: ['loading', 'loading'] })
+  const loading = await renderView({ statuses: ['loading', 'loading', 'loading'] })
   assert.match(textOf(loading.tree), /正在读取工作区/)
 
-  const empty = await renderView({ statuses: ['failed', 'failed'] })
-  assert.match(textOf(empty.tree), /尚未绑定作品/)
+  const empty = await renderView({ statuses: ['failed', 'failed', 'failed'] })
+  assert.match(textOf(empty.tree), /尚未立项/)
   assert.match(textOf(empty.tree), /当前工作区：\/work/)
 
   const waitPreset = await renderView({ state: sessionState(undefined) })
@@ -401,6 +404,26 @@ test('the view degrades without workspace state, preset, or a session binding', 
   const unbound = await renderView({ canCommand: false })
   assert.match(textOf(unbound.tree), /暂时不能提交确认/)
   assert.equal(unbound.tree.root.findAllByType('button').length, 0)
+})
+
+test('the identity file decides between 未立项 and 已立项 without touching the gate', async () => {
+  installDocumentStub()
+
+  // 已立项、还没有基础设定：两个锚点都缺，身份在。
+  const created = await renderView({ statuses: ['failed', 'failed', 'live'] })
+  assert.match(textOf(created.tree), /已立项，还没有基础设定/)
+  assert.doesNotMatch(textOf(created.tree), /尚未立项/)
+
+  // 有基础设定、身份缺：闸门照旧，只加一行提示。
+  const missing = await renderView({ statuses: ['live', 'live', 'failed'] })
+  assert.match(textOf(missing.tree), /身份文件缺失/)
+  assert.match(textOf(missing.tree), /作者确认闸门/)
+  assert.equal(missing.tree.root.findAllByType('button').length, 3)
+
+  // 身份与设定都在：闸门 + 按钮，没有提示。
+  const complete = await renderView()
+  assert.doesNotMatch(textOf(complete.tree), /身份文件缺失/)
+  assert.equal(complete.tree.root.findAllByType('button').length, 3)
 })
 
 test('command outcomes map to the four visible states', async () => {

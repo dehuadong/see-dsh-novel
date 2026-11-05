@@ -1,12 +1,16 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
 
 import * as agentHalf from '../src/plugin/agent.ts'
 import * as surface from '../src/plugin/index.ts'
 import { PHASES, STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from '../src/plugin/story-next.ts'
+import { writeWork } from '../src/core/work.ts'
 
 /** Minimal service stubs: the agent half needs the tool, command, skill and prompt registries plus the Session directory. */
-function services() {
+function services(root = process.cwd()) {
   const registered = new Map()
   const commands = new Map()
   const contexts = []
@@ -23,7 +27,7 @@ function services() {
           return () => registered.delete(definition.name)
         },
       },
-      workingDirectory: { ensure: async () => process.cwd(), get: () => process.cwd() },
+      workingDirectory: { ensure: async () => root, get: () => root },
       commands: {
         register(definition) {
           commands.set(definition.name, definition)
@@ -50,6 +54,11 @@ function services() {
   }
 }
 
+/** A fresh workspace for the probe-driven story_next. */
+async function workspace() {
+  return mkdtemp(join(tmpdir(), 'see-dsh-novel-host-'))
+}
+
 test('the root row mounts a no-op surface half', () => {
   assert.equal(surface.name, 'see-dsh-novel')
   assert.equal(typeof surface.apply, 'function')
@@ -62,12 +71,16 @@ test('agent half declares loader metadata', () => {
   assert.equal(typeof agentHalf.apply, 'function')
 })
 
-test('storyNext reports the unbound phase', () => {
-  assert.deepEqual(storyNext(), { work: null, phase: 'unbound', next: 'init' })
-  assert.equal(PHASES.includes(storyNext().phase), true)
+test('storyNext reports the unbound phase and the four-phase ladder', () => {
+  assert.deepEqual(storyNext({ hasWork: false, hasFrame: false, hasState: false, title: null }), {
+    work: null,
+    phase: 'unbound',
+    next: 'story_work_create',
+  })
+  assert.deepEqual([...PHASES], ['unbound', 'foundation', 'draft', 'ready'])
 })
 
-test('apply registers story_next, the foundation and gate tools, the approval commands, the cast context and the bundled skills', () => {
+test('apply registers the work, story_next, foundation and gate tools, the approval commands, the cast context and the bundled skills', () => {
   const { registered, commands, contexts, skills, ctx } = services()
 
   const dispose = agentHalf.apply(ctx)
@@ -81,11 +94,12 @@ test('apply registers story_next, the foundation and gate tools, the approval co
     'story_gate',
     'story_hooks',
     STORY_NEXT_NAME,
+    'story_work_create',
+    'story_work_show',
   ])
   assert.deepEqual([...commands.keys()].sort(), ['story-approve', 'story-reject', 'story-review'])
   assert.deepEqual(contexts.map((contribution) => contribution.name), ['story:cast'])
   assert.deepEqual(skills.map((skill) => skill.name), ['longform-writing'])
-
   const definition = registered.get(STORY_NEXT_NAME)
   assert.deepEqual(definition.parameters, storyNextParameters)
   assert.deepEqual(definition.output.schema, storyNextOutput)
@@ -99,19 +113,43 @@ test('apply registers story_next, the foundation and gate tools, the approval co
   assert.equal(skills.length, 0)
 })
 
-test('story_next execute resolves the unbound contract', async () => {
-  const { registered, ctx } = services()
-  agentHalf.apply(ctx)
-  const definition = registered.get(STORY_NEXT_NAME)
+test('story_next execute reads the workspace instead of guessing', async () => {
+  const root = await workspace()
+  try {
+    const { registered, ctx } = services(root)
+    agentHalf.apply(ctx)
+    const definition = registered.get(STORY_NEXT_NAME)
 
-  const result = await definition.execute({})
-  assert.deepEqual(result, { work: null, phase: 'unbound', next: 'init' })
+    const unbound = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
+    assert.deepEqual(unbound, { work: null, phase: 'unbound', next: 'story_work_create' })
 
-  // The runtime renders this as the tool card's content and calls `.some` on
-  // it: it must be an array of lossless-JSON content blocks.
-  const rendered = definition.output.render({}, result)
-  assert.equal(Array.isArray(rendered), true)
-  assert.equal(rendered.length > 0, true)
-  assert.equal(rendered.every((block) => block.type === 'text' && typeof block.text === 'string'), true)
-  assert.doesNotThrow(() => JSON.stringify(rendered))
+    // 有身份、没大纲：foundation，标题取自 work.json。
+    const work = await writeWork(root, { title: '真机作品' })
+    const foundation = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
+    assert.deepEqual(foundation, { work: '真机作品', phase: 'foundation', next: 'story_foundation_outline' })
+    assert.equal(work.title, '真机作品')
+
+    // 大纲就位：draft。
+    await mkdir(join(root, 'source/story/outline'), { recursive: true })
+    await writeFile(join(root, 'source/story/outline/story_frame.md'), '# 大纲\n', 'utf8')
+    const draftPhase = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
+    assert.deepEqual(draftPhase, { work: '真机作品', phase: 'draft', next: 'story_foundation_details' })
+
+    // 状态清单也到位：ready。
+    await mkdir(dirname(join(root, 'source/story/state/manifest.json')), { recursive: true })
+    await writeFile(join(root, 'source/story/state/manifest.json'), '{}\n', 'utf8')
+    const ready = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
+    assert.deepEqual(ready, { work: '真机作品', phase: 'ready', next: 'story_gate' })
+
+    // The runtime renders this as the tool card's content and calls `.some` on
+    // it: it must be an array of lossless-JSON content blocks.
+    const rendered = definition.output.render({}, ready)
+    assert.equal(Array.isArray(rendered), true)
+    assert.equal(rendered.length > 0, true)
+    assert.equal(rendered.every((block) => block.type === 'text' && typeof block.text === 'string'), true)
+    assert.equal(rendered[0].text.includes('真机作品'), true)
+    assert.doesNotThrow(() => JSON.stringify(rendered))
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
 })

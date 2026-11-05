@@ -9,6 +9,7 @@ import { join } from 'node:path'
 import { countHooks, validateHooks } from '../core/hooks.js'
 import type { HooksState } from '../core/hooks.js'
 import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../core/types.js'
+import { readWork, workProbes } from '../core/work.js'
 import { installCastContext } from '../pipelines/long/cast.js'
 import { installApprovalCommands } from '../pipelines/long/commands.js'
 import { installGateTools } from '../pipelines/long/gate.js'
@@ -17,6 +18,7 @@ import { installStorySkills, packageRootOf } from '../pipelines/long/skills.js'
 import { installFoundationTools } from '../pipelines/long/tools.js'
 import { STORY_NEXT_NAME, storyNext, storyNextOutput, storyNextParameters } from './story-next.js'
 import type { StoryNext } from './story-next.js'
+import { installWorkTools } from './work-tools.js'
 
 export const name = 'see-dsh-novel-agent'
 
@@ -51,7 +53,8 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeStoryNext = ctx.tools.register({
     name: STORY_NEXT_NAME,
     description:
-      'Return the current story work and which phase comes next. Reports the unbound phase until a work is selected.',
+      'Return the current work and which phase comes next: unbound, foundation, draft or ready. '
+      + 'Reads the workspace (work.json plus the foundation artifacts) and reports what the files support.',
     parameters: storyNextParameters,
     output: {
       schema: storyNextOutput,
@@ -60,12 +63,22 @@ export function apply(ctx: PluginContext): Disposer {
       // result object, and not undefined.
       render: (_args: unknown, value: StoryNext) => [{
         type: 'text' as const,
-        text: value.work === null
-          ? `阶段 ${value.phase}（未绑定作品）`
-          : `阶段 ${value.phase} · ${value.work}`,
+        text: `阶段 ${value.phase}` + (
+          value.work !== null
+            ? ` · ${value.work}`
+            : value.phase === 'unbound' ? '（未绑定作品）' : '（缺 work.json）'
+        ),
       }],
     },
-    execute: (): Promise<StoryNext> => Promise.resolve(storyNext()),
+    async execute(_args: Record<string, never>, exec: ExecuteContext): Promise<StoryNext> {
+      if (!exec?.agent) throw new Error('story_next 需要所属 agent 会话；无归属时无法判断工作区')
+      const root = await ctx.workingDirectory.ensure(exec.agent)
+      const probes = await workProbes(root)
+      return storyNext({
+        ...probes,
+        title: probes.hasWork ? (await readWork(root))?.title ?? null : null,
+      })
+    },
   } as ToolDefinition<Record<string, never>, StoryNext>)
 
   const disposeHooks = ctx.tools.register({
@@ -90,12 +103,14 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeFoundation = installFoundationTools(ctx)
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
+  const disposeWork = installWorkTools(ctx)
   const disposeCast = installCastContext(ctx, PRESET_ID)
   const disposeSkills = installStorySkills(ctx, PACKAGE_ROOT)
 
   return (): void => {
     disposeSkills()
     disposeCast()
+    disposeWork()
     disposeCommands()
     disposeGate()
     disposeFoundation()

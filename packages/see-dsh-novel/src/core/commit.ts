@@ -102,3 +102,26 @@ async function restore(
     }
   }
 }
+
+/**
+ * 单文件写入：同目录临时文件写完再 rename。
+ *
+ * 与 `commitFoundation` 分工：后者服务多文件批量替换，要 staging 与备份回滚；
+ * 单写一份身份文件没有旧内容要保留，也不该为了写它就先把 `source/` 建出来。
+ * @param root 作品根目录
+ * @param relativePath 相对根本的路径
+ * @param content 完整文件内容
+ */
+export async function commitFile(root: string, relativePath: string, content: string): Promise<void> {
+  const target = resolve(root, relativePath)
+  const dir = dirname(target)
+  await mkdir(dir, { recursive: true })
+  const tmp = join(dir, `.tmp-${randomUUID()}`)
+  try {
+    await writeFile(tmp, content, 'utf8')
+    await rename(tmp, target)
+  } catch (error) {
+    await rm(tmp, { force: true })
+    throw error
+  }
+}
