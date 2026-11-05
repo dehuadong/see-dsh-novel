@@ -109,7 +109,11 @@ export async function commitFoundation(
     try {
       await writeJournal(staging, { ...journal, phase: 'applied' })
     } catch {
-      await rm(join(staging, JOURNAL_FILE), { force: true })
+      try {
+        await rm(join(staging, JOURNAL_FILE), { force: true })
+      } catch {
+        // 连删除都失败：留给自检报 staging-unknown，绝不回滚已应用的文件。
+      }
     }
 
     return { written: writes.map((write) => write.relativePath), deleted: [...deletes] }

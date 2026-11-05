@@ -10,13 +10,12 @@
 import { readArtifacts, shortDigest } from '../../core/artifacts.js'
 import type { ArtifactSet } from '../../core/artifacts.js'
 import { approvalMarkerLine, latestDecision } from '../../core/receipts.js'
-import type { ApprovalChannel, ApprovalDecision, DecisionSources } from '../../core/receipts.js'
+import type { ApprovalChannel, ApprovalDecision } from '../../core/receipts.js'
 import type {
   AgentLike, ApprovalOutcome, ApprovalService, Disposer, ExecuteContext, PluginContext, ToolDefinition,
 } from '../../core/types.js'
 import {
-  COMMAND_APPROVE,
-  COMMAND_REJECT,
+  DECISION_SOURCES,
   FOUNDATION_STAGE,
   GATE_OUTPUT,
   GATE_TOOL,
@@ -48,13 +47,8 @@ const PANEL_HINT = '请作者在「作品」面板点「认可」（等同执行
 /** 原生确认条里能容纳的工件条数；再多就只报总数。 */
 const REASON_FILE_LIMIT = 8
 
-/** 回执来源：同一阶段面板命令、退回命令与签核工具。 */
-export const DECISION_SOURCES: DecisionSources = {
-  stage: FOUNDATION_STAGE,
-  approveCommand: COMMAND_APPROVE,
-  rejectCommand: COMMAND_REJECT,
-  signoffTool: SIGNOFF_TOOL,
-}
+/** 回执来源的定义在契约里；这里转出，面板与自检共用同一份。 */
+export { DECISION_SOURCES }
 
 /** 非授权的原生确认结果各自对应一条拒绝。 */
 const DENIAL_BY_OUTCOME: Record<Exclude<ApprovalOutcome, 'allowed-once'>, { reason: DenialReason, message: string }> = {

@@ -7,7 +7,7 @@ Status: implemented
 作品的真相在文件里，但文件会被人手动改动，也会被进程崩溃留在半路：
 
 - 作者手滑删了 `source/story/state/manifest.json` 或 `current_state.json`，`story_next` 只会说阶段，不会告诉他少了索引；
-- `commitFoundation` 先写暂存目录 `source/.staging-<uuid>`、再逐个 rename；进程若在 rename 之间被杀，目录里留下 staged 文件与旧文件备份，没有任何东西会去认领它——`src/core/commit.ts` 的注释把这件事明确留给本行（「不引入持久 journal：跨进程恢复属于 `runtime.recovery` 那一行」）。
+- `commitFoundation` 先写暂存目录 `source/.staging-<uuid>`、再逐个 rename；进程若在 rename 之间被杀，目录里留下 staged 文件与旧文件备份，没有任何东西会去认领它——提交原语本身不记阶段，也就无从判断改到哪一步。
 
 参考工程有两半对应：`chapter-state-recovery.ts` 在审阅后按正文重算这一章的结算层，不一致就带观察报 `unresolved`；`atomic-file-set.ts` 的 `recoverAtomicFileSets` 扫 `.<prefix>-*` 事务目录，读 `journal.json`，属主进程已死时按阶段回滚后删除。第一半是**章节级**对账，需要章节文件、结算层与校验器（P2／P3）；第二半是**提交级**回收，现在就能做。
 
@@ -101,9 +101,9 @@ Status: implemented
 
 收益：工作区被手滑或崩溃弄坏之后，作者不必翻目录猜——`story_recover` 会把「少了什么、能不能补、补完要不要重新确认」一次说清；能安全重建的索引直接补回，属主已死的提交残留按日志回滚或清理，不必人工拆暂存目录。
 
-落地的代码：`src/core/commit.ts` 的 `commitFoundation` 在备份之后、rename 之前写 `journal.json`（`version/pid/phase/writes/deletes`），rename 与删除完成后尽力改写 `phase: "applied"`；改写失败先删日志再清理，绝不让 `catch` 回滚已应用的文件。`commitFile` 的临时文件改名为 `.tmp-<pid>-<uuid>`。`src/core/state.ts` 抽出 `defaultStateFiles(hooks)`，`stateWritesIfMissing` 与自检共用同一份默认内容。`src/core/recovery.ts` 导出 `scanWorkspace`（发现清单 + 摘要）、`repairWorkspace`（重建索引、回滚/清理暂存、删属主已死的临时文件）、`parseJournal`、`pidAlive`。`src/plugin/recovery-tool.ts` 注册 `story_recover`，从会话里读最近一次认可回执的摘要，输出 `digestBefore`／`digestAfter`／`approvedDigest`／`needsReconfirm`。`src/plugin/agent.ts` 注册并保持相反顺序注销。
+落地的代码：`src/core/commit.ts` 的 `commitFoundation` 在备份之后、rename 之前写 `journal.json`（`version/pid/phase/writes/deletes`），rename 与删除完成后尽力改写 `phase: "applied"`；改写或删日志失败都不进入回滚路径，已应用的文件不会被自己撤销。`commitFile` 的临时文件名是 `.tmp-<pid>-<uuid>`。`src/core/state.ts` 的 `defaultStateFiles(hooks)` 是状态文件默认内容的唯一来源，`stateWritesIfMissing` 与自检共用。`src/core/recovery.ts` 导出 `FINDING_CODES`（发现分类的唯一来源，工具 schema 的枚举取自它）、`scanWorkspace`（发现清单 + 摘要）、`repairWorkspace`（重建索引、回滚/清理暂存、删属主已死的临时文件）、`parseJournal`、`pidAlive`；日志里的路径经 `contained()` 收回作品根，越界路径不写不删。`src/plugin/recovery-tool.ts` 注册 `story_recover`，输出**修复前**的发现（修完再看会「什么都没发现」）与修复前后的摘要、作者认可过的摘要、`needsReconfirm`，文字回执同时给出两个短摘要；回执来源 `DECISION_SOURCES` 移进 `pipelines/long/contract.ts`，面板与自检共用。`src/plugin/agent.ts` 注册并保持相反顺序注销。
 
-验证见 `test/recovery.test.mjs`（空工作区、只有 work、内容无身份、坏身份、三个索引逐个重建且摘要回到原值、hooks 不重建、死属主 prepared 回滚、死属主 applied 只清理、活属主不动、无日志/半截日志只报告、临时文件按属主、`commitFoundation` 成功与失败都不留暂存、工具应用并给 `needsReconfirm`、健康工作区无发现、两张 schema 在子集内）与 `test/host.test.mjs`（工具清单含 `story_recover`）。
+验证见 `test/recovery.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_recover`）。
 
 代价与已知限制：
 

@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { commitFile, commitFoundation } from '../src/core/commit.ts'
 import { readArtifacts } from '../src/core/artifacts.ts'
-import { defaultStateFiles } from '../src/core/state.ts'
+import { defaultStateFiles, stateWritesIfMissing } from '../src/core/state.ts'
 import {
   parseJournal,
   pidAlive,
@@ -87,7 +87,37 @@ test('an empty workspace is unbound and apply writes nothing', async () => {
   }
 })
 
-test('work without content reports an empty foundation and writes nothing', async () => {
+test('an empty source/story directory is unbound', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story'), { recursive: true })
+    const scan = await scanWorkspace(root)
+    assert.deepEqual(scan.findings.map((finding) => finding.code), ['unbound'])
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('missing indexes are reported even when work.json is broken', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    await rm(join(root, 'source/story/state/manifest.json'))
+    await writeFile(join(root, 'work.json'), '{ not json', 'utf8')
+    const scan = await scanWorkspace(root)
+    const codes = scan.findings.map((finding) => finding.code)
+    assert.ok(codes.includes('work-invalid'))
+    assert.equal(codes.filter((code) => code === 'state-missing').length, 1)
+    const applied = await repairWorkspace(root, scan.findings)
+    assert.deepEqual(applied, ['source/story/state/manifest.json'])
+    assert.equal(await exists(join(root, 'work.json')), true)
+    assert.equal((await readFile(join(root, 'work.json'), 'utf8')), '{ not json', '身份不被改写')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a work.json-only workspace reports an empty foundation and writes nothing', async () => {
   const root = await workspace()
   try {
     await writeWork(root, { title: '空' })
@@ -104,8 +134,9 @@ test('content without work.json is reported, never invented', async () => {
   try {
     await seedFoundation(root)
     const scan = await scanWorkspace(root)
-    assert.deepEqual(scan.findings.map((finding) => finding.code), ['work-missing'])
-    assert.equal(scan.findings[0].fixable, false)
+    const codes = scan.findings.map((finding) => finding.code)
+    assert.ok(codes.includes('work-missing'))
+    assert.equal(scan.findings.find((finding) => finding.code === 'work-missing').fixable, false)
     await repairWorkspace(root, scan.findings)
     assert.equal(await exists(join(root, 'work.json')), false)
   } finally {
@@ -245,6 +276,22 @@ test('a staging without a readable journal is reported only', async () => {
   }
 })
 
+test('a staging with an unreadable journal (not just a torn one) is reported only', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    const staging = await stagingFixture(root, { phase: 'prepared', journal: false })
+    // 日志位置被一个目录占住：readFile 抛 EISDIR，不是 ENOENT。
+    await mkdir(join(staging, 'journal.json'), { recursive: true })
+    const scan = await scanWorkspace(root)
+    assert.ok(scan.findings.some((entry) => entry.code === 'staging-unknown'))
+    await repairWorkspace(root, scan.findings)
+    assert.equal(await exists(staging), true)
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('temp files are removed only when their owner is dead', async () => {
   const root = await workspace()
   try {
@@ -324,11 +371,40 @@ test('the tool scans, applies and reports whether reconfirmation is needed', asy
     assert.equal(result.digestAfter, digest)
     assert.equal(result.approvedDigest, 'f'.repeat(64))
     assert.equal(result.needsReconfirm, true)
+    // 报告讲的是修复前发现的问题，修完之后不会「什么都没发现」。
+    assert.ok(result.findings.some((finding) => finding.code === 'state-missing'))
 
     const rendered = registered.get(RECOVER_NAME).output.render({}, result)
     assert.match(rendered[0].text, /已修复 1 项/)
     assert.match(rendered[0].text, /需要重新确认/)
     dispose()
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('reconfirm is false when the rebuilt digest matches the approved one', async () => {
+  const root = await workspace()
+  try {
+    await writeWork(root, { title: '一致' })
+    const digest = await seedFoundation(root)
+    await rm(join(root, 'source/story/state/manifest.json'))
+    const events = [
+      { type: 'command/run', seq: 1, time: 1, data: { commandId: 'c1', name: 'story-approve' } },
+      {
+        type: 'command/done',
+        seq: 2,
+        time: 2,
+        data: { commandId: 'c1', kind: 'success', text: approvalMarkerLine('foundation', digest, 4, 'receipt') },
+      },
+    ]
+    const { ctx, registered } = services(root)
+    installRecoveryTool(ctx)
+    const exec = { agent: { session: { id: 'session-root', snapshotEvents: () => events } } }
+    const result = await registered.get(RECOVER_NAME).execute({ apply: true }, exec)
+    assert.equal(result.needsReconfirm, false)
+    const rendered = registered.get(RECOVER_NAME).output.render({}, result)
+    assert.doesNotMatch(rendered[0].text, /需要重新确认/)
   } finally {
     await cleanup(root)
   }
@@ -350,6 +426,45 @@ test('the tool reports no findings on a healthy workspace', async () => {
     assert.equal(result.needsReconfirm, false)
     const rendered = registered.get(RECOVER_NAME).output.render({}, result)
     assert.match(rendered[0].text, /自检通过/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('the tool report stays inside the declared output shape', async () => {
+  const root = await workspace()
+  try {
+    await seedFoundation(root)
+    const staging = await stagingFixture(root, { phase: 'prepared' })
+    await writeFile(join(root, `.tmp-${DEAD_PID}-x`), 'x', 'utf8')
+    const { ctx, registered } = services(root)
+    installRecoveryTool(ctx)
+    const exec = { agent: { session: { id: 'session-root', snapshotEvents: () => [] } } }
+    const result = await registered.get(RECOVER_NAME).execute({}, exec)
+    void staging
+    for (const finding of result.findings) {
+      // 输出 schema 是 additionalProperties: false；多一个字段运行时就会拒绝。
+      assert.deepEqual(Object.keys(finding).sort(), ['code', 'detail', 'fixable', 'path', 'severity'])
+    }
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('stateWritesIfMissing seeds only what is absent and shares the defaults', async () => {
+  const root = await workspace()
+  try {
+    const writes = await stateWritesIfMissing(root, [])
+    assert.deepEqual(writes.map((write) => write.relativePath).sort(), [
+      'source/story/state/chapter_summaries.json',
+      'source/story/state/current_state.json',
+      'source/story/state/hooks.json',
+      'source/story/state/manifest.json',
+    ])
+    await commitFoundation(root, { writes })
+    assert.deepEqual(await stateWritesIfMissing(root, []), [])
+    const expected = defaultStateFiles([]).find((write) => write.relativePath.endsWith('manifest.json'))
+    assert.equal(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'), expected.content)
   } finally {
     await cleanup(root)
   }

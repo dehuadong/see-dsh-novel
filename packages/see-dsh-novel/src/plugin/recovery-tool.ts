@@ -6,10 +6,11 @@
  * 要重新确认。
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../core/types.js'
+import { shortDigest } from '../core/artifacts.js'
 import { latestDecision } from '../core/receipts.js'
 import type { Finding, RecoveryScan } from '../core/recovery.js'
-import { repairWorkspace, scanWorkspace } from '../core/recovery.js'
-import { DECISION_SOURCES } from '../pipelines/long/gate.js'
+import { FINDING_CODES, repairWorkspace, scanWorkspace } from '../core/recovery.js'
+import { DECISION_SOURCES } from '../pipelines/long/contract.js'
 
 /** 工具名；注册与测试共用。 */
 export const RECOVER_NAME = 'story_recover'
@@ -49,14 +50,7 @@ export const recoverOutput: JsonSchema = {
         type: 'object',
         additionalProperties: false,
         properties: {
-          code: {
-            type: 'string',
-            enum: [
-              'unbound', 'work-missing', 'work-invalid', 'foundation-empty', 'state-missing',
-              'hooks-missing', 'staging-active', 'staging-rollback', 'staging-cleanup',
-              'staging-unknown', 'tmp-residue',
-            ],
-          },
+          code: { type: 'string', enum: [...FINDING_CODES] },
           severity: { type: 'string', enum: ['info', 'warning', 'error'] },
           path: nullableString,
           detail: { type: 'string' },
@@ -102,7 +96,8 @@ export async function recoverWorkspace(
   const approvedDigest = decision?.kind === 'approve' ? decision.digest : undefined
   return {
     root: after.root,
-    findings: after.findings,
+    // 报告修复前发现的问题：修完之后再看一遍会「什么都没发现」，丢掉了要讲的事。
+    findings: before.findings,
     applied,
     digestBefore: before.digest,
     digestAfter: after.digest,
@@ -127,6 +122,8 @@ function renderRecovery(_args: unknown, value: RecoveryResult): Array<{ type: 't
     lines.push(`已修复 ${value.applied.length} 项：`)
     for (const path of value.applied) lines.push(`- ${path}`)
   }
+  lines.push(`摘要：修复前 ${shortDigest(value.digestBefore)}，修复后 ${shortDigest(value.digestAfter)}`
+    + (value.approvedDigest === null ? '；本会话没有可用的确认回执。' : `；作者认可过 ${shortDigest(value.approvedDigest)}。`))
   if (value.needsReconfirm) {
     lines.push('修复后的摘要与作者认可过的那一版不一致：需要重新确认基础设定。')
   }

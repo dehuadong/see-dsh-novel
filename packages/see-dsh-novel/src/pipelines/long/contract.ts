@@ -6,6 +6,7 @@
  * 预设装载。
  */
 import type { JsonSchema, PendingHook } from '../../core/types.js'
+import type { DecisionSources } from '../../core/receipts.js'
 
 export type RoleTier = 'major' | 'minor'
 
@@ -152,6 +153,14 @@ export const SIGNOFF_TOOL = 'story_foundation_signoff'
 export const COMMAND_REVIEW = 'story-review'
 export const COMMAND_APPROVE = 'story-approve'
 export const COMMAND_REJECT = 'story-reject'
+
+/** 面板命令与签核工具产出的都是这一组回执；自检读最近一次确认也用它。 */
+export const DECISION_SOURCES: DecisionSources = {
+  stage: FOUNDATION_STAGE,
+  approveCommand: COMMAND_APPROVE,
+  rejectCommand: COMMAND_REJECT,
+  signoffTool: SIGNOFF_TOOL,
+}
 
 /** 无参工具的参数位；留出来，避免以后加参数时改变调用形态。 */
 export const NO_PARAMETERS: JsonSchema = OBJECT({}, [])

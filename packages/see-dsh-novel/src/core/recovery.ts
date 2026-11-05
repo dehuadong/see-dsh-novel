@@ -5,7 +5,7 @@
  * 删除属主已死的临时文件。判据与动作都是纯函数组合，工具层只负责调它们。
  */
 import { cp, readdir, readFile, rm } from 'node:fs/promises'
-import { join, relative, resolve, sep } from 'node:path'
+import { join, resolve, sep } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
 import { commitFile, JOURNAL_FILE, pathExists } from './commit.js'
@@ -16,19 +16,23 @@ import { readWork } from './work.js'
 /** 发现项的严重程度。 */
 export type Severity = 'info' | 'warning' | 'error'
 
+/** 全部发现分类；schema 的枚举也从这里来。 */
+export const FINDING_CODES = [
+  'unbound',
+  'work-missing',
+  'work-invalid',
+  'foundation-empty',
+  'state-missing',
+  'hooks-missing',
+  'staging-active',
+  'staging-rollback',
+  'staging-cleanup',
+  'staging-unknown',
+  'tmp-residue',
+] as const
+
 /** 发现项的分类。 */
-export type FindingCode =
-  | 'unbound'
-  | 'work-missing'
-  | 'work-invalid'
-  | 'foundation-empty'
-  | 'state-missing'
-  | 'hooks-missing'
-  | 'staging-active'
-  | 'staging-rollback'
-  | 'staging-cleanup'
-  | 'staging-unknown'
-  | 'tmp-residue'
+export type FindingCode = typeof FINDING_CODES[number]
 
 /** 一条发现。 */
 export interface Finding {
@@ -38,8 +42,6 @@ export interface Finding {
   path: string | null
   detail: string
   fixable: boolean
-  /** 残留目录/临时文件的属主进程；只有暂存与临时文件会带。 */
-  pid?: number
 }
 
 /** 一次扫描的结果。 */
@@ -52,9 +54,9 @@ export interface RecoveryScan {
 }
 
 const STATE_DIR = 'source/story/state'
+const WORK_DIR = 'source/story'
 /** 三个可重建的索引；`hooks.json` 不在其中（伏笔池是创作事实）。 */
 const INDEX_FILES = ['manifest.json', 'current_state.json', 'chapter_summaries.json'] as const
-const WORK_DIR = 'source/story'
 
 /** 进程是否还活着；`ESRCH` 才算已死，其它错误（如 `EPERM`）一律当活着，宁可不碰。 */
 export function pidAlive(pid: number): boolean {
@@ -85,44 +87,29 @@ export function parseJournal(raw: string): CommitJournal | undefined {
   return journal as CommitJournal
 }
 
-/** 递归列出目录里的文件（相对给定根）；目录不存在按空处理。 */
-async function listFiles(root: string, prefix = ''): Promise<string[]> {
-  const dir = join(root, prefix)
-  let entries
+/** 读一个目录；不存在按空处理，其它错误照常抛出。 */
+async function entriesOf(dir: string) {
   try {
-    entries = await readdir(dir, { withFileTypes: true })
+    return await readdir(dir, { withFileTypes: true })
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
   }
-  const files: string[] = []
-  for (const entry of entries) {
-    const path = prefix === '' ? entry.name : `${prefix}/${entry.name}`
-    if (entry.isDirectory()) files.push(...await listFiles(root, path))
-    else if (entry.isFile()) files.push(path)
-  }
-  return files
 }
 
+/** 提交残留：暂存目录按日志阶段处理，日志读不出来只报告。 */
 async function stagingFindings(root: string): Promise<Finding[]> {
-  const source = join(root, 'source')
-  let entries
-  try {
-    entries = await readdir(source, { withFileTypes: true })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw error
-  }
   const findings: Finding[] = []
-  for (const entry of entries) {
+  for (const entry of await entriesOf(join(root, 'source'))) {
     if (!entry.isDirectory() || !entry.name.startsWith('.staging-')) continue
-    const dir = join(source, entry.name)
+    const dir = join(root, 'source', entry.name)
     const path = `source/${entry.name}`
     let raw: string | undefined
     try {
       raw = await readFile(join(dir, JOURNAL_FILE), 'utf8')
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    } catch {
+      // 读不出来（不存在、被占用、坏掉）与「没有日志」同样处理：只报告。
+      raw = undefined
     }
     const journal = raw === undefined ? undefined : parseJournal(raw)
     if (journal === undefined) {
@@ -142,7 +129,6 @@ async function stagingFindings(root: string): Promise<Finding[]> {
         path,
         detail: `提交暂存目录的属主进程 ${journal.pid} 还活着，可能正在提交；不动它。`,
         fixable: false,
-        pid: journal.pid,
       })
       continue
     }
@@ -153,7 +139,6 @@ async function stagingFindings(root: string): Promise<Finding[]> {
         path,
         detail: `属主进程 ${journal.pid} 已退出，提交停在应用之前；可以用备份还原。`,
         fixable: true,
-        pid: journal.pid,
       })
     } else {
       findings.push({
@@ -162,7 +147,6 @@ async function stagingFindings(root: string): Promise<Finding[]> {
         path,
         detail: `属主进程 ${journal.pid} 已退出，文件都已应用；只需要清掉暂存目录。`,
         fixable: true,
-        pid: journal.pid,
       })
     }
   }
@@ -175,20 +159,15 @@ function tmpPid(name: string): number | undefined {
   return match === null ? undefined : Number(match[1])
 }
 
+/** 临时文件：工作区根（`work.json`）与工件目录里的都可能残留。 */
 async function tmpFindings(root: string, files: ReadonlyArray<string>): Promise<Finding[]> {
   const findings: Finding[] = []
   const candidates = new Set<string>()
-  // 工作区根的临时文件（`writeWork` 的 `work.json`）与工件目录里的（`commitFile` 重建索引）。
-  try {
-    for (const entry of await readdir(root, { withFileTypes: true })) {
-      if (entry.isFile() && entry.name.startsWith('.tmp-')) candidates.add(entry.name)
-    }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  for (const entry of await entriesOf(root)) {
+    if (entry.isFile() && entry.name.startsWith('.tmp-')) candidates.add(entry.name)
   }
   for (const file of files) {
-    const name = file.split('/').at(-1) as string
-    if (name.startsWith('.tmp-')) candidates.add(file)
+    if ((file.split('/').at(-1) as string).startsWith('.tmp-')) candidates.add(file)
   }
   for (const path of candidates) {
     const pid = tmpPid(path.split('/').at(-1) as string)
@@ -209,7 +188,6 @@ async function tmpFindings(root: string, files: ReadonlyArray<string>): Promise<
         path,
         detail: `临时文件的属主进程 ${pid} 还活着，可能正在写；不动它。`,
         fixable: false,
-        pid,
       })
       continue
     }
@@ -219,7 +197,44 @@ async function tmpFindings(root: string, files: ReadonlyArray<string>): Promise<
       path,
       detail: `属主进程 ${pid} 已退出；这个临时文件从未成为目标内容，可以删掉。`,
       fixable: true,
-      pid,
+    })
+  }
+  return findings
+}
+
+/** 身份与索引：有工件就查索引，不管 `work.json` 是否可读。 */
+function contentFindings(hasWork: boolean, workValid: boolean, files: ReadonlyArray<string>): Finding[] {
+  const findings: Finding[] = []
+  if (files.length === 0) {
+    if (hasWork && workValid) {
+      findings.push({
+        code: 'foundation-empty',
+        severity: 'info',
+        path: null,
+        detail: '已立项，但 source/story/ 下还没有任何文件；基础设定还没开始写。',
+        fixable: false,
+      })
+    }
+    return findings
+  }
+  for (const name of INDEX_FILES) {
+    if (!files.includes(`${STATE_DIR}/${name}`)) {
+      findings.push({
+        code: 'state-missing',
+        severity: 'warning',
+        path: `${STATE_DIR}/${name}`,
+        detail: `状态索引 ${name} 缺失；可以按 foundation 的默认内容重建。`,
+        fixable: true,
+      })
+    }
+  }
+  if (!files.includes(`${STATE_DIR}/hooks.json`)) {
+    findings.push({
+      code: 'hooks-missing',
+      severity: 'warning',
+      path: `${STATE_DIR}/hooks.json`,
+      detail: '伏笔池缺失；它是创作事实，不能补空，等作者或重跑 details 段。',
+      fixable: false,
     })
   }
   return findings
@@ -234,8 +249,8 @@ export async function scanWorkspace(root: string): Promise<RecoveryScan> {
   const base = resolve(root)
   const findings: Finding[] = []
   const artifacts = await readArtifacts(base)
-  const workDirExists = await pathExists(join(base, WORK_DIR))
   const workExists = await pathExists(join(base, 'work.json'))
+  const workDirExists = await pathExists(join(base, WORK_DIR))
   let workValid = false
   if (workExists) {
     try {
@@ -251,67 +266,51 @@ export async function scanWorkspace(root: string): Promise<RecoveryScan> {
     }
   }
 
-  if (workValid) {
-    if (artifacts.files.length === 0) {
-      findings.push({
-        code: 'foundation-empty',
-        severity: 'info',
-        path: null,
-        detail: '已立项，但 source/story/ 下还没有任何文件；基础设定还没开始写。',
-        fixable: false,
-      })
-    } else {
-      for (const name of INDEX_FILES) {
-        if (!artifacts.files.includes(`${STATE_DIR}/${name}`)) {
-          findings.push({
-            code: 'state-missing',
-            severity: 'warning',
-            path: `${STATE_DIR}/${name}`,
-            detail: `状态索引 ${name} 缺失；可以按 foundation 的默认内容重建。`,
-            fixable: true,
-          })
-        }
-      }
-      if (!artifacts.files.includes(`${STATE_DIR}/hooks.json`)) {
-        findings.push({
-          code: 'hooks-missing',
-          severity: 'warning',
-          path: `${STATE_DIR}/hooks.json`,
-          detail: '伏笔池缺失；它是创作事实，不能补空，等作者或重跑 details 段。',
-          fixable: false,
-        })
-      }
-    }
+  if (!workExists && artifacts.files.length === 0 && !workDirExists) {
+    findings.push({
+      code: 'unbound',
+      severity: 'info',
+      path: null,
+      detail: '还没有立项，也没有作品内容。',
+      fixable: false,
+    })
+  } else if (!workExists && artifacts.files.length === 0) {
+    findings.push({
+      code: 'unbound',
+      severity: 'info',
+      path: null,
+      detail: '没有 work.json，source/story/ 也是空的；还没立项。',
+      fixable: false,
+    })
   } else if (!workExists) {
-    if (artifacts.files.length === 0 && !workDirExists) {
-      findings.push({
-        code: 'unbound',
-        severity: 'info',
-        path: null,
-        detail: '还没有立项，也没有作品内容。',
-        fixable: false,
-      })
-    } else if (artifacts.files.length > 0) {
-      findings.push({
-        code: 'work-missing',
-        severity: 'warning',
-        path: 'work.json',
-        detail: '有作品内容但没有 work.json；身份要作者给标题，工具不猜。',
-        fixable: false,
-      })
-    }
+    findings.push({
+      code: 'work-missing',
+      severity: 'warning',
+      path: 'work.json',
+      detail: '有作品内容但没有 work.json；身份要作者给标题，工具不猜。',
+      fixable: false,
+    })
   }
 
+  findings.push(...contentFindings(workExists, workValid, artifacts.files))
   findings.push(...await stagingFindings(base))
   findings.push(...await tmpFindings(base, artifacts.files))
   return { root: base, findings, digest: artifacts.digest, files: artifacts.files.length }
 }
 
-/** 用备份还原一份 `prepared` 提交，恢复失败时保持暂存目录原样。 */
+/** 把日志里的相对路径收回作品根内；越界的一律拒绝。 */
+function contained(root: string, relativePath: string): string | undefined {
+  const target = resolve(root, relativePath)
+  const inside = target === resolve(root) || target.startsWith(`${resolve(root)}${sep}`)
+  return inside ? target : undefined
+}
+
+/** 用备份还原一份 `prepared` 提交；越界路径跳过，整目录最后删掉。 */
 async function rollback(root: string, staging: string, journal: CommitJournal): Promise<void> {
   const backupDir = join(staging, 'backup')
   for (const relativePath of [...journal.writes, ...journal.deletes]) {
-    const target = resolve(root, relativePath)
+    const target = contained(root, relativePath)
+    if (target === undefined) continue
     const backup = join(backupDir, relativePath)
     if (await pathExists(backup)) {
       await cp(backup, target, { force: true })
@@ -341,14 +340,19 @@ export async function repairWorkspace(root: string, findings: ReadonlyArray<Find
       applied.push(finding.path)
       continue
     }
-    if (finding.code === 'staging-rollback' || finding.code === 'staging-cleanup') {
+    if (finding.code === 'staging-cleanup') {
+      await rm(join(base, finding.path), { recursive: true, force: true })
+      applied.push(finding.path)
+      continue
+    }
+    if (finding.code === 'staging-rollback') {
       const staging = join(base, finding.path)
-      if (finding.code === 'staging-cleanup') {
-        await rm(staging, { recursive: true, force: true })
-        applied.push(finding.path)
+      let raw: string
+      try {
+        raw = await readFile(join(staging, JOURNAL_FILE), 'utf8')
+      } catch {
         continue
       }
-      const raw = await readFile(join(staging, JOURNAL_FILE), 'utf8')
       const journal = parseJournal(raw)
       if (journal === undefined) continue
       await rollback(base, staging, journal)
@@ -361,9 +365,4 @@ export async function repairWorkspace(root: string, findings: ReadonlyArray<Find
     }
   }
   return applied
-}
-
-/** 删掉一段路径的公共前缀，用于展示。 */
-export function relativeOf(root: string, path: string): string {
-  return relative(resolve(root), resolve(root, path)).split(sep).join('/')
 }
