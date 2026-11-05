@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -80,6 +80,21 @@ test('details writes book rules and seeds the four state files', async () => {
     })
     assert.deepEqual(JSON.parse(await read(root, 'source/story/state/current_state.json')), { chapter: 0, facts: [] })
     assert.deepEqual(JSON.parse(await read(root, 'source/story/state/chapter_summaries.json')), { rows: [] })
+  } finally {
+    dispose()
+  }
+})
+
+test('invalid book rules are rejected before anything is written', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    const details = tools.get('story_foundation_details')
+    await assert.rejects(details.execute({
+      bookRules: '规则',
+      bookRulesData: { prohibitions: [] },
+      pendingHooks: [],
+    }, exec), /enableFullCastTracking/)
+    assert.deepEqual(await readdir(join(root, 'source')).catch(() => []), [])
   } finally {
     dispose()
   }

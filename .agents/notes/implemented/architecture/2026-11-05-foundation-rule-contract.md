@@ -61,7 +61,7 @@ Status: implemented
 
 落地：`packages/see-dsh-novel/src/pipelines/long/book-rules.ts`、`src/pipelines/long/contract.ts`（`BookRulesData` 别名与生成式 schema）、`src/pipelines/long/tools.ts`（写前补版本并校验）、`test/foundation.test.mjs`（期望含 `version`）。
 
-验证见 `test/book-rules.test.mjs`：版本注入与字段顺序、缺必填与未知字段拒绝、裸字符串／空数组合法、protagonist 内部必填与未知字段、读取往返与正文去空白、缺失／语法错／无版本三种失败、schema 字段集合与校验器字段表一致且不含 `version`。
+验证见 `test/book-rules.test.mjs`：版本注入与字段顺序（`version` 必须在最前）、缺必填与未知字段拒绝、裸字符串／空数组合法、protagonist 内部必填与未知字段、读取往返与正文去空白、缺失 `.md`／缺失 `.json`／语法错／无版本四种失败、schema 字段集合与校验器字段表一致且不含 `version`、`narrativePerson` 的说明文案保留。`test/foundation.test.mjs` 另断言：非法 details 在写盘前被拒绝（目录里没有任何文件），以及落盘的 `book_rules.json` 含 `version`。
 
 ### 代价与已知限制
 

@@ -26,6 +26,8 @@ const minimal = { prohibitions: [], enableFullCastTracking: false, allowedDeviat
 
 test('withVersion injects the version and keeps the field order', () => {
   assert.deepEqual(withVersion(minimal), { version: '2', ...minimal })
+  assert.equal(Object.keys(withVersion(minimal))[0], 'version', 'version 必须在最前')
+  assert.equal(Object.keys(withVersion({ ...minimal, narrativePerson: '第一人称' }))[1], 'narrativePerson')
   assert.deepEqual(withVersion({ ...minimal, narrativePerson: ' 第一人称 ' }), {
     version: '2',
     narrativePerson: '第一人称',
@@ -93,6 +95,10 @@ test('readBookRules fails loud on missing, broken or unversioned files', async (
     await rm(join(root, BOOK_RULES_MD))
     await writeFile(join(root, BOOK_RULES_JSON), JSON.stringify(withVersion(minimal)), 'utf8')
     await assert.rejects(readBookRules(root), /book_rules\.md/)
+
+    await writeFile(join(root, BOOK_RULES_MD), 'x\n', 'utf8')
+    await rm(join(root, BOOK_RULES_JSON))
+    await assert.rejects(readBookRules(root), /book_rules\.json/)
   } finally {
     await cleanup(root)
   }
@@ -103,5 +109,6 @@ test('the tool schema and the validator share one field list', () => {
   const properties = Object.keys(schema.properties ?? {})
   assert.deepEqual(properties, bookRulesFieldNames())
   assert.equal(properties.includes('version'), false, '模型不提供 version')
+  assert.match(JSON.stringify(schema.properties.narrativePerson), /作者自己的表述/)
   assert.deepEqual(schema.required, ['prohibitions', 'enableFullCastTracking', 'allowedDeviations'])
 })
