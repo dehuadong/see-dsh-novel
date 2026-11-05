@@ -9,7 +9,7 @@ import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/clie
 import type {} from '@deepseek-ai/dsh-client-resources/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PRESET_ID, presetSelector } from './preset.js'
@@ -63,10 +63,9 @@ function workState(states: ReadonlyArray<ResourceStatus>): ResourceStatus {
 
 /**
  * 命令失败换成人话；命令真正执行与否，作者必须立刻看见。
- * @param label 按钮文案
  * @param outcome 非成功的命令结果
  */
-function failureNotice(label: string, outcome: Exclude<CommandOutcome, 'ok'>): string {
+function failureNotice(outcome: Exclude<CommandOutcome, 'ok'>): string {
   if (outcome === 'unbound') return '当前会话还没有就绪，命令没有执行。'
   if (outcome === 'unmatched') return `这个会话没有该命令：确认预设是 ${PRESET_ID}。`
   return '提交失败，稍后再试。'
@@ -95,7 +94,9 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const work = workState([outline.status, manifest.status])
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
-  useEffect(() => {
+  // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求
+  // 会通过 stillHere 检查，把上一个会话的状态画到新会话上。
+  useLayoutEffect(() => {
     currentSession.current = sessionId
     phaseRef.current = 'idle'
     setPhase('idle')
@@ -119,7 +120,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
       const outcome = await runCommand(sessionId, line)
       if (!stillHere()) return
       if (outcome !== 'ok') {
-        setNotice(failureNotice(label, outcome))
+        setNotice(failureNotice(outcome))
         moveTo('idle')
         return
       }

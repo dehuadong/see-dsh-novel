@@ -56,6 +56,21 @@ function sessionState(preset, cwd = '/work') {
   }
 }
 
+/** 两个都属于本预设的会话：测面板实例在会话之间复用时的行为。 */
+function twoSessionState(other) {
+  return {
+    ids: [SESSION, other],
+    byId: {
+      [SESSION]: { sessionId: SESSION, cwd: '/work' },
+      [other]: { sessionId: other, cwd: '/work' },
+    },
+    projectionsBySession: {
+      [SESSION]: { values: { agentPreset: 'see-dsh-novel' } },
+      [other]: { values: { agentPreset: 'see-dsh-novel' } },
+    },
+  }
+}
+
 /** 渲染时给组件用的 useSessions 选择器钩子。 */
 const selectorOf = (state) => (selector) => selector(state)
 
@@ -315,20 +330,9 @@ test('a resume that rejects is reported as a failed continuation, not a failed c
 test('a stale submission does not paint the previous session state', async () => {
   installDocumentStub()
   const other = 'session-2'
-  const twoSessions = {
-    ids: [SESSION, other],
-    byId: {
-      [SESSION]: { sessionId: SESSION, cwd: '/work' },
-      [other]: { sessionId: other, cwd: '/work' },
-    },
-    projectionsBySession: {
-      [SESSION]: { values: { agentPreset: 'see-dsh-novel' } },
-      [other]: { values: { agentPreset: 'see-dsh-novel' } },
-    },
-  }
   let release
   const pending = new Promise((resolve) => { release = resolve })
-  const { tree, props } = await renderView({ state: twoSessions, runCommand: () => pending })
+  const { tree, props } = await renderView({ state: twoSessionState(other), runCommand: () => pending })
   await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
 
   // 切换会话，然后旧请求才完成：结果必须被丢弃。
@@ -342,18 +346,7 @@ test('a stale submission does not paint the previous session state', async () =>
 test('switching sessions resets the panel state', async () => {
   installDocumentStub()
   const other = 'session-2'
-  const twoSessions = {
-    ids: [SESSION, other],
-    byId: {
-      [SESSION]: { sessionId: SESSION, cwd: '/work' },
-      [other]: { sessionId: other, cwd: '/work' },
-    },
-    projectionsBySession: {
-      [SESSION]: { values: { agentPreset: 'see-dsh-novel' } },
-      [other]: { values: { agentPreset: 'see-dsh-novel' } },
-    },
-  }
-  const { tree, props } = await renderView({ state: twoSessions })
+  const { tree, props } = await renderView({ state: twoSessionState(other) })
   await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
   assert.match(textOf(tree), /已确认，正在继续…/)
 
