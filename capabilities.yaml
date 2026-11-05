@@ -36,9 +36,9 @@ capabilities:
     title: 打包产物校验：tarball 里的 files／exports／patch 与 manifest 一致
     reference: dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs
     dsh: scripts + pnpm pack
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/core/packaging.ts
+    consumer: packages/see-dsh-novel/test/packaging.test.mjs
+    realRun: artifacts/real-runs/runtime.package-check.json
     status: missing
   - id: runtime.boundary-check
     title: 边界校验：源码不得 import 参考工程；@deepseek-ai 只允许预设内的 type-only 引用

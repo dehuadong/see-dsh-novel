@@ -1,6 +1,6 @@
 # Agent Note: runtime.package-check —— 校验真实 tarball，而不是源码树
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -13,7 +13,7 @@ Status: proposed
 
 本行照这个标准做：不查源码树、不拿 `pack --dry-run` 的列表代替产物，直接对**真实 tarball** 逐项对账。
 
-## Proposal
+## Decision
 
 ### 职责分三层
 
@@ -94,31 +94,23 @@ typecheck → build → check-package → verify-notes → check-capabilities �
 
 **检查包里每个文件的内容（凭证、绝对路径）。** 更严。否掉：本包内容全是构建产物与技能文档；先把结构对账做对，内容级扫描等出现第一份外部素材时再加。
 
-## Acceptance criteria
+## Consequences
 
-- `pnpm run check-package` 在当前包上退出码 0，stdout 报告含 tarball sha256、条目数（当前 7 条：`package.json`、`lib/index.js`、`lib/agent.js`、`lib/client.js`、`cordis.patch.yml`、两份 `SKILL.md`）与 `ok: true`。
-- 条目录里出现 `package/src/index.ts` → `unexpected-entry`；出现 `package/lib/extra.js` → `unexpected-entry`（允许集合精确到三个入口文件）；出现 `package/lib/../x.js`、符号链接条目或同名条目 → 读取器报错，脚本以 `tar-read-error` 退出 1（`scripts/pack-tar.test.mjs` 用合成字节覆盖这三类）；条目为空同理。
-- 条目里整目录缺 `lib/` → `files-entry-missing lib` 加三条 `export-target-missing`；只缺 `lib/agent.js` 时只报 `export-target-missing lib/agent.js`（`files` 的目录前缀仍然满足）。
-- 包内 manifest 把 `dsh.bundle.patch` 指向不存在的文件 → `pack-patch-missing`。
-- patch 里出现 `see-dsh-novel/tools` 而 `exports` 没有 `./tools` → `patch-module-unexported`。
-- patch 缺 `preset-see-dsh-novel` 行 → `patch-row-missing`。
-- manifest 的 `scripts.prepack` 有值 → `install-hook prepack`。
-- 依赖写 `"x": "workspace:*"`／`"file:../x"`／`"link:../x"` → `local-dependency x`。
-- 依赖写 `"@deepseek-ai/dsh-client-ui-conversation": "0.2.1"` 而根里是 `0.2.2-rc.1` → `version-drift`；根里没有的名字不判。
-- 包内 `lib/index.js` 留一个 `import 'esbuild'` → `undeclared-import esbuild`；把 `lib/index.js` 改成 import 一个包内文件（inputs 变 2）→ `undeclared-import` 的 inputs 断言报错。
-- 包内 `lib/client.js` 不含 `id: "see-dsh-novel"` → `client-id-missing`。
-- 有问题时退出码非零、stderr 列问题码；通过时不写工作区任何文件（临时目录已清理）。
-- CI：`.github/workflows/ci.yml` 的 `verify` job 在 `ubuntu-latest` 与 `windows-latest` 上都跑 `pnpm run verify`，`check-package` 因此随链执行；`AGENT_NOTE_ARCHIVE_BASE_REF` 在 job 级 env，两条 runner 都拿到。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/packaging.ts`；consumer `packages/see-dsh-novel/test/packaging.test.mjs`；`scripts/pack-tar.mjs` 由 `scripts/pack-tar.test.mjs` 覆盖（合成一份带链接、`..`、重复条目的 tar 字节），根 `test` 脚本同时跑 `scripts/*.test.mjs`；`scripts/check-package.mjs`、根 `package.json` 的 `verify` 链与 `.github/workflows/ci.yml` 同批改；realRun `artifacts/real-runs/runtime.package-check.json`（含 `date`、`sessionId`、`tests.passed: true` 与非空 `receipts`，与其他行同形）。
-- 真实运行：`pnpm run check-package` 在真实 `pnpm pack` 产物上通过；再人为改动一次（把 `files` 里的 `lib` 去掉）重跑，脚本报错并以非零码退出，随后恢复。
+收益：发出去或装上去的那份产物，和 manifest 是同一件事。CI 与本地都从 `pnpm run check-package` 得到同一个结论——真实 `.tgz` 里有 7 个条目、`exports` 的四个目标齐全、patch 的 21 行都能被解析、两个打包入口自包含（各 1 个输入、只 import `node:`），客户端脚本带着 `id: "see-dsh-novel"`。
 
-## Risks
+三层职责固定下来：`scripts/pack-tar.mjs` 只从 gzip 字节读条目（拒绝链接、绝对路径、`..`、同名条目、空归档，出错即 `tar-read-error`）；`packages/see-dsh-novel/src/core/packaging.ts` 的 `packagingProblems` 只吃已读出的事实（条目、包内 manifest、已解析的 patch 行、客户端文本、esbuild 结果、根版本表），因此可以纯数据测；`scripts/check-package.mjs` 负责「先查源码 hook 再打包」、临时目录、esbuild 与打印。判定覆盖 `files-entry-missing`、`export-target-missing`、`pack-patch-missing`、`patch-module-unexported`、`patch-row-missing`、`patch-invalid`、`unexpected-entry`、`install-hook`、`local-dependency`、`version-drift`、`undeclared-import`、`bundle-not-self-contained`、`client-id-missing` 十三类问题。
 
-- 自写 tar 读取器只覆盖普通文件与目录条目；pax 长路径将来出现时要补（参考工程已处理 pax）。
-- `pnpm pack` 比 dry-run 慢，且会在临时目录写文件；这是「检查真实产物」的代价。
-- `undeclared-import` 用 esbuild 解包内 bundle，等同于再构建一次入口；将来 `lib` 若拆多 chunk，`inputs === 1` 要放宽。
-- 允许集合精确到文件名：新增构建产物（例如 preset 子入口）必须同批更新白名单，否则报 `unexpected-entry`——这是有意的摩擦。
-- `install-hook` 检查的是 manifest 里的脚本名，不判断脚本内容；一个无害的 hooks 也会被拦，需要作者显式改成别的名字或移除。
+`verify` 链是 `typecheck → build → check-package → verify-notes → check-capabilities → test`；CI 收成一条 `pnpm run verify`，在 `ubuntu-latest` 与 `windows-latest` 上各跑一次，Agent Note 的 base ref 在 job 级 env。
+
+验证见 `test/packaging.test.mjs`（十三类问题的合成事实，含「整目录缺 lib 时 files 与 exports 各报什么」与「只缺一个入口时 files 前缀仍满足」）与 `scripts/pack-tar.test.mjs`（链接、pax 长路径、`..`、绝对路径、同名条目、空归档）。
+
+### 代价与已知限制
+
+- tar 读取器只覆盖普通文件与目录；pax 长路径与 GNU 长名已处理，其它扩展头遇到再补。
+- `pnpm pack` 比 dry-run 慢，且要在临时目录落盘；这是「检查真实产物」的代价。
+- `undeclared-import` 用 esbuild 再解一次入口；`lib` 若拆成多 chunk，`inputs === 1` 的断言要放宽。
+- 允许集合精确到文件名：新增构建产物必须同批更新白名单，否则报 `unexpected-entry`——这是有意的摩擦。
+- `install-hook` 只看脚本名不判断内容；命名相同的无害脚本也会被拦。
 - 本行不覆盖「安装成功」：版本要求、profile 权限、host 与 client 的装载顺序仍可能让 `install_bundle` 失败。
-- CI 加 Windows runner 会让每次推送多一份机器时间；如果后续觉得太慢，可以先只让 `ubuntu-latest` 跑 `verify`，Windows 改成只在 PR 上跑。
-- `local-dependency` 与 `version-drift` 今天恒不触发；它们只有合成 fixture 的证据。
+- CI 的 Windows runner 让每次推送多一份机器时间；慢了可以先只让 `ubuntu-latest` 跑 `verify`，Windows 只在 PR 上跑。
+- `local-dependency` 与 `version-drift` 今天恒不触发（本包没有依赖字段），只有合成 fixture 的证据。

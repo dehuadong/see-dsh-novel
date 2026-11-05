@@ -6,10 +6,11 @@
   "scripts": {
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "node --import tsx --test packages/see-dsh-novel/test/*.test.mjs",
+    "test": "node --import tsx --test packages/see-dsh-novel/test/*.test.mjs scripts/*.test.mjs",
     "verify-notes": "tsx .agents/skills/write-agent-notes/scripts/verify-agent-note-tree.ts --root .agents/notes && tsx .agents/skills/write-agent-notes/scripts/verify-agent-note-format.ts --root .agents/notes && tsx .agents/skills/write-agent-notes/scripts/verify-archived-agent-notes.ts --root .agents/notes",
     "check-capabilities": "node scripts/check-capabilities.mjs",
-    "verify": "pnpm run typecheck && pnpm run build && pnpm run verify-notes && pnpm run check-capabilities && pnpm run test"
+    "verify": "pnpm run typecheck && pnpm run build && pnpm run check-package && pnpm run verify-notes && pnpm run check-capabilities && pnpm run test",
+    "check-package": "node --import tsx scripts/check-package.mjs"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "4.1.0",

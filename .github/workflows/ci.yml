@@ -11,7 +11,21 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # 真实宿主是 Windows：link 安装、路径大小写、junction 的差异只有这里覆盖得到。
+        os:
+          - ubuntu-latest
+          - windows-latest
+    env:
+      # HEAD 在干净检出上是空操作；比较对象改为变更前的提交：
+      # PR 的 base，或推送分支的上一个 tip。新建分支推送送 before=0000…，
+      # git show 失败后脚本跳过 append-only 检查（seal 与磁盘的一致性仍然校验）。
+      AGENT_NOTE_ARCHIVE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,19 +45,7 @@ jobs:
       - name: Install
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm run build
-
-      - name: Verify Agent Notes
-        env:
-          # HEAD 在干净检出上是空操作；比较对象改为变更前的提交：
-          # PR 的 base，或推送分支的上一个 tip。新建分支推送送 before=0000…，
-          # git show 失败后脚本跳过 append-only 检查（seal 与磁盘的一致性仍然校验）。
-          AGENT_NOTE_ARCHIVE_BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: pnpm run verify-notes
-
-      - name: Check capabilities ledger
-        run: pnpm run check-capabilities
-
-      - name: Run plugin tests
-        run: pnpm test
+      # 与本地同一条链：typecheck → build → check-package → verify-notes
+      # → check-capabilities → test。给 verify 加步骤时不用改这里。
+      - name: Verify
+        run: pnpm run verify
