@@ -79,7 +79,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/recovery.ts
     consumer: packages/see-dsh-novel/test/recovery.test.mjs
     realRun: artifacts/real-runs/runtime.recovery.json
-    status: missing
+    status: verified
   - id: proposal.creative
     title: 创意提案：对话收敛创意、结构化提案与确认卡、确认后按确认参数创建作品
     reference: inkos:packages/core/src/agent/agent-tools.ts
