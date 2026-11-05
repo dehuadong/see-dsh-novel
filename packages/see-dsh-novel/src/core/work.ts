@@ -181,7 +181,8 @@ export async function workProbes(root: string): Promise<WorkProbes> {
  * @param input 作者给出的标题、语言与目标规模
  * @returns 落盘的身份对象
  */
-export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {  const base = resolve(root)
+export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
+  const base = resolve(root)
   const path = join(base, WORK_FILE)
   if (await pathExists(path)) {
     // 内容坏了先按字段报错：作者手改出错时，「已经不存在的字段」比「已存在」更有用。

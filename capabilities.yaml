@@ -60,8 +60,8 @@ capabilities:
     title: DSH command/headless 入口（init/export 至少一条）
     reference: inkos:packages/cli/src/commands/
     dsh: commands
-    implementation: packages/see-dsh-novel/src/plugin/init-command.ts
-    consumer: packages/see-dsh-novel/test/init-command.test.mjs
+    implementation: packages/see-dsh-novel/src/plugin/work-command.ts
+    consumer: packages/see-dsh-novel/test/work-command.test.mjs
     realRun: artifacts/real-runs/runtime.commands.json
     status: missing
   - id: runtime.telemetry

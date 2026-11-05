@@ -41,7 +41,7 @@ type WorkCreateArgs = { title: string, language?: string, targetChapters?: numbe
 
 ### 行为
 
-1. `workingDirectory.ensure(invocation.agent)` 取当前工作区；空目录报错；
+1. `workingDirectory.ensure(invocation.agent)` 取当前工作区；解析结果为空时报错；
 2. `parseWorkCreate(invocation.rawInput)`；
 3. `writeWork(root, args)`；
 4. 成功返回：

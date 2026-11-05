@@ -102,6 +102,26 @@ test('the command writes work.json and reports the identity', async () => {
   }
 })
 
+test('the default language is zh and the receipt has no scale clause', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '夜行测试' })
+    assert.equal(result.kind, 'success')
+    assert.equal(
+      result.text,
+      '已立项《夜行测试》：longform-novel，zh，draft\n'
+        + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
+    )
+    const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    assert.equal(onDisk.language, 'zh')
+    assert.deepEqual(onDisk.metadata, {})
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('syntax and semantic errors both come back as command errors without writing', async () => {
   const root = await workspace()
   try {
