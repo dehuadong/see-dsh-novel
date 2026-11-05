@@ -63,7 +63,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/plugin/work-command.ts
     consumer: packages/see-dsh-novel/test/work-command.test.mjs
     realRun: artifacts/real-runs/runtime.commands.json
-    status: missing
+    status: verified
   - id: runtime.telemetry
     title: 每次委派的 usage／耗时／失败回执
     reference: inkos:packages/core/src/harness/execution-evidence.ts
