@@ -16,15 +16,19 @@ function header(name, { size = 0, type = '0', prefix = '', linkname = '' } = {})
   return block
 }
 
-/** 把若干条目拼成 tar 字节；`type` 为 `5` 时忽略内容。 */
+/** 拼一个条目（头 + 内容 + 填充），供普通条目与特殊 type 复用。 */
+function entryBlocks(name, { content = '', type = '0', linkname = '' } = {}) {
+  const body = Buffer.from(content)
+  return Buffer.concat([
+    header(name, { size: body.length, type, linkname }),
+    body,
+    Buffer.alloc((512 - (body.length % 512)) % 512, 0),
+  ])
+}
+
+/** 把若干条目拼成 tar 字节。 */
 function tar(entries) {
-  const blocks = []
-  for (const entry of entries) {
-    const body = Buffer.from(entry.content ?? '')
-    const size = entry.size ?? body.length
-    blocks.push(header(entry.name, { size, type: entry.type ?? '0', prefix: entry.prefix ?? '', linkname: entry.linkname ?? '' }))
-    blocks.push(body, Buffer.alloc((512 - (size % 512)) % 512, 0))
-  }
+  const blocks = entries.map((entry) => entryBlocks(entry.name, entry))
   blocks.push(Buffer.alloc(1024, 0))
   return gzipSync(Buffer.concat(blocks))
 }
@@ -40,24 +44,14 @@ test('reads regular files and directories with the package prefix stripped', () 
   assert.equal(entries[0].content.toString('utf8'), '{"name":"x"}')
 })
 
-/** 拼一个条目（头 + 内容 + 填充），供特殊 type 复用。 */
-function block(name, { content = '', type = '0' } = {}) {
-  const body = Buffer.from(content)
-  return Buffer.concat([
-    header(name, { size: body.length, type }),
-    body,
-    Buffer.alloc((512 - (body.length % 512)) % 512, 0),
-  ])
-}
-
 test('accepts a GNU long name and a pax path', () => {
   const long = 'package/skills/' + 'a'.repeat(120) + '/SKILL.md'
   const pax = '30 path=package/pax-name.js\n'
   const data = Buffer.concat([
-    block('longname', { type: 'L', content: `${long}\0` }),
-    block('truncated-name', { content: 'x' }),
-    block('paxheader', { type: 'x', content: pax }),
-    block('package/truncated.js', { content: '{}\n' }),
+    entryBlocks('longname', { type: 'L', content: `${long}\0` }),
+    entryBlocks('truncated-name', { content: 'x' }),
+    entryBlocks('paxheader', { type: 'x', content: pax }),
+    entryBlocks('package/truncated.js', { content: '{}\n' }),
     Buffer.alloc(1024, 0),
   ])
   const entries = readPackageEntries(gzipSync(data))

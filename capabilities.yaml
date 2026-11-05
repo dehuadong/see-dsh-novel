@@ -39,7 +39,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/tools/packaging.ts
     consumer: packages/see-dsh-novel/test/packaging.test.mjs
     realRun: artifacts/real-runs/runtime.package-check.json
-    status: missing
+    status: verified
   - id: runtime.boundary-check
     title: 边界校验：源码不得 import 参考工程；@deepseek-ai 只允许预设内的 type-only 引用
     reference: docs/dsh-mapping.md
