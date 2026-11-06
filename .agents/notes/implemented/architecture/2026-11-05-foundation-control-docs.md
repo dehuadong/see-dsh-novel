@@ -32,18 +32,18 @@ export const BRIEF_FILE = 'source/brief.md'
 export const AUTHOR_INTENT_FILE = 'source/story/author_intent.md'
 export const CURRENT_FOCUS_FILE = 'source/story/current_focus.md'
 
-export async function ensureControlDocuments(root: string, language: 'zh' | 'en', authorIntent?: string): Promise<FileWrite[]>
-export async function readControlDocs(root: string): Promise<{ brief: string, authorIntent: string, currentFocus: string }>
+export async function controlDocumentWrites(root: string, language: 'zh' | 'en'): Promise<FileWrite[]>
+export async function readControlDocs(root: string, language: 'zh' | 'en' = 'zh'): Promise<{ brief: string, authorIntent: string, currentFocus: string }>
 ```
 
-`ensureControlDocuments` 只在文件缺失时生成写入项，由调用方并入同一次 `commitFoundation`；内容对齐源工程：
+`controlDocumentWrites` 先建齐作品骨架目录（`story/`、`story/runtime/`、`story/outline/`、两个中文角色目录），再为缺失的方向文档生成写入项，由调用方并入同一次 `commitFoundation`：
 
 - `author_intent.md`：`authorIntent` 非空（去空白后）→ `authorIntent.trimEnd() + "\n"`；否则语言默认模板（中文 `# 作者意图\n\n（在这里描述这本书的长期创作方向。）\n`，英文 `# Author Intent\n\n(Describe the long-horizon vision for this book here.)\n`）；
 - `current_focus.md`：语言默认模板（中文 `# 当前聚焦\n\n## 当前重点\n\n（描述接下来 1-3 章最需要优先推进的内容。）\n`）。
 
 调用点与源工程一致：
 
-- `story_foundation_details` 第一次写真值（book rules 与状态）时把默认文档并入同一次提交——源工程的 `write_truth_file` 写前也会 `ensureControlDocuments`（`longform-edits.ts:105`）；
+- 每一次真值写入都把默认文档并入同一次提交：`story_foundation_outline`、`story_foundation_details`、`story_foundation_cast_documents`——源工程的 `write_truth_file` 写前也会补默认文档（`longform-edits.ts:105`）；
 - `readControlDocs` 先确保默认文档存在再读三份（与 `loadControlDocuments` 一致）；`brief` 缺失时返回空串；
 - 立项（`create_work`）不播种方向文档。
 
@@ -73,6 +73,6 @@ export async function readControlDocs(root: string): Promise<{ brief: string, au
 
 - `intent` 必填会打断旧调用与旧回执的参数；本项目没有外部调用方，演示工作区重跑即可。
 - `metadata.intent` 原样保存，与同一对象里被 trim 的标题类字段规则不同；读代码的人需要知道这一处例外。
-- `readControlDocs(root, language = 'zh')` 带语言参数而不是自己读 `work.json`：core 不读作品身份，调用方用 `projectionLanguage` 取语言；没有调用方传语言时按中文补默认。
+- `readControlDocs(root, language = 'zh')` 与 `controlDocumentWrites(root, language)` 都带语言参数而不是自己读 `work.json`：core 不读作品身份，调用方用 `projectionLanguage` 取语言；这条语言解析与「返回写入项、由调用方原子提交」的差异登记在 `docs/dsh-mapping.md`。
 - 默认模板与源工程逐字对齐；已有文件不会被重跑覆盖，改文案只影响新作品。
 - 方向文档的替换写入仍缺（新债行 `foundation.direction-write`），本行只能播种与读取；作者要改方向目前只能手改文件。

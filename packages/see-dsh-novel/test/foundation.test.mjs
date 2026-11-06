@@ -35,6 +35,8 @@ test('outline writes both outline documents', async () => {
       exec,
     )
     assert.deepEqual([...result.written].sort(), [
+      'source/story/author_intent.md',
+      'source/story/current_focus.md',
       'source/story/outline/story_frame.md',
       'source/story/outline/volume_map.md',
     ])

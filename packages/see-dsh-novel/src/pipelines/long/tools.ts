@@ -21,7 +21,7 @@ import {
 import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contract.js'
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
-import { ensureControlDocuments } from '../../core/control-docs.js'
+import { controlDocumentWrites } from '../../core/control-docs.js'
 import { stateWritesIfMissing } from '../../core/state.js'
 import { projectionLanguage } from './language.js'
 import { BOOK_RULES_JSON, BOOK_RULES_MD, withVersion } from './book-rules.js'
@@ -150,7 +150,11 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
         // revise 删掉本次没重写的卡；换档写入再删掉另一档位里的同名旧卡。两者可能重叠，去重。
         const deleted = args.mode === 'revise' ? await staleRoleCards(root, written) : []
         const moved = await movedRoleCards(root, indexedRoles)
-        return commitFoundation(root, { writes, deletes: [...new Set([...deleted, ...moved])] })
+        const controlWrites = await controlDocumentWrites(root, await projectionLanguage(root))
+        return commitFoundation(root, {
+          writes: [...writes, ...controlWrites],
+          deletes: [...new Set([...deleted, ...moved])],
+        })
       },
     })
   }
@@ -163,13 +167,16 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       'Write the work outline: a readable story frame and a volume/chapter direction map, into source/story/outline/*.md.',
     parameters: OUTLINE_PARAMETERS,
     output: { schema: COMMIT_OUTPUT, render: renderCommit },
-    execute(args: OutlineArgs, exec): Promise<CommitResult> {
-      return workRoot(exec).then((root) => commitFoundation(root, {
+    async execute(args: OutlineArgs, exec: ExecuteContext): Promise<CommitResult> {
+      const root = await workRoot(exec)
+      const controlWrites = await controlDocumentWrites(root, await projectionLanguage(root))
+      return commitFoundation(root, {
         writes: [
           { relativePath: 'source/story/outline/story_frame.md', content: `${String(args.storyFrame).trim()}\n` },
           { relativePath: 'source/story/outline/volume_map.md', content: `${String(args.volumeMap).trim()}\n` },
+          ...controlWrites,
         ],
-      }))
+      })
     },
   } as ToolDefinition<OutlineArgs, CommitResult>))
 
@@ -185,8 +192,8 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       const rules = withVersion(args.bookRulesData)
       const language = await projectionLanguage(root)
       const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, language)
-      // 第一次写真值：方向文档按源工程的行为补默认模板。
-      const controlWrites = await ensureControlDocuments(root, language)
+      // 第一次写真值：方向文档补默认模板。
+      const controlWrites = await controlDocumentWrites(root, language)
       return commitFoundation(root, {
         writes: [
           { relativePath: BOOK_RULES_MD, content: `${String(args.bookRules).trim()}\n` },

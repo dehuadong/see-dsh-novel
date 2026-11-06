@@ -247,6 +247,15 @@ async function roleCardExists(base: string): Promise<boolean> {
  * @param input 作者给出的标题、语言与目标规模
  * @returns 落盘的身份对象
  */
+export async function assertWorkAbsent(root: string): Promise<void> {
+  const base = resolve(root)
+  const path = join(base, WORK_FILE)
+  if (!(await pathExists(path))) return
+  // 内容坏了先按字段报错：作者手改出错时，「已经不存在的字段」比「已存在」更有用。
+  await readWork(base)
+  fail(path, '已经存在，不覆盖；改身份请手改这一份文件')
+}
+
 export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
   return createWork(root, input, [])
 }
@@ -264,12 +273,8 @@ export async function createWork(
   extraWrites: ReadonlyArray<FileWrite>,
 ): Promise<Work> {
   const base = resolve(root)
+  await assertWorkAbsent(base)
   const path = join(base, WORK_FILE)
-  if (await pathExists(path)) {
-    // 内容坏了先按字段报错：作者手改出错时，「已经不存在的字段」比「已存在」更有用。
-    await readWork(base)
-    fail(path, '已经存在，不覆盖；改身份请手改这一份文件')
-  }
 
   const title = text(input.title, path, 'title')
   const language = oneOf(input.language ?? 'zh', WORK_LANGUAGES, path, 'language') as WorkLanguage

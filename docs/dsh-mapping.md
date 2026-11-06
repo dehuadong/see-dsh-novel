@@ -37,3 +37,10 @@
 - 复刻做法：`story_next` 按同一份清单判 `ready`；客户端面板订阅其中的五份设定文件判断「设定齐全」（身份单独判），但不数角色卡。
 - 原因：客户端资源通道按路径订阅，没有列目录能力，`story/roles/` 下有什么文件客户端拿不到；因此「≥1 张角色卡」只能由宿主侧判。
 - 验证：`packages/see-dsh-novel/test/ready-check.test.mjs` 覆盖七项判据与四个角色目录；`test/host.test.mjs` 覆盖四阶段与 `draft` 的两种下一步；面板测试断言六个文件锚点。
+
+### 控制文档：语言由调用方解析，写入项并入同一次提交
+
+- 源工程做法：`loadControlDocuments(bookId)` 自己读 `book.json` 解析语言并直接落盘；`ensureControlDocuments` 建目录、写默认模板。
+- 复刻做法：`controlDocumentWrites(root, language)` 建目录并返回缺失文件的写入项，调用方（三个真值写入工具）用 `projectionLanguage` 解析语言后并入同一次 `commitFoundation`；`readControlDocs(root, language)` 读取前先补默认。
+- 原因：core 不读作品身份（语言由管线层解析），且所有真值写入走同一次原子提交，写入项比直接落盘更能保证「要么全成、要么不动」。
+- 验证：`packages/see-dsh-novel/test/control-docs.test.mjs` 覆盖目录骨架、只补缺失、中英模板与读取默认；`test/foundation.test.mjs` 断言 outline 与 details 的写入集合包含两份方向文档。

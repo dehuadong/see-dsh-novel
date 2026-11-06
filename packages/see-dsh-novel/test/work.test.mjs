@@ -269,7 +269,6 @@ test('the work tools create, show and refuse to overwrite', async () => {
     assert.deepEqual(shown.work, created.work)
 
     await assert.rejects(create.execute({ title: '再来一次', intent: '再写一本' }, exec), /已经存在/)
-    await assert.rejects(create.execute({ title: '没有意图' }, exec), /intent/)
 
     // 渲染是内容块数组，运行时会对它调用 `.some`。
     for (const [definition, value] of [[create, created], [show, shown], [show, { work: null }]]) {

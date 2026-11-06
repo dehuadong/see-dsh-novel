@@ -5,11 +5,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  controlDocumentWrites,
   defaultAuthorIntent,
   defaultCurrentFocus,
-  ensureControlDocuments,
   readControlDocs,
 } from '../src/core/control-docs.ts'
+import { commitFoundation } from '../src/core/commit.ts'
 import { createWork } from '../src/core/work.ts'
 import { installFoundationTools } from '../src/pipelines/long/tools.ts'
 import { AUTHOR_INTENT_FILE, BRIEF_FILE, CURRENT_FOCUS_FILE } from '../src/core/story-paths.ts'
@@ -50,20 +51,32 @@ test('createWork stores the intent verbatim and writes the brief in the same com
   }
 })
 
-test('ensureControlDocuments only fills what is missing', async () => {
+test('controlDocumentWrites fills only what is missing and creates the skeleton directories', async () => {
   const root = await workspace()
   try {
-    const first = await ensureControlDocuments(root, 'zh')
+    const first = await controlDocumentWrites(root, 'zh')
     assert.deepEqual(first.map((write) => write.relativePath).sort(), [AUTHOR_INTENT_FILE, CURRENT_FOCUS_FILE])
     assert.equal(first.find((write) => write.relativePath === AUTHOR_INTENT_FILE)?.content, defaultAuthorIntent('zh'))
     assert.equal(first.find((write) => write.relativePath === CURRENT_FOCUS_FILE)?.content, defaultCurrentFocus('zh'))
 
-    const { commitFoundation } = await import('../src/core/commit.ts')
     await commitFoundation(root, { writes: first })
-    assert.deepEqual(await ensureControlDocuments(root, 'en'), [], '已有文件不再生成写入项')
+    assert.deepEqual(await controlDocumentWrites(root, 'en'), [], '已有文件不再生成写入项')
 
     await writeFile(join(root, AUTHOR_INTENT_FILE), '# 我自己的方向\n', 'utf8')
-    assert.deepEqual((await readControlDocs(root)).authorIntent, '# 我自己的方向\n')
+    assert.equal((await readControlDocs(root)).authorIntent, '# 我自己的方向\n')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('the English templates are used when the work language is en', async () => {
+  const root = await workspace()
+  try {
+    await commitFoundation(root, { writes: await controlDocumentWrites(root, 'en') })
+    assert.equal(await readFile(join(root, AUTHOR_INTENT_FILE), 'utf8'), defaultAuthorIntent('en'))
+    assert.equal(await readFile(join(root, CURRENT_FOCUS_FILE), 'utf8'), defaultCurrentFocus('en'))
+    assert.match(defaultAuthorIntent('en'), /^# Author Intent/)
+    assert.match(defaultCurrentFocus('en'), /^# Current Focus/)
   } finally {
     await cleanup(root)
   }
