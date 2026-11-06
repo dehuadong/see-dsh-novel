@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/types.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
+import { renderArchitectContract } from './architect.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -87,10 +88,10 @@ export function renderStageProtocol(facts: StageFacts): string {
       return [
         header,
         '目标：按四段把基础设定写全，再请作者签核。',
-        '1. `story_foundation_outline`：故事框架与卷图。',
-        '2. `story_foundation_details`：细节设定。',
-        '3. `story_foundation_cast_index`：角色索引。',
-        '4. `story_foundation_cast_documents`：逐张角色卡。',
+        '1. `story_foundation_outline`：提交 storyFrame 与 volumeMap。',
+        '2. `story_foundation_details`：入参带上第 1 步的 storyFrame／volumeMap，提交 bookRules、bookRulesData 与 pendingHooks。',
+        '3. `story_foundation_cast_index`：入参带上 storyFrame／volumeMap／bookRules，只提交姓名与主次级别。',
+        '4. `story_foundation_cast_documents`：为第 3 步的每个人提交一张卡（当下动机、已知信息、关系压力、能力边界，中文约 150–250 字／英文 80–120 词）。',
         '5. `story_gate` 查看签核状态；作者确认后进入规划。',
         common,
       ].join('\n')
@@ -177,7 +178,16 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     required: true,
     text: (assembly) => {
       const facts = forAgent(assembly)
-      return facts === undefined ? '' : renderStageProtocol(facts)
+      if (facts === undefined) return ''
+      if (facts.stage !== 'foundation') return renderStageProtocol(facts)
+      let root = ''
+      try {
+        const agent = assembly.agent as { session: unknown } | undefined
+        if (agent !== undefined) root = ctx.workingDirectory.get(agent.session as never)
+      } catch {
+        root = ''
+      }
+      return root === '' ? renderStageProtocol(facts) : `${renderStageProtocol(facts)}\n\n${renderArchitectContract(root)}`
     },
   })
   const disposeCraft = ctx.systemPrompt.context({
