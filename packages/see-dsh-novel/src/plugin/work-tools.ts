@@ -5,7 +5,8 @@
  * 所以放在 `plugin/` 而不是 `pipelines/long/` 下面。
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../core/types.js'
-import { WORK_LANGUAGES, WORK_PROFILES, WORK_STATUSES } from '../core/work.js'
+import { BRIEF_FILE } from '../core/story-paths.js'
+import { WORK_LANGUAGES, WORK_PROFILES, WORK_STATUSES, createWork } from '../core/work.js'
 import type { Work } from '../core/work.js'
 import { describeWork, readWork, writeWork } from '../core/work.js'
 
@@ -32,6 +33,7 @@ const WORK_SCHEMA: JsonSchema = {
         chapterWordCount: { type: 'integer' },
         genre: { type: 'string' },
         platform: { type: 'string' },
+        intent: { type: 'string' },
       },
       required: [],
     },
@@ -47,6 +49,7 @@ export const workCreateParameters: JsonSchema = {
   additionalProperties: false,
   properties: {
     title: { type: 'string', description: '作品标题，作者在对话里确认过的那个' },
+    intent: { type: 'string', description: '作者的立意原文，逐字写入 source/brief.md 并保存进 metadata.intent' },
     language: { type: 'string', enum: [...WORK_LANGUAGES], description: '正文语言，默认 zh' },
     metadata: {
       type: 'object',
@@ -60,7 +63,7 @@ export const workCreateParameters: JsonSchema = {
       required: [],
     },
   },
-  required: ['title'],
+  required: ['title', 'intent'],
 }
 
 /** 无参查看。 */
@@ -89,6 +92,7 @@ export const workShowOutput: JsonSchema = {
 
 interface CreateArgs {
   title: string
+  intent: string
   language?: string
   metadata?: { targetChapters?: number, chapterWordCount?: number, genre?: string, platform?: string }
 }
@@ -109,23 +113,28 @@ export function installWorkTools(ctx: PluginContext): Disposer {
   const disposeCreate = ctx.tools.register({
     name: WORK_CREATE_NAME,
     description:
-      'Create this workspace\'s work identity (work.json) after the author confirmed the title, language and target size. '
-      + 'Refuses to overwrite an existing work.json.',
+      'Create this workspace\'s work identity (work.json) and save the author\'s intent verbatim to source/brief.md, '
+      + 'after the author confirmed the title, language and target size. Refuses to overwrite an existing work.json.',
     parameters: workCreateParameters,
     output: {
       schema: workCreateOutput,
       render: (_args: unknown, value: { work: Work }) => [{ type: 'text' as const, text: `已立项${describeWork(value.work)}` }],
     },
     async execute(args: CreateArgs, exec: ExecuteContext): Promise<{ work: Work }> {
+      if (typeof args.intent !== 'string' || args.intent.length === 0) {
+        throw new Error('intent 必须是非空字符串；它是作者原文，会写进 source/brief.md')
+      }
+      const root = await workRoot(exec)
       return {
-        work: await writeWork(await workRoot(exec), {
+        work: await createWork(root, {
           title: args.title,
+          intent: args.intent,
           language: args.language,
           targetChapters: args.metadata?.targetChapters,
           chapterWordCount: args.metadata?.chapterWordCount,
           genre: args.metadata?.genre,
           platform: args.metadata?.platform,
-        }),
+        }, [{ relativePath: BRIEF_FILE, content: args.intent }]),
       }
     },
   } as ToolDefinition<CreateArgs, { work: Work }>)

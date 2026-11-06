@@ -8,7 +8,8 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 
-import { commitFile, pathExists } from './commit.js'
+import { commitFile, commitFoundation, pathExists } from './commit.js'
+import type { FileWrite } from './commit.js'
 
 import {
   ROLE_TIER_DIRS,
@@ -52,6 +53,8 @@ export interface WorkMetadata {
   genre?: string
   /** 目标平台，原样保存。 */
   platform?: string
+  /** 立项时的立意原文；原样保存，不 trim。 */
+  intent?: string
 }
 
 /** 一部作品的身份。 */
@@ -81,6 +84,7 @@ export interface FoundationProbes {
 /** 立项输入：标题必填，其余可省。 */
 export interface WorkCreateInput {
   title: unknown
+  intent?: unknown
   language?: unknown
   targetChapters?: unknown
   chapterWordCount?: unknown
@@ -91,7 +95,7 @@ export interface WorkCreateInput {
 const FIELDS = [
   'version', 'id', 'title', 'profile', 'language', 'status', 'metadata', 'createdAt', 'updatedAt',
 ] as const
-const METADATA_FIELDS = ['targetChapters', 'chapterWordCount', 'genre', 'platform'] as const
+const METADATA_FIELDS = ['targetChapters', 'chapterWordCount', 'genre', 'platform', 'intent'] as const
 
 /** 报错一律带文件与字段，作者手改之后能直接定位。 */
 function fail(file: string, message: string): never {
@@ -110,6 +114,14 @@ function text(value: unknown, file: string, field: string): string {
     fail(file, `字段 ${field} 必须是非空字符串`)
   }
   return value.trim()
+}
+
+/** 原样字符串：不 trim，只要求非空；用于作者原文（intent）。 */
+function verbatim(value: unknown, file: string, field: string): string {
+  if (typeof value !== 'string' || value.length === 0) {
+    fail(file, `字段 ${field} 必须是非空字符串`)
+  }
+  return value
 }
 
 function oneOf(value: unknown, allowed: ReadonlyArray<string>, file: string, field: string): string {
@@ -160,6 +172,9 @@ export function parseWork(value: unknown, file: string = WORK_FILE): Work {
   }
   if (Object.hasOwn(metadata, 'platform')) {
     parsedMetadata.platform = text(metadata.platform, file, 'metadata.platform')
+  }
+  if (Object.hasOwn(metadata, 'intent')) {
+    parsedMetadata.intent = verbatim(metadata.intent, file, 'metadata.intent')
   }
   return {
     version: WORK_VERSION,
@@ -233,6 +248,21 @@ async function roleCardExists(base: string): Promise<boolean> {
  * @returns 落盘的身份对象
  */
 export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
+  return createWork(root, input, [])
+}
+
+/**
+ * 立项并在同一次提交里写入附加文件（例如 brief）。
+ * @param root 工作区根
+ * @param input 作者给出的标题、语言、目标规模与意图
+ * @param extraWrites 与身份一起原子落盘的其它文件
+ * @returns 落盘的身份对象
+ */
+export async function createWork(
+  root: string,
+  input: WorkCreateInput,
+  extraWrites: ReadonlyArray<FileWrite>,
+): Promise<Work> {
   const base = resolve(root)
   const path = join(base, WORK_FILE)
   if (await pathExists(path)) {
@@ -252,6 +282,7 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
   }
   if (input.genre !== undefined) metadata.genre = text(input.genre, path, 'genre')
   if (input.platform !== undefined) metadata.platform = text(input.platform, path, 'platform')
+  if (input.intent !== undefined) metadata.intent = verbatim(input.intent, path, 'intent')
   const now = new Date().toISOString()
   const work: Work = {
     version: WORK_VERSION,
@@ -264,7 +295,9 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
     createdAt: now,
     updatedAt: now,
   }
-  await commitFile(base, WORK_FILE, `${JSON.stringify(work, null, 2)}\n`)
+  const content = `${JSON.stringify(work, null, 2)}\n`
+  if (extraWrites.length === 0) await commitFile(base, WORK_FILE, content)
+  else await commitFoundation(base, { writes: [...extraWrites, { relativePath: WORK_FILE, content }] })
   return work
 }
 

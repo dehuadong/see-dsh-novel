@@ -21,6 +21,7 @@ import {
 import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contract.js'
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
+import { ensureControlDocuments } from '../../core/control-docs.js'
 import { stateWritesIfMissing } from '../../core/state.js'
 import { projectionLanguage } from './language.js'
 import { BOOK_RULES_JSON, BOOK_RULES_MD, withVersion } from './book-rules.js'
@@ -182,12 +183,16 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       const root = await workRoot(exec)
       // 先补版本、再严格校验：写坏的文件不能落到盘上。
       const rules = withVersion(args.bookRulesData)
-      const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, await projectionLanguage(root))
+      const language = await projectionLanguage(root)
+      const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, language)
+      // 第一次写真值：方向文档按源工程的行为补默认模板。
+      const controlWrites = await ensureControlDocuments(root, language)
       return commitFoundation(root, {
         writes: [
           { relativePath: BOOK_RULES_MD, content: `${String(args.bookRules).trim()}\n` },
           { relativePath: BOOK_RULES_JSON, content: `${JSON.stringify(rules, null, 2)}\n` },
           ...stateWrites,
+          ...controlWrites,
         ],
       })
     },

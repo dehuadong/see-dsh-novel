@@ -1,6 +1,6 @@
 # Agent Note: foundation.control-docs —— brief 与两份方向文档的播种与读取
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -11,7 +11,7 @@ Status: proposed
 
 复刻的 `story_work_create` 没有 `intent`，不写 `brief.md`；两份方向文档也没有任何播种入口，`readWork` 的 `metadata` 不认 `intent`。结果是立项后没有任何「作者意图」落盘，P2 的上下文装配到时读到空。
 
-## Proposal
+## Decision
 
 ### 立项：intent 原文、brief、意图与默认方向
 
@@ -61,22 +61,18 @@ export async function readControlDocs(root: string): Promise<{ brief: string, au
 
 **把 `metadata.intent` 也交给现有 `text()` 规范化。** 少一个原样读取。否掉：`text()` 会 trim，而源工程保存 `params.intent` 原文；意图首尾的空白属于作者原文，不该被身份层改写。
 
-## Acceptance criteria
+## Consequences
 
-- `story_work_create` 缺 `intent`、或 `intent` 不是字符串时失败，且工作区不留任何新文件；`work.json` 不变。
-- 立项成功后：`source/brief.md` 与 `intent` 逐字一致；`work.json` 的 `metadata.intent` 与 `intent` 逐字一致（含首尾空白）；立项本身不创建方向文档。
-- `story_foundation_details` 之后：`source/story/author_intent.md` 与 `current_focus.md` 出现，内容是语言默认模板；已有文件不被覆盖。
-- `readControlDocs`：三份都在时逐字返回；`author_intent.md` 被删后调用会先补默认模板再读；`brief.md` 被删时 `brief` 为 `""`，另外两份仍在。
-- 语言取 `work.json` 的 `language`（缺省 `zh`）；英文作品得到英文默认模板。
-- 立项参数形状：`intent` 在顶层，与 `title` 同级；`targetChapters` 等仍在 `metadata` 下。
-- `WorkMetadata`／`METADATA_FIELDS`／`WORK_SCHEMA`／`workCreateParameters` 同批加 `intent`；`text()` 之外新增原样读取，避免 trim。
-- `test/work.test.mjs` 的立项用例补 `intent`；新增 `test/control-docs.test.mjs`；`capabilities.yaml` 新增 `foundation.direction-write`（missing）并在 `docs/scope.md` P1 债列表登记。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/control-docs.ts`；consumer `packages/see-dsh-novel/test/control-docs.test.mjs`；路径常量在 `src/core/story-paths.ts`；立项改动在 `src/core/work.ts` 与 `src/plugin/work-tools.ts`，details 播种改动在 `src/pipelines/long/tools.ts`；realRun `artifacts/real-runs/foundation.control-docs.json`。
-- 真实运行：在新工作区用 `story_work_create`（带 `intent`）立项，确认 `source/brief.md` 与 `metadata.intent`；调一次 `story_foundation_details`，确认两份方向文档出现且内容是默认模板；删掉 `brief.md` 后 `readControlDocs` 打印 `brief` 为空、另两份仍在。
+收益：立项不再是「只有一个标题的身份」——作者的立意原文同时落进 `source/brief.md` 与 `work.json` 的 `metadata.intent`，逐字保存，不 trim；第一次写真值（`story_foundation_details`）时两份方向文档按语言默认模板补齐，读取前也会补，作者与模型都不会面对「文件不存在」与「文件为空」两种含糊状态。
 
-## Risks
+落地：`packages/see-dsh-novel/src/core/control-docs.ts`（`ensureControlDocuments`、`readControlDocs`、默认模板）、`src/core/story-paths.ts`（`BRIEF_FILE`／`AUTHOR_INTENT_FILE`／`CURRENT_FOCUS_FILE`）、`src/core/work.ts`（`metadata.intent` 原样读写、`createWork` 与 brief 同一次提交）、`src/plugin/work-tools.ts`（`intent` 顶层必填、先校验后写）、`src/pipelines/long/tools.ts`（details 并入方向文档播种）。
+
+验证见 `test/control-docs.test.mjs`（intent 原样与 brief 同批落盘、只补缺失、读取默认与自定义、brief 缺失返回空、details 首次写入播种）、`test/work.test.mjs`（立项带 intent、缺 intent 拒绝、坏身份先报字段）。
+
+### 代价与已知限制
 
 - `intent` 必填会打断旧调用与旧回执的参数；本项目没有外部调用方，演示工作区重跑即可。
 - `metadata.intent` 原样保存，与同一对象里被 trim 的标题类字段规则不同；读代码的人需要知道这一处例外。
-- 默认模板的中文文案与源工程逐字对齐；改文案会让已有作品与新作品的默认内容不一致，重跑立项不会覆盖已有文件。
-- 方向文档的写入口尚未实现，只能手改文件；这一债已登记为新行，不在本行假装完成。
+- `readControlDocs(root, language = 'zh')` 带语言参数而不是自己读 `work.json`：core 不读作品身份，调用方用 `projectionLanguage` 取语言；没有调用方传语言时按中文补默认。
+- 默认模板与源工程逐字对齐；已有文件不会被重跑覆盖，改文案只影响新作品。
+- 方向文档的替换写入仍缺（新债行 `foundation.direction-write`），本行只能播种与读取；作者要改方向目前只能手改文件。

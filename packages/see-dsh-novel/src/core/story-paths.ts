@@ -10,6 +10,13 @@ export const WORK_FILE = 'work.json'
 /** 状态目录；四份 JSON 在这里。 */
 export const STATE_DIR = 'source/story/state'
 
+/** 立项时写入的立意原文。 */
+export const BRIEF_FILE = 'source/brief.md'
+
+/** 两份方向文档：长期方向与近期焦点。 */
+export const AUTHOR_INTENT_FILE = 'source/story/author_intent.md'
+export const CURRENT_FOCUS_FILE = 'source/story/current_focus.md'
+
 /** 大纲两份。 */
 export const STORY_FRAME_FILE = 'source/story/outline/story_frame.md'
 export const STORY_VOLUME_MAP_FILE = 'source/story/outline/volume_map.md'

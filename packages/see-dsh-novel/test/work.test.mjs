@@ -260,7 +260,7 @@ test('the work tools create, show and refuse to overwrite', async () => {
     const show = registered.get(WORK_SHOW_NAME)
     assert.equal((await show.execute({}, exec)).work, null)
 
-    const created = await create.execute({ title: '工具立项', language: 'en', metadata: { targetChapters: 20 } }, exec)
+    const created = await create.execute({ title: '工具立项', intent: '写一个关于夜行的故事', language: 'en', metadata: { targetChapters: 20 } }, exec)
     assert.equal(created.work.title, '工具立项')
     assert.equal(created.work.language, 'en')
     assert.equal(created.work.metadata.targetChapters, 20)
@@ -268,7 +268,8 @@ test('the work tools create, show and refuse to overwrite', async () => {
     const shown = await show.execute({}, exec)
     assert.deepEqual(shown.work, created.work)
 
-    await assert.rejects(create.execute({ title: '再来一次' }, exec), /已经存在/)
+    await assert.rejects(create.execute({ title: '再来一次', intent: '再写一本' }, exec), /已经存在/)
+    await assert.rejects(create.execute({ title: '没有意图' }, exec), /intent/)
 
     // 渲染是内容块数组，运行时会对它调用 `.some`。
     for (const [definition, value] of [[create, created], [show, shown], [show, { work: null }]]) {
@@ -291,7 +292,7 @@ test('a title that already carries book marks is not wrapped twice', async () =>
   try {
     const { registered, ctx } = services(root)
     installWorkTools(ctx)
-    const created = await registered.get(WORK_CREATE_NAME).execute({ title: '《上》《下》' }, exec)
+    const created = await registered.get(WORK_CREATE_NAME).execute({ title: '《上》《下》', intent: '意图' }, exec)
     const text = registered.get(WORK_SHOW_NAME).output.render({}, created)[0].text
     assert.match(text, /《上》《下》/)
     assert.doesNotMatch(text, /《《上》/)
@@ -308,7 +309,7 @@ test('a broken identity file makes both tools fail with the file and field', asy
     installWorkTools(ctx)
     await assert.rejects(registered.get(WORK_SHOW_NAME).execute({}, exec), /work\.json: /)
     // 坏文件先报字段，而不是「已存在」——作者手改出错时前者才有用。
-    await assert.rejects(registered.get(WORK_CREATE_NAME).execute({ title: 'x' }, exec), /字段 version/)
+    await assert.rejects(registered.get(WORK_CREATE_NAME).execute({ title: 'x', intent: '意图' }, exec), /字段 version/)
   } finally {
     await cleanup(root)
   }
