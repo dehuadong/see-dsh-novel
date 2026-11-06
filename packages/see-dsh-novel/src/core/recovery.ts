@@ -8,9 +8,7 @@ import { cp, readdir, readFile, rm } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
-import { commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive } from './commit.js'
-
-export { parseJournal, pidAlive }
+import { STAGING_PREFIX, commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive } from './commit.js'
 import type { CommitJournal } from './commit.js'
 import { PROJECTION_SOURCES, inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
@@ -90,7 +88,7 @@ async function countFiles(dir: string): Promise<number> {
 async function stagingFindings(root: string): Promise<Finding[]> {
   const findings: Finding[] = []
   for (const entry of await entriesOf(join(root, 'source'))) {
-    if (!entry.isDirectory() || !entry.name.startsWith('.staging-')) continue
+    if (!entry.isDirectory() || !entry.name.startsWith(STAGING_PREFIX)) continue
     const dir = join(root, 'source', entry.name)
     const path = `source/${entry.name}`
     let raw: string | undefined

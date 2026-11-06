@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, normalize } from 'node:path'
 
 import { roleCardPath, sanitizeRoleName } from '../src/pipelines/long/contract.ts'
 import { commitFoundation } from '../src/core/commit.ts'
@@ -40,7 +40,7 @@ test('outline writes both outline documents', async () => {
       'source/story/current_focus.md',
       'source/story/outline/story_frame.md',
       'source/story/outline/volume_map.md',
-    ])
+    ].map(normalize).sort())
     assert.equal(await read(root, 'source/story/outline/story_frame.md'), '框架\n')
     assert.equal(await read(root, 'source/story/outline/volume_map.md'), '卷图\n')
   } finally {
@@ -167,7 +167,7 @@ test('init keeps stale cards while revise deletes them', async () => {
     assert.equal(await read(root, 'source/story/roles/次要角色/乙.md'), '卡乙\n')
 
     const result = await cards().execute({ role_1_content: '卡甲二版', mode: 'revise' }, exec)
-    assert.deepEqual(result.deleted, ['source/story/roles/次要角色/乙.md'])
+    assert.deepEqual(result.deleted, [normalize('source/story/roles/次要角色/乙.md')])
     assert.equal(await read(root, 'source/story/roles/主要角色/甲.md'), '卡甲二版\n')
     await assert.rejects(read(root, 'source/story/roles/次要角色/乙.md'))
   } finally {

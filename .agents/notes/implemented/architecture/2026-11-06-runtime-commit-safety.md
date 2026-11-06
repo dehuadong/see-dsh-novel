@@ -23,7 +23,7 @@ Status: implemented
 - `normalize` 之后不能是 `..` 或以 `../` 开头；
 - 返回规范化后的相对路径（`normalize` 已统一分隔符，不再额外拒绝反斜杠）。
 
-`commitFoundation` 在动盘之前校验整批：
+`commitFoundation` 在动本批的任何文件之前校验整批（死暂存的回收可能先发生，与源实现「先 recover 再校验」的顺序一致）：
 
 - 写入与删除都过 `safeRelativePath`；
 - 写入路径不能重复；
@@ -39,7 +39,7 @@ Status: implemented
 ### 日志与留痕
 
 - 日志在备份**之前**写入，并记录 `existed`（哪些目标在提交前已存在）；回滚按「有备份 → 用备份；没有备份且 `existed` 为假 → 删除；`existed` 为真但没有备份 → 保持不动」判断，避免删掉尚未备份的原文件；
-- 回滚成功才删除 staging；回滚抛错时保留 staging（含日志与备份），把原始错误抛给调用方；
+- 回滚成功才删除 staging；回滚抛错时保留 staging（含日志与备份），把日志属主改成 0 以便下一次提交或自检接管，并把原始错误抛给调用方；
 - 成功路径的 `applied` 标记与清理不变；日志字段新增 `existed`，旧日志没有该字段时按「未知」处理（恢复时不删除文件，只报出来）。
 
 ## Alternatives considered

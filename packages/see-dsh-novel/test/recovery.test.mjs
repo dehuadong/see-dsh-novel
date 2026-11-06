@@ -7,9 +7,8 @@ import { join } from 'node:path'
 import { commitFile, commitFoundation } from '../src/core/commit.ts'
 import { readArtifacts } from '../src/core/artifacts.ts'
 import { defaultStateSnapshot, stateJsonWrites, stateProjectionWrites, stateWritesIfMissing } from '../src/core/state.ts'
+import { parseJournal, pidAlive } from '../src/core/commit.ts'
 import {
-  parseJournal,
-  pidAlive,
   repairWorkspace,
   scanWorkspace,
 } from '../src/core/recovery.ts'

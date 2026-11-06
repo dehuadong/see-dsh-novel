@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, normalize } from 'node:path'
 
 import { installCastContext, readCast, renderCastContext } from '../src/pipelines/long/cast.ts'
 import { installFoundationTools } from '../src/pipelines/long/tools.ts'
@@ -248,7 +248,7 @@ test('re-tiering a role deletes the card it leaves behind, even in init mode', a
     await tools.get('story_foundation_cast_index').execute({ roles: [{ tier: 'minor', name: '甲' }] }, exec)
     const result = await tools.get('story_foundation_cast_documents').execute({ role_1_content: '卡甲', mode: 'init' }, exec)
 
-    assert.deepEqual(result.deleted, [`${MAJOR}/甲.md`])
+    assert.deepEqual(result.deleted, [normalize(`${MAJOR}/甲.md`)])
     assert.equal(await read(root, `${MINOR}/甲.md`), '卡甲\n')
     await assert.rejects(read(root, `${MAJOR}/甲.md`))
   } finally {
@@ -269,7 +269,7 @@ test('re-tiering during revise deletes the old card exactly once', async () => {
     await index.execute({ roles: [{ tier: 'minor', name: '甲' }] }, exec)
     const result = await cards().execute({ role_1_content: '卡甲二版', mode: 'revise' }, exec)
 
-    assert.deepEqual(result.deleted, [`${MAJOR}/甲.md`])
+    assert.deepEqual(result.deleted, [normalize(`${MAJOR}/甲.md`)])
     assert.equal(await read(root, `${MINOR}/甲.md`), '卡甲二版\n')
   } finally {
     dispose()

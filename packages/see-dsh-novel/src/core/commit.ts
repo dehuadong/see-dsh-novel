@@ -96,8 +96,7 @@ export function safeRelativePath(relativePath: string): string {
   ) {
     throw new Error(`提交路径必须留在作品根内：${JSON.stringify(relativePath)}`)
   }
-  // 内部路径统一用正斜杠：日志、发现与断言都按它比较；Windows 的 normalize 会给反斜杠。
-  return normalized.split(sep).join('/')
+  return normalized
 }
 
 /** 按根排队的提交队列；前一批失败不阻塞后一批。 */
@@ -142,13 +141,16 @@ export async function recoverDeadStaging(base: string): Promise<void> {
   for (const entry of entries) {
     if (!entry.isDirectory() || !entry.name.startsWith(STAGING_PREFIX)) continue
     const staging = join(sourceDir, entry.name)
-    let journal: CommitJournal | undefined
+    let raw: string
     try {
-      journal = parseJournal(await readFile(join(staging, JOURNAL_FILE), 'utf8'))
-    } catch {
-      continue
+      raw = await readFile(join(staging, JOURNAL_FILE), 'utf8')
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw error
     }
-    if (journal === undefined || pidAlive(journal.pid)) continue
+    const journal = parseJournal(raw)
+    if (journal === undefined) throw new Error(`暂存目录 ${staging} 的提交日志读不出来`)
+    if (pidAlive(journal.pid)) continue
     if (journal.phase === 'prepared') await restoreDeadPrepared(base, staging, journal)
     await rm(staging, { recursive: true, force: true })
   }
@@ -159,8 +161,14 @@ async function restoreDeadPrepared(base: string, staging: string, journal: Commi
   const backupDir = join(staging, 'backup')
   const existed = journal.existed ?? []
   for (const relativePath of [...journal.writes, ...journal.deletes]) {
-    const backup = join(backupDir, relativePath)
-    const target = resolve(base, relativePath)
+    let safePath: string
+    try {
+      safePath = safeRelativePath(relativePath)
+    } catch {
+      continue
+    }
+    const backup = join(backupDir, safePath)
+    const target = resolve(base, safePath)
     if (await pathExists(backup)) {
       await mkdir(dirname(target), { recursive: true })
       await rm(target, { recursive: true, force: true })
@@ -200,8 +208,8 @@ async function commitBatch(
     throw new Error('同一批提交不能既写又删同一路径')
   }
   const allPaths = [...writePaths, ...deletes]
-  if (allPaths.some((path) => allPaths.some((other) => other !== path && other.startsWith(`${path}/`)))) {
-    throw new Error('同一批提交不能同时触达目录和它的子路径')
+  if (allPaths.some((path) => allPaths.some((other) => other !== path && other.startsWith(`${path}${sep}`)))) {
+    throw Object.assign(new Error('同一批提交不能同时触达目录和它的子路径'), { code: 'ATOMIC_PATH_OVERLAP' })
   }
 
   const staging = join(base, 'source', `${STAGING_PREFIX}${randomUUID()}`)
@@ -275,7 +283,12 @@ async function commitBatch(
       try {
         await restore(base, backupDir, touched, applied, existed)
       } catch {
-        // 回滚也失败：保留 staging（日志与备份），让自检能报告并人工处理。
+        // 回滚也失败：把日志属主改成 0，下一次提交或自检可以接管并保留现场。
+        try {
+          await writeJournal(staging, { ...journal, pid: 0 })
+        } catch {
+          // 连日志都写不了：目录仍然保留，留给人工处理。
+        }
         throw error
       }
     }
@@ -315,7 +328,7 @@ async function restore(
  * @param content 完整文件内容
  */
 export async function commitFile(root: string, relativePath: string, content: string): Promise<void> {
-  const target = resolve(root, safeRelativePath(relativePath))
+  const target = resolve(root, relativePath)
   const dir = dirname(target)
   await mkdir(dir, { recursive: true })
   // 临时文件名带 pid：崩溃后自检能判断这个残留的属主是否还活着。

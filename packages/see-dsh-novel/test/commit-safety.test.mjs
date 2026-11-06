@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, normalize } from 'node:path'
 
 import {
   commitFoundation,
@@ -19,7 +19,7 @@ async function workspace() {
 const cleanup = (root) => rm(root, { recursive: true, force: true })
 
 test('paths must stay inside the work root', () => {
-  assert.equal(safeRelativePath('source/story/a.md'), 'source/story/a.md')
+  assert.equal(safeRelativePath('source/story/a.md'), normalize('source/story/a.md'))
   assert.throws(() => safeRelativePath(''), /留在作品根内/)
   assert.throws(() => safeRelativePath('../x.md'), /留在作品根内/)
   assert.throws(() => safeRelativePath('..\\x.md'), /留在作品根内/)
@@ -117,6 +117,24 @@ test('a journal without existed leaves an orphaned target alone', async () => {
     }))
     await recoverDeadStaging(root)
     assert.equal(await readFile(join(root, 'source/story/a.md'), 'utf8'), 'orphan\n')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a journal that says the target existed keeps it when the backup is gone', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story'), { recursive: true })
+    await writeFile(join(root, 'source/story/a.md'), 'kept\n')
+    const staging = join(root, 'source/.staging-nobackup')
+    await mkdir(staging, { recursive: true })
+    await writeFile(join(staging, 'journal.json'), JSON.stringify({
+      version: 1, pid: 999999, phase: 'prepared', writes: ['source/story/a.md'], deletes: [], existed: ['source/story/a.md'],
+    }))
+    await recoverDeadStaging(root)
+    assert.equal(await readFile(join(root, 'source/story/a.md'), 'utf8'), 'kept\n')
+    assert.deepEqual(await readdir(join(root, 'source')), ['story'])
   } finally {
     await cleanup(root)
   }
