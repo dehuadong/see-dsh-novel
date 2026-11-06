@@ -1,0 +1,15 @@
+{
+  "capability": "plan.context-select",
+  "date": "2026-11-06",
+  "sessionId": "session-7e9f1887-cdff-4b7b-9c12-571b29b87d44",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "247 passed — context-package 4 例（CJK token 估算、composer 指令、id 校验与未知 id 记录、空选择 complete 模式、trace 七字段与 token 合计一致）＋ host 工具清单含 story_context_candidates／story_context_package"
+  },
+  "receipts": [
+    "真实运行（`work-empty-2`，session `session-7e9f1887-cdff-4b7b-9c12-571b29b87d44`）：主编调 `story_context_candidates`（query「夜行 身份 悬案」），回执「第 1 章候选 13 条」并附 composer 指令；随后用原生 `subagent` 工具派发 composer 选择任务（prompt 含工作区、四类选择要求与候选），子代理返回 `{memory:[],role:[…沈砚、秦望…],state:[],outline:[…]}` 形状的 id 集合",
+    "主编用子代理返回的 selection 调 `story_context_package`（query 同上），工具成功执行并按 id 校验、组装 package 与 trace；回执为「上下文包已组装」（该次运行的渲染只给了一行摘要，渲染已在本批改为输出分层来源与 trace JSON）",
+    "选择链路的顺序在会话里可见：候选（宿主）→ subagent（模型派发）→ package（宿主校验），插件未派发子代理、未调用裸 LLM、未降级 top-k"
+  ]
+}
