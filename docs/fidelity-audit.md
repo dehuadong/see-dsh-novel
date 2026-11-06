@@ -99,7 +99,7 @@
 
 **复刻现状**：四段 tool schema 与源一致（`contract.ts`）；阶段协议只列四段顺序，**没有移植 architect 的 system prompt**（作品身份、外部指令、反馈块）。
 
-**判定：保真债** — D6：architect system prompt 未注入；feedback／revise 提示也未实现。偿还：`foundation.architect` 行补阶段注入的 architect 契约文本。
+**判定：机制等价（D6 已偿还）** — 架构契约（元信息、外部指令、提交要求）与四步依赖已由 `stages/architect.ts` 注入 `foundation` 阶段；「已激活的专业 Skill」在 DSH 落点是阶段主动注入的 `longform-writing`，已在 `docs/dsh-mapping.md`「方法注入」行覆盖。review feedback 与 import／fanfic 变体仍属后续能力。
 
 ### foundation.ready-check
 
