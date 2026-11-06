@@ -23,6 +23,7 @@ import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
 import { controlDocumentWrites } from '../../core/control-docs.js'
 import { installContextTools } from './context-tool.js'
+import { installPlanTool } from './plan-tool.js'
 import { installSearchTool } from './search-tool.js'
 import { installTruthFileTool } from './truth-tool.js'
 import { stateWritesIfMissing } from '../../core/state.js'
@@ -245,6 +246,7 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
     },
   } as ToolDefinition<CastIndexArgs, { roles: IndexedRole[] }>))
 
+  disposers.push(installPlanTool(ctx))
   disposers.push(installSearchTool(ctx))
   disposers.push(installContextTools(ctx))
   disposers.push(installTruthFileTool(ctx))

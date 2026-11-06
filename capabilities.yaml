@@ -241,12 +241,12 @@ capabilities:
     realRun: artifacts/real-runs/plan.compression.json
     status: verified
   - id: plan.chapter
-    title: 章前规划：planner 提示词、memo 与 governed plan 落盘
+    title: 章前规划：planner 技能、memo 与 governed plan 落盘
     source: inkos:packages/core/src/agents/planner.ts
-    dsh: tools.register
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: skills + tools.register
+    implementation: packages/see-dsh-novel/src/core/chapter-plan.ts
+    consumer: packages/see-dsh-novel/test/chapter-plan.test.mjs
+    realRun: artifacts/real-runs/plan.chapter.json
     status: missing
   - id: chapter.write
     title: 首版正文；writer 方法 prompt 与场景／篇幅预算
