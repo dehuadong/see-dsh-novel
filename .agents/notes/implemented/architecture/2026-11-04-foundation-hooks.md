@@ -21,6 +21,8 @@ Status: implemented
 | `lastAdvancedChapter` | 非负整数；不校验与起始章的先后（与源 schema 一致） |
 | `expectedPayoff` | 字符串；已存条目的旧值可以为空，新候选必须给 |
 | `notes` | 字符串 |
+| `dependsOn` | 可选；非空字符串数组，元素不 trim、不唯一化 |
+| `paysOffInArc` | 可选；任意字符串（可为空） |
 
 `architect` 播种的初值是 `status: "deferred"`、两个章节号都是 0，与这套约束相容。
 

@@ -44,3 +44,10 @@
 - 复刻做法：`controlDocumentWrites(root, language)` 建目录并返回缺失文件的写入项，调用方（三个真值写入工具）用 `projectionLanguage` 解析语言后并入同一次 `commitFoundation`；`readControlDocs(root, language)` 读取前先补默认。
 - 原因：core 不读作品身份（语言由管线层解析），且所有真值写入走同一次原子提交，写入项比直接落盘更能保证「要么全成、要么不动」。
 - 验证：`packages/see-dsh-novel/test/control-docs.test.mjs` 覆盖目录骨架、只补缺失、中英模板与读取默认；`test/foundation.test.mjs` 断言 outline 与 details 的写入集合包含两份方向文档。
+
+### 伏笔 id：记录唯一性由复刻自己校验
+
+- 源工程做法：`HooksStateSchema` 只校验数组形状与单条记录的字段，不要求 `hookId` 在数组内唯一；重复 id 会一起存下来，后续按 id 归并时才隐式覆盖。
+- 复刻做法：`validateHooks` 拒绝重复的 `hookId`，报错点名重复的那个 id。
+- 原因：复刻的状态读写以 `hookId` 为索引（投影排序、计数、结算合并都按 id 归并），重复 id 会让读到的状态与写入的不一致，且没有可观察的修复点。
+- 验证：`packages/see-dsh-novel/test/hooks.test.mjs` 的 `hookId 重复` 用例。

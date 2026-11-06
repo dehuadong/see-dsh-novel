@@ -45,7 +45,7 @@ Status: implemented
 
 落地：`packages/see-dsh-novel/src/core/hooks.ts`（两个字段、`HOOK_FIELDS`、严格校验、去掉「最近推进不得早于起始章」的额外约束）；旧笔记 `implemented/architecture/2026-11-04-foundation-hooks.md` 的字段表同批同步。
 
-验证见 `test/hooks.test.mjs`：字段接受与往返、`dependsOn` 空串／非数组拒绝、`paysOffInArc`／`expectedPayoff`／`notes` 类型拒绝、未知字段拒绝、纯空白 `type` 合法、章节先后的旧约束不再拒绝。
+验证见 `test/hooks.test.mjs`：字段接受与 JSON 往返、`dependsOn` 空串／非数组拒绝、`paysOffInArc` 空串合法、`paysOffInArc`／`expectedPayoff`／`notes` 类型拒绝、记录与状态上的未知字段拒绝、非对象记录拒绝、纯空白 `type` 合法、章节先后的旧约束不再拒绝。
 
 ### 代价与已知限制
 

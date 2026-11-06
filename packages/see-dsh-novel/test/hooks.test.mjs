@@ -34,7 +34,15 @@ test('the hook ledger accepts dependsOn and paysOffInArc, and rejects unknown fi
   assert.throws(() => validateHooks({ hooks: [hook({ expectedPayoff: 3 })] }), /expectedPayoff/)
   assert.throws(() => validateHooks({ hooks: [hook({ notes: null })] }), /notes/)
   assert.throws(() => validateHooks({ hooks: [hook({ extra: true })] }), /未知字段/)
+  assert.throws(() => validateHooks({ hooks: [{ extra: true }] }), /缺少 hookId/)
+  assert.throws(() => validateHooks({ hooks: [null] }), /必须是对象/)
+  assert.throws(() => validateHooks({ hooks: [], extra: 1 }), /状态上的未知字段/)
   assert.doesNotThrow(() => validateHooks({ hooks: [hook({ type: '  ' })] }))
+  assert.doesNotThrow(() => validateHooks({ hooks: [hook({ paysOffInArc: '' })] }), '空串合法')
+
+  // 落盘往返：字段在 JSON 里保留，重新读回仍通过校验。
+  const roundTrip = JSON.parse(JSON.stringify({ hooks: [withFields] }))
+  assert.deepEqual(validateHooks(roundTrip).hooks[0], withFields)
 })
 
 test('transitions follow the table and stop at terminal states', () => {

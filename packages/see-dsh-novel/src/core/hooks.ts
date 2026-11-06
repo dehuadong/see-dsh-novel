@@ -21,10 +21,11 @@ export interface HookRecord {
   paysOffInArc?: string
 }
 
-/** 记录允许出现的字段；与源 schema 的 strict 对象一致。 */
-const HOOK_FIELDS = [
+/** 记录允许出现的字段；类型标注让缺字段或多字段在编译期就暴露。 */
+const HOOK_FIELDS: ReadonlyArray<keyof HookRecord> = [
   'hookId', 'startChapter', 'type', 'status', 'lastAdvancedChapter', 'expectedPayoff', 'notes', 'dependsOn', 'paysOffInArc',
-] as const
+]
+const HOOK_FIELD_SET: ReadonlySet<string> = new Set(HOOK_FIELDS)
 
 export interface HooksState {
   hooks: HookRecord[]
@@ -50,16 +51,22 @@ function isNonNegativeInteger(value: unknown): value is number {
  * @throws 描述具体条目与原因的错误
  */
 export function validateHooks(state: HooksState): HooksState {
-  if (!Array.isArray(state?.hooks)) throw new Error('hooks 必须是数组')
+  if (state === null || typeof state !== 'object' || !Array.isArray(state.hooks)) throw new Error('hooks 必须是数组')
+  for (const key of Object.keys(state)) {
+    if (key !== 'hooks') throw new Error(`状态上的未知字段：${key}`)
+  }
   const seen = new Set<string>()
-  for (const hook of state.hooks) {
-    for (const key of Object.keys(hook)) {
-      if (!(HOOK_FIELDS as ReadonlyArray<string>).includes(key)) {
-        throw new Error(`${String(hook.hookId)} 上的未知字段：${key}`)
-      }
+  for (const [index, hook] of state.hooks.entries()) {
+    if (hook === null || typeof hook !== 'object' || Array.isArray(hook)) {
+      throw new Error(`第 ${index + 1} 条伏笔必须是对象`)
     }
     if (typeof hook.hookId !== 'string' || hook.hookId.length === 0) {
-      throw new Error('伏笔缺少 hookId')
+      throw new Error(`第 ${index + 1} 条伏笔缺少 hookId`)
+    }
+    for (const key of Object.keys(hook)) {
+      if (!HOOK_FIELD_SET.has(key)) {
+        throw new Error(`${hook.hookId} 上的未知字段：${key}`)
+      }
     }
     if (seen.has(hook.hookId)) throw new Error(`hookId 重复：${hook.hookId}`)
     seen.add(hook.hookId)
