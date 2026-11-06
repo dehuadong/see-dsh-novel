@@ -239,7 +239,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/context-package.ts
     consumer: packages/see-dsh-novel/test/context-package.test.mjs
     realRun: artifacts/real-runs/plan.compression.json
-    status: missing
+    status: verified
   - id: plan.chapter
     title: 章前规划：planner 提示词、memo 与 governed plan 落盘
     source: inkos:packages/core/src/agents/planner.ts

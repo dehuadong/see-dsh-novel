@@ -1,0 +1,16 @@
+{
+  "capability": "plan.compression",
+  "date": "2026-11-06",
+  "sessionId": "session-31b86131-95d0-41d4-ac2f-86a7241841c3",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "248 passed — context-package 5 例（未超预算不压缩、超预算缺压缩报错、protected 超预算报错、压缩后替换与 trace 六字段、空压缩文本报错）"
+  },
+  "receipts": [
+    "protected 守卫（`work-empty-2`，session `session-31b86131-95d0-41d4-ac2f-86a7241841c3`）：`contextWindowTokens 200 / reservedOutputTokens 50` 时返回 `protected 层超过可用输入预算（4010/2100 tokens），不压缩 protected`",
+    "超预算（同一会话）：`contextWindowTokens 6000 / reservedOutputTokens 900`（预算 5100）且不传 `compressedText` 时返回 `上下文超预算 1377 tokens，需要先压缩可压缩层`",
+    "压缩成功（同一会话）：同样的 selection 加 `compressedText`（一段手写摘要）后返回 3 条上下文——2 条 protected（`story_frame.md`、`volume_map.md`）+ 1 条 `compiled:context`；trace.compression 为 `{compiledSource, protectedSources:[story_frame, volume_map], compressedSources:[沈砚, 林小满, story_frame×2, volume_map], protectedTokens:4010, compressibleTokens:79, budgetTokens:5100}`，notes 为「已压缩 5 条可压缩来源」",
+    "压缩后 trace 的 `tokenBudget` 按压缩后的条目重算（`compressibleTokens` 与 `compression.compressibleTokens` 一致），不再保留压缩前的 2467"
+  ]
+}

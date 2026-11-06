@@ -148,7 +148,7 @@ export function assembleContext(input: {
   const protectedEntries = selected.filter((entry) => entry.protection === 'protected')
   const compressible = selected.filter((entry) => entry.protection === 'compressible')
   const protectedTokens = protectedEntries.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0)
-  const compressibleTokens = compressible.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0)
+  let compressibleTokens = compressible.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0)
   const totalTokens = protectedTokens + compressibleTokens
   const windowTokens = input.contextWindowTokens
   const budgetTokens = windowTokens === undefined || windowTokens <= 0
@@ -174,6 +174,7 @@ export function assembleContext(input: {
       compressibleTokens: estimateTokens(compiled),
       budgetTokens,
     }
+    compressibleTokens = estimateTokens(compiled)
     notes.push(`已压缩 ${compressedSources.length} 条可压缩来源`)
     selected.splice(0, selected.length, ...protectedOnly, {
       source: 'compiled:context',
