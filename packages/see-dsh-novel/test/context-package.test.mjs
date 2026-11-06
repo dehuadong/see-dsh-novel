@@ -23,7 +23,7 @@ test('assemble keeps protected entries, validates ids and records unknown ones',
   const { package: pkg, trace } = assembleContext({
     chapter: 1,
     query: '身份',
-    protectedEntries: [{ source: 'source/story/current_focus.md', reason: '当前聚焦', excerpt: '聚焦', protection: 'protected' }],
+    protectedEntries: [{ source: 'source/story/current_focus.md', reason: '当前聚焦', excerpt: '聚'.repeat(10), protection: 'protected' }],
     candidates: [candidate('memory:hook', 'memory'), candidate('role:甲', 'role')],
     selection: { memory: ['memory:hook'], role: ['role:不存在', 'role:甲'], state: [], outline: [] },
   })
@@ -56,16 +56,18 @@ test('over-budget context requires a compression text', () => {
   const input = {
     chapter: 1,
     query: 'x',
-    protectedEntries: [{ source: 'source/story/current_focus.md', reason: 'f', excerpt: '甲'.repeat(50), protection: 'protected' }],
-    candidates: [candidate('memory:hook', 'memory')],
+    protectedEntries: [{ source: 'source/story/current_focus.md', reason: 'f', excerpt: '聚'.repeat(10), protection: 'protected' }],
+    candidates: [{ ...candidate('memory:hook', 'memory'), excerpt: '候'.repeat(20) }],
     selection: { memory: ['memory:hook'], role: [], state: [], outline: [] },
-    maxChars: 10,
+    contextWindowTokens: 12,
+    reservedOutputTokens: 2,
   }
   assert.throws(() => assembleContext(input), /需要先压缩/)
   const { package: pkg, trace } = assembleContext({ ...input, compression: { text: '压 缩 后 的 上 下 文' } })
   assert.deepEqual(pkg.selectedContext.map((entry) => entry.source), ['source/story/current_focus.md', 'compiled:context'])
   assert.equal(trace.compression.compiledSource, '压 缩 后 的 上 下 文')
   assert.deepEqual(trace.compression.compressedSources, ['source/story/memory:hook.md'])
-  assert.equal(trace.compression.budgetTokens, 5)
+  assert.equal(trace.compression.budgetTokens, 10)
+  assert.throws(() => assembleContext({ ...input, compression: { text: 'x' }, contextWindowTokens: 5, reservedOutputTokens: 0 }), /protected 层超过/)
   assert.throws(() => assembleContext({ ...input, compression: { text: '   ' } }), /不能为空/)
 })

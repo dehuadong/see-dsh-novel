@@ -117,7 +117,8 @@ export function assembleContext(input: {
   protectedEntries: ReadonlyArray<ContextSource>
   candidates: ReadonlyArray<Candidate>
   selection: Selection
-  maxChars?: number
+  contextWindowTokens?: number
+  reservedOutputTokens?: number
   compression?: { text: string }
 }): { package: ContextPackage, trace: ChapterTrace } {
   const notes: string[] = []
@@ -148,12 +149,18 @@ export function assembleContext(input: {
   const compressible = selected.filter((entry) => entry.protection === 'compressible')
   const protectedTokens = protectedEntries.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0)
   const compressibleTokens = compressible.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0)
-  const maxChars = input.maxChars ?? 24000
-  const totalChars = selected.reduce((sum, entry) => sum + (entry.excerpt?.length ?? 0), 0)
+  const totalTokens = protectedTokens + compressibleTokens
+  const windowTokens = input.contextWindowTokens
+  const budgetTokens = windowTokens === undefined || windowTokens <= 0
+    ? undefined
+    : windowTokens - Math.max(0, input.reservedOutputTokens ?? 0)
   let compressionTrace: ChapterTrace['compression']
-  if (totalChars > maxChars) {
+  if (budgetTokens !== undefined && totalTokens > budgetTokens) {
+    if (protectedTokens > budgetTokens) {
+      throw new Error(`protected 层超过可用输入预算（${protectedTokens}/${budgetTokens} tokens），不压缩 protected`)
+    }
     if (input.compression === undefined) {
-      throw new Error(`上下文超预算 ${totalChars - maxChars} 字符，需要先压缩可压缩层`)
+      throw new Error(`上下文超预算 ${totalTokens - budgetTokens} tokens，需要先压缩可压缩层`)
     }
     const compiled = input.compression.text.trim()
     if (compiled === '') throw new Error('compressedText 不能为空')
@@ -163,9 +170,9 @@ export function assembleContext(input: {
       compiledSource: compiled,
       protectedSources: protectedOnly.map((entry) => entry.source),
       compressedSources,
-      protectedTokens: protectedOnly.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0),
+      protectedTokens,
       compressibleTokens: estimateTokens(compiled),
-      budgetTokens: Math.floor(maxChars / 2),
+      budgetTokens,
     }
     notes.push(`已压缩 ${compressedSources.length} 条可压缩来源`)
     selected.splice(0, selected.length, ...protectedOnly, {

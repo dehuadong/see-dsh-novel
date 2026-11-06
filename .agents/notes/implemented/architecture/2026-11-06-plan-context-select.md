@@ -14,7 +14,7 @@ Status: implemented
 - `buildComposerInstruction(chapter)`：四类选择语义、只允许候选 id、只返回 JSON 的指令；主编把这段与候选交给 `subagent`；
 - `protectedContext(root)`：`current_focus`、`author_intent`、`outline/story_frame`、`outline/volume_map`（存在即收，protected）；
 - `collectCandidates(root, query, limit)`：复用 `searchStory`，把 hook/summary 归为 memory，role/state/outline 各自成类，id 形如 `kind:source#title`；
-- `assembleContext({chapter, query, protectedEntries, candidates, selection, maxChars})`：protected 全收；selection 的 id 经候选表校验，未知 id／类型不符丢弃并记 `notes`；compressible 按 memory→role→state→outline 装入；`tokenBudget` 三数相加一致；超预算只记「超预算 N 字符（不截断）」；`retrieval.engine` 固定 `sqlite-fts5-bm25`，有选择时 `semantic`，否则 `complete`；
+- `assembleContext({chapter, query, protectedEntries, candidates, selection, maxChars})`：protected 全收；selection 的 id 经候选表校验，未知 id／类型不符丢弃并记 `notes`；compressible 按 memory→role→state→outline 装入；`tokenBudget` 三数相加一致；超预算只记「超预算 N tokens（不截断）」，预算来自 `contextWindowTokens - reservedOutputTokens`，缺失则不压缩；`retrieval.engine` 固定 `sqlite-fts5-bm25`，有选择时 `semantic`，否则 `complete`；
 - `nextChapter(root)`：读 `current_state.json` 的 `chapter + 1`，缺文件按 1。
 
 `src/pipelines/long/context-tool.ts` 注册两个工具：

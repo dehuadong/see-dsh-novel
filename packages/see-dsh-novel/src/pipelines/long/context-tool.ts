@@ -42,6 +42,8 @@ const packageParameters: JsonSchema = {
       required: ['memory', 'role', 'state', 'outline'],
     },
     compressedText: { type: 'string', description: '超预算时由 composer 子代理给出的压缩文本；未超预算可省略' },
+    contextWindowTokens: { type: 'integer', description: '模型上下文窗口 tokens；缺失则不压缩' },
+    reservedOutputTokens: { type: 'integer', description: '为输出预留的 tokens；默认 0' },
   },
   required: ['query', 'selection'],
 }
@@ -106,7 +108,7 @@ export function installContextTools(ctx: PluginContext): Disposer {
         ].join('\n'),
       }],
     },
-    async execute(args: { query: string, selection: Selection, compressedText?: string }, exec: ExecuteContext): Promise<{ package: ContextPackage, trace: unknown }> {
+    async execute(args: { query: string, selection: Selection, compressedText?: string, contextWindowTokens?: number, reservedOutputTokens?: number }, exec: ExecuteContext): Promise<{ package: ContextPackage, trace: unknown }> {
       if (!exec?.agent) throw new Error('story_context_package 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
       const chapter = await nextChapter(root)
@@ -118,6 +120,8 @@ export function installContextTools(ctx: PluginContext): Disposer {
         candidates,
         selection: args.selection,
         ...(args.compressedText === undefined ? {} : { compression: { text: args.compressedText } }),
+        ...(args.contextWindowTokens === undefined ? {} : { contextWindowTokens: args.contextWindowTokens }),
+        ...(args.reservedOutputTokens === undefined ? {} : { reservedOutputTokens: args.reservedOutputTokens }),
       })
     },
   } as ToolDefinition<{ query: string, selection: Selection }, { package: ContextPackage, trace: unknown }>)
