@@ -7,12 +7,14 @@
 import {
   AUTHOR_INTENT_FILE,
   CURRENT_FOCUS_FILE,
+  ROLE_DIR_NAMES,
   STORY_CHAPTER_SUMMARIES_MD,
   STORY_CURRENT_STATE_MD,
   STORY_FANFIC_CANON_MD,
   STORY_FRAME_FILE,
   STORY_PARENT_CANON_MD,
   STORY_PENDING_HOOKS,
+  STORY_ROOT,
   STORY_RULES_JSON,
   STORY_RULES_MD,
   STORY_STYLE_GUIDE_MD,
@@ -51,14 +53,14 @@ const FLAT_NAMES = [
 /** 可写的 outline 名字。 */
 const OUTLINE_NAMES = ['outline/story_frame.md', 'outline/volume_map.md'] as const
 
-/** 角色卡：`roles/<档位>/<名字>.md`，档位认中英文四种。 */
-const ROLE_TRUTH_RE = /^roles\/(主要角色|次要角色|major|minor)\/[^/\\]+\.md$/u
+/** 角色卡档位：中文名来自路径表，英文名是兼容别名。 */
+const ROLE_TIERS: ReadonlyArray<string> = [...Object.values(ROLE_DIR_NAMES), 'major', 'minor']
 
-/** `story/` 前缀。 */
-const STORY_PREFIX = 'source/story'
+/** 角色卡：`roles/<档位>/<名字>.md`。 */
+const ROLE_TRUTH_RE = new RegExp(`^roles/(${ROLE_TIERS.join('|')})/[^/\\\\]+\\.md$`, 'u')
 
 /** 报错里列出的允许名字。 */
-const ALLOWED_NAMES = [...FLAT_NAMES, ...OUTLINE_NAMES, 'roles/(主要角色|次要角色|major|minor)/<name>.md']
+const ALLOWED_NAMES = [...FLAT_NAMES, ...OUTLINE_NAMES, `roles/(${ROLE_TIERS.join('|')})/<name>.md`]
 
 /**
  * 规范化真值文件名。
@@ -87,6 +89,6 @@ export function normalizeTruthFileName(fileName: string): string {
 export function truthFileRelativePath(fileName: string): string {
   const known = TRUTH_FILE_PATHS[fileName]
   if (known !== undefined) return known
-  if (ROLE_TRUTH_RE.test(fileName)) return `${STORY_PREFIX}/${fileName}`
+  if (ROLE_TRUTH_RE.test(fileName)) return `${STORY_ROOT}/${fileName}`
   throw new Error(`没有路径映射的真值文件：${JSON.stringify(fileName)}`)
 }

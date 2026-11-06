@@ -93,8 +93,9 @@ export function installTruthFileTool(ctx: PluginContext): Disposer {
       const freshControlWrites = controlWrites.filter(
         (write) => !targetWrites.some((own) => own.relativePath === write.relativePath),
       )
-      const result = await commitFoundation(root, { writes: [...targetWrites, ...freshControlWrites] })
-      return { fileName, written: result.written }
+      await commitFoundation(root, { writes: [...targetWrites, ...freshControlWrites] })
+      // written 只列本次请求的真值文件；同批补齐的方向文档不算在内。
+      return { fileName, written: targetWrites.map((write) => write.relativePath) }
     },
   } as ToolDefinition<TruthFileArgs, TruthFileResult>)
 }

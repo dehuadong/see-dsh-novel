@@ -27,7 +27,7 @@ Status: implemented
 - `book_rules.md` 特例：缺 `bookRulesData` 拒绝；用现有 `withVersion` 补版本并校验，同时写 `book_rules.md` 与 `book_rules.json`；
 - 写前 `controlDocumentWrites` 补齐默认方向文档；**目标文件自身从补齐列表里剔除**，避免同一路径在一次提交里出现两次；
 - 整次写入走一次 `commitFoundation`（原子）；
-- 返回 `{ fileName, written: string[] }`，`written` 是本次实际落盘的相对路径（book rules 两条、其余一条）；渲染成 `Updated "<fileName>"`。
+- 返回 `{ fileName, written: string[] }`，`written` 只列本次请求的真值文件（book rules 两条、其余一条）；同批补齐的方向文档不计入；渲染成 `Updated "<fileName>"`。
 
 ### 与其它写入方的关系
 
@@ -51,9 +51,9 @@ Status: implemented
 
 ## Consequences
 
-收益：作者终于有一个工具能替换真值文件——九份平铺文件、两份 outline、四种角色目录共十一类名字，全部走同一套白名单与规范化。名字大小写不敏感但落盘取规范形式，不会出现 `Author_Intent.md` 这种读路径看不见的文件；`book_rules.md` 复用 `withVersion`，不会绕过版本注入；写前补齐缺失的方向文档，与目标文件同一次原子提交。
+收益：作者终于有一个工具能替换真值文件——九份平铺文件加两份 outline 共十一个名字，另有四种角色目录，全部走同一套白名单与规范化。名字大小写不敏感但落盘取规范形式，不会出现 `Author_Intent.md` 这种读路径看不见的文件；`book_rules.md` 复用 `withVersion`，不会绕过版本注入；写前补齐缺失的方向文档，与目标文件同一次原子提交。
 
-落地：`packages/see-dsh-novel/src/core/truth-files.ts`（白名单、规范化、路径映射）、`src/pipelines/long/truth-tool.ts`（`story_truth_file` 的注册、book rules 特例、补齐与提交）、`src/pipelines/long/tools.ts`（随 foundation 工具一起装配）。
+落地：`packages/see-dsh-novel/src/core/truth-files.ts`（白名单、规范化、路径映射，路径全部取自 `story-paths.ts`）、`src/pipelines/long/truth-tool.ts`（`story_truth_file` 的注册、book rules 特例、补齐与提交）、`src/pipelines/long/tools.ts`（随 foundation 工具一起装配；book rules 的双文件写入与 details 共用 `bookRulesWrites`）。
 
 验证见 `test/truth-file.test.mjs`：名字规范化的正例与越界拒绝（报错列出允许名）、方向文档原样写入、空内容、六份其它平铺文件逐一写入、book rules 缺数据拒绝与两份文件版本 2、非法数据不改写已有文件、主要与次要角色目录、outline、单行回执；`test/host.test.mjs` 的工具清单含 `story_truth_file`。
 

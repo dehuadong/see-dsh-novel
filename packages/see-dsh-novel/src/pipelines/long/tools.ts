@@ -1,5 +1,5 @@
 /**
- * foundation 的四个工具。
+ * foundation 的四个阶段工具，以及真值文件写入工具。
  *
  * 四段分四次调用：outline → details → cast_index → cast_documents。
  * cast_index 不落盘，它的产出用来重建 cast_documents 的动态 schema：
@@ -25,7 +25,7 @@ import { controlDocumentWrites } from '../../core/control-docs.js'
 import { installTruthFileTool } from './truth-tool.js'
 import { stateWritesIfMissing } from '../../core/state.js'
 import { projectionLanguage } from './language.js'
-import { BOOK_RULES_JSON, BOOK_RULES_MD, withVersion } from './book-rules.js'
+import { bookRulesWrites, withVersion } from './book-rules.js'
 
 /** 两个档位；读取与删除都按这个顺序走。 */
 const TIER_ORDER: ReadonlyArray<RoleTier> = ['major', 'minor']
@@ -197,8 +197,7 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       const controlWrites = await controlDocumentWrites(root, language)
       return commitFoundation(root, {
         writes: [
-          { relativePath: BOOK_RULES_MD, content: `${String(args.bookRules).trim()}\n` },
-          { relativePath: BOOK_RULES_JSON, content: `${JSON.stringify(rules, null, 2)}\n` },
+          ...bookRulesWrites(`${String(args.bookRules).trim()}\n`, rules),
           ...stateWrites,
           ...controlWrites,
         ],

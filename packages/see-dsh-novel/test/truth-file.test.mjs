@@ -55,7 +55,7 @@ test('a direction document is written verbatim and the sibling default is seeded
     const { run } = services(root)
     const result = await run({ fileName: 'Author_Intent.md', content: '  新方向\n第二行  ' })
     assert.equal(result.fileName, 'author_intent.md')
-    assert.deepEqual(result.written.sort(), ['source/story/author_intent.md', 'source/story/current_focus.md'])
+    assert.deepEqual(result.written, ['source/story/author_intent.md'])
     assert.equal(await text(root, 'source/story/author_intent.md'), '  新方向\n第二行  ')
     assert.match(await text(root, 'source/story/current_focus.md'), /^# 当前聚焦/)
     assert.equal(JSON.stringify(result).includes('author_intent.md'), true)
@@ -110,7 +110,7 @@ test('role cards and outline files are written at their own paths', async () => 
   try {
     const { run, tools } = services(root)
     const role = await run({ fileName: 'roles/主要角色/甲.md', content: '# 甲\n' })
-    assert.deepEqual(role.written.sort(), ['source/story/author_intent.md', 'source/story/current_focus.md', 'source/story/roles/主要角色/甲.md'])
+    assert.deepEqual(role.written, ['source/story/roles/主要角色/甲.md'])
     assert.equal(await text(root, 'source/story/roles/主要角色/甲.md'), '# 甲\n')
 
     const minor = await run({ fileName: 'roles/minor/乙.md', content: '# 乙\n' })
