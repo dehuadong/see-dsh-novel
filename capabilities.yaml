@@ -257,12 +257,12 @@ capabilities:
     realRun: artifacts/real-runs/plan.chapter.json
     status: verified
   - id: chapter.write
-    title: 首版正文；writer 方法 prompt 与场景／篇幅预算
+    title: 首版正文；writer 子代理与章节文档落盘
     source: inkos:packages/core/src/agents/writer.ts
-    dsh: subagents
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: subagents + tools.register
+    implementation: packages/see-dsh-novel/src/core/chapter-document.ts
+    consumer: packages/see-dsh-novel/test/chapter-document.test.mjs
+    realRun: artifacts/real-runs/chapter.write.json
     status: missing
   - id: chapter.review
     title: observations/severity/quote 校验

@@ -107,6 +107,7 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
     'story_truth_file',
     'story_work_create',
     'story_work_show',
+    'story_write_chapter',
   ])
   assert.deepEqual([...commands.keys()].sort(), ['story-approve', 'story-init', 'story-reject', 'story-review'])
   assert.deepEqual(contexts.map((contribution) => contribution.name), ['story:cast', 'story:stage', 'story:craft'])
