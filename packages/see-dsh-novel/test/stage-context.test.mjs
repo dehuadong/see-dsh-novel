@@ -104,6 +104,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       }
       if (kind === 'review') {
         assert.match(stageText, /story_review_chapter/)
+        assert.match(stageText, /## 来源 chapter-1/)
+        assert.match(stageText, /## 来源 governed-context/)
         assert.match(craftText, /创作方法（story-review）/)
       }
       if (kind === 'write') {

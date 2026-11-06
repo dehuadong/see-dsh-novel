@@ -8,6 +8,7 @@ import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/ty
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
 import { renderArchitectContract } from './architect.js'
 import { renderWriterContract } from './writer.js'
+import { renderReviewContract } from './review.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -113,7 +114,7 @@ export function renderStageProtocol(facts: StageFacts): string {
         `目标：审第 ${next} 章的首版正文。`,
         '1. 读章节文档与章纲；按注入的写作方法审稿。',
         '2. 每条观察给出 code、summary、assessment（issue／resolved／observation／unavailable）与 sourceRefs。',
-        '3. 引文用原文行号范围或逐字 quote；没有证据的条目不提交。',
+        '3. 引文只能引用注入的编号来源（sourceId 加行号或逐字 quote）；没有证据的条目不提交。',
         `4. 调 \`story_review_chapter\` 落盘第 ${next} 章的审稿记录。`,
         '同一章只审一次；重审留给修订能力。',
         common,
@@ -180,7 +181,7 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     text: (assembly) => {
       const facts = forAgent(assembly)
       if (facts === undefined) return ''
-      if (facts.stage !== 'foundation' && facts.stage !== 'write') return renderStageProtocol(facts)
+      if (facts.stage !== 'foundation' && facts.stage !== 'write' && facts.stage !== 'review') return renderStageProtocol(facts)
       let root = ''
       try {
         const agent = assembly.agent as { session: unknown } | undefined
@@ -189,7 +190,9 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
         root = ''
       }
       if (root === '') return renderStageProtocol(facts)
-      const contract = facts.stage === 'foundation' ? renderArchitectContract(root) : renderWriterContract(root)
+      const contract = facts.stage === 'foundation'
+        ? renderArchitectContract(root)
+        : facts.stage === 'write' ? renderWriterContract(root) : renderReviewContract(root)
       return `${renderStageProtocol(facts)}\n\n${contract}`
     },
   })
