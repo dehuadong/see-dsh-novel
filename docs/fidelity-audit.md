@@ -89,9 +89,101 @@
 
 ---
 
+## 批次 B：P1 基础设定与运行时
+
+### foundation.architect
+
+**源工程证据**：`agents/architect-tool.ts` 的四段 schema；`agents/architect.ts` 用 `buildFoundationProtocol` 组装 system prompt（book、外部指令 contextBlock、review feedback、语言前缀），并以 temperature 0.8 分阶段生成。
+
+**可验证不变量**：四段字段（storyFrame／volumeMap；bookRules＋bookRulesData＋pendingHooks；cast index 至少一人；每卡一段文本）；architect 的 system prompt 含作品身份、外部指令、反馈与「不写正文」约束；基础设定缺任一段不算完成。
+
+**复刻现状**：四段 tool schema 与源一致（`contract.ts`）；阶段协议只列四段顺序，**没有移植 architect 的 system prompt**（作品身份、外部指令、反馈块）。
+
+**判定：保真债** — D6：architect system prompt 未注入；feedback／revise 提示也未实现。偿还：`foundation.architect` 行补阶段注入的 architect 契约文本。
+
+### foundation.ready-check
+
+**源工程证据**：`utils/outline-paths.ts` 的 `isBookFoundationComplete`：`book.json`、`story/outline/story_frame.md`、`volume_map.md`、`book_rules.md`、`book_rules.json`、`pending_hooks.md`，且任一角色目录至少一张卡。
+
+**可验证不变量**：就绪 = 六类文件 + 至少一张角色卡；缺 `book_rules.json` 不算就绪。
+
+**复刻现状**：`workProbes` 要求 story_frame、volume_map、book_rules.md、current_state.md、pending_hooks.md、chapter_summaries.md + 角色卡；**没有 `book_rules.json`**，多了 current_state 与 chapter_summaries。
+
+**判定：保真债** — D7：就绪判据与源不一致；偿还：`foundation.ready-check` 行改成源的文件集（book.json 的对应物是 work.json，按存储映射处理）。
+
+### foundation.control-docs
+
+**源工程证据**：`manager.ts` 的 author_intent／current_focus 兜底；brief 原文进入外部上下文。
+
+**可验证不变量**：文件缺失时写默认模板；author_intent 按 instruction 播种；current_focus 是默认聚焦文本。
+
+**复刻现状**：`controlDocumentWrites` 的 author_intent 兜底与源逐字一致；current_focus 默认模板与测试覆盖。
+
+**判定：等价**。
+
+### foundation.hook-ledger
+
+**源工程证据**：`models/runtime-state.ts` 的 Hook 字段（hookId、type、startChapter、status、lastAdvancedChapter、expectedPayoff、notes、dependsOn?、paysOffInArc?）。
+
+**可验证不变量**：字段与可选性一致；未知字段拒绝；hookId/type 非空。
+
+**复刻现状**：`core/hooks.ts` 字段一致，严格校验与测试覆盖。
+
+**判定：等价**。
+
+### foundation.rule-contract
+
+**源工程证据**：`models/book-rules.ts`：`version: "2"`、严格对象、可选 protagonist／genreLock／narrativePerson／fanficMode、必填 prohibitions／enableFullCastTracking／allowedDeviations。
+
+**可验证不变量**：写入时注入 version；读取严格校验未知字段。
+
+**复刻现状**：`pipelines/long/book-rules.ts` 的版本与字段一致；测试覆盖严格解析。
+
+**判定：等价**。
+
+### foundation.truth-write
+
+**源工程证据**：`interaction/truth-authority.ts` 的 8 个真值文件（author_intent、current_focus、outline 两份、book_rules、current_state、pending_hooks、chapter_summaries）。
+
+**可验证不变量**：只允许写这 8 个文件；文件名大小写归一；未知文件拒绝。
+
+**复刻现状**：`core/truth-files.ts` 的允许列表除 8 个外还含 `style_guide.md`、`parent_canon.md`、`fanfic_canon.md`。
+
+**判定：保真债** — D8：允许列表比源宽；偿还：`foundation.truth-write` 行对齐 8 个文件，其余走各自能力。
+
+### foundation.truth-projections
+
+**源工程证据**：`state` 投影（current_state／pending_hooks／chapter_summaries）的列、排序与转义。
+
+**可验证不变量**：排序稳定、文本转义、末尾换行；缺数据时输出表头。
+
+**复刻现状**：`core/state-projections.ts` 有对应渲染与测试。
+
+**判定：等价**（列集以测试为准）。
+
+### runtime.commit-safety
+
+**源工程证据**：`utils/atomic-file-set.ts`：事务目录前缀 `.inkos-file-txn-`；journal `{version:1,pid,phase:prepared|committed,entries:[{path,existed}]}`；按根串行化；失败回滚。
+
+**可验证不变量**：journal 先于备份；existed 决定回滚删除/恢复；phase 两阶段；同根串行；崩溃后按 journal 恢复。
+
+**复刻现状**：`core/commit.ts` 的 journal 字段与串行化一致；事务目录前缀是 `.staging-`。
+
+**判定：保真债** — D9：事务目录前缀与源不同（磁盘可见）；偿还：`runtime.commit-safety` 行改为源前缀。
+
+### runtime.stage-context
+
+**源工程证据**：各角色在调用点组装 system prompt（architect／writer／planner／reviewer），方法来自已激活 Skill。
+
+**可验证不变量**：方法随阶段注入；协议随阶段切换；同一阶段不出现别阶段协议。
+
+**复刻现状**：`stages/index.ts` 注册 `story:stage`／`story:craft`，按工作区阶段注入。
+
+**判定：机制等价**（DSH 用 `systemPrompt.context()` 替代源调用点拼装；已在 `docs/dsh-mapping.md`「方法注入」行登记）。
+
 ## 后续批次
 
-- 批次 B（P1）：`foundation.*`、`runtime.commit-safety`、`runtime.stage-context`；
+- ~~批次 B（P1）~~：已完成。
 - 批次 C（P2）：`plan.*`；
 - 批次 D（P3）：`chapter.write`、`chapter.review`。
 
