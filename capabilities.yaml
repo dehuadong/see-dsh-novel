@@ -225,12 +225,12 @@ capabilities:
     realRun: artifacts/real-runs/plan.retrieval.json
     status: verified
   - id: plan.context-select
-    title: 章前上下文：四个 LLM 选择器、分层与 ChapterTrace 七字段
+    title: 章前上下文：composer 子代理选择、分层与 ChapterTrace 七字段
     source: inkos:packages/core/src/agents/composer.ts
-    dsh: systemPrompt.context()
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: subagents + systemPrompt.context()
+    implementation: packages/see-dsh-novel/src/core/context-package.ts
+    consumer: packages/see-dsh-novel/test/context-package.test.mjs
+    realRun: artifacts/real-runs/plan.context-select.json
     status: missing
   - id: plan.compression
     title: 超预算压缩：LLM 压缩可压缩层，失败即报错，不静默截断

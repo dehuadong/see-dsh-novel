@@ -89,6 +89,8 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
   const dispose = agentHalf.apply(ctx)
 
   assert.deepEqual([...registered.keys()].sort(), [
+    'story_context_candidates',
+    'story_context_package',
     'story_foundation_cast_documents',
     'story_foundation_cast_index',
     'story_foundation_details',
