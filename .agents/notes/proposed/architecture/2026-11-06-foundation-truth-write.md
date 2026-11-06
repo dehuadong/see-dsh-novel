@@ -57,8 +57,8 @@ Status: proposed
 - 内容逐字一致（含首尾空白与空串）；角色卡写入只改指定路径。
 - 返回 `{ fileName, written }`，`written` 为实际落盘路径；渲染为 `Updated "<fileName>"`。
 - `test/truth-file.test.mjs` 覆盖白名单、名字规范化与拒绝、book rules 特例、方向文档补齐、内容原样；`test/host.test.mjs` 工具清单加入 `story_truth_file`；`docs/scope.md` 的 P1 条目改为「真值文件替换写入」。
-- `capabilities.yaml` 的行 id 改为 `foundation.truth-write`，标题覆盖整份白名单，`source: harness/tools/longform-edits.ts`。
-- 实现与证据：implementation `packages/see-dsh-novel/src/plugin/truth-tool.ts`；consumer `packages/see-dsh-novel/test/truth-file.test.mjs`；realRun `artifacts/real-runs/foundation.direction-write.json`。
+- `capabilities.yaml` 的行 id 改为 `foundation.truth-write`，标题覆盖整份白名单，`source: inkos:packages/core/src/harness/tools/longform-edits.ts`。
+- 实现与证据：implementation `packages/see-dsh-novel/src/plugin/truth-tool.ts`；consumer `packages/see-dsh-novel/test/truth-file.test.mjs`；realRun `artifacts/real-runs/foundation.truth-write.json`。
 - 真实运行：在已有作品的会话里用 `story_truth_file` 写 `author_intent.md` 与 `current_focus.md`（内容逐字核对），写一次 `book_rules.md`（带 `bookRulesData`，核对两份文件与版本），再用未知名字调一次确认报错。
 
 ## Risks
