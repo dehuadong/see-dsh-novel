@@ -1,7 +1,7 @@
 {
   "capability": "runtime.commit-safety",
   "date": "2026-11-06",
-  "sessionId": "session-f7541248-d2ea-4309-f754-1248d2ea4309",
+  "sessionId": "session-3995b578-1e73-4260-9d5a-7af0924f20fd",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
@@ -14,3 +14,4 @@
     "回滚失败时的日志属主会改成 0，下一次提交或 `story_recover` 可以接管；死暂存回收在提交前执行"
   ]
 }
+
