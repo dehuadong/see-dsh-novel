@@ -9,6 +9,7 @@ import type {
 } from '../core/types.js'
 import { APPROVAL_OUTCOMES } from '../core/types.js'
 import { controlDocumentWrites } from '../core/control-docs.js'
+import { defaultChapterLength } from '../core/length.js'
 import { proposalCard, parseProposal } from '../core/proposal.js'
 import { STORY_EXTERNAL_BRIEF } from '../core/story-paths.js'
 import { createWork, describeWork, readWork, WORK_LANGUAGES } from '../core/work.js'
@@ -102,8 +103,8 @@ export async function proposeWork(
   const work = await createWork(root, {
     title: draft.title,
     language: draft.language,
-    targetChapters: draft.targetChapters,
-    chapterWordCount: draft.chapterWordCount,
+    targetChapters: draft.targetChapters ?? 200,
+    chapterWordCount: draft.chapterWordCount ?? defaultChapterLength(draft.language),
     genre: draft.genre,
     platform: draft.platform,
   }, {
@@ -140,8 +141,8 @@ export function installProposalTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: PROPOSE_NAME,
     description:
-      'Propose a work (title, genre, platform, language, target size) and open a confirmation card. '
-      + 'Writes work.json only when the author allows it; refuses when a work already exists.',
+      'Propose a work (title, summary, instruction, genre, platform, language, target size) and open a confirmation card. '
+      + 'On approval it writes work.json, source/story/brief.md and the direction docs together; refuses when a work already exists.',
     parameters: proposeParameters,
     output: { schema: proposeOutput, render: renderProposal },
     execute: (args: unknown, exec: ExecuteContext): Promise<ProposalResult> => proposeWork(ctx, exec, args),

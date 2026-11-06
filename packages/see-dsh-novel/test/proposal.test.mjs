@@ -83,16 +83,15 @@ test('the draft rejects missing or invalid fields', () => {
   const draft = parseProposal({ title: ' 书 ', summary: ' 一句 ', instruction: ' 写 ' })
   assert.equal(draft.title, '书')
   assert.equal(draft.summary, '一句')
-  assert.equal(draft.instruction, '写')
+  assert.equal(draft.instruction, ' 写 ', 'instruction 原样保留')
   assert.equal(draft.language, 'zh')
-  assert.equal(draft.targetChapters, 200)
-  assert.equal(draft.chapterWordCount, 3000)
-  assert.equal(parseProposal({ title: 'b', summary: 's', instruction: 'i', language: 'en' }).chapterWordCount, 2000)
+  assert.equal(draft.targetChapters, undefined)
+  assert.equal(draft.chapterWordCount, undefined)
 })
 
 test('a bracketed title is not wrapped twice on the card', () => {
   const card = proposalCard(parseProposal({ title: '《夜班司机》', summary: 's', instruction: '写第一卷' }))
-  assert.match(card, /^立项《夜班司机》｜中文 · 目标 200 章 × 单章 3000 字\ns\n\nInstruction: 写第一卷$/)
+  assert.match(card, /^立项《夜班司机》｜中文\ns\n\nInstruction: 写第一卷$/)
 })
 
 test('the card carries the confirmed fields and omits the missing ones', () => {
@@ -101,12 +100,12 @@ test('the card carries the confirmed fields and omits the missing ones', () => {
   assert.match(card, /都市悬疑 · 起点 · 中文 · 目标 120 章 × 单章 2600 字/)
   assert.match(card, /撞见城市另一面/)
   assert.match(card, /Instruction: 写《夜班司机》/)
-  // 默认规模总会补上，所以只有语言与默认规模。
+  // 作者没给规模时卡片不编造数字；默认值只在批准写盘时补。
   assert.equal(
     proposalCard(parseProposal({ title: '书', summary: 's', instruction: 'i' })),
-    '立项《书》｜中文 · 目标 200 章 × 单章 3000 字\ns\n\nInstruction: i',
+    '立项《书》｜中文\ns\n\nInstruction: i',
   )
-  assert.match(proposalCard(parseProposal({ title: 'book', summary: 's', instruction: 'i', language: 'en' })), /English · 目标 200 章 × 单章 2000 字/)
+  assert.match(proposalCard(parseProposal({ title: 'book', summary: 's', instruction: 'i', language: 'en' })), /English/)
 })
 
 test('allowing the card writes work.json with the confirmed fields', async () => {
@@ -146,6 +145,28 @@ test('allowing the card writes work.json with the confirmed fields', async () =>
     assert.match(approval.requests[0].reason, /立项《夜班司机》/)
     // 取消卡片时确认条要能连带收回：signal 原样传下去。
     assert.equal(approval.requests[0].signal, controller.signal)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('approval fills the default scale when the author gave none', async () => {
+  const root = await workspace()
+  try {
+    const approval = fakeApproval('allowed-once')
+    const { ctx, registered } = services(root, approval.service)
+    installProposalTool(ctx)
+    const result = await registered.get(PROPOSE_NAME).execute({
+      title: '默认规模',
+      summary: '一句摘要',
+      instruction: '  写《默认规模》的基础设定，中文。  ',
+    }, exec)
+    assert.equal(result.created, true)
+    const work = await readWork(root)
+    assert.deepEqual(work.metadata, { targetChapters: 200, chapterWordCount: 3000 })
+    // instruction 原样进 brief；author_intent 只去尾部空白再加换行。
+    assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), '  写《默认规模》的基础设定，中文。  ')
+    assert.equal(await readFile(join(root, 'source/story/author_intent.md'), 'utf8'), '  写《默认规模》的基础设定，中文。\n')
   } finally {
     await cleanup(root)
   }

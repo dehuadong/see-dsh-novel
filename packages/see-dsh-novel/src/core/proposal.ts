@@ -4,7 +4,6 @@
  * 工具只负责把作者确认过的字段收齐、校验、拼成一张能一眼看清的卡；对话怎么收敛
  * 由技能负责，落盘由故事身份的原语负责。
  */
-import { defaultChapterLength } from './length.js'
 import { bracketedTitle, WORK_LANGUAGES } from './work.js'
 import type { WorkLanguage } from './work.js'
 
@@ -34,6 +33,14 @@ export interface ProposalInput {
 }
 
 const LANGUAGE_LABEL: Record<WorkLanguage, string> = { zh: '中文', en: 'English' }
+
+/** 原样字符串：只校验去空白后非空，返回原文。 */
+function verbatim(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new Error(`${field} 必须是非空字符串`)
+  }
+  return value
+}
 
 function text(value: unknown, field: string): string {
   if (typeof value !== 'string' || value.trim() === '') {
@@ -69,12 +76,12 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
   return {
     title: text(input.title, 'title'),
     summary: text(input.summary, 'summary'),
-    instruction: text(input.instruction, 'instruction'),
+    instruction: verbatim(input.instruction, 'instruction'),
     genre: optionalText(input.genre, 'genre'),
     platform: optionalText(input.platform, 'platform'),
     language: language as WorkLanguage,
-    targetChapters: positiveInteger(input.chapters, 'chapters') ?? 200,
-    chapterWordCount: positiveInteger(input.chapterWords, 'chapterWords') ?? defaultChapterLength(language as WorkLanguage),
+    targetChapters: positiveInteger(input.chapters, 'chapters'),
+    chapterWordCount: positiveInteger(input.chapterWords, 'chapterWords'),
   }
 }
 
