@@ -37,7 +37,9 @@ async function workspace(kind) {
   }
   await mkdir(join(root, 'source/story/state'), { recursive: true })
   await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 0 }))
-  if (kind === 'write') {
+  if (kind === 'write' || kind === 'review') {
+    if (kind === 'review') await mkdir(join(root, 'source/chapters'), { recursive: true })
+    if (kind === 'review') await writeFile(join(root, 'source/chapters/0001_雨夜.md'), '# 第1章 雨夜\n\n正文。\n')
     await mkdir(join(root, 'source/story/runtime'), { recursive: true })
     await writeFile(join(root, 'source/story/runtime/chapter-0001.plan.json'), JSON.stringify({ version: 2 }))
   }
@@ -63,7 +65,7 @@ function fakeContext(agentRoot) {
 const textOf = (contribution) => contribution.text({ agent: { ctx: {}, session: 's' } })
 
 test('detectStage follows the workspace files', async () => {
-  for (const kind of ['proposal', 'foundation', 'plan', 'write']) {
+  for (const kind of ['proposal', 'foundation', 'plan', 'write', 'review']) {
     const root = await workspace(kind)
     try {
       assert.equal(detectStage(root).stage, kind)
@@ -94,6 +96,10 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /story_context_candidates/)
         assert.match(stageText, /story_plan_chapter/)
         assert.equal(craftText, '')
+      }
+      if (kind === 'review') {
+        assert.match(stageText, /story_review_chapter/)
+        assert.match(craftText, /创作方法（longform-writing）/)
       }
       if (kind === 'write') {
         assert.match(stageText, /story_write_chapter/)

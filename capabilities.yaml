@@ -265,12 +265,12 @@ capabilities:
     realRun: artifacts/real-runs/chapter.write.json
     status: verified
   - id: chapter.review
-    title: observations/severity/quote 校验
+    title: observations/assessment/quote 校验与审稿记录
     source: inkos:packages/core/src/pipeline/chapter-review.ts
-    dsh: subagents
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: subagents + tools.register
+    implementation: packages/see-dsh-novel/src/core/observation.ts
+    consumer: packages/see-dsh-novel/test/observation.test.mjs
+    realRun: artifacts/real-runs/chapter.review.json
     status: missing
   - id: chapter.revise
     title: patch/polish/rewrite/deslop；reviser 方法 prompt

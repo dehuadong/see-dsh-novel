@@ -25,6 +25,7 @@ import { controlDocumentWrites } from '../../core/control-docs.js'
 import { installContextTools } from './context-tool.js'
 import { installPlanTool } from './plan-tool.js'
 import { installWriteTool } from './write-tool.js'
+import { installReviewTool } from './review-tool.js'
 import { installSearchTool } from './search-tool.js'
 import { installTruthFileTool } from './truth-tool.js'
 import { stateWritesIfMissing } from '../../core/state.js'
@@ -249,6 +250,7 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
 
   disposers.push(installPlanTool(ctx))
   disposers.push(installWriteTool(ctx))
+  disposers.push(installReviewTool(ctx))
   disposers.push(installSearchTool(ctx))
   disposers.push(installContextTools(ctx))
   disposers.push(installTruthFileTool(ctx))

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/types.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
+import { chapterReviewPath } from '../../../core/chapter-review.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
   STORY_CURRENT_STATE_MD,
@@ -20,7 +21,7 @@ export const STAGE_CONTEXT_ORDER = 90
 export const CRAFT_CONTEXT_NAME = 'story:craft'
 export const CRAFT_CONTEXT_ORDER = 95
 
-export type Stage = 'proposal' | 'foundation' | 'plan' | 'write'
+export type Stage = 'proposal' | 'foundation' | 'plan' | 'write' | 'review'
 
 /** 基础设定六件套；齐了才算进入规划。 */
 const FOUNDATION_FILES = [
@@ -56,14 +57,21 @@ export function detectStage(root: string): StageFacts {
   if (!FOUNDATION_FILES.every((file) => existsSync(join(root, file)))) {
     return { stage: 'foundation', title, currentChapter }
   }
-  const nextPlan = chapterPlanPath(currentChapter + 1)
-  return { stage: existsSync(join(root, nextPlan)) ? 'write' : 'plan', title, currentChapter }
+  const nextChapter = currentChapter + 1
+  const nextPlan = chapterPlanPath(nextChapter)
+  if (!existsSync(join(root, nextPlan))) return { stage: 'plan', title, currentChapter }
+  const prefix = `${String(nextChapter).padStart(4, '0')}_`
+  const chaptersDir = join(root, 'source/chapters')
+  const hasChapter = existsSync(chaptersDir) && readdirSync(chaptersDir).some((file) => file.startsWith(prefix) && file.endsWith('.md'))
+  if (!hasChapter) return { stage: 'write', title, currentChapter }
+  void chapterReviewPath(nextChapter)
+  return { stage: 'review', title, currentChapter }
 }
 
 /** 阶段协议：只写做什么、按什么顺序调什么、产出什么。 */
 export function renderStageProtocol(facts: StageFacts): string {
   const next = facts.currentChapter + 1
-  const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', plan: '章前规划', write: '正文写作' }[facts.stage]}`
+  const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', plan: '章前规划', write: '正文写作', review: '章后审阅' }[facts.stage]}`
   const common = '本阶段的创作方法已随上下文提供；不需要再调用技能工具加载。'
   switch (facts.stage) {
     case 'proposal':
@@ -97,6 +105,17 @@ export function renderStageProtocol(facts: StageFacts): string {
         '只规划下一章；该章已有章纲时不覆盖。',
         common,
       ].join('\n')
+    case 'review':
+      return [
+        header,
+        `目标：审第 ${next} 章的首版正文。`,
+        '1. 读章节文档与章纲；按注入的写作方法审稿。',
+        '2. 每条观察给出 code、summary、assessment（issue／resolved／observation／unavailable）与 sourceRefs。',
+        '3. 引文用原文行号范围或逐字 quote；没有证据的条目不提交。',
+        `4. 调 \`story_review_chapter\` 落盘第 ${next} 章的审稿记录。`,
+        '同一章只审一次；重审留给修订能力。',
+        common,
+      ].join('\n')
     case 'write':
       return [
         header,
@@ -112,7 +131,7 @@ export function renderStageProtocol(facts: StageFacts): string {
 
 /** 本阶段主动加载的创作技能；空数组表示不注入。 */
 export function craftSkillsFor(stage: Stage): string[] {
-  return stage === 'proposal' ? ['story-proposal'] : stage === 'foundation' || stage === 'write' ? ['longform-writing'] : []
+  return stage === 'proposal' ? ['story-proposal'] : stage === 'foundation' || stage === 'write' || stage === 'review' ? ['longform-writing'] : []
 }
 
 /** 读取技能正文与 references；缺失时返回空串而不是抛错。 */
