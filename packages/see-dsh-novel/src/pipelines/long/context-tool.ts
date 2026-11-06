@@ -96,7 +96,14 @@ export function installContextTools(ctx: PluginContext): Disposer {
     parameters: packageParameters,
     output: {
       schema: packageOutput,
-      render: () => [{ type: 'text' as const, text: '上下文包已组装' }],
+      render: (_args: unknown, value: { package: ContextPackage, trace: unknown }) => [{
+        type: 'text' as const,
+        text: [
+          `第 ${value.package.chapter} 章上下文：${value.package.selectedContext.length} 条`,
+          ...value.package.selectedContext.map((entry) => `${entry.protection} · ${entry.source}`),
+          `trace: ${JSON.stringify(value.trace)}`,
+        ].join('\n'),
+      }],
     },
     async execute(args: { query: string, selection: Selection }, exec: ExecuteContext): Promise<{ package: ContextPackage, trace: unknown }> {
       if (!exec?.agent) throw new Error('story_context_package 需要所属 agent 会话')
