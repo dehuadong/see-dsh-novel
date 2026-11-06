@@ -1,0 +1,16 @@
+{
+  "capability": "chapter.review",
+  "date": "2026-11-06",
+  "sessionId": "session-ce205fc1-132d-4795-a5dd-748cd6312358",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "269 passed — observation 4 例（证据解析、五类错误码、unavailable 例外、counts）＋ chapter-review 2 例（落盘与 counts、重复拒绝、缺章纲/正文拒绝）＋ stage review 阶段"
+  },
+  "receipts": [
+    "证据校验（`work-writer`，session `session-ce205fc1-132d-4795-a5dd-748cd6312358`）：提交带未知 sourceId 的观察时工具返回 `Error: {\"code\":\"REVIEW_SOURCE_UNKNOWN\",\"path\":\"/observations/0/sourceRefs/0\"}`，未落盘",
+    "有效审稿：同一会话提交带行号引用的观察与一条 unavailable 观察后，工具返回「第 1 章审稿已落盘：source/story/runtime/chapter-0001.review.json（issue 5／resolved 0／observation 0／unavailable 1）」",
+    "审稿记录：`chapter-0001.review.json` 含 `{version:1, chapter, summary, observations, counts}`；每条非 unavailable 观察带 `sourceRefs[{sourceId, quote}]`，quote 来自 `chapter-1` 或 `governed-context` 的原文",
+    "同一章再提交审稿会被拒绝（`第 1 章已经有审稿记录，不覆盖`）；缺章纲或正文时报错且不落盘（测试覆盖）"
+  ]
+}

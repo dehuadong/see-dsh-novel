@@ -271,7 +271,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/observation.ts
     consumer: packages/see-dsh-novel/test/observation.test.mjs
     realRun: artifacts/real-runs/chapter.review.json
-    status: missing
+    status: verified
   - id: chapter.revise
     title: patch/polish/rewrite/deslop；reviser 方法 prompt
     source: inkos:packages/core/src/agents/reviser.ts
