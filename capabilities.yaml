@@ -216,8 +216,32 @@ capabilities:
     consumer: packages/see-dsh-novel/test/proposal.test.mjs
     realRun: artifacts/real-runs/proposal.execution-brief.json
     status: verified
+  - id: plan.retrieval
+    title: 章前检索：FTS5/BM25、伏笔/摘要/角色/素材与来源标注
+    source: inkos:packages/core/src/retrieval/local-search.ts
+    dsh: library
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
+  - id: plan.context-select
+    title: 章前上下文：四个 LLM 选择器、分层与 ChapterTrace 七字段
+    source: inkos:packages/core/src/agents/composer.ts
+    dsh: systemPrompt.context()
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
+  - id: plan.compression
+    title: 超预算压缩：LLM 压缩可压缩层，失败即报错，不静默截断
+    source: inkos:packages/core/src/agents/composer.ts
+    dsh: library
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: plan.chapter
-    title: 章前规划：检索、上下文包、planner 提示词与章纲落盘
+    title: 章前规划：planner 提示词、memo 与 governed plan 落盘
     source: inkos:packages/core/src/agents/planner.ts
     dsh: tools.register
     implementation: null
