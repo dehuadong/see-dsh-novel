@@ -43,7 +43,7 @@ async function exists(path) {
 }
 
 test('parseWorkCreate reads the title and the three options', () => {
-  assert.deepEqual(parseWorkCreate('《夜行测试》'), { title: '《夜行测试》' })
+  assert.deepEqual(parseWorkCreate('《夜行测试》'), { title: '《夜行测试》', targetChapters: 200, chapterWordCount: 3000 })
   assert.deepEqual(
     parseWorkCreate('  夜行 测试  --lang en --chapters 80 --words 2500 '),
     { title: '夜行 测试', language: 'en', targetChapters: 80, chapterWordCount: 2500 },
@@ -52,10 +52,10 @@ test('parseWorkCreate reads the title and the three options', () => {
 
 test('parseWorkCreate keeps the title as the author wrote it', () => {
   // `--` 之后是标题原文：内部空白、`--` 字样都按原样保留。
-  assert.deepEqual(parseWorkCreate('-- 带 --lang 的标题'), { title: '带 --lang 的标题' })
-  assert.deepEqual(parseWorkCreate('-- 夜行   测试'), { title: '夜行   测试' })
+  assert.deepEqual(parseWorkCreate('-- 带 --lang 的标题'), { title: '带 --lang 的标题', targetChapters: 200, chapterWordCount: 3000 })
+  assert.deepEqual(parseWorkCreate('-- 夜行   测试'), { title: '夜行   测试', targetChapters: 200, chapterWordCount: 3000 })
   // 标题词被选项隔开时无法按原文取回，退回单空格连接。
-  assert.deepEqual(parseWorkCreate('夜行 --lang zh 测试'), { title: '夜行 测试', language: 'zh' })
+  assert.deepEqual(parseWorkCreate('夜行 --lang zh 测试'), { title: '夜行 测试', language: 'zh', targetChapters: 200, chapterWordCount: 3000 })
 })
 
 test('parseWorkCreate reports the parameter it could not read', () => {
@@ -104,7 +104,7 @@ test('the command writes work.json and reports the identity', async () => {
   }
 })
 
-test('the default language is zh and the receipt has no scale clause', async () => {
+test('the default language is zh and the default scale is 200 x 3000', async () => {
   const root = await workspace()
   try {
     const { commands, ctx } = services(root)
@@ -113,12 +113,12 @@ test('the default language is zh and the receipt has no scale clause', async () 
     assert.equal(result.kind, 'success')
     assert.equal(
       result.text,
-      '已立项《夜行测试》：longform-novel，zh，draft\n'
+      '已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字）\n'
         + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
     )
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.language, 'zh')
-    assert.deepEqual(onDisk.metadata, {})
+    assert.deepEqual(onDisk.metadata, { targetChapters: 200, chapterWordCount: 3000 })
   } finally {
     await cleanup(root)
   }

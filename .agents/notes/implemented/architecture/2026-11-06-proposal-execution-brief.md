@@ -1,6 +1,6 @@
 # Agent Note: proposal.execution-brief —— instruction 与默认规模
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -11,7 +11,7 @@ Status: proposed
 
 复刻的提案没有 instruction，批准后也没有规模基线；`source/story/brief.md` 与 `author_intent` 都不会出现。缺目标章数会让后续卷/章规划无据可依。
 
-## Proposal
+## Decision
 
 ### instruction 进入提案
 
@@ -51,21 +51,17 @@ Status: proposed
 
 **把 instruction 直接拼进摘要。** 少改卡片。否掉：源卡片单独一行 `Instruction:`；拼进摘要会让作者分不清「将来执行的那句话」与「确认后发生什么」。
 
-## Acceptance criteria
+## Consequences
 
-- `story_propose` 缺 `instruction` 或只有空白时拒绝，且不写盘；卡片包含 `Instruction: <原文>` 一行。
-- 批准后：`work.json` 的 `metadata.targetChapters` 默认 200、`metadata.chapterWordCount` 中文 3000／英文 2000；作者显式给值时用作者的值。
-- 批准后：`source/story/brief.md` 与 instruction 逐字一致；`source/story/author_intent.md` 是 `instruction.trimEnd() + "\n"`（instruction 为空白时不可能出现，校验已拒绝）；`current_focus.md` 是语言默认模板。
-- `work.json` 的 `metadata.intent` 不因本行变化（它属于 `story_work_create` 的 `intent`）。
-- `test/proposal.test.mjs` 同批更新（instruction、默认规模、brief、author_intent）；新增 `test/length.test.mjs`；`test/work-command.test.mjs` 里 `/story-init` 的默认规模用例同批更新，`test/host.test.mjs` 的命令名/参数断言如受影响一并调整。
-- `source/story/brief.md` 的路径常量进 `story-paths.ts`（`STORY_EXTERNAL_BRIEF`）；它的读取方是 P2 的外部上下文，不在本行，`docs/scope.md` 的 P2 说明写明。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/proposal.ts` 与 `src/core/length.ts`；consumer `packages/see-dsh-novel/test/proposal.test.mjs`；写入路径在 `src/plugin/proposal-tool.ts`、`src/core/work.ts`（`createWork` 的额外写入）、`src/core/control-docs.ts`（`authorIntent` 兜底）与 `src/plugin/work-command.ts`（`/story-init` 默认规模）；realRun `artifacts/real-runs/proposal.execution-brief.json`。
-- 真实运行：空工作区会话里调 `story_propose`（带 instruction）并批准，核对 `work.json` 的默认规模、`source/story/brief.md`、`author_intent` 与 `current_focus`；同一次运行更新 `proposal.creative` 的回执；再用缺 instruction 的调用确认被拒绝。
-- 真实运行（命令入口）：另一个空工作区里执行不带规模参数的 `/story-init`，核对 `work.json` 的 `metadata.targetChapters` 为 200、`metadata.chapterWordCount` 为 3000，并把这一例补进 `artifacts/real-runs/runtime.commands.json`。
+收益：提案与命令两条建书入口都有了「作者确认后要执行的那句话」与规模基线。提案卡片按源格式多一段 `Instruction: …`；批准时同一次提交写 `work.json`、`source/story/brief.md`、`author_intent`（instruction 兜底）与 `current_focus` 默认模板；章数缺省 200，单章字数中文 3000、英文 2000。`/story-init` 不带规模参数时按 CLI 的 200／3000 落盘。
 
-## Risks
+落地：`packages/see-dsh-novel/src/core/length.ts`、`src/core/proposal.ts`（instruction 与默认规模、卡片）、`src/plugin/proposal-tool.ts`（`createWork` + 外部上下文 + 方向兜底）、`src/core/control-docs.ts`（可选的 `authorIntent`）、`src/core/work.ts`（`createWork` 的 `extraWrites`）、`src/plugin/work-command.ts`（命令默认规模）、`src/core/story-paths.ts`（`STORY_EXTERNAL_BRIEF`）。
 
-- `proposal.creative` 的旧回执描述「只有 work.json、没有 source/」，与本行落地后的行为不一致；它证明的是确认通道，本行在其之上改写了写盘内容，差异在本行记录。
-- `authorIntent` 参数从 control-docs 的读取路径上消失过一次，本行只为建书重新引入；读取路径不传它。
-- 默认规模与源实现硬编码一致；改默认值需要源工程同步。
-- instruction 原文进入卡片，过长时确认条会变长；源工程同样不截断。
+验证见 `test/proposal.test.mjs`（instruction 必填、卡片、默认规模、brief/author_intent/current_focus、拒绝不写盘）、`test/work-command.test.mjs`（命令默认 200／3000）、`test/length.test.mjs`。
+
+### 代价与已知限制
+
+- `proposal.creative` 的旧回执描述「只有 work.json、没有 source/」；本行落地后重跑一次提案批准并更新该回执。
+- `/story-init` 的默认规模证据补在 `runtime.commands` 的回执里（新增「不带规模参数」一例）。
+- `source/story/brief.md` 的读取方是 P2 的外部上下文，目前只有写方与字节校验。
+- `authorIntent` 只为建书路径重新引入；读取路径不传它。

@@ -8,8 +8,10 @@ import type {
   ApprovalOutcome, Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition,
 } from '../core/types.js'
 import { APPROVAL_OUTCOMES } from '../core/types.js'
+import { controlDocumentWrites } from '../core/control-docs.js'
 import { proposalCard, parseProposal } from '../core/proposal.js'
-import { describeWork, readWork, writeWork, WORK_LANGUAGES } from '../core/work.js'
+import { STORY_EXTERNAL_BRIEF } from '../core/story-paths.js'
+import { createWork, describeWork, readWork, WORK_LANGUAGES } from '../core/work.js'
 import { approvalServiceOf, confirmationPolicy } from '../pipelines/long/gate.js'
 
 /** 工具名；注册与测试共用。 */
@@ -36,13 +38,14 @@ export const proposeParameters: JsonSchema = {
   properties: {
     title: { type: 'string', description: '作者确认过的书名' },
     summary: { type: 'string', description: '一到两句：确认之后会发生什么' },
+    instruction: { type: 'string', description: '确认后要执行的那句话；自包含，含标题、方向、目标与输出位置' },
     genre: { type: 'string', description: '题材，例如「都市悬疑」；可选' },
     platform: { type: 'string', description: '目标平台；可选' },
     language: { type: 'string', enum: [...WORK_LANGUAGES], description: '正文语言，默认 zh' },
     chapters: { type: 'integer', description: '目标章数；可选' },
     chapterWords: { type: 'integer', description: '单章目标字数；可选' },
   },
-  required: ['title', 'summary'],
+  required: ['title', 'summary', 'instruction'],
 }
 
 /** 返回值结构。 */
@@ -94,13 +97,20 @@ export async function proposeWork(
   if (outcome !== 'allowed-once') {
     return { created: false, outcome, card, summary: null }
   }
-  const work = await writeWork(root, {
+  // 建书：身份、外部上下文（story/brief.md）与方向文档兜底走同一次提交。
+  const controlWrites = await controlDocumentWrites(root, draft.language, draft.instruction)
+  const work = await createWork(root, {
     title: draft.title,
     language: draft.language,
     targetChapters: draft.targetChapters,
     chapterWordCount: draft.chapterWordCount,
     genre: draft.genre,
     platform: draft.platform,
+  }, {
+    extraWrites: [
+      ...controlWrites,
+      { relativePath: STORY_EXTERNAL_BRIEF, content: draft.instruction },
+    ],
   })
   return { created: true, outcome: 'allowed-once', card, summary: describeWork(work) }
 }

@@ -4,6 +4,7 @@
  * 工具只负责把作者确认过的字段收齐、校验、拼成一张能一眼看清的卡；对话怎么收敛
  * 由技能负责，落盘由故事身份的原语负责。
  */
+import { defaultChapterLength } from './length.js'
 import { bracketedTitle, WORK_LANGUAGES } from './work.js'
 import type { WorkLanguage } from './work.js'
 
@@ -11,6 +12,8 @@ import type { WorkLanguage } from './work.js'
 export interface ProposalDraft {
   title: string
   summary: string
+  /** 作者确认后要执行的那句话；自包含，原文进卡片与建书时的外部上下文。 */
+  instruction: string
   genre?: string
   platform?: string
   language: WorkLanguage
@@ -22,6 +25,7 @@ export interface ProposalDraft {
 export interface ProposalInput {
   title?: unknown
   summary?: unknown
+  instruction?: unknown
   genre?: unknown
   platform?: unknown
   language?: unknown
@@ -65,11 +69,12 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
   return {
     title: text(input.title, 'title'),
     summary: text(input.summary, 'summary'),
+    instruction: text(input.instruction, 'instruction'),
     genre: optionalText(input.genre, 'genre'),
     platform: optionalText(input.platform, 'platform'),
     language: language as WorkLanguage,
-    targetChapters: positiveInteger(input.chapters, 'chapters'),
-    chapterWordCount: positiveInteger(input.chapterWords, 'chapterWords'),
+    targetChapters: positiveInteger(input.chapters, 'chapters') ?? 200,
+    chapterWordCount: positiveInteger(input.chapterWords, 'chapterWords') ?? defaultChapterLength(language as WorkLanguage),
   }
 }
 
@@ -91,5 +96,5 @@ export function proposalCard(draft: ProposalDraft): string {
     scope,
   ].filter((part): part is string => part !== undefined)
   // 标题已带书名号时不再包第二层（与身份摘要同一条规则）。
-  return `立项${bracketedTitle(draft.title)}｜${parts.join(' · ')}\n${draft.summary}`
+  return `立项${bracketedTitle(draft.title)}｜${parts.join(' · ')}\n${draft.summary}\n\nInstruction: ${draft.instruction}`
 }

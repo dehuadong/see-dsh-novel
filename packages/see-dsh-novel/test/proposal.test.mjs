@@ -64,6 +64,7 @@ const exec = { agent: { session: { id: 'session-root', snapshotEvents: () => [] 
 const full = {
   title: '夜班司机',
   summary: '一本夜班出租车司机撞见城市另一面的都市悬疑。',
+  instruction: '写《夜班司机》的第一卷大纲与基础设定，都市悬疑，中文，目标 120 章。',
   genre: '都市悬疑',
   platform: '起点',
   language: 'zh',
@@ -74,18 +75,24 @@ const full = {
 test('the draft rejects missing or invalid fields', () => {
   assert.throws(() => parseProposal({ summary: 'x' }), /title/)
   assert.throws(() => parseProposal({ title: '书', summary: '   ' }), /summary/)
-  assert.throws(() => parseProposal({ title: '书', summary: 's', language: 'fr' }), /language/)
-  assert.throws(() => parseProposal({ title: '书', summary: 's', chapters: 0 }), /chapters/)
-  assert.throws(() => parseProposal({ title: '书', summary: 's', chapterWords: 2.5 }), /chapterWords/)
-  const draft = parseProposal({ title: ' 书 ', summary: ' 一句 ' })
+  assert.throws(() => parseProposal({ title: '书', summary: 's' }), /instruction/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: '  ' }), /instruction/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', language: 'fr' }), /language/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapters: 0 }), /chapters/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapterWords: 2.5 }), /chapterWords/)
+  const draft = parseProposal({ title: ' 书 ', summary: ' 一句 ', instruction: ' 写 ' })
   assert.equal(draft.title, '书')
   assert.equal(draft.summary, '一句')
+  assert.equal(draft.instruction, '写')
   assert.equal(draft.language, 'zh')
+  assert.equal(draft.targetChapters, 200)
+  assert.equal(draft.chapterWordCount, 3000)
+  assert.equal(parseProposal({ title: 'b', summary: 's', instruction: 'i', language: 'en' }).chapterWordCount, 2000)
 })
 
 test('a bracketed title is not wrapped twice on the card', () => {
-  const card = proposalCard(parseProposal({ title: '《夜班司机》', summary: 's' }))
-  assert.match(card, /^立项《夜班司机》｜中文\ns$/)
+  const card = proposalCard(parseProposal({ title: '《夜班司机》', summary: 's', instruction: '写第一卷' }))
+  assert.match(card, /^立项《夜班司机》｜中文 · 目标 200 章 × 单章 3000 字\ns\n\nInstruction: 写第一卷$/)
 })
 
 test('the card carries the confirmed fields and omits the missing ones', () => {
@@ -93,9 +100,13 @@ test('the card carries the confirmed fields and omits the missing ones', () => {
   assert.match(card, /立项《夜班司机》/)
   assert.match(card, /都市悬疑 · 起点 · 中文 · 目标 120 章 × 单章 2600 字/)
   assert.match(card, /撞见城市另一面/)
-  // 语言总是出现，所以只有语言时卡片仍有一格。
-  assert.equal(proposalCard(parseProposal({ title: '书', summary: 's' })), '立项《书》｜中文\ns')
-  assert.match(proposalCard(parseProposal({ title: 'book', summary: 's', language: 'en' })), /English/)
+  assert.match(card, /Instruction: 写《夜班司机》/)
+  // 默认规模总会补上，所以只有语言与默认规模。
+  assert.equal(
+    proposalCard(parseProposal({ title: '书', summary: 's', instruction: 'i' })),
+    '立项《书》｜中文 · 目标 200 章 × 单章 3000 字\ns\n\nInstruction: i',
+  )
+  assert.match(proposalCard(parseProposal({ title: 'book', summary: 's', instruction: 'i', language: 'en' })), /English · 目标 200 章 × 单章 2000 字/)
 })
 
 test('allowing the card writes work.json with the confirmed fields', async () => {
@@ -120,9 +131,11 @@ test('allowing the card writes work.json with the confirmed fields', async () =>
       genre: '都市悬疑',
       platform: '起点',
     })
-    assert.equal(await exists(join(root, 'source')), false, '立项不创建 source/')
-    // 工作区里只多出身份文件本身。
-    assert.deepEqual((await readdir(root)).sort(), ['work.json'])
+    // 建书同一次提交写身份、外部上下文与方向文档兜底。
+    assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), full.instruction)
+    assert.equal(await readFile(join(root, 'source/story/author_intent.md'), 'utf8'), `${full.instruction}\n`)
+    assert.match(await readFile(join(root, 'source/story/current_focus.md'), 'utf8'), /^# 当前聚焦/)
+    assert.deepEqual((await readdir(root)).sort(), ['source', 'work.json'])
     // 立项后的路牌是 foundation。
     assert.equal(storyNext(await workProbes(root)).phase, 'foundation')
     const rendered = registered.get(PROPOSE_NAME).output.render({}, result)

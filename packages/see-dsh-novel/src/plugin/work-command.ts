@@ -103,6 +103,9 @@ export function parseWorkCreate(rawInput: string): WorkCreateArgs {
   const title = titleOf(rawInput, titleIndices, tokens)
   if (title === '') throw new Error('缺少标题：用法 /story-init <标题> [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台]')
   input.title = title
+  // CLI `book create` 的默认规模：不带参数时 200 章 × 3000 字。
+  input.targetChapters ??= 200
+  input.chapterWordCount ??= 3000
   return input
 }
 

@@ -39,9 +39,14 @@ export function defaultCurrentFocus(language: ProjectionLanguage): string {
  * 补齐空目录并生成缺失的方向文档写入项；已有文件不覆盖。
  * @param root 作品根
  * @param language 模板语言
+ * @param authorIntent 建书时的外部指令；只在建书路径传入
  * @returns 缺失文件的写入项，可并入同一次提交
  */
-export async function controlDocumentWrites(root: string, language: ProjectionLanguage): Promise<FileWrite[]> {
+export async function controlDocumentWrites(
+  root: string,
+  language: ProjectionLanguage,
+  authorIntent?: string,
+): Promise<FileWrite[]> {
   const base = resolve(root)
   // 目录先建齐：即使三份文档都已存在，作者也应看到完整的作品骨架。
   await Promise.all([
@@ -53,7 +58,10 @@ export async function controlDocumentWrites(root: string, language: ProjectionLa
   ])
   const writes: FileWrite[] = []
   if (!(await pathExists(join(base, AUTHOR_INTENT_FILE)))) {
-    writes.push({ relativePath: AUTHOR_INTENT_FILE, content: defaultAuthorIntent(language) })
+    const content = authorIntent !== undefined && authorIntent.trim() !== ''
+      ? `${authorIntent.trimEnd()}\n`
+      : defaultAuthorIntent(language)
+    writes.push({ relativePath: AUTHOR_INTENT_FILE, content })
   }
   if (!(await pathExists(join(base, CURRENT_FOCUS_FILE)))) {
     writes.push({ relativePath: CURRENT_FOCUS_FILE, content: defaultCurrentFocus(language) })

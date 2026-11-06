@@ -13,6 +13,9 @@ export const WORK_FILE = 'work.json'
 /** 状态目录；四份 JSON 在这里。 */
 export const STATE_DIR = 'source/story/state'
 
+/** 长篇初始化写入的外部上下文；读取方是 P2 的上下文装配。 */
+export const STORY_EXTERNAL_BRIEF = `${STORY_ROOT}/brief.md`
+
 /** 立项时写入的立意原文。 */
 export const BRIEF_FILE = 'source/brief.md'
 

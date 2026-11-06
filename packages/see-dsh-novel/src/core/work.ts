@@ -270,7 +270,7 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
 export async function createWork(
   root: string,
   input: WorkCreateInput,
-  options: { intent?: string } = {},
+  options: { intent?: string, extraWrites?: ReadonlyArray<FileWrite> } = {},
 ): Promise<Work> {
   const base = resolve(root)
   await assertWorkAbsent(base)
@@ -299,13 +299,23 @@ export async function createWork(
     createdAt: now,
     updatedAt: now,
   }
+  const extraWrites = [...(options.extraWrites ?? [])]
+  let intent: string | undefined
   if ('intent' in options) {
-    const intent = verbatim(options.intent, path, 'intent')
+    intent = verbatim(options.intent, path, 'intent')
     metadata.intent = intent
-    const content = `${JSON.stringify(work, null, 2)}\n`
-    await commitFoundation(base, { writes: [{ relativePath: BRIEF_FILE, content: intent }, { relativePath: WORK_FILE, content }] })
+  }
+  const content = `${JSON.stringify(work, null, 2)}\n`
+  if (extraWrites.length === 0 && intent === undefined) {
+    await commitFile(base, WORK_FILE, content)
   } else {
-    await commitFile(base, WORK_FILE, `${JSON.stringify(work, null, 2)}\n`)
+    await commitFoundation(base, {
+      writes: [
+        ...(intent === undefined ? [] : [{ relativePath: BRIEF_FILE, content: intent }]),
+        ...extraWrites,
+        { relativePath: WORK_FILE, content },
+      ],
+    })
   }
   return work
 }
