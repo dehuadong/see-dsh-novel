@@ -177,9 +177,9 @@ capabilities:
     realRun: artifacts/real-runs/foundation.control-docs.json
     status: verified
   - id: foundation.hook-ledger
-    title: 伏笔台账：dependsOn／paysOffInArc 字段与六动作生命周期（提及不推进）
+    title: 伏笔台账：dependsOn／paysOffInArc 字段与严格校验
     source: inkos:packages/core/src/models/runtime-state.ts
-    dsh: library
+    dsh: tools.register + atomic write
     implementation: null
     consumer: null
     realRun: null
@@ -265,7 +265,7 @@ capabilities:
     realRun: null
     status: missing
   - id: chapter.settle
-    title: fact/hook 抽取、状态草案、conflict 校验；settler 方法 prompt
+    title: fact/hook 抽取、状态草案、conflict 校验；settler 方法 prompt；六动作合并（提及与延后不推进）
     source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: tools.register + storage
     implementation: null

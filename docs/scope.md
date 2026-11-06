@@ -21,10 +21,10 @@
   - 确认后继续：`panel.gate-resume`（作者在面板认可之后，把「继续」投回会话，agent 复核回执再接着干；退回是停止信号，不唤醒）。
   - 立项后开工：`panel.foundation-start`（「已立项，还没有基础设定」状态给出「开始基础设定」，一键把开工指令投回会话，agent 起一轮写设定）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
-  - P1 保真债（复审发现，按行序补齐后才进入 P2）：`foundation.rule-contract`（book_rules 的版本与严格读取）+ `foundation.ready-check`（五段齐全且至少一张角色卡）+ `foundation.truth-projections`（三份 truth 投影）+ `foundation.control-docs`（author_intent／current_focus／brief 的播种与读取）+ `foundation.direction-write`（两份方向文档的替换写入）+ `foundation.hook-ledger`（dependsOn／paysOffInArc 与六动作）+ `runtime.commit-safety`（路径包含、串行化、失败保留日志）+ `proposal.execution-brief`（instruction 与默认规模）。这些行补的是源工程已有、复刻侧缺失或放宽的行为，不是新能力。
+  - P1 保真债（复审发现，按行序补齐后才进入 P2）：`foundation.rule-contract`（book_rules 的版本与严格读取）+ `foundation.ready-check`（五段齐全且至少一张角色卡）+ `foundation.truth-projections`（三份 truth 投影）+ `foundation.control-docs`（author_intent／current_focus／brief 的播种与读取）+ `foundation.direction-write`（两份方向文档的替换写入）+ `foundation.hook-ledger`（dependsOn／paysOffInArc 字段与严格校验）+ `runtime.commit-safety`（路径包含、串行化、失败保留日志）+ `proposal.execution-brief`（instruction 与默认规模）。这些行补的是源工程已有、复刻侧缺失或放宽的行为，不是新能力。
 - **P2 章前规划与上下文**：`plan.outline` + `plan.chapter` + `context.brief` + `context.retrieval`。源工程第 3、4 层提示词在此落地：`plan.chapter` 同时交付 planner 的方法 prompt 与章前上下文装配，`context.brief` 负责每轮上下文包的字段与装配时机。
 - **P3 正文生产**：`chapter.write` + `chapter.review` + `chapter.revise`。`chapter.write` 交付 writer 的方法 prompt 与场景／篇幅预算，`chapter.review`／`chapter.revise` 各自交付对应角色方法。
-- **P4 结算与定稿**：`chapter.summary` + `chapter.settle` + `chapter.finalize`。`chapter.settle` 交付 settler 的方法 prompt。
+- **P4 结算与定稿**：`chapter.summary` + `chapter.settle` + `chapter.finalize`。`chapter.settle` 交付 settler 的方法 prompt，以及伏笔六动作的合并规则（提及与延后不推进、撤回需要依据）。
 - **P5 章节运维与对账**：`chapter.reopen` + `chapter.move-delete` + `state.check`。
 - **P6 产物与工作台**：`artifact.identity` + `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
 - **P7 短篇流水线**：`short.*`，v1 之后独立推进。
