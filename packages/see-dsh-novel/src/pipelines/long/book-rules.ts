@@ -212,6 +212,14 @@ export function parseBookRules(value: unknown, file: string = BOOK_RULES_JSON): 
   return rules as unknown as BookRules
 }
 
+/** book rules 的两份落盘写入项；md 内容由调用方给，JSON 带版本。 */
+export function bookRulesWrites(content: string, rules: BookRules): Array<{ relativePath: string, content: string }> {
+  return [
+    { relativePath: BOOK_RULES_MD, content },
+    { relativePath: BOOK_RULES_JSON, content: `${JSON.stringify(rules, null, 2)}\n` },
+  ]
+}
+
 /**
  * 写路径用：补上版本再校验。模型不提供 version。
  * @param input 模型给出的规则

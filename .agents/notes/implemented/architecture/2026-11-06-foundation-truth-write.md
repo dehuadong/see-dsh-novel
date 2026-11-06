@@ -51,11 +51,11 @@ Status: implemented
 
 ## Consequences
 
-收益：作者终于有一个工具能替换真值文件——方向文档、book rules、outline、角色卡与状态真值共十一类路径，全部走同一套白名单与规范化。名字大小写不敏感但落盘取规范形式，不会出现 `Author_Intent.md` 这种读路径看不见的文件；`book_rules.md` 复用 `withVersion`，不会绕过版本注入；写前补齐缺失的方向文档，与目标文件同一次原子提交。
+收益：作者终于有一个工具能替换真值文件——九份平铺文件、两份 outline、四种角色目录共十一类名字，全部走同一套白名单与规范化。名字大小写不敏感但落盘取规范形式，不会出现 `Author_Intent.md` 这种读路径看不见的文件；`book_rules.md` 复用 `withVersion`，不会绕过版本注入；写前补齐缺失的方向文档，与目标文件同一次原子提交。
 
-落地：`packages/see-dsh-novel/src/core/truth-files.ts`（白名单、规范化、路径映射）、`src/plugin/truth-tool.ts`（`story_truth_file` 的注册、book rules 特例、补齐与提交）、`src/plugin/agent.ts`（注册）。
+落地：`packages/see-dsh-novel/src/core/truth-files.ts`（白名单、规范化、路径映射）、`src/pipelines/long/truth-tool.ts`（`story_truth_file` 的注册、book rules 特例、补齐与提交）、`src/pipelines/long/tools.ts`（随 foundation 工具一起装配）。
 
-验证见 `test/truth-file.test.mjs`：名字规范化的正例与越界拒绝、方向文档原样写入与兄弟默认补一次、空内容、book rules 缺数据拒绝与两份文件版本 2、非法数据不落盘、角色卡与 outline 的路径；`test/host.test.mjs` 的工具清单含 `story_truth_file`。
+验证见 `test/truth-file.test.mjs`：名字规范化的正例与越界拒绝（报错列出允许名）、方向文档原样写入、空内容、六份其它平铺文件逐一写入、book rules 缺数据拒绝与两份文件版本 2、非法数据不改写已有文件、主要与次要角色目录、outline、单行回执；`test/host.test.mjs` 的工具清单含 `story_truth_file`。
 
 ### 代价与已知限制
 

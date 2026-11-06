@@ -1,12 +1,42 @@
 /**
  * 真值文件的名称规范化与白名单。
  *
- * 白名单与源实现一致：九份 `story/` 平铺文件、两份 `outline/`、四种角色目录。
- * 平铺与 outline 名字大小写不敏感并落盘为规范小写；角色卡保留原名大小写。
+ * 白名单：九份 `story/` 平铺文件、两份 `outline/`、四种角色目录。平铺与 outline
+ * 名字大小写不敏感并落盘为规范小写；角色卡保留原名大小写。
  */
+import {
+  AUTHOR_INTENT_FILE,
+  CURRENT_FOCUS_FILE,
+  STORY_CHAPTER_SUMMARIES_MD,
+  STORY_CURRENT_STATE_MD,
+  STORY_FANFIC_CANON_MD,
+  STORY_FRAME_FILE,
+  STORY_PARENT_CANON_MD,
+  STORY_PENDING_HOOKS,
+  STORY_RULES_JSON,
+  STORY_RULES_MD,
+  STORY_STYLE_GUIDE_MD,
+  STORY_VOLUME_MAP_FILE,
+} from './story-paths.js'
 
-/** `story/` 下的平铺真值文件。 */
-export const FLAT_TRUTH_FILES = [
+/** 白名单里的规范名 → 作品根下的相对路径。 */
+export const TRUTH_FILE_PATHS: Readonly<Record<string, string>> = {
+  'author_intent.md': AUTHOR_INTENT_FILE,
+  'current_focus.md': CURRENT_FOCUS_FILE,
+  'book_rules.md': STORY_RULES_MD,
+  'book_rules.json': STORY_RULES_JSON,
+  'style_guide.md': STORY_STYLE_GUIDE_MD,
+  'parent_canon.md': STORY_PARENT_CANON_MD,
+  'fanfic_canon.md': STORY_FANFIC_CANON_MD,
+  'current_state.md': STORY_CURRENT_STATE_MD,
+  'pending_hooks.md': STORY_PENDING_HOOKS,
+  'chapter_summaries.md': STORY_CHAPTER_SUMMARIES_MD,
+  'outline/story_frame.md': STORY_FRAME_FILE,
+  'outline/volume_map.md': STORY_VOLUME_MAP_FILE,
+}
+
+/** 可写的平铺名字（含 book rules；`book_rules.json` 只随 md 一起写）。 */
+const FLAT_NAMES = [
   'author_intent.md',
   'current_focus.md',
   'book_rules.md',
@@ -18,14 +48,17 @@ export const FLAT_TRUTH_FILES = [
   'chapter_summaries.md',
 ] as const
 
-/** `story/outline/` 下的真值文件。 */
-export const OUTLINE_TRUTH_FILES = ['outline/story_frame.md', 'outline/volume_map.md'] as const
+/** 可写的 outline 名字。 */
+const OUTLINE_NAMES = ['outline/story_frame.md', 'outline/volume_map.md'] as const
 
 /** 角色卡：`roles/<档位>/<名字>.md`，档位认中英文四种。 */
 const ROLE_TRUTH_RE = /^roles\/(主要角色|次要角色|major|minor)\/[^/\\]+\.md$/u
 
-/** `story/` 前缀；所有真值文件相对它命名。 */
-export const STORY_PREFIX = 'source/story'
+/** `story/` 前缀。 */
+const STORY_PREFIX = 'source/story'
+
+/** 报错里列出的允许名字。 */
+const ALLOWED_NAMES = [...FLAT_NAMES, ...OUTLINE_NAMES, 'roles/(主要角色|次要角色|major|minor)/<name>.md']
 
 /**
  * 规范化真值文件名。
@@ -41,13 +74,19 @@ export function normalizeTruthFileName(fileName: string): string {
   }
   const withExtension = trimmed.endsWith('.md') ? trimmed : `${trimmed}.md`
   const lower = withExtension.toLowerCase()
-  if ((FLAT_TRUTH_FILES as ReadonlyArray<string>).includes(lower)) return lower
-  if ((OUTLINE_TRUTH_FILES as ReadonlyArray<string>).includes(lower)) return lower
+  if ((FLAT_NAMES as ReadonlyArray<string>).includes(lower)) return lower
+  if ((OUTLINE_NAMES as ReadonlyArray<string>).includes(lower)) return lower
   if (ROLE_TRUTH_RE.test(withExtension)) return withExtension
-  throw new Error(`不在白名单里的真值文件：${JSON.stringify(fileName)}`)
+  throw new Error(`不在白名单里的真值文件：${JSON.stringify(fileName)}；允许：${ALLOWED_NAMES.join('、')}`)
 }
 
-/** 真值文件名 → 作品根下的相对路径。 */
+/**
+ * 真值文件名 → 作品根下的相对路径。
+ * @param fileName 已规范化的名字或角色卡路径
+ */
 export function truthFileRelativePath(fileName: string): string {
-  return `${STORY_PREFIX}/${fileName}`
+  const known = TRUTH_FILE_PATHS[fileName]
+  if (known !== undefined) return known
+  if (ROLE_TRUTH_RE.test(fileName)) return `${STORY_PREFIX}/${fileName}`
+  throw new Error(`没有路径映射的真值文件：${JSON.stringify(fileName)}`)
 }

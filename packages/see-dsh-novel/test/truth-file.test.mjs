@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { normalizeTruthFileName, truthFileRelativePath } from '../src/core/truth-files.ts'
-import { installTruthFileTool } from '../src/plugin/truth-tool.ts'
+import { installTruthFileTool } from '../src/pipelines/long/truth-tool.ts'
 
 async function workspace() {
   return mkdtemp(join(tmpdir(), 'see-dsh-novel-truth-'))
@@ -55,7 +55,7 @@ test('a direction document is written verbatim and the sibling default is seeded
     const { run } = services(root)
     const result = await run({ fileName: 'Author_Intent.md', content: '  新方向\n第二行  ' })
     assert.equal(result.fileName, 'author_intent.md')
-    assert.deepEqual(result.written, ['source/story/author_intent.md'])
+    assert.deepEqual(result.written.sort(), ['source/story/author_intent.md', 'source/story/current_focus.md'])
     assert.equal(await text(root, 'source/story/author_intent.md'), '  新方向\n第二行  ')
     assert.match(await text(root, 'source/story/current_focus.md'), /^# 当前聚焦/)
     assert.equal(JSON.stringify(result).includes('author_intent.md'), true)
@@ -98,6 +98,8 @@ test('book rules need structured data and rewrite both files with version 2', as
     })
 
     await assert.rejects(run({ fileName: 'book_rules.md', content: 'x', bookRulesData: { prohibitions: [] } }), /enableFullCastTracking/)
+    assert.equal(await text(root, 'source/story/book_rules.md'), '# 规则\n', '非法数据不改写已有文件')
+    assert.deepEqual(JSON.parse(await text(root, 'source/story/book_rules.json')).version, '2')
   } finally {
     await cleanup(root)
   }
@@ -106,14 +108,28 @@ test('book rules need structured data and rewrite both files with version 2', as
 test('role cards and outline files are written at their own paths', async () => {
   const root = await workspace()
   try {
-    const { run } = services(root)
+    const { run, tools } = services(root)
     const role = await run({ fileName: 'roles/主要角色/甲.md', content: '# 甲\n' })
-    assert.deepEqual(role.written, ['source/story/roles/主要角色/甲.md'])
+    assert.deepEqual(role.written.sort(), ['source/story/author_intent.md', 'source/story/current_focus.md', 'source/story/roles/主要角色/甲.md'])
     assert.equal(await text(root, 'source/story/roles/主要角色/甲.md'), '# 甲\n')
+
+    const minor = await run({ fileName: 'roles/minor/乙.md', content: '# 乙\n' })
+    assert.equal(await text(root, 'source/story/roles/minor/乙.md'), '# 乙\n')
+    assert.equal(minor.written.includes('source/story/roles/minor/乙.md'), true)
 
     const outline = await run({ fileName: 'outline/volume_map.md', content: '# 卷图\n' })
     assert.deepEqual(outline.written, ['source/story/outline/volume_map.md'])
     assert.equal(await text(root, 'source/story/outline/volume_map.md'), '# 卷图\n')
+
+    // 每个平铺名字都能写：写一次，读回内容。
+    for (const name of ['style_guide', 'parent_canon', 'fanfic_canon', 'current_state', 'pending_hooks', 'chapter_summaries']) {
+      await run({ fileName: name, content: `# ${name}\n` })
+      assert.equal(await text(root, `source/story/${name}.md`), `# ${name}\n`)
+    }
+
+    // 渲染是单行 Updated，不带额外路径行。
+    const rendered = tools.get('story_truth_file').output.render({}, outline)[0].text
+    assert.equal(rendered, 'Updated "outline/volume_map.md"')
   } finally {
     await cleanup(root)
   }

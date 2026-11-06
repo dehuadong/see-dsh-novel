@@ -164,7 +164,7 @@ capabilities:
     title: 真值文件替换写入：方向文档、状态真值、book rules、outline 与角色卡
     source: inkos:packages/core/src/harness/tools/longform-edits.ts
     dsh: tools.register + atomic write
-    implementation: packages/see-dsh-novel/src/plugin/truth-tool.ts
+    implementation: packages/see-dsh-novel/src/pipelines/long/truth-tool.ts
     consumer: packages/see-dsh-novel/test/truth-file.test.mjs
     realRun: artifacts/real-runs/foundation.truth-write.json
     status: missing
