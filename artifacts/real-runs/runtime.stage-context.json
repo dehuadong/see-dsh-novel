@@ -1,0 +1,16 @@
+{
+  "capability": "runtime.stage-context",
+  "date": "2026-11-06",
+  "sessionId": "session-6695cf43-43ce-4f5b-aef5-ebedd28e82b4",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "255 passed — stage-context 3 例（四阶段文件判定、协议随阶段切换与 craft 出现/缺席、异预设为空）＋ host 的三条 context（story:cast／story:stage／story:craft）与技能清单（longform-writing、story-proposal）"
+  },
+  "receipts": [
+    "提案阶段（`.artifacts/work-stage`，session `session-6695cf43-43ce-4f5b-aef5-ebedd28e82b4`）：未调用任何工具、未加载技能，首轮回答「阶段：提案（story-proposal）」并复述 `story_propose` 的顺序与 instruction 要求，明确说「创作方法已随上下文注入……不会再调 skill」",
+    "基础设定阶段（`.artifacts/work-control`，session `session-d9b5d0c5-da15-4bd6-94f1-10fff41d8d57`）：首轮回答「阶段：基础设定（foundation）」，复述四段顺序与签核门禁",
+    "正文写作阶段（`.artifacts/work-empty-2`，session `session-f5ddb46e-897c-4f04-b739-34f11b6add11`）：首轮回答「正文写作（draft）」，复述「读 intent.md／plan → 派 writer subagent → `story_write_chapter`」，并列出已注入的 `longform-writing` 正文与四份 references（foundation-design／reader-contract-and-progression／scene-dialogue-and-length-budget／state-projection），明确「不需要再调用技能工具加载」；同时指出 `story_write_chapter` 尚未挂载（该工具属下一行 chapter.write）",
+    "三个阶段都随工作区文件自动切换，模型没有先加载技能再回答；技能目录只剩 `longform-writing` 与 `story-proposal`（提案方法论），`story-plan` 已删除"
+  ]
+}

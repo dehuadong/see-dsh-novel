@@ -207,7 +207,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/pipelines/long/stages/index.ts
     consumer: packages/see-dsh-novel/test/stage-context.test.mjs
     realRun: artifacts/real-runs/runtime.stage-context.json
-    status: missing
+    status: verified
   - id: runtime.txn-format
     title: 提交事务格式：根目录事务、entries 日志、rename 备份与 committed 阶段
     source: inkos:packages/core/src/utils/atomic-file-set.ts
