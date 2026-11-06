@@ -12,11 +12,11 @@ Status: implemented
 
 - `detectStage(root)` 同步读盘判定阶段：无 `work.json` → `proposal`；基础设定六件套不齐 → `foundation`；六件套齐且没有下一章 plan → `plan`；有 plan → `write`；同时返回标题与当前章号；
 - `renderStageProtocol(facts)`：每阶段只写做什么、按什么顺序调什么、产出什么、约束是什么；末尾统一注明「创作方法已随上下文提供」；
-- `craftSkillsFor(stage)`：`foundation`／`write` 需要 `longform-writing`，`proposal`／`plan` 不注入；
+- `craftSkillsFor(stage)`：`proposal` 注入 `story-proposal`，`foundation`／`write` 注入 `longform-writing`，`plan` 不注入；
 - `renderCraft(packageRoot, stage)`：同步读取技能 `SKILL.md` 与 `references/*.md` 并拼接；
 - `installStageContext(ctx, packageRoot, presetId)` 注册两个 `systemPrompt.context` 条目：`story:stage`（order 90）与 `story:craft`（order 95），都按 `workingDirectory.get` 同步读当前工作区，且只在本预设下生效；人物档案（order 130）不动。
 
-删除 `skills/story-plan/` 与 `skills/story-proposal/`：协议已迁入阶段注入。`skills/longform-writing/` 与 `references/` 原样保留，只承载创作方法。
+删除 `skills/story-plan/`（纯流程，协议已迁入阶段注入）。`skills/story-proposal/` 保留为提案方法论（怎么问、何时够、不虚构、不跳过确认），由 `proposal` 阶段主动注入；`skills/longform-writing/` 与 `references/` 原样保留。
 
 服务注入不变（`systemPrompt` 已在注入面内）。
 
@@ -40,4 +40,4 @@ Status: implemented
 
 - `foundation`／`write` 阶段系统上下文增加约 10KB，`proposal`／`plan` 只多协议约 1–2KB。
 - 阶段判定是同步文件探针，可能与 `story_next` 的返回短暂不一致（同一批文件，口径一致）。
-- 删除两个技能后，模型若仍尝试加载会得到不存在；协议里已写明方法随上下文提供。
+- `story-plan` 删除后，模型若仍尝试加载会得到不存在；协议里已写明方法随上下文提供。

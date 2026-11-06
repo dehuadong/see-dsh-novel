@@ -83,7 +83,7 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       const craftText = textOf(entries.get('story:craft'))
       if (kind === 'proposal') {
         assert.match(stageText, /提案/)
-        assert.equal(craftText, '')
+        assert.match(craftText, /创作方法（story-proposal）/)
       }
       if (kind === 'foundation') {
         assert.match(stageText, /story_foundation_outline/)

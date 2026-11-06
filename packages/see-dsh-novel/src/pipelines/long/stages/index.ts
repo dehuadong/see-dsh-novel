@@ -71,8 +71,8 @@ export function renderStageProtocol(facts: StageFacts): string {
         header,
         '目标：把作者的一句话创作意图收敛成一张可确认的立项卡。',
         '1. 只问缺的关键信息（标题、方向、题材、平台、语言、目标章数、单章字数），一次问一个。',
-        '2. 够了就调 `story_propose`，instruction 必须自包含。',
-        '3. 作者点允许后才落盘；退回只问想改哪一处；取消就等作者重新开口。',
+        '2. 信息够了就调 `story_propose`（title、summary、instruction 必填，instruction 自包含）。',
+        '3. 允许：落盘并进入基础设定；退回：只问想改哪一处后重新提案；取消：等作者重新开口。',
         common,
       ].join('\n')
     case 'foundation':
@@ -112,7 +112,7 @@ export function renderStageProtocol(facts: StageFacts): string {
 
 /** 本阶段主动加载的创作技能；空数组表示不注入。 */
 export function craftSkillsFor(stage: Stage): string[] {
-  return stage === 'foundation' || stage === 'write' ? ['longform-writing'] : []
+  return stage === 'proposal' ? ['story-proposal'] : stage === 'foundation' || stage === 'write' ? ['longform-writing'] : []
 }
 
 /** 读取技能正文与 references；缺失时返回空串而不是抛错。 */
