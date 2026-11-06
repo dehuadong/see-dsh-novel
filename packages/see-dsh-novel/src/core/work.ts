@@ -261,11 +261,11 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
 }
 
 /**
- * 立项并在同一次提交里写入附加文件（例如 brief）。
+ * 校验并组装身份对象，不写盘。已存在或字段非法时抛错，调用方据此在写任何文件前失败。
  * @param root 工作区根
  * @param input 作者给出的标题、语言与目标规模
- * @param options 带 `intent` 键时写入 brief 与 `metadata.intent`；`extraWrites` 与身份同一次提交
- * @returns 落盘的身份对象
+ * @param options 带 `intent` 键时在返回值里带上 `metadata.intent`
+ * @returns 尚未落盘的身份对象
  */
 export async function prepareWork(
   root: string,
@@ -303,6 +303,13 @@ export async function prepareWork(
   return work
 }
 
+/**
+ * 立项并在同一次提交里写入附加文件（例如 brief 与方向文档）。
+ * @param root 工作区根
+ * @param input 作者给出的标题、语言与目标规模
+ * @param options `prepared` 跳过重复校验；`intent` 写 brief 与 `metadata.intent`；`extraWrites` 与身份同一次提交
+ * @returns 落盘的身份对象
+ */
 export async function createWork(
   root: string,
   input: WorkCreateInput,
