@@ -223,7 +223,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/search-index.ts
     consumer: packages/see-dsh-novel/test/search-index.test.mjs
     realRun: artifacts/real-runs/plan.retrieval.json
-    status: missing
+    status: verified
   - id: plan.context-select
     title: 章前上下文：四个 LLM 选择器、分层与 ChapterTrace 七字段
     source: inkos:packages/core/src/agents/composer.ts
