@@ -178,8 +178,8 @@ capabilities:
     status: verified
   - id: foundation.hook-ledger
     title: 伏笔台账：dependsOn／paysOffInArc 字段与六动作生命周期（提及不推进）
-    source: inkos:packages/core/src/state/runtime-state.ts
-    dsh: tools.register + atomic write
+    source: inkos:packages/core/src/models/runtime-state.ts
+    dsh: library
     implementation: null
     consumer: null
     realRun: null
