@@ -1,0 +1,16 @@
+{
+  "capability": "chapter.write",
+  "date": "2026-11-06",
+  "sessionId": "session-5ee0a9bc-367a-4675-9012-002633f4f333",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "259 passed — chapter-document 4 例（中英标题、正文去标题行、路径安全、中文/英文计数、重复拒绝、读取往返）＋ host 工具清单含 story_write_chapter"
+  },
+  "receipts": [
+    "真实运行（`work-empty-2`，session `session-5ee0a9bc-367a-4675-9012-002633f4f333`）：按 write 阶段协议派发 writer `subagent` 写第 1 章，子代理返回正文后主编调 `story_write_chapter`（chapter 1，title「雨夜接案」），回执「第 1 章已落盘：source/chapters/0001_雨夜接案.md（846 / 目标 0）」",
+    "落盘文件：`source/chapters/0001_雨夜接案.md`，首行 `# 第1章 雨夜接案`，正文为 writer 返回的叙事文本（3325 字节）；`846` 为 CJK 字符数",
+    "同一会话用同样参数再调一次，回执「Error: 第 1 章已经有正文，不覆盖」，文件未被改写",
+    "该工作区的 `work.json` 是早期夹具，`metadata` 为空，所以本次 `target` 为 0；已修成缺省时回退到语言默认章长（中文 3000），并有 `length.test.mjs` 覆盖默认值"
+  ]
+}
