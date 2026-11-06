@@ -57,6 +57,9 @@ export function installWriteTool(ctx: PluginContext): Disposer {
     async execute(args: { chapter: number, title: string, content: string }, exec: ExecuteContext): Promise<WriteResult> {
       if (!exec?.agent) throw new Error('story_write_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
+      if (/^\s*(第\s*\d+\s*章|chapter\s*\d+)/iu.test(args.title)) {
+        throw new Error('标题不要带章号前缀；章节文档头由宿主生成')
+      }
       const plan = await loadChapterPlan(root, args.chapter)
       if (plan === null) throw new Error(`第 ${args.chapter} 章还没有章纲，先规划再写`)
       const work = await readWork(root)

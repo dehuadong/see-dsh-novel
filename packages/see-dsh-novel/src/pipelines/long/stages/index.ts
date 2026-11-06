@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/types.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
 import { renderArchitectContract } from './architect.js'
+import { renderWriterContract } from './writer.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -179,7 +180,7 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     text: (assembly) => {
       const facts = forAgent(assembly)
       if (facts === undefined) return ''
-      if (facts.stage !== 'foundation') return renderStageProtocol(facts)
+      if (facts.stage !== 'foundation' && facts.stage !== 'write') return renderStageProtocol(facts)
       let root = ''
       try {
         const agent = assembly.agent as { session: unknown } | undefined
@@ -187,7 +188,9 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
       } catch {
         root = ''
       }
-      return root === '' ? renderStageProtocol(facts) : `${renderStageProtocol(facts)}\n\n${renderArchitectContract(root)}`
+      if (root === '') return renderStageProtocol(facts)
+      const contract = facts.stage === 'foundation' ? renderArchitectContract(root) : renderWriterContract(root)
+      return `${renderStageProtocol(facts)}\n\n${contract}`
     },
   })
   const disposeCraft = ctx.systemPrompt.context({

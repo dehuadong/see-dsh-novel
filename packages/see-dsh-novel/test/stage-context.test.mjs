@@ -108,6 +108,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       }
       if (kind === 'write') {
         assert.match(stageText, /story_write_chapter/)
+        assert.match(stageText, /## 权威顺序/)
+        assert.match(stageText, /## 字数/)
         assert.match(craftText, /参考：scene-dialogue-and-length-budget/)
       }
     } finally {
