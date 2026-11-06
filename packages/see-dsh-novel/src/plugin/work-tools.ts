@@ -124,7 +124,6 @@ export function installWorkTools(ctx: PluginContext): Disposer {
       return {
         work: await createWork(root, {
           title: args.title,
-          intent: args.intent,
           language: args.language,
           targetChapters: args.metadata?.targetChapters,
           chapterWordCount: args.metadata?.chapterWordCount,

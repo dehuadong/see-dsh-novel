@@ -85,7 +85,6 @@ export interface FoundationProbes {
 /** 立项输入：标题必填，其余可省。 */
 export interface WorkCreateInput {
   title: unknown
-  intent?: unknown
   language?: unknown
   targetChapters?: unknown
   chapterWordCount?: unknown
@@ -271,7 +270,7 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
 export async function createWork(
   root: string,
   input: WorkCreateInput,
-  options: { intent?: string, extraWrites?: ReadonlyArray<FileWrite> } = {},
+  options: { intent?: string } = {},
 ): Promise<Work> {
   const base = resolve(root)
   await assertWorkAbsent(base)
@@ -300,15 +299,14 @@ export async function createWork(
     createdAt: now,
     updatedAt: now,
   }
-  const extraWrites = [...(options.extraWrites ?? [])]
+  const content = `${JSON.stringify(work, null, 2)}\n`
   if ('intent' in options) {
     const intent = verbatim(options.intent, path, 'intent')
     metadata.intent = intent
-    extraWrites.push({ relativePath: BRIEF_FILE, content: intent })
+    await commitFoundation(base, { writes: [{ relativePath: BRIEF_FILE, content: intent }, { relativePath: WORK_FILE, content }] })
+  } else {
+    await commitFile(base, WORK_FILE, content)
   }
-  const content = `${JSON.stringify(work, null, 2)}\n`
-  if (extraWrites.length === 0) await commitFile(base, WORK_FILE, content)
-  else await commitFoundation(base, { writes: [...extraWrites, { relativePath: WORK_FILE, content }] })
   return work
 }
 
