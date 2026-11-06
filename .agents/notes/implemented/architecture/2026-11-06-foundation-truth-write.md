@@ -1,6 +1,6 @@
 # Agent Note: foundation.truth-write —— 真值文件替换写入
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -16,7 +16,7 @@ Status: proposed
 
 只实现其中两份方向文档会把其余文件的写入入口留空，而它们在源工程里都有明确行为与（多数还有）消费者；这不是 DSH 机制限制，属于保真债，所以本行按源白名单整体落地。`style_guide`／`parent_canon`／`fanfic_canon` 在复刻侧暂时没有读取方，写入行为仍按源实现保留，等对应能力接上。
 
-## Proposal
+## Decision
 
 ### 工具：`story_truth_file`
 
@@ -49,21 +49,18 @@ Status: proposed
 
 **写入时 trim 内容。** 更干净。否掉：源工程原样写；控制文档的空白属于作者原文。
 
-## Acceptance criteria
+## Consequences
 
-- 白名单内每个名字都能写入，且落盘路径是规范形式：九份平铺文件与两份 outline 一律小写文件名（`Author_Intent` 写 `author_intent.md`），四种角色目录保留原名大小写；未知名字拒绝且不写盘。
-- `book_rules.md`：缺 `bookRulesData` 拒绝；带数据时同一次提交写出 `book_rules.md` 与带 `version:"2"` 的 `book_rules.json`；非法数据不落盘。
-- 方向文档缺失时同一次提交补齐默认模板；目标文件自身不重复写入（不出现 ENOENT、不丢文件）。
-- 内容逐字一致（含首尾空白与空串）；角色卡写入只改指定路径。
-- 返回 `{ fileName, written }`，`written` 为实际落盘路径；渲染为 `Updated "<fileName>"`。
-- `test/truth-file.test.mjs` 覆盖白名单、名字规范化与拒绝、book rules 特例、方向文档补齐、内容原样；`test/host.test.mjs` 工具清单加入 `story_truth_file`；`docs/scope.md` 的 P1 条目改为「真值文件替换写入」。
-- `capabilities.yaml` 的行 id 改为 `foundation.truth-write`，标题覆盖整份白名单，`source: inkos:packages/core/src/harness/tools/longform-edits.ts`。
-- 实现与证据：implementation `packages/see-dsh-novel/src/plugin/truth-tool.ts`；consumer `packages/see-dsh-novel/test/truth-file.test.mjs`；realRun `artifacts/real-runs/foundation.truth-write.json`。
-- 真实运行：在已有作品的会话里用 `story_truth_file` 写 `author_intent.md` 与 `current_focus.md`（内容逐字核对），写一次 `book_rules.md`（带 `bookRulesData`，核对两份文件与版本），再用未知名字调一次确认报错。
+收益：作者终于有一个工具能替换真值文件——方向文档、book rules、outline、角色卡与状态真值共十一类路径，全部走同一套白名单与规范化。名字大小写不敏感但落盘取规范形式，不会出现 `Author_Intent.md` 这种读路径看不见的文件；`book_rules.md` 复用 `withVersion`，不会绕过版本注入；写前补齐缺失的方向文档，与目标文件同一次原子提交。
 
-## Risks
+落地：`packages/see-dsh-novel/src/core/truth-files.ts`（白名单、规范化、路径映射）、`src/plugin/truth-tool.ts`（`story_truth_file` 的注册、book rules 特例、补齐与提交）、`src/plugin/agent.ts`（注册）。
 
-- 状态投影被直接替换后与 JSON 可能不一致；源工程同样允许，结算负责收敛，本工具不检测。
-- 角色卡写入不做文件名安全化之外的校验（内容为空也允许）；与源实现一致。
+验证见 `test/truth-file.test.mjs`：名字规范化的正例与越界拒绝、方向文档原样写入与兄弟默认补一次、空内容、book rules 缺数据拒绝与两份文件版本 2、非法数据不落盘、角色卡与 outline 的路径；`test/host.test.mjs` 的工具清单含 `story_truth_file`。
+
+### 代价与已知限制
+
+- 状态投影（`current_state.md`／`pending_hooks.md`／`chapter_summaries.md`）被直接替换后可能与 JSON 不一致；源工程同样允许，收敛由结算负责。
+- 角色卡只按路径替换内容，不重命名、不移动档位——那是 cast 工具的职责。
+- `style_guide`／`parent_canon`／`fanfic_canon` 在复刻侧暂时没有读取方；写入行为按源保留。
 - 没有并发保护，两个写者可能互相覆盖；等 `runtime.commit-safety`。
 - 工具名与源不同（`story_truth_file` vs `write_truth_file`），属既有命名约定，不是行为偏差。

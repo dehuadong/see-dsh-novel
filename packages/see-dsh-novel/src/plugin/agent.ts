@@ -23,6 +23,7 @@ import { installRecoveryTool } from './recovery-tool.js'
 import { installProposalTool } from './proposal-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
 import { installInitCommand } from './work-command.js'
+import { installTruthFileTool } from './truth-tool.js'
 import { installWorkTools } from './work-tools.js'
 
 export const name = 'see-dsh-novel-agent'
@@ -105,6 +106,7 @@ export function apply(ctx: PluginContext): Disposer {
     execute: (args: Record<string, never>, exec: ExecuteContext): Promise<HooksResult> => readHooks(ctx, exec),
   } as ToolDefinition<Record<string, never>, HooksResult>)
 
+  const disposeTruthFile = installTruthFileTool(ctx)
   const disposeFoundation = installFoundationTools(ctx)
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
@@ -127,6 +129,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeCommands()
     disposeGate()
     disposeFoundation()
+    disposeTruthFile()
     disposeHooks()
     disposeStoryNext()
   }
