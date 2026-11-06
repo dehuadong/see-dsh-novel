@@ -8,7 +8,9 @@ import { cp, readdir, readFile, rm } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
-import { commitFile, JOURNAL_FILE, pathExists } from './commit.js'
+import { commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive } from './commit.js'
+
+export { parseJournal, pidAlive }
 import type { CommitJournal } from './commit.js'
 import { PROJECTION_SOURCES, inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
@@ -63,35 +65,6 @@ const INDEX_FILES = ['manifest.json', 'current_state.json', 'chapter_summaries.j
 /** 三份投影与它们的源 JSON；只有源存在且可读时投影才可重建。 */
 const PROJECTIONS: ReadonlyArray<{ path: string, source: string }> = Object.entries(PROJECTION_SOURCES)
   .map(([path, source]) => ({ path, source }))
-
-/** 进程是否还活着；`ESRCH` 才算已死，其它错误（如 `EPERM`）一律当活着，宁可不碰。 */
-export function pidAlive(pid: number): boolean {
-  if (!Number.isInteger(pid) || pid <= 0) return false
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code !== 'ESRCH'
-  }
-}
-
-/** 解析提交日志；形状不对就是 `undefined`，交给「读不出来」的分支。 */
-export function parseJournal(raw: string): CommitJournal | undefined {
-  let value: unknown
-  try {
-    value = JSON.parse(raw)
-  } catch {
-    return undefined
-  }
-  if (value === null || typeof value !== 'object') return undefined
-  const journal = value as Partial<CommitJournal>
-  if (journal.version !== 1) return undefined
-  if (journal.phase !== 'prepared' && journal.phase !== 'applied') return undefined
-  if (typeof journal.pid !== 'number') return undefined
-  if (!Array.isArray(journal.writes) || journal.writes.some((entry) => typeof entry !== 'string')) return undefined
-  if (!Array.isArray(journal.deletes) || journal.deletes.some((entry) => typeof entry !== 'string')) return undefined
-  return journal as CommitJournal
-}
 
 /** 读一个目录；不存在按空处理，其它错误照常抛出。 */
 async function entriesOf(dir: string) {
@@ -381,7 +354,7 @@ async function rollback(root: string, staging: string, journal: CommitJournal): 
       await cp(backup, target, { force: true })
       continue
     }
-    if (journal.writes.includes(relativePath)) await rm(target, { force: true })
+    if (!journal.existed?.includes(relativePath) && journal.existed !== undefined) await rm(target, { force: true })
   }
   await rm(staging, { recursive: true, force: true })
 }

@@ -188,9 +188,9 @@ capabilities:
     title: 提交安全：路径包含校验、按根串行化、回滚失败保留日志
     source: inkos:packages/core/src/utils/atomic-file-set.ts
     dsh: library + atomic write
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/core/commit.ts
+    consumer: packages/see-dsh-novel/test/commit-safety.test.mjs
+    realRun: artifacts/real-runs/runtime.commit-safety.json
     status: missing
   - id: runtime.work-lock
     title: 跨进程作品锁：锁文件、心跳与死锁接管

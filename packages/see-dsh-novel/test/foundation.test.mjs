@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { roleCardPath, sanitizeRoleName } from '../src/pipelines/long/contract.ts'
+import { commitFoundation } from '../src/core/commit.ts'
 import { installFoundationTools } from '../src/pipelines/long/tools.ts'
 
 /** A throwaway work root plus the four tools bound to it. */
@@ -180,12 +181,16 @@ test('a failed commit restores what it had already written', async () => {
     const outline = tools.get('story_foundation_outline')
     await outline.execute({ storyFrame: '第一版', volumeMap: '第一卷图' }, exec)
 
-    // Turning the second target into a directory makes the batch fail midway.
-    await rm(join(root, 'source/story/outline/volume_map.md'))
-    await mkdir(join(root, 'source/story/outline/volume_map.md'))
-
-    await assert.rejects(outline.execute({ storyFrame: '第二版', volumeMap: '第二卷图' }, exec))
+    // 第二个目标的父路径是一个文件：mkdir 失败，整批回滚。
+    await writeFile(join(root, 'source/story/outline/blocker'), 'x', 'utf8')
+    await assert.rejects(commitFoundation(root, {
+      writes: [
+        { relativePath: 'source/story/outline/story_frame.md', content: '第二版\n' },
+        { relativePath: 'source/story/outline/blocker/child.md', content: 'y' },
+      ],
+    }))
     assert.equal(await read(root, 'source/story/outline/story_frame.md'), '第一版\n')
+    assert.equal(await read(root, 'source/story/outline/blocker'), 'x')
   } finally {
     dispose()
   }

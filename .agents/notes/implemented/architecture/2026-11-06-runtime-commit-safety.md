@@ -1,6 +1,6 @@
 # Agent Note: runtime.commit-safety —— 路径包含、串行化与失败留痕
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -12,7 +12,7 @@ Status: proposed
 
 此外两处与源实现的差额不在本行：事务目录/日志字段/备份方式（源在作品根用 `.inkos-file-txn-*`、`entries[{path,existed}]`、rename 备份、`committed` 阶段；本实现沿用 `source/.staging-*` 格式）与跨进程锁。它们既非 DSH 强制也非不可观测，不能登记成偏差，已各自登记为债行 `runtime.txn-format` 与 `runtime.work-lock`。
 
-## Proposal
+## Decision
 
 ### 路径包含与冲突
 
@@ -52,21 +52,17 @@ Status: proposed
 
 **回滚失败时静默清理。** 日志更好看。否掉：调用方必须知道提交失败；源实现也保留目录并抛错。
 
-## Acceptance criteria
+## Consequences
 
-- 绝对路径、`../x`、空路径在本批任何磁盘操作前被拒绝；作品根外不产生文件或目录（死 staging 的回收可能先于本批校验发生，与源实现「先 recover 再校验」的顺序一致）。
-- 重复写路径、写删同一路径、目录与子路径冲突时拒绝，不留下 staging、目标文件不改动。
-- 同一根上两批提交串行执行（用带延时的任务断言顺序），前一批失败不阻塞后一批。
-- 提交前会回收属主已死的 staging：`applied` 删除、`prepared` 按 `existed` 恢复；活着的属主目录不动。
-- 日志在备份前写入且含 `existed`；回滚成功清理 staging；回滚失败保留 staging 并抛出原始错误；旧日志缺 `existed` 时恢复不删除文件。
-- `test/commit-safety.test.mjs` 覆盖以上；`test/recovery.test.mjs` 与 `test/foundation.test.mjs` 相关断言同批调整（恢复逻辑改用共享的 `parseJournal`，行为不变）。
-- 账本 `runtime.commit-safety` 的 `source` 改为 `utils/atomic-file-set.ts`、`dsh` 改为 `library + atomic write`；新增 `runtime.txn-format` 与 `runtime.work-lock` 两个债行（missing），并在 `docs/scope.md` 的 P1 列表登记；本行不写偏差登记——这两处差额是债，不是合法偏差。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/commit.ts`；consumer `packages/see-dsh-novel/test/commit-safety.test.mjs`；realRun `artifacts/real-runs/runtime.commit-safety.json`。
-- 真实运行：真实工作区上（1）一次含越界路径的提交被拒绝且无文件写出；（2）两批并发提交都完整落盘；（3）一次正常提交核对回执与文件。
+收益：整批提交现在在动盘前拒绝越界路径、重复写、写删冲突与目录/子路径重叠；同一作品根上的提交串行执行，提交前先回收属主已死的暂存目录；日志在备份前写入并记录 `existed`，回滚据此判断「恢复、删除还是不动」，回滚失败时保留 staging 与备份而不是一起删掉。
 
-## Risks
+落地：`packages/see-dsh-novel/src/core/commit.ts`（`safeRelativePath`、冲突检查、`withCommitQueue`、`recoverDeadStaging`、`existed` 日志与失败留痕、`parseJournal`／`pidAlive` 迁入）、`src/core/recovery.ts`（复用同一份日志解析与 `existed` 判据）。
 
-- 串行队列只在进程内生效；跨进程由 `runtime.work-lock` 承担。
-- `existed` 是新字段：旧 staging 日志没有它，恢复时采取保守策略（不删文件），可能需要人工判断。
-- 失败保留 staging 会占盘，直到下一次提交或自检清理。
-- 目录/子路径冲突检查是 O(n²)，路径数在几十条量级，不构成性能问题。
+验证见 `test/commit-safety.test.mjs`（路径越界、重复/冲突/重叠、队列顺序与失败不阻塞、死暂存按备份与 `existed` 恢复、旧日志不删文件、日志解析）与同批调整的 `test/foundation.test.mjs`（提交中途失败后回滚到旧内容）。
+
+### 代价与已知限制
+
+- 串行队列只在同一进程内生效；跨进程并发没有锁，差额已登记为债行 `runtime.work-lock`。
+- 事务目录位置、日志字段与备份方式仍沿用复刻自己的格式（`source/.staging-*`、`writes`／`deletes`、复制备份）；与源实现的差额登记为债行 `runtime.txn-format`，不写成合法偏差。
+- 旧日志没有 `existed` 时，恢复采取保守策略：没有备份的目标一律不动，可能留下半套文件等人工判断。
+- 回滚失败时 staging 会保留占盘，直到下一次提交或自检清理。
