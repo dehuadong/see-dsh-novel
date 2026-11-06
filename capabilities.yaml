@@ -265,17 +265,9 @@ capabilities:
     realRun: null
     status: missing
   - id: chapter.settle
-    title: fact/hook 抽取、状态草案、conflict 校验；settler 方法 prompt
+    title: fact/hook 抽取、状态草案、conflict 校验；settler 方法 prompt；伏笔六动作合并（提及与延后不推进）
     source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: tools.register + storage
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
-  - id: chapter.hook-ops
-    title: 伏笔六动作合并：提及与延后不推进、撤回需要依据
-    source: inkos:packages/core/src/utils/hook-arbiter.ts
-    dsh: library
     implementation: null
     consumer: null
     realRun: null

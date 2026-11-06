@@ -23,7 +23,7 @@ Status: proposed
 - 其余字段按源 schema 的类型要求：`hookId`／`type` 是非空字符串（长度 ≥ 1，不 trim——纯空白在源里合法），`expectedPayoff`／`notes` 是任意字符串（可为空），章节号是 ≥ 0 的整数；源 schema 没有「最近推进不得早于起始章」的约束，本行也不加；
 - 伏笔投影仍是七列，不含这两个字段（源投影同样不展示）；`story_hooks` 的 counts 不受影响。
 
-本行不实现六动作的生命周期语义：那是结算的输入格式与合并规则（源 `utils/hook-arbiter.ts`／`state/state-reducer.ts`），当前没有任何 DSH 消费者——authoring 侧的 `transitionHook` 不是它的调用方，也不能拿纯函数测试冒充运行时证据。六动作整体挪到 P4 的新债行 `chapter.hook-ops`（由 `chapter.settle` 调用），由那一行提供工具入口与会话证据；届时要照源实现逐字段对齐（含 `startChapter` 取 min、`type`／`expectedPayoff`／`notes` 的 trim 与空值回退、`resolved` 粘滞、两个新字段不从 incoming 复制、提及与延后不推进、撤回需 notes 等）。
+本行不实现六动作的生命周期语义：那是结算的输入格式与合并规则（源 `utils/hook-arbiter.ts`／`state/state-reducer.ts`），当前没有任何 DSH 消费者——authoring 侧的 `transitionHook` 不是它的调用方，也不能拿纯函数测试冒充运行时证据。六动作整体挪到 P4 的 `chapter.settle`（并入该行，不另立债行），由那一行提供工具入口与会话证据；届时要照源实现逐字段对齐（含 `startChapter` 取 min、`type`／`expectedPayoff`／`notes` 的 trim 与空值回退、`resolved` 粘滞、两个新字段不从 incoming 复制、提及与延后不推进、撤回需 notes 等）。
 
 ### 字段的可见性
 
@@ -47,7 +47,8 @@ Status: proposed
 - 合法记录经 `JSON.stringify` 往返后字段保留；`hooks.json` 的格式化与现在一致。
 - 类型校验对齐源 schema：`type` 为纯空白时接受（长度 ≥ 1），`notes`／`expectedPayoff` 缺失或非字符串时拒绝，`lastAdvancedChapter < startChapter` 不再额外拒绝。
 - `test/hooks.test.mjs` 补字段校验、未知字段与「纯空白 type 合法」用例；不含六动作相关断言。
-- `capabilities.yaml` 新增 `chapter.hook-ops`（missing），`docs/scope.md` 的 P4 说明指向它；本行标题只讲字段与校验。
+- `capabilities.yaml` 的 `chapter.settle` 行标题补「伏笔六动作合并（提及与延后不推进）」，`docs/scope.md` 的 P4 说明同步；本行标题只讲字段与校验。
+- 旧笔记 `implemented/architecture/2026-11-04-foundation-hooks.md` 的字段表同批更新：`lastAdvancedChapter` 改为「非负整数；不校验与起始章的先后（与源 schema 一致）」，因为同一批次的代码会删掉这条额外约束。
 - 实现与证据：implementation `packages/see-dsh-novel/src/core/hooks.ts`；consumer `packages/see-dsh-novel/test/hooks.test.mjs`；realRun `artifacts/real-runs/foundation.hook-ledger.json`。
 - 真实运行：在真实工作区手写一份带 `dependsOn`／`paysOffInArc` 的 `hooks.json`，调 `story_hooks` 确认成功且投影仍七列；再把记录加一个未知字段，调用报错并点名字段。
 
