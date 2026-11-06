@@ -9,6 +9,7 @@ import { join, resolve } from 'node:path'
 import { commitFoundation, pathExists } from './commit.js'
 import type { FileWrite } from './commit.js'
 import type { ProjectionLanguage } from './state-projections.js'
+import { ROLE_DIR_NAMES } from './story-paths.js'
 import {
   AUTHOR_INTENT_FILE,
   BRIEF_FILE,
@@ -47,8 +48,8 @@ export async function controlDocumentWrites(root: string, language: ProjectionLa
     mkdir(join(base, 'source/story'), { recursive: true }),
     mkdir(join(base, 'source/story/runtime'), { recursive: true }),
     mkdir(join(base, 'source/story/outline'), { recursive: true }),
-    mkdir(join(base, 'source/story/roles/主要角色'), { recursive: true }),
-    mkdir(join(base, 'source/story/roles/次要角色'), { recursive: true }),
+    mkdir(join(base, 'source/story/roles', ROLE_DIR_NAMES.major), { recursive: true }),
+    mkdir(join(base, 'source/story/roles', ROLE_DIR_NAMES.minor), { recursive: true }),
   ])
   const writes: FileWrite[] = []
   if (!(await pathExists(join(base, AUTHOR_INTENT_FILE)))) {

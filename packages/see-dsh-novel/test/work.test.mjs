@@ -260,6 +260,7 @@ test('the work tools create, show and refuse to overwrite', async () => {
     const show = registered.get(WORK_SHOW_NAME)
     assert.equal((await show.execute({}, exec)).work, null)
 
+    await assert.rejects(create.execute({ title: '没有意图' }, exec), /intent/)
     const created = await create.execute({ title: '工具立项', intent: '写一个关于夜行的故事', language: 'en', metadata: { targetChapters: 20 } }, exec)
     assert.equal(created.work.title, '工具立项')
     assert.equal(created.work.language, 'en')

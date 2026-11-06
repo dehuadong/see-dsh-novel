@@ -6,7 +6,7 @@
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../core/types.js'
 import { BRIEF_FILE } from '../core/story-paths.js'
-import { WORK_LANGUAGES, WORK_PROFILES, WORK_STATUSES, assertWorkAbsent, createWork } from '../core/work.js'
+import { WORK_LANGUAGES, WORK_PROFILES, WORK_STATUSES, createWork } from '../core/work.js'
 import type { Work } from '../core/work.js'
 import { describeWork, readWork, writeWork } from '../core/work.js'
 
@@ -122,11 +122,6 @@ export function installWorkTools(ctx: PluginContext): Disposer {
     },
     async execute(args: CreateArgs, exec: ExecuteContext): Promise<{ work: Work }> {
       const root = await workRoot(exec)
-      // 先判「已存在」，与源工程一致：坏文件优先报字段，存在优先报不覆盖。
-      await assertWorkAbsent(root)
-      if (typeof args.intent !== 'string' || args.intent.length === 0) {
-        throw new Error('intent 必须是非空字符串；它是作者原文，会写进 source/brief.md')
-      }
       return {
         work: await createWork(root, {
           title: args.title,

@@ -59,6 +59,10 @@ test('controlDocumentWrites fills only what is missing and creates the skeleton 
     assert.equal(first.find((write) => write.relativePath === AUTHOR_INTENT_FILE)?.content, defaultAuthorIntent('zh'))
     assert.equal(first.find((write) => write.relativePath === CURRENT_FOCUS_FILE)?.content, defaultCurrentFocus('zh'))
 
+    const { stat } = await import('node:fs/promises')
+    for (const dir of ['source/story', 'source/story/runtime', 'source/story/outline', 'source/story/roles/主要角色', 'source/story/roles/次要角色']) {
+      assert.equal((await stat(join(root, dir))).isDirectory(), true, `${dir} 应已建立`)
+    }
     await commitFoundation(root, { writes: first })
     assert.deepEqual(await controlDocumentWrites(root, 'en'), [], '已有文件不再生成写入项')
 

@@ -275,6 +275,8 @@ export async function createWork(
   const base = resolve(root)
   await assertWorkAbsent(base)
   const path = join(base, WORK_FILE)
+  // 带 brief 的创建必须给出原文：先判存在，再判字段，与「已存在优先」一致。
+  if (extraWrites.length > 0) verbatim(input.intent, path, 'intent')
 
   const title = text(input.title, path, 'title')
   const language = oneOf(input.language ?? 'zh', WORK_LANGUAGES, path, 'language') as WorkLanguage

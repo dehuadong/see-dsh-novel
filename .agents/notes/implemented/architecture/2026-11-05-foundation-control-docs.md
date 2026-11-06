@@ -7,7 +7,7 @@ Status: implemented
 源工程有三份控制文档，复刻侧一份都没有：
 
 - `source/brief.md`：`create_work` 把立意原文写在这里（`harness/tools/work-creation.ts:27`），同时存进 `metadata.intent`；作者最初的意图，写作与评审要读。`story/brief.md` 是另一条流水线的外部上下文槽，属于 P2，不在本行。
-- `story/author_intent.md`（长期方向）与 `story/current_focus.md`（短期焦点）：属于 truth 的 direction 类（`interaction/truth-authority.ts:30-32`）。`ensureControlDocuments` 在缺失时写入语言相关的默认模板；给了 `authorIntent` 就用它（`trimEnd() + "\n"`），否则用默认（`state/manager.ts:76-104`）。第一次真值写入前会先 `ensureControlDocuments`（`harness/tools/longform-edits.ts:105`），`loadControlDocuments` 读取前也会先补（`state/manager.ts:112`）。`authorIntent` 只在长篇初始化时由 runner 选项传入（`runner.ts:498-502`）；本行的立项走 `create_work`，不传它。写作时它们作为**优先于模型默认**的用户方向块注入（`agents/writer.ts:463-476`），上下文装配按 `readOrEmpty` 读取（`forecast/context-builder.ts:49-50`）。
+- `story/author_intent.md`（长期方向）与 `story/current_focus.md`（短期焦点）：属于 truth 的 direction 类（`interaction/truth-authority.ts:30-32`）。`ensureControlDocuments` 在缺失时写入语言相关的默认模板（给了 `authorIntent` 就优先用它，`trimEnd() + "\n"`；`state/manager.ts:76-104`）。第一次真值写入前会先 `ensureControlDocuments`（`harness/tools/longform-edits.ts:105`），`loadControlDocuments` 读取前也会先补（`state/manager.ts:112`）。`authorIntent` 只在长篇初始化时由 runner 选项传入（`runner.ts:498-502`）；本行的立项走 `create_work`，不传它。写作时它们作为**优先于模型默认**的用户方向块注入（`agents/writer.ts:463-476`），上下文装配按 `readOrEmpty` 读取（`forecast/context-builder.ts:49-50`）。
 
 复刻的 `story_work_create` 没有 `intent`，不写 `brief.md`；两份方向文档也没有任何播种入口，`readWork` 的 `metadata` 不认 `intent`。结果是立项后没有任何「作者意图」落盘，P2 的上下文装配到时读到空。
 
@@ -38,8 +38,10 @@ export async function readControlDocs(root: string, language: 'zh' | 'en' = 'zh'
 
 `controlDocumentWrites` 先建齐作品骨架目录（`story/`、`story/runtime/`、`story/outline/`、两个中文角色目录），再为缺失的方向文档生成写入项，由调用方并入同一次 `commitFoundation`：
 
-- `author_intent.md`：`authorIntent` 非空（去空白后）→ `authorIntent.trimEnd() + "\n"`；否则语言默认模板（中文 `# 作者意图\n\n（在这里描述这本书的长期创作方向。）\n`，英文 `# Author Intent\n\n(Describe the long-horizon vision for this book here.)\n`）；
+- `author_intent.md`：语言默认模板（中文 `# 作者意图\n\n（在这里描述这本书的长期创作方向。）\n`，英文 `# Author Intent\n\n(Describe the long-horizon vision for this book here.)\n`）；
 - `current_focus.md`：语言默认模板（中文 `# 当前聚焦\n\n## 当前重点\n\n（描述接下来 1-3 章最需要优先推进的内容。）\n`）。
+
+`authorIntent` 参数不在这条路径上：源工程只有长篇初始化（runner 选项）会传它，本行没有那个入口，方向文档一律写默认模板；作者要改方向走 `foundation.direction-write` 那一行。
 
 调用点与源工程一致：
 
@@ -63,11 +65,11 @@ export async function readControlDocs(root: string, language: 'zh' | 'en' = 'zh'
 
 ## Consequences
 
-收益：立项不再是「只有一个标题的身份」——作者的立意原文同时落进 `source/brief.md` 与 `work.json` 的 `metadata.intent`，逐字保存，不 trim；第一次写真值（`story_foundation_details`）时两份方向文档按语言默认模板补齐，读取前也会补，作者与模型都不会面对「文件不存在」与「文件为空」两种含糊状态。
+收益：立项不再是「只有一个标题的身份」——作者的立意原文同时落进 `source/brief.md` 与 `work.json` 的 `metadata.intent`，逐字保存，不 trim；每一次真值写入（outline、details、角色卡）都把两份方向文档按语言默认模板补齐，读取前也会补，作者与模型都不会面对「文件不存在」与「文件为空」两种含糊状态。
 
-落地：`packages/see-dsh-novel/src/core/control-docs.ts`（`ensureControlDocuments`、`readControlDocs`、默认模板）、`src/core/story-paths.ts`（`BRIEF_FILE`／`AUTHOR_INTENT_FILE`／`CURRENT_FOCUS_FILE`）、`src/core/work.ts`（`metadata.intent` 原样读写、`createWork` 与 brief 同一次提交）、`src/plugin/work-tools.ts`（`intent` 顶层必填、先校验后写）、`src/pipelines/long/tools.ts`（details 并入方向文档播种）。
+落地：`packages/see-dsh-novel/src/core/control-docs.ts`（`controlDocumentWrites`、`readControlDocs`、默认模板）、`src/core/story-paths.ts`（`BRIEF_FILE`／`AUTHOR_INTENT_FILE`／`CURRENT_FOCUS_FILE`）、`src/core/work.ts`（`metadata.intent` 原样读写、`createWork` 与 brief 同一次提交）、`src/plugin/work-tools.ts`（`intent` 顶层必填、先校验后写）、`src/pipelines/long/tools.ts`（details 并入方向文档播种）。
 
-验证见 `test/control-docs.test.mjs`（intent 原样与 brief 同批落盘、只补缺失、读取默认与自定义、brief 缺失返回空、details 首次写入播种）、`test/work.test.mjs`（立项带 intent、缺 intent 拒绝、坏身份先报字段）。
+验证见 `test/control-docs.test.mjs`（intent 原样与 brief 同批落盘、只补缺失、目录骨架、中英模板、读取默认与自定义、brief 缺失返回空、details 首次写入播种）、`test/work.test.mjs`（立项带 intent、缺 intent 拒绝、坏身份先报字段）。
 
 ### 代价与已知限制
 
