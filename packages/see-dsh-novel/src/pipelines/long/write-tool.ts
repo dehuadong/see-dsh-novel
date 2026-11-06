@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { loadChapterPlan } from '../../core/chapter-plan.js'
 import { writeChapterDocument } from '../../core/chapter-document.js'
+import { defaultChapterLength } from '../../core/length.js'
 import { readWork } from '../../core/work.js'
 
 export const WRITE_NAME = 'story_write_chapter'
@@ -60,7 +61,7 @@ export function installWriteTool(ctx: PluginContext): Disposer {
       if (plan === null) throw new Error(`第 ${args.chapter} 章还没有章纲，先规划再写`)
       const work = await readWork(root)
       if (work === null) throw new Error('工作区没有 work.json')
-      const target = work.metadata.chapterWordCount ?? 0
+      const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
       const result = await writeChapterDocument(root, {
         chapter: args.chapter,
         title: args.title,
