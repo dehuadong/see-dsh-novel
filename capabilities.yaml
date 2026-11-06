@@ -200,6 +200,14 @@ capabilities:
     consumer: null
     realRun: null
     status: missing
+  - id: runtime.txn-format
+    title: 提交事务格式：根目录事务、entries 日志、rename 备份与 committed 阶段
+    source: inkos:packages/core/src/utils/atomic-file-set.ts
+    dsh: library
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: proposal.execution-brief
     title: 提案执行说明：instruction 与默认规模随确认落盘，供后续会话续跑
     source: inkos:packages/core/src/harness/tools/longform-production.ts
