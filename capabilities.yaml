@@ -216,16 +216,8 @@ capabilities:
     consumer: packages/see-dsh-novel/test/proposal.test.mjs
     realRun: artifacts/real-runs/proposal.execution-brief.json
     status: verified
-  - id: plan.outline
-    title: 全书计划／卷图
-    source: inkos:packages/core/src/pipeline/persisted-governed-plan.ts
-    dsh: tools.register + storage
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
   - id: plan.chapter
-    title: 章纲 memo/threadRefs、闸门；planner 方法 prompt 与章前上下文装配
+    title: 章纲 memo/threadRefs、governed plan 持久化；planner 方法 prompt 与章前上下文装配
     source: inkos:packages/core/src/agents/planner.ts
     dsh: tools.register
     implementation: null
