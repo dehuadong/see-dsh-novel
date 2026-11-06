@@ -23,7 +23,7 @@ Status: implemented
 
 `src/pipelines/long/review-tool.ts` 的 `story_review_chapter`：章节必须有章纲与正文；返回 `{chapter, path, counts}`。
 
-阶段：`detectStage` 在「有章纲、有正文」后进入 `review`，协议要求「读正文与章纲 → 每条观察带证据 → 调 `story_review_chapter`」；`story:craft` 在 `review` 阶段注入 `longform-writing`。审稿方法不新增技能。
+阶段：`detectStage` 在「有章纲、有正文」后进入 `review`，协议要求「读正文与章纲 → 每条观察带证据 → 调 `story_review_chapter`」；`story:craft` 在 `review` 阶段注入**独立的审稿技能** `story-review`（含 `references/review-matrix.md`）。审稿方法与写作方法分开，与源工程一致。
 
 ## Alternatives considered
 
@@ -31,7 +31,7 @@ Status: implemented
 
 **审稿失败整章报错。** 否掉：源工程用 `unavailable` 观察让流程继续。
 
-**新审稿技能。** 否掉：方法在 `longform-writing` 参考文档里；阶段协议负责调用顺序。
+**把审稿方法塞进 `longform-writing`。** 否掉：审稿标准随题材与读者变化，与写作方法不同；独立 `story-review` 技能更清楚，也避免写作方法在审稿阶段被误用。
 
 **审稿 Markdown 投影。** 本行只存 JSON，人类可读投影留给面板/后续能力。
 
@@ -39,7 +39,7 @@ Status: implemented
 
 收益：审稿观察必须带可核对的原文证据；同章只能审一次；审稿记录可被后续修订与结算消费。
 
-验证见 `test/observation.test.mjs`（校验与五类错误码、unavailable 例外、counts）与 `test/chapter-review.test.mjs`（落盘、counts、重复拒绝、缺正文/章纲拒绝）；`test/stage-context.test.mjs` 覆盖 review 阶段与 craft。
+验证见 `test/observation.test.mjs`（校验与五类错误码、unavailable 例外、counts）与 `test/chapter-review.test.mjs`（落盘、counts、重复拒绝、缺正文/章纲拒绝）；`test/stage-context.test.mjs` 覆盖 review 阶段与 `story-review` 的注入。
 
 代价与已知限制：
 

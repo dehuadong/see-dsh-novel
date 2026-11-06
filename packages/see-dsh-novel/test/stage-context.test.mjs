@@ -99,7 +99,7 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       }
       if (kind === 'review') {
         assert.match(stageText, /story_review_chapter/)
-        assert.match(craftText, /创作方法（longform-writing）/)
+        assert.match(craftText, /创作方法（story-review）/)
       }
       if (kind === 'write') {
         assert.match(stageText, /story_write_chapter/)

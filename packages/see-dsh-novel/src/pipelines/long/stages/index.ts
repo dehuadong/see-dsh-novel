@@ -131,7 +131,10 @@ export function renderStageProtocol(facts: StageFacts): string {
 
 /** 本阶段主动加载的创作技能；空数组表示不注入。 */
 export function craftSkillsFor(stage: Stage): string[] {
-  return stage === 'proposal' ? ['story-proposal'] : stage === 'foundation' || stage === 'write' || stage === 'review' ? ['longform-writing'] : []
+  if (stage === 'proposal') return ['story-proposal']
+  if (stage === 'review') return ['story-review']
+  if (stage === 'foundation' || stage === 'write') return ['longform-writing']
+  return []
 }
 
 /** 读取技能正文与 references；缺失时返回空串而不是抛错。 */
