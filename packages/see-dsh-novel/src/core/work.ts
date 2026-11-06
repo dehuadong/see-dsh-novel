@@ -12,6 +12,7 @@ import { commitFile, commitFoundation, pathExists } from './commit.js'
 import type { FileWrite } from './commit.js'
 
 import {
+  BRIEF_FILE,
   ROLE_TIER_DIRS,
   STORY_FRAME_FILE,
   STORY_PENDING_HOOKS,
@@ -257,26 +258,24 @@ export async function assertWorkAbsent(root: string): Promise<void> {
 }
 
 export async function writeWork(root: string, input: WorkCreateInput): Promise<Work> {
-  return createWork(root, input, [])
+  return createWork(root, input)
 }
 
 /**
  * 立项并在同一次提交里写入附加文件（例如 brief）。
  * @param root 工作区根
- * @param input 作者给出的标题、语言、目标规模与意图
- * @param extraWrites 与身份一起原子落盘的其它文件
+ * @param input 作者给出的标题、语言与目标规模
+ * @param options 带 `intent` 键时写入 brief 与 `metadata.intent`；不带则只写身份
  * @returns 落盘的身份对象
  */
 export async function createWork(
   root: string,
   input: WorkCreateInput,
-  extraWrites: ReadonlyArray<FileWrite>,
+  options: { intent?: string, extraWrites?: ReadonlyArray<FileWrite> } = {},
 ): Promise<Work> {
   const base = resolve(root)
   await assertWorkAbsent(base)
   const path = join(base, WORK_FILE)
-  // 带 brief 的创建必须给出原文：先判存在，再判字段，与「已存在优先」一致。
-  if (extraWrites.length > 0) verbatim(input.intent, path, 'intent')
 
   const title = text(input.title, path, 'title')
   const language = oneOf(input.language ?? 'zh', WORK_LANGUAGES, path, 'language') as WorkLanguage
@@ -289,7 +288,6 @@ export async function createWork(
   }
   if (input.genre !== undefined) metadata.genre = text(input.genre, path, 'genre')
   if (input.platform !== undefined) metadata.platform = text(input.platform, path, 'platform')
-  if (input.intent !== undefined) metadata.intent = verbatim(input.intent, path, 'intent')
   const now = new Date().toISOString()
   const work: Work = {
     version: WORK_VERSION,
@@ -301,6 +299,12 @@ export async function createWork(
     metadata,
     createdAt: now,
     updatedAt: now,
+  }
+  const extraWrites = [...(options.extraWrites ?? [])]
+  if ('intent' in options) {
+    const intent = verbatim(options.intent, path, 'intent')
+    metadata.intent = intent
+    extraWrites.push({ relativePath: BRIEF_FILE, content: intent })
   }
   const content = `${JSON.stringify(work, null, 2)}\n`
   if (extraWrites.length === 0) await commitFile(base, WORK_FILE, content)

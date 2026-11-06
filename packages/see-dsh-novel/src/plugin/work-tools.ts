@@ -5,7 +5,6 @@
  * 所以放在 `plugin/` 而不是 `pipelines/long/` 下面。
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../core/types.js'
-import { BRIEF_FILE } from '../core/story-paths.js'
 import { WORK_LANGUAGES, WORK_PROFILES, WORK_STATUSES, createWork } from '../core/work.js'
 import type { Work } from '../core/work.js'
 import { describeWork, readWork, writeWork } from '../core/work.js'
@@ -131,7 +130,7 @@ export function installWorkTools(ctx: PluginContext): Disposer {
           chapterWordCount: args.metadata?.chapterWordCount,
           genre: args.metadata?.genre,
           platform: args.metadata?.platform,
-        }, [{ relativePath: BRIEF_FILE, content: args.intent }]),
+        }, { intent: args.intent }),
       }
     },
   } as ToolDefinition<CreateArgs, { work: Work }>)

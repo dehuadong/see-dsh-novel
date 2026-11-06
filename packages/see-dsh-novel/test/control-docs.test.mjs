@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -43,7 +43,7 @@ test('createWork stores the intent verbatim and writes the brief in the same com
   const root = await workspace()
   try {
     const intent = '  第一行\n第二行  '
-    const work = await createWork(root, { title: '原文', intent }, [{ relativePath: BRIEF_FILE, content: intent }])
+    const work = await createWork(root, { title: '原文' }, { intent })
     assert.equal(work.metadata.intent, intent)
     assert.equal(await readFile(join(root, BRIEF_FILE), 'utf8'), intent)
   } finally {
@@ -59,7 +59,6 @@ test('controlDocumentWrites fills only what is missing and creates the skeleton 
     assert.equal(first.find((write) => write.relativePath === AUTHOR_INTENT_FILE)?.content, defaultAuthorIntent('zh'))
     assert.equal(first.find((write) => write.relativePath === CURRENT_FOCUS_FILE)?.content, defaultCurrentFocus('zh'))
 
-    const { stat } = await import('node:fs/promises')
     for (const dir of ['source/story', 'source/story/runtime', 'source/story/outline', 'source/story/roles/主要角色', 'source/story/roles/次要角色']) {
       assert.equal((await stat(join(root, dir))).isDirectory(), true, `${dir} 应已建立`)
     }
