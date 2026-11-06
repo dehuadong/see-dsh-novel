@@ -15,7 +15,16 @@ export interface HookRecord {
   lastAdvancedChapter: number
   expectedPayoff: string
   notes: string
+  /** 这条伏笔依赖的其它伏笔 id；元素非空，不 trim、不唯一化。 */
+  dependsOn?: string[]
+  /** 预期在哪个卷（弧）回收；自由字符串，可为空。 */
+  paysOffInArc?: string
 }
+
+/** 记录允许出现的字段；与源 schema 的 strict 对象一致。 */
+const HOOK_FIELDS = [
+  'hookId', 'startChapter', 'type', 'status', 'lastAdvancedChapter', 'expectedPayoff', 'notes', 'dependsOn', 'paysOffInArc',
+] as const
 
 export interface HooksState {
   hooks: HookRecord[]
@@ -44,17 +53,29 @@ export function validateHooks(state: HooksState): HooksState {
   if (!Array.isArray(state?.hooks)) throw new Error('hooks 必须是数组')
   const seen = new Set<string>()
   for (const hook of state.hooks) {
-    if (typeof hook.hookId !== 'string' || hook.hookId.trim() === '') {
+    for (const key of Object.keys(hook)) {
+      if (!(HOOK_FIELDS as ReadonlyArray<string>).includes(key)) {
+        throw new Error(`${String(hook.hookId)} 上的未知字段：${key}`)
+      }
+    }
+    if (typeof hook.hookId !== 'string' || hook.hookId.length === 0) {
       throw new Error('伏笔缺少 hookId')
     }
     if (seen.has(hook.hookId)) throw new Error(`hookId 重复：${hook.hookId}`)
     seen.add(hook.hookId)
     if (!HOOK_STATUSES.includes(hook.status)) throw new Error(`${hook.hookId} 的 status 非法：${String(hook.status)}`)
-    if (typeof hook.type !== 'string' || hook.type.trim() === '') throw new Error(`${hook.hookId} 缺少 type`)
+    if (typeof hook.type !== 'string' || hook.type.length === 0) throw new Error(`${hook.hookId} 缺少 type`)
+    if (typeof hook.expectedPayoff !== 'string') throw new Error(`${hook.hookId} 的 expectedPayoff 必须是字符串`)
+    if (typeof hook.notes !== 'string') throw new Error(`${hook.hookId} 的 notes 必须是字符串`)
     if (!isNonNegativeInteger(hook.startChapter)) throw new Error(`${hook.hookId} 的 startChapter 非法`)
     if (!isNonNegativeInteger(hook.lastAdvancedChapter)) throw new Error(`${hook.hookId} 的 lastAdvancedChapter 非法`)
-    if (hook.lastAdvancedChapter < hook.startChapter) {
-      throw new Error(`${hook.hookId} 的最近推进早于起始章节`)
+    if (hook.dependsOn !== undefined) {
+      if (!Array.isArray(hook.dependsOn) || hook.dependsOn.some((id) => typeof id !== 'string' || id.length === 0)) {
+        throw new Error(`${hook.hookId} 的 dependsOn 必须是非空字符串数组`)
+      }
+    }
+    if (hook.paysOffInArc !== undefined && typeof hook.paysOffInArc !== 'string') {
+      throw new Error(`${hook.hookId} 的 paysOffInArc 必须是字符串`)
     }
   }
   return state

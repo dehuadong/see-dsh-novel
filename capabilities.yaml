@@ -180,9 +180,9 @@ capabilities:
     title: 伏笔台账：dependsOn／paysOffInArc 字段与严格校验
     source: inkos:packages/core/src/models/runtime-state.ts
     dsh: tools.register
-    implementation: null
-    consumer: null
-    realRun: null
+    implementation: packages/see-dsh-novel/src/core/hooks.ts
+    consumer: packages/see-dsh-novel/test/hooks.test.mjs
+    realRun: artifacts/real-runs/foundation.hook-ledger.json
     status: missing
   - id: runtime.commit-safety
     title: 提交安全：路径包含校验、按根串行化、回滚失败保留日志

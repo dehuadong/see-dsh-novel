@@ -18,7 +18,7 @@ Status: implemented
 | `startChapter` | 非负整数 |
 | `type` | 非空字符串 |
 | `status` | `open` / `progressing` / `deferred` / `resolved` / `superseded` |
-| `lastAdvancedChapter` | 非负整数，且不小于 `startChapter` |
+| `lastAdvancedChapter` | 非负整数；不校验与起始章的先后（与源 schema 一致） |
 | `expectedPayoff` | 字符串；已存条目的旧值可以为空，新候选必须给 |
 | `notes` | 字符串 |
 
@@ -64,7 +64,7 @@ Status: implemented
 
 收益：伏笔有了约束、迁移与稳定投影。`story_hooks` 在预设会话里可直接看到「# 伏笔池」表格；同一份状态必得同一份文本，排序不依赖插入顺序。
 
-真实运行已跑通（`session-974fa00e…`）：`story_hooks` 返回 `isError=false`，表格里是两条 `deferred` 条目，列与参考资料一致。测试 28 条覆盖校验、迁移、排序、转义与计数。
+真实运行已跑通（`session-974fa00e…`）：`story_hooks` 返回 `isError=false`，表格里是两条 `deferred` 条目，列与参考资料一致。测试覆盖校验、迁移、排序、转义与计数。
 
 代价与约束：
 

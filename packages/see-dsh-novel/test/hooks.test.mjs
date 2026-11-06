@@ -17,9 +17,24 @@ const hook = (over = {}) => ({
 test('validation rejects duplicate ids, unknown status and bad chapters', () => {
   assert.throws(() => validateHooks({ hooks: [hook(), hook()] }), /重复/)
   assert.throws(() => validateHooks({ hooks: [hook({ status: 'bogus' })] }), /status 非法/)
-  assert.throws(() => validateHooks({ hooks: [hook({ type: '  ' })] }), /缺少 type/)
+  assert.throws(() => validateHooks({ hooks: [hook({ type: '' })] }), /缺少 type/)
   assert.throws(() => validateHooks({ hooks: [hook({ lastAdvancedChapter: -1 })] }), /lastAdvancedChapter/)
-  assert.throws(() => validateHooks({ hooks: [hook({ startChapter: 3, lastAdvancedChapter: 1 })] }), /早于起始章节/)
+  // 源 schema 没有「最近推进不得早于起始章」的约束，这里也不拒绝。
+  assert.doesNotThrow(() => validateHooks({ hooks: [hook({ startChapter: 3, lastAdvancedChapter: 1 })] }))
+})
+
+test('the hook ledger accepts dependsOn and paysOffInArc, and rejects unknown fields', () => {
+  const withFields = hook({ dependsOn: ['H0', 'H2'], paysOffInArc: '第二卷' })
+  assert.deepEqual(validateHooks({ hooks: [withFields] }).hooks[0].dependsOn, ['H0', 'H2'])
+
+  // 源 schema 的 min(1)：空串拒绝，纯空白合法（不 trim）。
+  assert.throws(() => validateHooks({ hooks: [hook({ dependsOn: [''] })] }), /dependsOn/)
+  assert.throws(() => validateHooks({ hooks: [hook({ dependsOn: 'H0' })] }), /dependsOn/)
+  assert.throws(() => validateHooks({ hooks: [hook({ paysOffInArc: 3 })] }), /paysOffInArc/)
+  assert.throws(() => validateHooks({ hooks: [hook({ expectedPayoff: 3 })] }), /expectedPayoff/)
+  assert.throws(() => validateHooks({ hooks: [hook({ notes: null })] }), /notes/)
+  assert.throws(() => validateHooks({ hooks: [hook({ extra: true })] }), /未知字段/)
+  assert.doesNotThrow(() => validateHooks({ hooks: [hook({ type: '  ' })] }))
 })
 
 test('transitions follow the table and stop at terminal states', () => {
