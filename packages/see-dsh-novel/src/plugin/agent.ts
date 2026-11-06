@@ -11,6 +11,7 @@ import type { HooksState } from '../core/hooks.js'
 import type { Disposer, ExecuteContext, PluginContext, ToolDefinition } from '../core/types.js'
 import { readWork, workProbes } from '../core/work.js'
 import { installCastContext } from '../pipelines/long/cast.js'
+import { installStageContext } from '../pipelines/long/stages/index.js'
 import { installApprovalCommands } from '../pipelines/long/commands.js'
 import { installGateTools } from '../pipelines/long/gate.js'
 import { renderHooksProjection } from '../core/state-projections.js'
@@ -114,10 +115,12 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeRecovery = installRecoveryTool(ctx)
   const disposeProposal = installProposalTool(ctx)
   const disposeCast = installCastContext(ctx, PRESET_ID)
+  const disposeStages = installStageContext(ctx, PACKAGE_ROOT, PRESET_ID)
   const disposeSkills = installStorySkills(ctx, PACKAGE_ROOT)
 
   return (): void => {
     disposeSkills()
+    disposeStages()
     disposeCast()
     disposeProposal()
     disposeRecovery()

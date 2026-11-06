@@ -200,6 +200,14 @@ capabilities:
     consumer: null
     realRun: null
     status: missing
+  - id: runtime.stage-context
+    title: 阶段上下文：按阶段主动注入协议与创作技能，技能只留方法
+    source: inkos:packages/core/src/agents/writer-prompts.ts
+    dsh: systemPrompt.context() + skills
+    implementation: packages/see-dsh-novel/src/pipelines/long/stages/index.ts
+    consumer: packages/see-dsh-novel/test/stage-context.test.mjs
+    realRun: artifacts/real-runs/runtime.stage-context.json
+    status: missing
   - id: runtime.txn-format
     title: 提交事务格式：根目录事务、entries 日志、rename 备份与 committed 阶段
     source: inkos:packages/core/src/utils/atomic-file-set.ts
