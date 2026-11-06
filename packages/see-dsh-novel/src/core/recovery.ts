@@ -8,7 +8,7 @@ import { cp, readdir, readFile, rm } from 'node:fs/promises'
 import { join, resolve, sep } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
-import { STAGING_PREFIX, commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive } from './commit.js'
+import { STAGING_PREFIX, commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive, restoreFromBackups } from './commit.js'
 import type { CommitJournal } from './commit.js'
 import { PROJECTION_SOURCES, inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
@@ -343,17 +343,7 @@ function contained(root: string, relativePath: string): string | undefined {
 
 /** 用备份还原一份 `prepared` 提交；越界路径跳过，整目录最后删掉。 */
 async function rollback(root: string, staging: string, journal: CommitJournal): Promise<void> {
-  const backupDir = join(staging, 'backup')
-  for (const relativePath of [...journal.writes, ...journal.deletes]) {
-    const target = contained(root, relativePath)
-    if (target === undefined) continue
-    const backup = join(backupDir, relativePath)
-    if (await pathExists(backup)) {
-      await cp(backup, target, { force: true })
-      continue
-    }
-    if (!journal.existed?.includes(relativePath) && journal.existed !== undefined) await rm(target, { force: true })
-  }
+  await restoreFromBackups(root, join(staging, 'backup'), [...journal.writes, ...journal.deletes], { existed: journal.existed })
   await rm(staging, { recursive: true, force: true })
 }
 

@@ -5,7 +5,7 @@
  * 目标），让崩溃后的下一次运行能判断这批文件改到哪一步；认领与回滚由
  * `runtime.recovery` 负责。提交按作品根排队，提交前先回收属主已死的暂存目录。
  */
-import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { dirname, isAbsolute, join, normalize, resolve, sep } from 'node:path'
 
@@ -119,9 +119,53 @@ export async function withCommitQueue<T>(root: string, task: () => Promise<T>): 
   }
 }
 
-/** 写一份提交日志；调用方决定失败时是否吞掉。 */
+/** 写一份提交日志：临时文件 + fsync + rename，崩溃不会留下半份日志。 */
 async function writeJournal(staging: string, journal: CommitJournal): Promise<void> {
-  await writeFile(join(staging, JOURNAL_FILE), `${JSON.stringify(journal, null, 2)}\n`, 'utf8')
+  const temporary = join(staging, 'journal.next')
+  const handle = await open(temporary, 'w', 0o600)
+  try {
+    await handle.writeFile(`${JSON.stringify(journal, null, 2)}\n`)
+    await handle.sync()
+  } finally {
+    await handle.close()
+  }
+  await rename(temporary, join(staging, JOURNAL_FILE))
+}
+
+/**
+ * 按备份还原：有备份就写回；没有备份时按 existed / applied 判断要不要删掉半套产物。
+ * @param base 作品根
+ * @param backupDir 备份目录
+ * @param touched 本次触及的路径
+ * @param options existed（提交前已存在）与 applied（已应用）清单
+ */
+export async function restoreFromBackups(
+  base: string,
+  backupDir: string,
+  touched: ReadonlyArray<string>,
+  options: { existed?: ReadonlyArray<string>, applied?: ReadonlyArray<string> },
+): Promise<void> {
+  for (const raw of touched) {
+    let relativePath: string
+    try {
+      relativePath = safeRelativePath(raw)
+    } catch {
+      continue
+    }
+    const backup = join(backupDir, relativePath)
+    const target = resolve(base, relativePath)
+    if (await pathExists(backup)) {
+      await mkdir(dirname(target), { recursive: true })
+      await rm(target, { recursive: true, force: true })
+      await cp(backup, target, { recursive: true, force: true })
+      continue
+    }
+    const existed = options.existed
+    const shouldDelete = options.applied !== undefined
+      ? options.applied.includes(raw) && existed !== undefined && !existed.includes(raw)
+      : existed !== undefined && !existed.includes(raw)
+    if (shouldDelete) await rm(target, { force: true, recursive: true })
+  }
 }
 
 /**
@@ -159,25 +203,7 @@ export async function recoverDeadStaging(base: string): Promise<void> {
 /** 恢复一批已死属主的 `prepared` 提交；没有备份且原目标不存在的才删除。 */
 async function restoreDeadPrepared(base: string, staging: string, journal: CommitJournal): Promise<void> {
   const backupDir = join(staging, 'backup')
-  const existed = journal.existed ?? []
-  for (const relativePath of [...journal.writes, ...journal.deletes]) {
-    let safePath: string
-    try {
-      safePath = safeRelativePath(relativePath)
-    } catch {
-      continue
-    }
-    const backup = join(backupDir, safePath)
-    const target = resolve(base, safePath)
-    if (await pathExists(backup)) {
-      await mkdir(dirname(target), { recursive: true })
-      await rm(target, { recursive: true, force: true })
-      await cp(backup, target, { recursive: true, force: true })
-    } else if (!existed.includes(relativePath)) {
-      // 没有备份、提交前也不存在：这是半套产物。旧日志没有 existed，保守不动。
-      if (journal.existed !== undefined) await rm(target, { force: true })
-    }
-  }
+  await restoreFromBackups(base, backupDir, [...journal.writes, ...journal.deletes], { existed: journal.existed })
 }
 
 /**
@@ -281,7 +307,7 @@ async function commitBatch(
   } catch (error) {
     if (journalWritten) {
       try {
-        await restore(base, backupDir, touched, applied, existed)
+        await restoreFromBackups(base, backupDir, touched, { existed, applied })
       } catch {
         // 回滚也失败：把日志属主改成 0，下一次提交或自检可以接管并保留现场。
         try {
@@ -297,26 +323,7 @@ async function commitBatch(
   }
 }
 
-/** 把备份写回原位；没有备份时按 `existed` 判断是否删除半套产物。 */
-async function restore(
-  base: string,
-  backupDir: string,
-  touched: ReadonlyArray<string>,
-  applied: ReadonlyArray<string>,
-  existed: ReadonlyArray<string>,
-): Promise<void> {
-  for (const relativePath of touched) {
-    const backup = join(backupDir, relativePath)
-    const target = resolve(base, relativePath)
-    if (await pathExists(backup)) {
-      await mkdir(dirname(target), { recursive: true })
-      await rm(target, { recursive: true, force: true })
-      await cp(backup, target, { recursive: true, force: true })
-    } else if (applied.includes(relativePath) && !existed.includes(relativePath)) {
-      await rm(target, { force: true })
-    }
-  }
-}
+
 
 /**
  * 单文件写入：同目录临时文件写完再 rename。
