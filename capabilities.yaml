@@ -160,8 +160,8 @@ capabilities:
     consumer: packages/see-dsh-novel/test/state-projections.test.mjs
     realRun: artifacts/real-runs/foundation.truth-projections.json
     status: verified
-  - id: foundation.direction-write
-    title: 真值文件替换写入：方向文档、book rules、outline 与角色卡
+  - id: foundation.truth-write
+    title: 真值文件替换写入：方向文档、状态真值、book rules、outline 与角色卡
     source: inkos:packages/core/src/harness/tools/longform-edits.ts
     dsh: tools.register + atomic write
     implementation: null

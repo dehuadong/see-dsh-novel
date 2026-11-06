@@ -1,4 +1,4 @@
-# Agent Note: foundation.direction-write —— 真值文件替换写入
+# Agent Note: foundation.truth-write —— 真值文件替换写入
 
 Status: proposed
 
@@ -14,14 +14,14 @@ Status: proposed
 - `book_rules.md` 走特例：必须带 `bookRulesData`，补 `version: "2"` 后同时写 `book_rules.json`（`:107-119`）；
 - 返回 `Updated "<fileName>"` 与 `{ kind: "truth_file_updated", fileName }`（`:124-129`）。
 
-只实现其中两份方向文档会把其余六类文件的写入入口留空，而它们各有明确的源行为与消费者；这不是 DSH 机制限制，属于保真债，所以本行按源白名单整体落地。
+只实现其中两份方向文档会把其余文件的写入入口留空，而它们在源工程里都有明确行为与（多数还有）消费者；这不是 DSH 机制限制，属于保真债，所以本行按源白名单整体落地。`style_guide`／`parent_canon`／`fanfic_canon` 在复刻侧暂时没有读取方，写入行为仍按源实现保留，等对应能力接上。
 
 ## Proposal
 
 ### 工具：`story_truth_file`
 
 - 参数：`fileName: string`、`content: string`、`bookRulesData?: object`；
-- `fileName` 规范化照源实现：去空白；没有 `.md` 后缀就补；拒绝绝对路径、反斜杠、`..`、空名；大小写不敏感地匹配白名单；角色卡只接受 `roles/(主要角色|次要角色|major|minor)/<name>.md`；
+- `fileName` 规范化照源实现：去空白；没有 `.md` 后缀就补；拒绝绝对路径、反斜杠、`..`、空名；匹配白名单时大小写不敏感，**落盘路径取白名单的规范小写形式**（`Author_Intent` → `author_intent.md`），角色卡保留档位目录名与文件名的原始大小写；角色卡只接受 `roles/(主要角色|次要角色|major|minor)/<name>.md`；
 - 未知名字拒绝，报错列出允许的名字；
 - `content` 原样落盘（允许空串）；
 - `book_rules.md` 特例：缺 `bookRulesData` 拒绝；用现有 `withVersion` 补版本并校验，同时写 `book_rules.md` 与 `book_rules.json`；
@@ -51,13 +51,13 @@ Status: proposed
 
 ## Acceptance criteria
 
-- 白名单内每个名字都能写入：九份平铺文件、两份 outline、四种角色目录下的 `.md`；未知名字拒绝且不写盘。
+- 白名单内每个名字都能写入，且落盘路径是规范形式：九份平铺文件与两份 outline 一律小写文件名（`Author_Intent` 写 `author_intent.md`），四种角色目录保留原名大小写；未知名字拒绝且不写盘。
 - `book_rules.md`：缺 `bookRulesData` 拒绝；带数据时同一次提交写出 `book_rules.md` 与带 `version:"2"` 的 `book_rules.json`；非法数据不落盘。
 - 方向文档缺失时同一次提交补齐默认模板；目标文件自身不重复写入（不出现 ENOENT、不丢文件）。
 - 内容逐字一致（含首尾空白与空串）；角色卡写入只改指定路径。
 - 返回 `{ fileName, written }`，`written` 为实际落盘路径；渲染为 `Updated "<fileName>"`。
 - `test/truth-file.test.mjs` 覆盖白名单、名字规范化与拒绝、book rules 特例、方向文档补齐、内容原样；`test/host.test.mjs` 工具清单加入 `story_truth_file`；`docs/scope.md` 的 P1 条目改为「真值文件替换写入」。
-- `capabilities.yaml` 的 `foundation.direction-write` 行标题改为「真值文件替换写入」、`source: harness/tools/longform-edits.ts`。
+- `capabilities.yaml` 的行 id 改为 `foundation.truth-write`，标题覆盖整份白名单，`source: harness/tools/longform-edits.ts`。
 - 实现与证据：implementation `packages/see-dsh-novel/src/plugin/truth-tool.ts`；consumer `packages/see-dsh-novel/test/truth-file.test.mjs`；realRun `artifacts/real-runs/foundation.direction-write.json`。
 - 真实运行：在已有作品的会话里用 `story_truth_file` 写 `author_intent.md` 与 `current_focus.md`（内容逐字核对），写一次 `book_rules.md`（带 `bookRulesData`，核对两份文件与版本），再用未知名字调一次确认报错。
 
