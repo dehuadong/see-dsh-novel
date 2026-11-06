@@ -299,13 +299,13 @@ export async function createWork(
     createdAt: now,
     updatedAt: now,
   }
-  const content = `${JSON.stringify(work, null, 2)}\n`
   if ('intent' in options) {
     const intent = verbatim(options.intent, path, 'intent')
     metadata.intent = intent
+    const content = `${JSON.stringify(work, null, 2)}\n`
     await commitFoundation(base, { writes: [{ relativePath: BRIEF_FILE, content: intent }, { relativePath: WORK_FILE, content }] })
   } else {
-    await commitFile(base, WORK_FILE, content)
+    await commitFile(base, WORK_FILE, `${JSON.stringify(work, null, 2)}\n`)
   }
   return work
 }
