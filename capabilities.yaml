@@ -167,7 +167,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/pipelines/long/truth-tool.ts
     consumer: packages/see-dsh-novel/test/truth-file.test.mjs
     realRun: artifacts/real-runs/foundation.truth-write.json
-    status: missing
+    status: verified
   - id: foundation.control-docs
     title: 控制文档：author_intent.md／current_focus.md／brief.md 的播种与读取
     source: inkos:packages/core/src/state/manager.ts

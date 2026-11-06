@@ -1,0 +1,16 @@
+{
+  "capability": "foundation.truth-write",
+  "date": "2026-11-06",
+  "sessionId": "session-def287c5-1fb5-41d3-b58e-db5774a8adb1",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "226 passed — truth-file 5 例（白名单与规范化、越界与 JSON 名拒绝、方向文档原样写入、空内容、六份其它平铺文件逐一写入、book rules 缺数据与非法数据不落盘、两份角色目录、outline、单行回执、写入路径只列请求文件）＋ host 5 例（工具清单含 story_truth_file）"
+  },
+  "receipts": [
+    "真实运行（`work-truth`，session `session-def287c5-1fb5-41d3-b58e-db5774a8adb1`）：`story_truth_file` 写 `author_intent.md`，回执 `Updated \"author_intent.md\"`；写 `book_rules.md`（带 `bookRulesData`），回执 `Updated \"book_rules.md\"`；写 `nope.md` 回执 `Error: 不在白名单里的真值文件：\"nope.md\"；允许：author_intent.md、…`（列出允许名字）",
+    "`source/story/author_intent.md` 与入参逐字一致（19 字符，含开头的 `#`、两个换行与中文标点）；`book_rules.md` 与入参逐字一致（含末尾换行）",
+    "`source/story/book_rules.json` 首项是 `\"version\": \"2\"`，字段为 prohibitions／enableFullCastTracking／allowedDeviations；`current_focus.md` 在同一次提交里被补齐为中文默认模板",
+    "`written` 只列本次请求的真值文件（book rules 两条、其余一条），同批补齐的方向文档不计入"
+  ]
+}
