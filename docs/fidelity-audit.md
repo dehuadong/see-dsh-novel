@@ -181,9 +181,63 @@
 
 **判定：机制等价**（DSH 用 `systemPrompt.context()` 替代源调用点拼装；已在 `docs/dsh-mapping.md`「方法注入」行登记）。
 
+## 批次 C：P2 章前规划
+
+### plan.retrieval
+
+**源工程证据**：`retrieval/local-search.ts` 的 `retrieval_documents`（scope、kind、source、title/body 与各自 tokens、metadata、content_hash）、FTS5 索引、BM25 排序、`buildMatchQuery` 的分词规则。
+
+**复刻现状**：`core/search-index.ts` 用 `retrieval_documents` + `retrieval_fts`，按 scope/kind 过滤、BM25 排序、内容哈希增量；CJK 用逐字加空格 + 短语匹配（源是 unicode61 分词）；文档类型只有 hook／summary／role／material／outline。
+
+**判定：保真债** — D10：分词与文档类型与源不同（CJK 逐字 vs unicode61；缺 skill 参考资料等 scope）。偿还：`plan.retrieval` 行对齐分词与来源类型。
+
+### plan.context-select
+
+**源工程证据**：`agents/composer.ts` 的固定来源（方向、风格指南、大纲、上一章、runtime chapter memo、parent/fanfic canon）、四个选择器（memory／role／state／outline）、预算与 `ChapterTrace` 七字段。
+
+**复刻现状**：`core/context-package.ts` 用**一个** composer 指令做四类选择，protected 只有 current_focus／author_intent／大纲；无 style_guide、上一章正文、chapter_memo、parent/fanfic canon；trace 有七字段但 retrieval 候选结构与源不同。
+
+**判定：保真债** — D11：固定来源缺项；D12：四个选择器合并为一个子代理任务（源是同一 ComposerAgent 的四类选择，但上下文与提示分开）；偿还：`plan.context-select` 行补齐固定来源与选择提示。
+
+### plan.compression
+
+**源工程证据**：`composer.ts` 用模型 context window 计算可用输入预算，超预算时用 LLM 压缩 compressible，protected 超预算直接报错，压缩结果写 trace.compression。
+
+**复刻现状**：`assembleContext` 的预算来自调用方传入的 `contextWindowTokens`／`reservedOutputTokens`；压缩文本由调用方传入；protected 超预算报错一致；trace.compression 六字段一致。
+
+**判定：保真债** — D13：窗口与压缩文本由调用方手填，宿主没有从模型信息推导窗口、也没有把 compressible 交给子代理压缩的固定路径。偿还：`plan.compression` 行接模型窗口并固定压缩任务协议。
+
+### plan.chapter
+
+**源工程证据**：`agents/planner.ts` 的 system prompt（"把 governed context 编译为章节 memo，不写正文，方法来自 Skill"）、user message 分段（指令／上下文／上一章／字数遥测）、memo 三字段、intent 投影；`runner.ts` 按持久进度取下一章、可复用已存 plan。
+
+**复刻现状**：memo 三字段与 intent 投影一致；规划方法与流程在 `story:stage`／`story-plan`；**没有 planner system prompt 与 user message 的注入**；章节连续性按 `current_state.chapter + 1`，已有 plan 拒绝（源可复用）。
+
+**判定：保真债** — D14：planner 提示词未注入；D15：重规划／复用语义与源不同。偿还：`plan.chapter` 行补提示词与 plan 复用语义。
+
+## 批次 D：P3 写作与审稿
+
+### chapter.write
+
+**源工程证据**：`agents/writer.ts` 的 `buildWriterSystemPrompt`：作品身份、governed contract、length contract（目标、计数口径）、narrative person、protagonist 规则、book rules 与 style guide 权威块；WriterAgent 返回标题与正文。
+
+**复刻现状**：`story_write_chapter` 只校验章纲、标题、正文并落盘；标题由模型传入；writer 子代理的提示由主编临场拼，缺少上述契约块。
+
+**判定：保真债** — D16：writer system prompt 的五个契约块未注入；标题生成契约未对齐。偿还：`chapter.write` 行补 writer 提示与标题规则。
+
+### chapter.review
+
+**源工程证据**：审稿 system prompt 要求按审稿 Skill 与权威上下文审查、提交编号原文证据；宿主把 `governed-context` 与 `chapter-N` 一起编号；审计失败生成 `unavailable` 观察；`reviewedArtifact` 记录被审版本。
+
+**复刻现状**：`story_review_chapter` 校验观察并落盘；来源只有章节正文与章纲 memo；**编号原文没有注入**，模型需自己读取；没有 `reviewedArtifact`。
+
+**判定：保真债** — D17：编号原文与完整上下文未注入；D18：`reviewedArtifact` 缺失（依赖 `artifact.identity` 行）。偿还：`chapter.review` 行补注入，版本记录跟随 `artifact.identity`。
+
 ## 后续批次
 
 - ~~批次 B（P1）~~：已完成。
+- ~~批次 C（P2）~~：已完成。
+- ~~批次 D（P3）~~：已完成。
 - 批次 C（P2）：`plan.*`；
 - 批次 D（P3）：`chapter.write`、`chapter.review`。
 
