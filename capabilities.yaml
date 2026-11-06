@@ -247,7 +247,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/chapter-plan.ts
     consumer: packages/see-dsh-novel/test/chapter-plan.test.mjs
     realRun: artifacts/real-runs/plan.chapter.json
-    status: missing
+    status: verified
   - id: chapter.write
     title: 首版正文；writer 方法 prompt 与场景／篇幅预算
     source: inkos:packages/core/src/agents/writer.ts

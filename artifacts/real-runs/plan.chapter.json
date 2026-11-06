@@ -1,0 +1,15 @@
+{
+  "capability": "plan.chapter",
+  "date": "2026-11-06",
+  "sessionId": "session-b699d3f8-f5e4-4030-83a2-ed33bca6c897",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "252 passed — chapter-plan 4 例（plan JSON 与 intent 投影、空 refs 的 - (none)、读取往返与 identity、缺 md 回退、空白与类型校验且不落盘）＋ host 工具与 skill 清单含 story_plan_chapter／story-plan"
+  },
+  "receipts": [
+    "真实运行（`work-empty-2`，session `session-b699d3f8-f5e4-4030-83a2-ed33bca6c897`）：主编调 `story_plan_chapter`（chapter 1，goal「让沈砚在雨夜接下无尸命案，并发现编号牌指向二十年前的旧案」，threadRefs [\"H-01\"]，plannerInputs [\"source/story/outline/story_frame.md\"]），回执「第 1 章章纲已落盘：source/story/runtime/chapter-0001.plan.json、source/story/runtime/chapter-0001.intent.md」",
+    "落盘内容：`plan.json` 为 `{version:2, intent:{chapter:1,goal}, memo:{chapter,goal,body,threadRefs:[\"H-01\"]}, plannerInputs}`；`intent.md` 与源格式逐字一致（`# Chapter Intent`／`## Goal`／`## Chapter Memo`／`### Thread Refs`／`### Body`）",
+    "同一会话用同样参数再调一次，回执「Error: 第 1 章已经有章纲，不覆盖」，两个文件未被改写"
+  ]
+}
