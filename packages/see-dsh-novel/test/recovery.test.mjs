@@ -257,6 +257,11 @@ test('a readable but wrong-shaped state file is reported and never overwritten',
     assert.deepEqual(applied, [])
     assert.equal(await readFile(join(root, 'source/story/state/hooks.json'), 'utf8'), '{"hooks":null}')
 
+    // 顶层未知字段也按源 schema 拒绝。
+    await writeFile(join(root, 'source/story/state/hooks.json'), '{"hooks":[],"extra":1}', 'utf8')
+    const extra = await scanWorkspace(root)
+    assert.ok(extra.findings.some((entry) => entry.code === 'state-invalid' && entry.path === 'source/story/state/hooks.json'))
+
     // 元素形状坏了也算 invalid：不能等到渲染时才 TypeError。
     await writeFile(join(root, 'source/story/state/hooks.json'), '{"hooks":[{"hookId":null}]}', 'utf8')
     const deep = await scanWorkspace(root)

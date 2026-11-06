@@ -147,7 +147,7 @@ function isCurrentState(value: unknown): value is CurrentStateState {
 function isHooksState(value: unknown): value is HooksState {
   if (!isRecord(value) || !Array.isArray(value.hooks)) return false
   try {
-    validateHooks({ hooks: value.hooks } as HooksState)
+    validateHooks(value as unknown as HooksState)
     return true
   } catch {
     return false
