@@ -99,6 +99,7 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
     STORY_NEXT_NAME,
     'story_propose',
     'story_recover',
+    'story_search',
     'story_telemetry',
     'story_truth_file',
     'story_work_create',

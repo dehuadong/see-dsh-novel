@@ -22,6 +22,7 @@ import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contra
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
 import { controlDocumentWrites } from '../../core/control-docs.js'
+import { installSearchTool } from './search-tool.js'
 import { installTruthFileTool } from './truth-tool.js'
 import { stateWritesIfMissing } from '../../core/state.js'
 import { projectionLanguage } from './language.js'
@@ -243,6 +244,7 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
     },
   } as ToolDefinition<CastIndexArgs, { roles: IndexedRole[] }>))
 
+  disposers.push(installSearchTool(ctx))
   disposers.push(installTruthFileTool(ctx))
 
   return (): void => {
