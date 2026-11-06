@@ -183,7 +183,7 @@ capabilities:
     implementation: packages/see-dsh-novel/src/core/hooks.ts
     consumer: packages/see-dsh-novel/test/hooks.test.mjs
     realRun: artifacts/real-runs/foundation.hook-ledger.json
-    status: missing
+    status: verified
   - id: runtime.commit-safety
     title: 提交安全：路径包含校验、按根串行化、回滚失败保留日志
     source: inkos:packages/core/src/utils/atomic-file-set.ts

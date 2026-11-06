@@ -1,0 +1,16 @@
+{
+  "capability": "foundation.hook-ledger",
+  "date": "2026-11-06",
+  "sessionId": "session-c277e8d7-5c9b-4ddf-a112-f5edd2a0db2a",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "221 passed — hooks 4 例（重复 id、非法状态、空 type、章节先后不再拒绝、dependsOn／paysOffInArc 接受与 JSON 往返、空串与类型拒绝、状态与记录未知字段拒绝、null 记录拒绝、纯空白 type 合法）＋ recovery 27 例（含 hooks.json 顶层未知字段判 state-invalid）"
+  },
+  "receipts": [
+    "真实运行（`work-hook`，session `session-c277e8d7-5c9b-4ddf-a112-f5edd2a0db2a`）：`hooks.json` 的 H1 带 `dependsOn: [\"H0\"]` 与 `paysOffInArc: \"第一卷\"`，调 `story_hooks` 返回正常回执「# 伏笔池」七列表格，含 `H1` 行，回执里不出现 `dependsOn`／`paysOffInArc`",
+    "反例：给 H1 加未知字段 `mysteryField` 后再调 `story_hooks`，回执为 `Error: H1 上的未知字段：mysteryField`；恢复文件后不再报错",
+    "字段在落盘 JSON 中保留并参与严格校验；投影保持七列，与源工程的读视图一致",
+    "六动作的生命周期语义不在本行：`chapter.settle` 行标题与 `docs/scope.md` 的 P4 说明已登记，由结算行带着工具入口与会话证据落地"
+  ]
+}
