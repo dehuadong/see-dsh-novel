@@ -161,7 +161,7 @@ capabilities:
     realRun: artifacts/real-runs/foundation.truth-projections.json
     status: verified
   - id: foundation.direction-write
-    title: 方向文档的替换写入（author_intent／current_focus）
+    title: 真值文件替换写入：方向文档、book rules、outline 与角色卡
     source: inkos:packages/core/src/harness/tools/longform-edits.ts
     dsh: tools.register + atomic write
     implementation: null
