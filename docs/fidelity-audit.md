@@ -231,7 +231,7 @@
 
 **复刻现状**：`story_review_chapter` 校验观察并落盘；来源只有章节正文与章纲 memo；**编号原文没有注入**，模型需自己读取；没有 `reviewedArtifact`。
 
-**判定：保真债** — D17：编号原文与完整上下文未注入；D18：`reviewedArtifact` 缺失（依赖 `artifact.identity` 行）。偿还：`chapter.review` 行补注入，版本记录跟随 `artifact.identity`。
+**判定：保真债（D17 已偿还，D18 未偿还）** — 编号原文与章纲已由 `stages/review.ts` 注入 `review` 阶段，审稿方与宿主共用同一编号基准；`reviewedArtifact` 仍缺，随 `artifact.identity` 行偿还。
 
 ## 后续批次
 

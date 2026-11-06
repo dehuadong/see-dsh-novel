@@ -1,16 +1,16 @@
 {
   "capability": "chapter.review",
   "date": "2026-11-06",
-  "sessionId": "session-ce205fc1-132d-4795-a5dd-748cd6312358",
+  "sessionId": "session-537f5d37-9a32-4f9c-8377-3f7133346435",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "269 passed — observation 4 例（证据解析、五类错误码、unavailable 例外、counts）＋ chapter-review 2 例（落盘与 counts、重复拒绝、缺章纲/正文拒绝）＋ stage review 阶段"
+    "summary": "272 passed — observation 4 例、chapter-review 2 例、review-contract 3 例（编号来源、去标题行、英文、缺文件）、stage review 阶段"
   },
   "receipts": [
-    "证据校验（`work-writer`，session `session-ce205fc1-132d-4795-a5dd-748cd6312358`）：提交带未知 sourceId 的观察时工具返回 `Error: {\"code\":\"REVIEW_SOURCE_UNKNOWN\",\"path\":\"/observations/0/sourceRefs/0\"}`，未落盘",
-    "有效审稿：同一会话提交带行号引用的观察与一条 unavailable 观察后，工具返回「第 1 章审稿已落盘：source/story/runtime/chapter-0001.review.json（issue 5／resolved 0／observation 0／unavailable 1）」",
-    "审稿记录：`chapter-0001.review.json` 含 `{version:1, chapter, summary, observations, counts}`；每条非 unavailable 观察带 `sourceRefs[{sourceId, quote}]`，quote 来自 `chapter-1` 或 `governed-context` 的原文",
-    "同一章再提交审稿会被拒绝（`第 1 章已经有审稿记录，不覆盖`）；缺章纲或正文时报错且不落盘（测试覆盖）"
+    "编号原文注入（`work-review`，session `session-537f5d37-9a32-4f9c-8377-3f7133346435`）：未调用工具，首轮抄出「## 来源 chapter-1」下 `1 | 测试` 与「## 来源 governed-context」下 `1 | 场景一：雨夜接案…`，与宿主 `numberSourceLines` 的编号逐字一致，且不含 `# 第1章 雨夜` 标题行",
+    "按注入行号提交观察：`{code:\"opening\", assessment:\"observation\", sourceRefs:[{sourceId:\"chapter-1\", startLine:1, endLine:1}]}` 落盘 `chapter-0001.review.json`，回执「issue 0／resolved 0／observation 1／unavailable 0」；记录中的 quote 为行 1 原文「测试」",
+    "校验错误码：同一工作区早前提交未知 sourceId 的观察返回 `REVIEW_SOURCE_UNKNOWN` 且不落盘（`work-writer`，session `session-ce205fc1-132d-4795-a5dd-748cd6312358`）",
+    "同一章再提交审稿会被拒绝；缺章纲或正文时报错且不落盘（测试覆盖）"
   ]
 }
