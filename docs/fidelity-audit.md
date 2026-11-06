@@ -223,7 +223,7 @@
 
 **复刻现状**：`story_write_chapter` 只校验章纲、标题、正文并落盘；标题由模型传入；writer 子代理的提示由主编临场拼，缺少上述契约块。
 
-**判定：保真债** — D16：writer system prompt 的五个契约块未注入；标题生成契约未对齐。偿还：`chapter.write` 行补 writer 提示与标题规则。
+**判定：机制等价（D16 已偿还）** — 六段 writer 契约（权威／字数／人称／主角／规则／风格）与本章章纲由 `stages/writer.ts` 注入 write 阶段；标题拒绝章号前缀。完整 `ContextPackage` 注入仍归 D11。
 
 ### chapter.review
 
