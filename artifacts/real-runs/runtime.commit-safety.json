@@ -1,0 +1,16 @@
+{
+  "capability": "runtime.commit-safety",
+  "date": "2026-11-06",
+  "sessionId": "session-f7541248-d2ea-4309-f754-1248d2ea4309",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "234 passed — commit-safety 8 例（路径越界、重复/写删/目录重叠、队列顺序与失败不阻塞、死暂存按备份与 existed 恢复、旧日志不删文件、日志解析、existed 无备份保留）＋ recovery 27 例（阶段与回滚）＋ foundation 8 例（中途失败回滚）"
+  },
+  "receipts": [
+    "真实运行（`work-commit`，脚本 `check-commit-safety.mjs`）：含 `../escape.md` 的提交被拒绝，回执为 `提交路径必须留在作品根内：\"../escape.md\"`，作品根外没有生成文件",
+    "两批并发提交（`withCommitQueue`）按队列顺序执行：先入队的延时任务先完成（输出 `A,B`）；两批 `commitFoundation` 并发写 `a.md`／`b.md` 都完整落盘（`A B`）",
+    "正常提交两条写入：回执 `source\\story\\c.md | source\\story\\d.md`（Windows 分隔符，与 `normalize` 一致），`source/` 下没有残留 `.staging-*` 目录",
+    "回滚失败时的日志属主会改成 0，下一次提交或 `story_recover` 可以接管；死暂存回收在提交前执行"
+  ]
+}
