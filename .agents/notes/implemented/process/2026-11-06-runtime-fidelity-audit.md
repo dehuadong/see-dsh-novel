@@ -1,6 +1,6 @@
 # Agent Note: runtime.fidelity-audit —— 逐行保真对照与债登记
 
-Status: proposed
+Status: implemented
 
 ## Problem
 
@@ -13,7 +13,7 @@ Status: proposed
 
 这些说明「测试通过」不等于「行为一致」。
 
-## Proposal
+## Decision
 
 ### 审计产物
 
@@ -56,16 +56,16 @@ Status: proposed
 
 **用对话结论代替文档。** 否掉：保真的记忆不靠对话；规则与对照必须落盘。
 
-## Acceptance criteria
+## Consequences
 
-- `docs/fidelity-audit.md` 覆盖全部已 `verified` 的行（当前 30 行）与待验的 `chapter.review`；每行四栏齐全，判定只能是三种之一。
-- 所有「机制等价」在 `docs/dsh-mapping.md` 有对应偏差行；所有「保真债」在 `docs/scope.md` 有偿还行。
-- 每行的不变量至少有一条落到测试或真实回执；没有证据的条目标「源行为不可观测」并写检索范围。
-- 审计发现的错误映射（例如源模块指向错误）当批修正 `capabilities.yaml` 的 `source:`。
-- 产物：`docs/fidelity-audit.md`、更新后的 `docs/dsh-mapping.md` 与 `docs/scope.md`；本行不进账本（治理工作，不产生运行时行为）。
+审计产物：`docs/fidelity-audit.md`（P0–P3 四批，30 行 verified 与 1 行待验）；债项写进 `docs/scope.md`。
 
-## Risks
+发现 18 条保真债（D1–D18），集中在三类：
 
-- 审计工作量与仓库规模相当，可能横跨多轮；按批次交付，避免一次做不完。
-- 源工程部分行为依赖其运行时（Provider、数据库、CLI），只能判「不可观测」并写清检索范围，不能当作等价。
-- 审计结论会暴露大量债，短期会拖慢新能力；这是把「测试通过」换成「行为一致」的代价。
+- 提示词层：architect、planner、writer、reviewer 的 system prompt 与契约块没有移植（D6、D14、D16、D17）；
+- 契约层：提案缺 min/max 章长、ready 判据文件集、truth 允许列表、事务目录前缀、命令选项与默认值（D1–D5、D7–D9）；
+- 机制层：检索分词与来源类型、上下文固定来源与选择器拆分、压缩窗口来源、plan 复用、reviewedArtifact（D10–D13、D15、D18）。
+
+判定为等价的只有：`proposal.execution-brief`、`foundation.control-docs`、`foundation.hook-ledger`、`foundation.rule-contract`、`foundation.truth-projections`。`runtime.stage-context` 是机制等价，沿用 `docs/dsh-mapping.md` 的「方法注入」行。
+
+后续按债项逐行补齐；补齐前不把对应行视为行为等价。
