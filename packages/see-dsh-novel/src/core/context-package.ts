@@ -36,6 +36,14 @@ export interface ChapterTrace {
   selectedSources: string[]
   contextTiers: { protectedSources: string[], compressibleSources: string[] }
   tokenBudget: { protectedTokens: number, compressibleTokens: number, totalSelectedTokens: number }
+  compression?: {
+    compiledSource: string
+    protectedSources: string[]
+    compressedSources: string[]
+    protectedTokens: number
+    compressibleTokens: number
+    budgetTokens: number
+  }
   retrieval: {
     engine: 'sqlite-fts5-bm25'
     query: string
@@ -110,6 +118,7 @@ export function assembleContext(input: {
   candidates: ReadonlyArray<Candidate>
   selection: Selection
   maxChars?: number
+  compression?: { text: string }
 }): { package: ContextPackage, trace: ChapterTrace } {
   const notes: string[] = []
   const byId = new Map(input.candidates.map((candidate) => [candidate.id, candidate]))
@@ -141,7 +150,31 @@ export function assembleContext(input: {
   const compressibleTokens = compressible.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0)
   const maxChars = input.maxChars ?? 24000
   const totalChars = selected.reduce((sum, entry) => sum + (entry.excerpt?.length ?? 0), 0)
-  if (totalChars > maxChars) notes.push(`超预算 ${totalChars - maxChars} 字符（不截断）`)
+  let compressionTrace: ChapterTrace['compression']
+  if (totalChars > maxChars) {
+    if (input.compression === undefined) {
+      throw new Error(`上下文超预算 ${totalChars - maxChars} 字符，需要先压缩可压缩层`)
+    }
+    const compiled = input.compression.text.trim()
+    if (compiled === '') throw new Error('compressedText 不能为空')
+    const compressedSources = selected.filter((entry) => entry.protection === 'compressible').map((entry) => entry.source)
+    const protectedOnly = selected.filter((entry) => entry.protection === 'protected')
+    compressionTrace = {
+      compiledSource: compiled,
+      protectedSources: protectedOnly.map((entry) => entry.source),
+      compressedSources,
+      protectedTokens: protectedOnly.reduce((sum, entry) => sum + estimateTokens(entry.excerpt ?? ''), 0),
+      compressibleTokens: estimateTokens(compiled),
+      budgetTokens: Math.floor(maxChars / 2),
+    }
+    notes.push(`已压缩 ${compressedSources.length} 条可压缩来源`)
+    selected.splice(0, selected.length, ...protectedOnly, {
+      source: 'compiled:context',
+      reason: '压缩后的可压缩层',
+      excerpt: compiled,
+      protection: 'compressible',
+    })
+  }
 
   return {
     package: { chapter: input.chapter, selectedContext: selected },
@@ -165,6 +198,7 @@ export function assembleContext(input: {
         semanticSelectedIds: selectedIds,
       },
       notes,
+      ...(compressionTrace === undefined ? {} : { compression: compressionTrace }),
     },
   }
 }

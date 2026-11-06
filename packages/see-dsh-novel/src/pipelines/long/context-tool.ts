@@ -41,6 +41,7 @@ const packageParameters: JsonSchema = {
       },
       required: ['memory', 'role', 'state', 'outline'],
     },
+    compressedText: { type: 'string', description: '超预算时由 composer 子代理给出的压缩文本；未超预算可省略' },
   },
   required: ['query', 'selection'],
 }
@@ -105,12 +106,19 @@ export function installContextTools(ctx: PluginContext): Disposer {
         ].join('\n'),
       }],
     },
-    async execute(args: { query: string, selection: Selection }, exec: ExecuteContext): Promise<{ package: ContextPackage, trace: unknown }> {
+    async execute(args: { query: string, selection: Selection, compressedText?: string }, exec: ExecuteContext): Promise<{ package: ContextPackage, trace: unknown }> {
       if (!exec?.agent) throw new Error('story_context_package 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
       const chapter = await nextChapter(root)
       const [protectedEntries, candidates] = await Promise.all([protectedContext(root), collectCandidates(root, args.query)])
-      return assembleContext({ chapter, query: args.query, protectedEntries, candidates, selection: args.selection })
+      return assembleContext({
+        chapter,
+        query: args.query,
+        protectedEntries,
+        candidates,
+        selection: args.selection,
+        ...(args.compressedText === undefined ? {} : { compression: { text: args.compressedText } }),
+      })
     },
   } as ToolDefinition<{ query: string, selection: Selection }, { package: ContextPackage, trace: unknown }>)
 

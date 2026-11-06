@@ -51,3 +51,21 @@ test('an empty selection is a complete-mode package with only the protected laye
   assert.deepEqual(pkg.selectedContext, [])
   assert.equal(trace.retrieval.selectionMode, 'complete')
 })
+
+test('over-budget context requires a compression text', () => {
+  const input = {
+    chapter: 1,
+    query: 'x',
+    protectedEntries: [{ source: 'source/story/current_focus.md', reason: 'f', excerpt: '甲'.repeat(50), protection: 'protected' }],
+    candidates: [candidate('memory:hook', 'memory')],
+    selection: { memory: ['memory:hook'], role: [], state: [], outline: [] },
+    maxChars: 10,
+  }
+  assert.throws(() => assembleContext(input), /需要先压缩/)
+  const { package: pkg, trace } = assembleContext({ ...input, compression: { text: '压 缩 后 的 上 下 文' } })
+  assert.deepEqual(pkg.selectedContext.map((entry) => entry.source), ['source/story/current_focus.md', 'compiled:context'])
+  assert.equal(trace.compression.compiledSource, '压 缩 后 的 上 下 文')
+  assert.deepEqual(trace.compression.compressedSources, ['source/story/memory:hook.md'])
+  assert.equal(trace.compression.budgetTokens, 5)
+  assert.throws(() => assembleContext({ ...input, compression: { text: '   ' } }), /不能为空/)
+})

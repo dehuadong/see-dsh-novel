@@ -233,12 +233,12 @@ capabilities:
     realRun: artifacts/real-runs/plan.context-select.json
     status: verified
   - id: plan.compression
-    title: 超预算压缩：LLM 压缩可压缩层，失败即报错，不静默截断
+    title: 超预算压缩：子代理压缩可压缩层，失败即报错，不静默截断
     source: inkos:packages/core/src/agents/composer.ts
-    dsh: library
-    implementation: null
-    consumer: null
-    realRun: null
+    dsh: subagents + library
+    implementation: packages/see-dsh-novel/src/core/context-package.ts
+    consumer: packages/see-dsh-novel/test/context-package.test.mjs
+    realRun: artifacts/real-runs/plan.compression.json
     status: missing
   - id: plan.chapter
     title: 章前规划：planner 提示词、memo 与 governed plan 落盘
