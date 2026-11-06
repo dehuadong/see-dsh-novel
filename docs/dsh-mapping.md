@@ -51,3 +51,10 @@
 - 复刻做法：`validateHooks` 拒绝重复的 `hookId`，报错点名重复的那个 id。
 - 原因：复刻的状态读写以 `hookId` 为索引（投影排序、计数、结算合并都按 id 归并），重复 id 会让读到的状态与写入的不一致，且没有可观察的修复点。
 - 验证：`packages/see-dsh-novel/test/hooks.test.mjs` 的 `hookId 重复` 用例。
+
+### `/story-init --brief`：简报路径相对工作区根解析
+
+- 源工程做法：CLI `book create --brief <path>` 从进程当前目录读取简报文件。
+- 复刻做法：`/story-init --brief <path>` 相对当前工作区根解析，路径必须留在工作区内。
+- 原因：DSH 命令没有独立的进程 cwd，命令能拿到的稳定根只有会话工作区；用工作区根解析也让「简报属于作品」这件事可预期。
+- 验证：`packages/see-dsh-novel/test/work-command.test.mjs` 的 `--brief` 用例（含 `../x.md` 被拒绝）。

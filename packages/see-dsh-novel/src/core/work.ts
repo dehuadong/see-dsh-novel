@@ -267,10 +267,10 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
  * @param options 带 `intent` 键时写入 brief 与 `metadata.intent`；`extraWrites` 与身份同一次提交
  * @returns 落盘的身份对象
  */
-export async function createWork(
+export async function prepareWork(
   root: string,
   input: WorkCreateInput,
-  options: { intent?: string, extraWrites?: ReadonlyArray<FileWrite> } = {},
+  options: { intent?: string } = {},
 ): Promise<Work> {
   const base = resolve(root)
   await assertWorkAbsent(base)
@@ -299,12 +299,19 @@ export async function createWork(
     createdAt: now,
     updatedAt: now,
   }
+  if ('intent' in options) metadata.intent = verbatim(options.intent, path, 'intent')
+  return work
+}
+
+export async function createWork(
+  root: string,
+  input: WorkCreateInput,
+  options: { intent?: string, extraWrites?: ReadonlyArray<FileWrite>, prepared?: Work } = {},
+): Promise<Work> {
+  const base = resolve(root)
+  const work = options.prepared ?? await prepareWork(root, input, options.intent === undefined ? {} : { intent: options.intent })
+  const intent = 'intent' in options ? verbatim(options.intent, join(base, WORK_FILE), 'intent') : undefined
   const extraWrites = [...(options.extraWrites ?? [])]
-  let intent: string | undefined
-  if ('intent' in options) {
-    intent = verbatim(options.intent, path, 'intent')
-    metadata.intent = intent
-  }
   const content = `${JSON.stringify(work, null, 2)}\n`
   if (extraWrites.length === 0 && intent === undefined) {
     await commitFile(base, WORK_FILE, content)

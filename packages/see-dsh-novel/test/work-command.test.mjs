@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -48,7 +48,7 @@ test('parseWorkCreate reads the title and the three options', () => {
     parseWorkCreate('  夜行 测试  --lang en --chapters 80 --words 2500 '),
     { title: '夜行 测试', language: 'en', targetChapters: 80, chapterWordCount: 2500 },
   )
-  assert.equal(parseWorkCreate('标题 --brief 自定义简报').brief, '自定义简报')
+  assert.equal(parseWorkCreate('标题 --brief briefs/创作.md').brief, 'briefs/创作.md')
 })
 
 test('parseWorkCreate keeps the title as the author wrote it', () => {
@@ -124,6 +124,44 @@ test('the default language is zh and the default scale is 200 x 3000', async () 
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.language, 'zh')
     assert.deepEqual(onDisk.metadata, { targetChapters: 200, chapterWordCount: 3000 })
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('--brief reads a file relative to the workspace root', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const { mkdir, writeFile } = await import('node:fs/promises')
+    await mkdir(join(root, 'briefs'), { recursive: true })
+    await writeFile(join(root, 'briefs/创作.md'), '  自定义简报内容  \n', 'utf8')
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '带简报 --brief briefs/创作.md' })
+    assert.equal(result.kind, 'success')
+    assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), '自定义简报内容')
+    // 越界的简报路径被拒绝。
+    await assert.rejects(
+      commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '越界 --brief ../x.md' }).then((r) => {
+        if (r.kind === 'error') throw new Error(r.text)
+        return r
+      }),
+      /留在作品根内|ENOENT/,
+    )
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('an invalid language writes nothing at all', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '坏语言 --lang fr' })
+    assert.equal(result.kind, 'error')
+    assert.match(result.text, /language/)
+    assert.deepEqual(await readdir(root), [])
   } finally {
     await cleanup(root)
   }
