@@ -39,6 +39,7 @@ Status: proposed
 - 确认通道与卡片渲染由 `proposal.creative` 拥有；本行只加 instruction、默认规模与建书时的两份文件（`story/brief.md`、`author_intent` 兜底）；
 - `foundation.control-docs` 的 `controlDocumentWrites` 重新接受可选 `authorIntent`（只在建书时传），它的读取路径与默认模板行为不变；
 - `proposal.creative` 的真实运行回执（当时「只有 work.json、没有 source/」）先于本行；本行落地时同批重跑一次提案批准的真实运行，并把 `artifacts/real-runs/proposal.creative.json` 更新到新行为（session、文件清单、回执），不留下过期证据。
+- `/story-init` 的默认规模属于 `runtime.commands` 行（implementation `work-command.ts`、consumer `work-command.test.mjs`）；`artifacts/real-runs/runtime.commands.json` 原只有显式 90／2800 与「缺少标题」两例，本行落地时补一条「不传规模」的会话证据并把回执更新。
 
 ## Alternatives considered
 
@@ -56,9 +57,9 @@ Status: proposed
 - 批准后：`work.json` 的 `metadata.targetChapters` 默认 200、`metadata.chapterWordCount` 中文 3000／英文 2000；作者显式给值时用作者的值。
 - 批准后：`source/story/brief.md` 与 instruction 逐字一致；`source/story/author_intent.md` 是 `instruction.trimEnd() + "\n"`（instruction 为空白时不可能出现，校验已拒绝）；`current_focus.md` 是语言默认模板。
 - `work.json` 的 `metadata.intent` 不因本行变化（它属于 `story_work_create` 的 `intent`）。
-- `test/proposal.test.mjs` 同批更新（instruction、默认规模、brief、author_intent）；新增 `test/length.test.mjs`；`test/work.test.mjs` 与 `test/host.test.mjs` 里 `/story-init` 的默认规模断言同批更新。
+- `test/proposal.test.mjs` 同批更新（instruction、默认规模、brief、author_intent）；新增 `test/length.test.mjs`；`test/work-command.test.mjs` 里 `/story-init` 的默认规模用例同批更新，`test/host.test.mjs` 的命令名/参数断言如受影响一并调整。
 - `source/story/brief.md` 的路径常量进 `story-paths.ts`（`STORY_EXTERNAL_BRIEF`）；它的读取方是 P2 的外部上下文，不在本行，`docs/scope.md` 的 P2 说明写明。
-- 实现与证据：implementation `packages/see-dsh-novel/src/core/proposal.ts` 与 `src/core/length.ts`；consumer `packages/see-dsh-novel/test/proposal.test.mjs`；写入路径在 `src/plugin/proposal-tool.ts`、`src/core/work.ts`（`createWork` 的额外写入）与 `src/core/control-docs.ts`（`authorIntent` 兜底）；realRun `artifacts/real-runs/proposal.execution-brief.json`。
+- 实现与证据：implementation `packages/see-dsh-novel/src/core/proposal.ts` 与 `src/core/length.ts`；consumer `packages/see-dsh-novel/test/proposal.test.mjs`；写入路径在 `src/plugin/proposal-tool.ts`、`src/core/work.ts`（`createWork` 的额外写入）、`src/core/control-docs.ts`（`authorIntent` 兜底）与 `src/plugin/work-command.ts`（`/story-init` 默认规模）；realRun `artifacts/real-runs/proposal.execution-brief.json`。
 - 真实运行：空工作区会话里调 `story_propose`（带 instruction）并批准，核对 `work.json` 的默认规模、`source/story/brief.md`、`author_intent` 与 `current_focus`；同一次运行更新 `proposal.creative` 的回执；再用缺 instruction 的调用确认被拒绝。
 
 ## Risks
