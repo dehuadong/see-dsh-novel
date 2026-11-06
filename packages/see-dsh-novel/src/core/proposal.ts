@@ -86,7 +86,7 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
 }
 
 /**
- * 确认卡文案：标题、分类、语言、目标规模、摘要各一行内容，缺的字段不出现。
+ * 确认卡文案：标题与分类语言规模、摘要、instruction；作者没给的规模不出现。
  * @param draft 提案
  * @returns 卡片文本
  */

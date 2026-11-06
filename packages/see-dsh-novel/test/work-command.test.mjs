@@ -48,6 +48,7 @@ test('parseWorkCreate reads the title and the three options', () => {
     parseWorkCreate('  夜行 测试  --lang en --chapters 80 --words 2500 '),
     { title: '夜行 测试', language: 'en', targetChapters: 80, chapterWordCount: 2500 },
   )
+  assert.equal(parseWorkCreate('标题 --brief 自定义简报').brief, '自定义简报')
 })
 
 test('parseWorkCreate keeps the title as the author wrote it', () => {
@@ -85,6 +86,9 @@ test('the command writes work.json and reports the identity', async () => {
         + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
     )
 
+    assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), 'Create 《夜行测试》')
+    assert.equal(await readFile(join(root, 'source/story/author_intent.md'), 'utf8'), 'Create 《夜行测试》\n')
+
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.title, '《夜行测试》')
     assert.equal(onDisk.language, 'en')
@@ -116,6 +120,7 @@ test('the default language is zh and the default scale is 200 x 3000', async () 
       '已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字）\n'
         + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
     )
+    assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), 'Create 夜行测试')
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.language, 'zh')
     assert.deepEqual(onDisk.metadata, { targetChapters: 200, chapterWordCount: 3000 })

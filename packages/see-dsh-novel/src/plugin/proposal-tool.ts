@@ -8,11 +8,10 @@ import type {
   ApprovalOutcome, Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition,
 } from '../core/types.js'
 import { APPROVAL_OUTCOMES } from '../core/types.js'
-import { controlDocumentWrites } from '../core/control-docs.js'
+import { initWork } from '../core/init-work.js'
 import { defaultChapterLength } from '../core/length.js'
 import { proposalCard, parseProposal } from '../core/proposal.js'
-import { STORY_EXTERNAL_BRIEF } from '../core/story-paths.js'
-import { createWork, describeWork, readWork, WORK_LANGUAGES } from '../core/work.js'
+import { describeWork, readWork, WORK_LANGUAGES } from '../core/work.js'
 import { approvalServiceOf, confirmationPolicy } from '../pipelines/long/gate.js'
 
 /** 工具名；注册与测试共用。 */
@@ -32,7 +31,7 @@ export interface ProposalResult {
   summary: string | null
 }
 
-/** 参数：标题与摘要必填，其余可选。 */
+/** 参数：标题、摘要与 instruction 必填，其余可选。 */
 export const proposeParameters: JsonSchema = {
   type: 'object',
   additionalProperties: false,
@@ -98,21 +97,15 @@ export async function proposeWork(
   if (outcome !== 'allowed-once') {
     return { created: false, outcome, card, summary: null }
   }
-  // 建书：身份、外部上下文（story/brief.md）与方向文档兜底走同一次提交。
-  const controlWrites = await controlDocumentWrites(root, draft.language, draft.instruction)
-  const work = await createWork(root, {
+  // 建书：身份、外部上下文与方向文档兜底走同一次提交。
+  const work = await initWork(root, {
     title: draft.title,
     language: draft.language,
     targetChapters: draft.targetChapters ?? 200,
     chapterWordCount: draft.chapterWordCount ?? defaultChapterLength(draft.language),
     genre: draft.genre,
     platform: draft.platform,
-  }, {
-    extraWrites: [
-      ...controlWrites,
-      { relativePath: STORY_EXTERNAL_BRIEF, content: draft.instruction },
-    ],
-  })
+  }, draft.instruction)
   return { created: true, outcome: 'allowed-once', card, summary: describeWork(work) }
 }
 

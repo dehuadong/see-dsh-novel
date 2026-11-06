@@ -264,7 +264,7 @@ export async function writeWork(root: string, input: WorkCreateInput): Promise<W
  * 立项并在同一次提交里写入附加文件（例如 brief）。
  * @param root 工作区根
  * @param input 作者给出的标题、语言与目标规模
- * @param options 带 `intent` 键时写入 brief 与 `metadata.intent`；不带则只写身份
+ * @param options 带 `intent` 键时写入 brief 与 `metadata.intent`；`extraWrites` 与身份同一次提交
  * @returns 落盘的身份对象
  */
 export async function createWork(

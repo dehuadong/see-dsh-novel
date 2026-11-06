@@ -4,9 +4,11 @@
  * 命令的输入是一整行文本、没有 schema，所以解析单独做成纯函数：语法错误在这里
  * 点名参数，语言枚举、正整数、已存在与坏文件这些语义错误仍由 `writeWork` 报
  * （消息里带文件与字段），命令层不复制同一套规则。
+ * 建书写入与提案批准共用 `initWork`：身份、`story/brief.md` 与方向文档一次提交。
  */
 import type { CommandInvocationLike, CommandResultLike, Disposer, PluginContext } from '../core/types.js'
-import { describeWork, writeWork } from '../core/work.js'
+import { initWork } from '../core/init-work.js'
+import { describeWork } from '../core/work.js'
 
 /** 命令名；注册与测试共用。 */
 export const COMMAND_INIT = 'story-init'
@@ -19,6 +21,8 @@ export interface WorkCreateArgs {
   chapterWordCount?: number
   genre?: string
   platform?: string
+  /** 作者给的创作简报；缺省时用 `Create <title>`。 */
+  brief?: string
 }
 
 /** 一个选项的写法：取值校验与落点都在这里，新增选项只改这张表。 */
@@ -39,6 +43,7 @@ const OPTIONS: Record<string, OptionSpec> = {
   '--words': { apply: (input, value, flag) => { input.chapterWordCount = integerOf(flag, value) } },
   '--genre': { apply: (input, value) => { input.genre = value } },
   '--platform': { apply: (input, value) => { input.platform = value } },
+  '--brief': { apply: (input, value) => { input.brief = value } },
 }
 
 interface Token {
@@ -119,12 +124,21 @@ export function installInitCommand(ctx: PluginContext): Disposer {
     name: COMMAND_INIT,
     description: '在当前工作区立项：写下 work.json（标题、语言、目标章数、单章字数、题材与平台）。',
     // 不声明 input 时，命令在候选菜单里一选中就派发，作者来不及补参数。
-    input: { hint: '《标题》 [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台]' },
+    input: { hint: '《标题》 [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台] [--brief 创作简报]' },
     async handler(invocation: CommandInvocationLike): Promise<CommandResultLike> {
       try {
         const root = await ctx.workingDirectory.ensure(invocation.agent)
         if (!root) throw new Error('无法解析当前工作区目录')
-        const work = await writeWork(root, parseWorkCreate(invocation.rawInput))
+        const args = parseWorkCreate(invocation.rawInput)
+        const instruction = args.brief?.trim() || `Create ${args.title}`
+        const work = await initWork(root, {
+          title: args.title,
+          language: args.language,
+          targetChapters: args.targetChapters,
+          chapterWordCount: args.chapterWordCount,
+          genre: args.genre,
+          platform: args.platform,
+        }, instruction)
         return {
           kind: 'success',
           text: `已立项${describeWork(work)}\n`
