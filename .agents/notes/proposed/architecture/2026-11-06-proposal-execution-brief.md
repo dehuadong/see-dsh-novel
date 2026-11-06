@@ -61,6 +61,7 @@ Status: proposed
 - `source/story/brief.md` 的路径常量进 `story-paths.ts`（`STORY_EXTERNAL_BRIEF`）；它的读取方是 P2 的外部上下文，不在本行，`docs/scope.md` 的 P2 说明写明。
 - 实现与证据：implementation `packages/see-dsh-novel/src/core/proposal.ts` 与 `src/core/length.ts`；consumer `packages/see-dsh-novel/test/proposal.test.mjs`；写入路径在 `src/plugin/proposal-tool.ts`、`src/core/work.ts`（`createWork` 的额外写入）、`src/core/control-docs.ts`（`authorIntent` 兜底）与 `src/plugin/work-command.ts`（`/story-init` 默认规模）；realRun `artifacts/real-runs/proposal.execution-brief.json`。
 - 真实运行：空工作区会话里调 `story_propose`（带 instruction）并批准，核对 `work.json` 的默认规模、`source/story/brief.md`、`author_intent` 与 `current_focus`；同一次运行更新 `proposal.creative` 的回执；再用缺 instruction 的调用确认被拒绝。
+- 真实运行（命令入口）：另一个空工作区里执行不带规模参数的 `/story-init`，核对 `work.json` 的 `metadata.targetChapters` 为 200、`metadata.chapterWordCount` 为 3000，并把这一例补进 `artifacts/real-runs/runtime.commands.json`。
 
 ## Risks
 
