@@ -83,8 +83,8 @@ test('the draft rejects missing or invalid fields', () => {
   assert.throws(() => parseProposal({ title: '书', summary: 's' }), /instruction/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: '  ' }), /instruction/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', language: 'fr' }), /language/)
-  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapters: 0 }), /chapters/)
-  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapterWords: 2.5 }), /chapterWords/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', targetChapters: 0 }), /targetChapters/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapterWordCount: 2.5 }), /chapterWordCount/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', minChapterLength: 3000, maxChapterLength: 2000 }), /minChapterLength/)
   const draft = parseProposal({ title: ' 书 ', summary: ' 一句 ', instruction: ' 写 ' })
   assert.equal(draft.title, '书')
@@ -101,7 +101,7 @@ test('a bracketed title is not wrapped twice on the card', () => {
 })
 
 test('the card carries the confirmed fields and omits the missing ones', () => {
-  const card = proposalCard(parseProposal({ title: '夜班司机', summary: full.summary, instruction: full.instruction, genre: '都市悬疑', platform: '起点', language: 'zh', chapters: 120, chapterWords: 2600 }))
+  const card = proposalCard(parseProposal({ title: '夜班司机', summary: full.summary, instruction: full.instruction, genre: '都市悬疑', platform: '起点', language: 'zh', targetChapters: 120, chapterWordCount: 2600 }))
   assert.match(card, /立项《夜班司机》/)
   assert.match(card, /都市悬疑 · 起点 · 中文 · 目标 120 章 × 单章 2600 字/)
   assert.match(card, /撞见城市另一面/)

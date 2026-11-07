@@ -34,8 +34,8 @@ export interface ProposalInput {
   genre?: unknown
   platform?: unknown
   language?: unknown
-  chapters?: unknown
-  chapterWords?: unknown
+  targetChapters?: unknown
+  chapterWordCount?: unknown
   minChapterLength?: unknown
   maxChapterLength?: unknown
 }
@@ -94,7 +94,7 @@ export function normalizeProposalInput(input: ProposalToolInput): ProposalInput 
     throw new Error('createBook 必须是对象')
   }
   if (typeof input.title !== 'string' || input.title.trim() === '') {
-    throw new Error('title 必须是非空字符串')
+    throw new Error('卡片标题 title 必须是非空字符串')
   }
   return {
     title: book.title,
@@ -104,8 +104,8 @@ export function normalizeProposalInput(input: ProposalToolInput): ProposalInput 
     genre: book.genre,
     platform: book.platform,
     language: book.language ?? 'zh',
-    chapters: book.targetChapters,
-    chapterWords: book.chapterWordCount,
+    targetChapters: book.targetChapters,
+    chapterWordCount: book.chapterWordCount,
     minChapterLength: book.minChapterLength,
     maxChapterLength: book.maxChapterLength,
   }
@@ -127,17 +127,17 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
   if (minChapterLength !== undefined && maxChapterLength !== undefined && minChapterLength > maxChapterLength) {
     throw new Error(`minChapterLength 不能大于 maxChapterLength（${minChapterLength} > ${maxChapterLength}）`)
   }
-  const title = text(input.title, 'title')
+  const title = text(input.title, 'createBook.title')
   return {
     title,
-    cardTitle: input.cardTitle === undefined ? title : text(input.cardTitle, 'title'),
+    cardTitle: text(input.cardTitle ?? title, '卡片标题 title'),
     summary: text(input.summary, 'summary'),
     instruction: verbatim(input.instruction, 'instruction'),
     genre: optionalText(input.genre, 'genre'),
     platform: optionalText(input.platform, 'platform'),
     language: language as WorkLanguage,
-    targetChapters: positiveInteger(input.chapters, 'chapters'),
-    chapterWordCount: positiveInteger(input.chapterWords, 'chapterWords'),
+    targetChapters: positiveInteger(input.targetChapters, 'targetChapters'),
+    chapterWordCount: positiveInteger(input.chapterWordCount, 'chapterWordCount'),
     minChapterLength,
     maxChapterLength,
   }

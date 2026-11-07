@@ -25,8 +25,8 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 | `createBook.genre` | 题材，例如「都市悬疑」 |
 | `createBook.platform` | 目标平台，原样存进作品元数据 |
 | `createBook.language` | `zh` 或 `en`，默认 `zh` |
-| `createBook.targetChapters` | 目标章数，正整数 |
-| `createBook.chapterWordCount` | 单章字数，正整数 |
+| `createBook.targetChapters` | 目标章数，正整数；缺省 200 |
+| `createBook.chapterWordCount` | 单章字数，正整数；缺省按语言（中文 3000／英文 2000） |
 | `createBook.minChapterLength` | 单章最小字数；与 max 同时出现时要求 min ≤ max |
 | `createBook.maxChapterLength` | 单章最大字数 |
 
@@ -38,7 +38,7 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 2. 组装确认文案：`立项《标题》｜题材 · 平台 · 中文／English · 目标 N 章 × 单章 M 字` 加一句 `summary`；语言按实际值渲染，没给的字段不出现；
 3. 取 `approval` 服务与策略；缺席或 `never` → **不写任何文件**，返回 `outcome: "unavailable"` 与一句「确认条不可用，可以用 `/story-init`，或在作者明确说要立项后调 `story_work_create`」；
 4. 弹确认条（`toolName: story_propose`，`reason` 就是那张卡，带 `callId` 与 `signal`）；
-5. `allowed-once` → `initWork` 写入身份（标题、语言、`metadata.targetChapters`／`chapterWordCount`／`genre`／`platform`／`minChapterLength`／`maxChapterLength`）、`brief.md` 与方向文档，返回 `created: true` 与 `describeWork` 的一句话摘要；
+5. 缺省规模在批准时补齐：`targetChapters ?? 200`、`chapterWordCount ?? 默认章长`；`allowed-once` → `initWork` 写入身份（标题、语言、`metadata.targetChapters`／`chapterWordCount`／`genre`／`platform`／`minChapterLength`／`maxChapterLength`）、`brief.md` 与方向文档，返回 `created: true` 与 `describeWork` 的一句话摘要；
 6. `rejected`／`cancelled` → `created: false`，同样不写盘，`outcome` 原样返回。
 
 提案批准后与身份同一次提交写 `source/story/brief.md`、`author_intent.md` 与 `current_focus.md`；基础设定本身仍由 foundation 段写。
