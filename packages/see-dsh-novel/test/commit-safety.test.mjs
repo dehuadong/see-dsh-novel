@@ -22,7 +22,8 @@ test('paths must stay inside the work root', () => {
   assert.equal(safeRelativePath('source/story/a.md'), normalize('source/story/a.md'))
   assert.throws(() => safeRelativePath(''), /留在作品根内/)
   assert.throws(() => safeRelativePath('../x.md'), /留在作品根内/)
-  assert.throws(() => safeRelativePath('..\\x.md'), /留在作品根内/)
+  assert.throws(() => safeRelativePath(`..${sep}x.md`), /留在作品根内/)
+  if (process.platform === 'win32') assert.throws(() => safeRelativePath('..\\x.md'), /留在作品根内/)
   assert.throws(() => safeRelativePath('/abs/x.md'), /留在作品根内/)
 })
 
