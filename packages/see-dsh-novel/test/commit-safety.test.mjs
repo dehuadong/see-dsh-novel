@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, normalize } from 'node:path'
+import { join, normalize, sep } from 'node:path'
 
 import {
   commitFoundation,
