@@ -28,8 +28,8 @@ Status: implemented
 
 提案批准时（对齐 `create_book`）：
 
-- `targetChapters = chapters ?? 200`；
-- `chapterWordCount = chapterWords ?? defaultChapterLength(language)`；
+- `createBook.targetChapters ?? 200`；
+- `createBook.chapterWordCount ?? defaultChapterLength(language)`；
 - 写进 `work.json` 的 `metadata`；作者显式给值时用作者的。
 
 `/story-init` 命令也补默认（对齐 CLI `book create`：固定 200／3000，不按语言分）；作者显式给值时用作者的。

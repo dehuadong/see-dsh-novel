@@ -124,9 +124,6 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
   }
   const minChapterLength = positiveInteger(input.minChapterLength, 'minChapterLength')
   const maxChapterLength = positiveInteger(input.maxChapterLength, 'maxChapterLength')
-  if (minChapterLength !== undefined && maxChapterLength !== undefined && minChapterLength > maxChapterLength) {
-    throw new Error(`minChapterLength 不能大于 maxChapterLength（${minChapterLength} > ${maxChapterLength}）`)
-  }
   const title = text(input.title, 'createBook.title')
   return {
     title,

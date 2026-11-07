@@ -27,7 +27,7 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 | `createBook.language` | `zh` 或 `en`，默认 `zh` |
 | `createBook.targetChapters` | 目标章数，正整数；缺省 200 |
 | `createBook.chapterWordCount` | 单章字数，正整数；缺省按语言（中文 3000／英文 2000） |
-| `createBook.minChapterLength` | 单章最小字数；与 max 同时出现时要求 min ≤ max |
+| `createBook.minChapterLength` | 单章最小字数，正整数 |
 | `createBook.maxChapterLength` | 单章最大字数 |
 
 卡片标题（`title`）与作品标题（`createBook.title`）是两个字段；卡片用前者，落盘用后者。
@@ -83,6 +83,8 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 
 **min/max 默认成固定值。** 否掉：作者没给就是没有约束，不能自创产品限制。
 
+**校验 min ≤ max。** 否掉：源工具只要求每个值 ≥1，不校验顺序；加这条等于自创限制。
+
 **让模型直接调 `story_work_create`，把「提案」放进对话文本。** 少一个工具。否掉：那等于模型替作者拍板，作者没有一张能看清参数再决定的卡；参考工程把提案与执行分开，正是为了这一步。
 
 **用面板卡片而不是原生确认条。** 视觉更可控。否掉：面板要新增一块 UI 与状态通道，而确认条已经存在、已被 foundation 签核验证；先用确认条，等面板需要展示提案详情时再扩展。
@@ -107,3 +109,4 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 - 提案一次只落一个作品：确认后写盘与确认之间没有并发保护，同一会话里重复调用会被「已立项」挡住，跨会话同时立项仍可能各自创建。
 - 拒绝后没有任何提案留档：作者改主意要重新收敛，这是「提案不落盘」的代价。
 - `minChapterLength`／`maxChapterLength` 只落盘，尚无消费方；写作与审阅的篇幅判断是后续能力。
+- 不给命令行加 `--min/--max`（源 CLI 也没有）；提案卡不展示区间，字段只落盘。

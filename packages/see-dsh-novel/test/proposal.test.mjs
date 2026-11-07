@@ -85,7 +85,8 @@ test('the draft rejects missing or invalid fields', () => {
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', language: 'fr' }), /language/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', targetChapters: 0 }), /targetChapters/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapterWordCount: 2.5 }), /chapterWordCount/)
-  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', minChapterLength: 3000, maxChapterLength: 2000 }), /minChapterLength/)
+  // 源工具只要求每个值 ≥1，不校验 min/max 顺序。
+  assert.equal(parseProposal({ title: '书', summary: 's', instruction: 'i', minChapterLength: 3000, maxChapterLength: 2000 }).minChapterLength, 3000)
   const draft = parseProposal({ title: ' 书 ', summary: ' 一句 ', instruction: ' 写 ' })
   assert.equal(draft.title, '书')
   assert.equal(draft.summary, '一句')
@@ -277,7 +278,7 @@ test('the nested createBook shape is required and validated', async () => {
     const tool = registered.get(PROPOSE_NAME)
     await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i' }, exec), /createBook/)
     await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i', createBook: {} }, exec), /title/)
-    await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i', createBook: { title: 'b', minChapterLength: 3000, maxChapterLength: 2000 } }, exec), /minChapterLength/)
+    await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i', createBook: { title: 'b', minChapterLength: 0 } }, exec), /minChapterLength/)
     assert.equal(await readWork(root), null)
   } finally {
     await cleanup(root)
