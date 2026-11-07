@@ -65,11 +65,16 @@ const full = {
   title: '夜班司机',
   summary: '一本夜班出租车司机撞见城市另一面的都市悬疑。',
   instruction: '写《夜班司机》的第一卷大纲与基础设定，都市悬疑，中文，目标 120 章。',
-  genre: '都市悬疑',
-  platform: '起点',
-  language: 'zh',
-  chapters: 120,
-  chapterWords: 2600,
+  createBook: {
+    title: '夜班司机',
+    genre: '都市悬疑',
+    platform: '起点',
+    language: 'zh',
+    targetChapters: 120,
+    chapterWordCount: 2600,
+    minChapterLength: 2400,
+    maxChapterLength: 2800,
+  },
 }
 
 test('the draft rejects missing or invalid fields', () => {
@@ -80,6 +85,7 @@ test('the draft rejects missing or invalid fields', () => {
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', language: 'fr' }), /language/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapters: 0 }), /chapters/)
   assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', chapterWords: 2.5 }), /chapterWords/)
+  assert.throws(() => parseProposal({ title: '书', summary: 's', instruction: 'i', minChapterLength: 3000, maxChapterLength: 2000 }), /minChapterLength/)
   const draft = parseProposal({ title: ' 书 ', summary: ' 一句 ', instruction: ' 写 ' })
   assert.equal(draft.title, '书')
   assert.equal(draft.summary, '一句')
@@ -95,7 +101,7 @@ test('a bracketed title is not wrapped twice on the card', () => {
 })
 
 test('the card carries the confirmed fields and omits the missing ones', () => {
-  const card = proposalCard(parseProposal(full))
+  const card = proposalCard(parseProposal({ title: '夜班司机', summary: full.summary, instruction: full.instruction, genre: '都市悬疑', platform: '起点', language: 'zh', chapters: 120, chapterWords: 2600 }))
   assert.match(card, /立项《夜班司机》/)
   assert.match(card, /都市悬疑 · 起点 · 中文 · 目标 120 章 × 单章 2600 字/)
   assert.match(card, /撞见城市另一面/)
@@ -129,6 +135,8 @@ test('allowing the card writes work.json with the confirmed fields', async () =>
       chapterWordCount: 2600,
       genre: '都市悬疑',
       platform: '起点',
+      minChapterLength: 2400,
+      maxChapterLength: 2800,
     })
     // 建书同一次提交写身份、外部上下文与方向文档兜底。
     assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), full.instruction)
@@ -160,6 +168,7 @@ test('approval fills the default scale when the author gave none', async () => {
       title: '默认规模',
       summary: '一句摘要',
       instruction: '  写《默认规模》的基础设定，中文。  ',
+      createBook: { title: '默认规模' },
     }, exec)
     assert.equal(result.created, true)
     const work = await readWork(root)
@@ -258,4 +267,38 @@ test('work metadata round-trips genre and platform, and old files still parse', 
 test('the schemas stay inside the runtime subset', () => {
   assert.deepEqual(violations(proposeParameters), [])
   assert.deepEqual(violations(proposeOutput), [])
+})
+
+test('the nested createBook shape is required and validated', async () => {
+  const root = await workspace()
+  try {
+    const { ctx, registered } = services(root, fakeApproval('allowed-once').service)
+    installProposalTool(ctx)
+    const tool = registered.get(PROPOSE_NAME)
+    await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i' }, exec), /createBook/)
+    await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i', createBook: {} }, exec), /title/)
+    await assert.rejects(tool.execute({ title: 't', summary: 's', instruction: 'i', createBook: { title: 'b', minChapterLength: 3000, maxChapterLength: 2000 } }, exec), /minChapterLength/)
+    assert.equal(await readWork(root), null)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('the card title and the work title are separate fields', async () => {
+  const root = await workspace()
+  try {
+    const { ctx, registered } = services(root, fakeApproval('allowed-once').service)
+    installProposalTool(ctx)
+    const result = await registered.get(PROPOSE_NAME).execute({
+      title: '夜行（提案名）',
+      summary: '一句摘要',
+      instruction: '写《夜行长街》的基础设定。',
+      createBook: { title: '夜行长街', language: 'zh' },
+    }, exec)
+    assert.equal(result.created, true)
+    assert.match(result.card, /立项《夜行（提案名）》/)
+    assert.equal((await readWork(root)).title, '夜行长街')
+  } finally {
+    await cleanup(root)
+  }
 })

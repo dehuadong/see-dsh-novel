@@ -7,10 +7,11 @@
 import type {
   ApprovalOutcome, Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition,
 } from '../core/types.js'
+import type { ProposalToolInput } from '../core/proposal.js'
 import { APPROVAL_OUTCOMES } from '../core/types.js'
 import { initWork } from '../core/init-work.js'
 import { defaultChapterLength } from '../core/length.js'
-import { proposalCard, parseProposal } from '../core/proposal.js'
+import { normalizeProposalInput, proposalCard, parseProposal } from '../core/proposal.js'
 import { describeWork, readWork, WORK_LANGUAGES } from '../core/work.js'
 import { approvalServiceOf, confirmationPolicy } from '../pipelines/long/gate.js'
 
@@ -36,16 +37,27 @@ export const proposeParameters: JsonSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    title: { type: 'string', description: '作者确认过的书名' },
+    title: { type: 'string', description: '确认卡上的标题' },
     summary: { type: 'string', description: '一到两句：确认之后会发生什么' },
     instruction: { type: 'string', description: '确认后要执行的那句话；自包含，含标题、方向、目标与输出位置' },
-    genre: { type: 'string', description: '题材，例如「都市悬疑」；可选' },
-    platform: { type: 'string', description: '目标平台；可选' },
-    language: { type: 'string', enum: [...WORK_LANGUAGES], description: '正文语言，默认 zh' },
-    chapters: { type: 'integer', description: '目标章数；可选' },
-    chapterWords: { type: 'integer', description: '单章目标字数；可选' },
+    createBook: {
+      type: 'object',
+      additionalProperties: false,
+      description: '建书参数：作品标题、题材、平台、语言与规模',
+      properties: {
+        title: { type: 'string', description: '作品标题' },
+        genre: { type: 'string', description: '题材；可选' },
+        platform: { type: 'string', description: '目标平台；可选' },
+        language: { type: 'string', enum: [...WORK_LANGUAGES], description: '正文语言，默认 zh' },
+        targetChapters: { type: 'integer', description: '目标章数；可选' },
+        chapterWordCount: { type: 'integer', description: '单章目标字数；可选' },
+        minChapterLength: { type: 'integer', description: '单章最小字数；可选' },
+        maxChapterLength: { type: 'integer', description: '单章最大字数；可选' },
+      },
+      required: ['title'],
+    },
   },
-  required: ['title', 'summary', 'instruction'],
+  required: ['title', 'summary', 'instruction', 'createBook'],
 }
 
 /** 返回值结构。 */
@@ -80,7 +92,7 @@ export async function proposeWork(
   const existing = await readWork(root)
   if (existing !== null) throw new Error(`已经立项${describeWork(existing)}；不覆盖，改身份请手改 work.json`)
 
-  const draft = parseProposal(args as Parameters<typeof parseProposal>[0])
+  const draft = parseProposal(normalizeProposalInput(args as ProposalToolInput))
   const card = proposalCard(draft)
 
   const approval = approvalServiceOf(ctx)
@@ -105,6 +117,8 @@ export async function proposeWork(
     chapterWordCount: draft.chapterWordCount ?? defaultChapterLength(draft.language),
     genre: draft.genre,
     platform: draft.platform,
+    minChapterLength: draft.minChapterLength,
+    maxChapterLength: draft.maxChapterLength,
   }, draft.instruction)
   return { created: true, outcome: 'allowed-once', card, summary: describeWork(work) }
 }
@@ -134,7 +148,7 @@ export function installProposalTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: PROPOSE_NAME,
     description:
-      'Propose a work (title, summary, instruction, genre, platform, language, target size) and open a confirmation card. '
+      'Propose a work (card title/summary/instruction plus createBook with title, genre, platform, language, target size and chapter-length range) and open a confirmation card. '
       + 'On approval it writes work.json, source/story/brief.md and the direction docs together; refuses when a work already exists.',
     parameters: proposeParameters,
     output: { schema: proposeOutput, render: renderProposal },

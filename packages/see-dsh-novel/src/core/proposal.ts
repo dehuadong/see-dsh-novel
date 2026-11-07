@@ -9,7 +9,10 @@ import type { WorkLanguage } from './work.js'
 
 /** 一份待确认的立项提案。 */
 export interface ProposalDraft {
+  /** 作品标题（createBook.title）。 */
   title: string
+  /** 确认卡上的标题；与作品标题分开。 */
+  cardTitle: string
   summary: string
   /** 作者确认后要执行的那句话；自包含，原文进卡片与建书时的外部上下文。 */
   instruction: string
@@ -18,11 +21,14 @@ export interface ProposalDraft {
   language: WorkLanguage
   targetChapters?: number
   chapterWordCount?: number
+  minChapterLength?: number
+  maxChapterLength?: number
 }
 
-/** 工具参数；保持 `unknown`，校验都在这里做。 */
+/** 归一化后的参数形状；嵌套字段在工具层展开。 */
 export interface ProposalInput {
   title?: unknown
+  cardTitle?: unknown
   summary?: unknown
   instruction?: unknown
   genre?: unknown
@@ -30,6 +36,25 @@ export interface ProposalInput {
   language?: unknown
   chapters?: unknown
   chapterWords?: unknown
+  minChapterLength?: unknown
+  maxChapterLength?: unknown
+}
+
+/** 工具参数原形：顶层卡片字段 + createBook 嵌套对象。 */
+export interface ProposalToolInput {
+  title?: unknown
+  summary?: unknown
+  instruction?: unknown
+  createBook?: {
+    title?: unknown
+    genre?: unknown
+    platform?: unknown
+    language?: unknown
+    targetChapters?: unknown
+    chapterWordCount?: unknown
+    minChapterLength?: unknown
+    maxChapterLength?: unknown
+  }
 }
 
 const LANGUAGE_LABEL: Record<WorkLanguage, string> = { zh: '中文', en: 'English' }
@@ -62,9 +87,33 @@ function positiveInteger(value: unknown, field: string): number | undefined {
   return value
 }
 
+/** 把工具的嵌套参数展开成内部形状；createBook 必填。 */
+export function normalizeProposalInput(input: ProposalToolInput): ProposalInput {
+  const book = input.createBook
+  if (book === undefined || book === null || typeof book !== 'object' || Array.isArray(book)) {
+    throw new Error('createBook 必须是对象')
+  }
+  if (typeof input.title !== 'string' || input.title.trim() === '') {
+    throw new Error('title 必须是非空字符串')
+  }
+  return {
+    title: book.title,
+    cardTitle: input.title,
+    summary: input.summary,
+    instruction: input.instruction,
+    genre: book.genre,
+    platform: book.platform,
+    language: book.language ?? 'zh',
+    chapters: book.targetChapters,
+    chapterWords: book.chapterWordCount,
+    minChapterLength: book.minChapterLength,
+    maxChapterLength: book.maxChapterLength,
+  }
+}
+
 /**
- * 校验提案参数。
- * @param input 工具参数
+ * 校验提案参数（内部归一化形状）。
+ * @param input 归一化后的参数
  * @returns 规范化后的提案
  * @throws 字段缺失或非法时
  */
@@ -73,8 +122,15 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
   if (typeof language !== 'string' || !(WORK_LANGUAGES as ReadonlyArray<string>).includes(language)) {
     throw new Error(`language 必须是 ${WORK_LANGUAGES.join('／')} 之一，实际是 ${JSON.stringify(input.language)}`)
   }
+  const minChapterLength = positiveInteger(input.minChapterLength, 'minChapterLength')
+  const maxChapterLength = positiveInteger(input.maxChapterLength, 'maxChapterLength')
+  if (minChapterLength !== undefined && maxChapterLength !== undefined && minChapterLength > maxChapterLength) {
+    throw new Error(`minChapterLength 不能大于 maxChapterLength（${minChapterLength} > ${maxChapterLength}）`)
+  }
+  const title = text(input.title, 'title')
   return {
-    title: text(input.title, 'title'),
+    title,
+    cardTitle: input.cardTitle === undefined ? title : text(input.cardTitle, 'title'),
     summary: text(input.summary, 'summary'),
     instruction: verbatim(input.instruction, 'instruction'),
     genre: optionalText(input.genre, 'genre'),
@@ -82,6 +138,8 @@ export function parseProposal(input: ProposalInput): ProposalDraft {
     language: language as WorkLanguage,
     targetChapters: positiveInteger(input.chapters, 'chapters'),
     chapterWordCount: positiveInteger(input.chapterWords, 'chapterWords'),
+    minChapterLength,
+    maxChapterLength,
   }
 }
 
@@ -103,5 +161,5 @@ export function proposalCard(draft: ProposalDraft): string {
     scope,
   ].filter((part): part is string => part !== undefined)
   // 标题已带书名号时不再包第二层（与身份摘要同一条规则）。
-  return `立项${bracketedTitle(draft.title)}｜${parts.join(' · ')}\n${draft.summary}\n\nInstruction: ${draft.instruction}`
+  return `立项${bracketedTitle(draft.cardTitle)}｜${parts.join(' · ')}\n${draft.summary}\n\nInstruction: ${draft.instruction}`
 }

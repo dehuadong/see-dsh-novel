@@ -32,6 +32,8 @@ const WORK_SCHEMA: JsonSchema = {
         chapterWordCount: { type: 'integer' },
         genre: { type: 'string' },
         platform: { type: 'string' },
+        minChapterLength: { type: 'integer' },
+        maxChapterLength: { type: 'integer' },
         intent: { type: 'string' },
       },
       required: [],
@@ -58,6 +60,8 @@ export const workCreateParameters: JsonSchema = {
         chapterWordCount: { type: 'integer', description: '单章目标字数；可选' },
         genre: { type: 'string', description: '题材，例如「都市悬疑」；可选' },
         platform: { type: 'string', description: '目标平台；可选' },
+        minChapterLength: { type: 'integer', description: '单章最小字数；可选' },
+        maxChapterLength: { type: 'integer', description: '单章最大字数；可选' },
       },
       required: [],
     },
@@ -93,7 +97,7 @@ interface CreateArgs {
   title: string
   intent: string
   language?: string
-  metadata?: { targetChapters?: number, chapterWordCount?: number, genre?: string, platform?: string }
+  metadata?: { targetChapters?: number, chapterWordCount?: number, genre?: string, platform?: string, minChapterLength?: number, maxChapterLength?: number }
 }
 
 /**
@@ -129,6 +133,8 @@ export function installWorkTools(ctx: PluginContext): Disposer {
           chapterWordCount: args.metadata?.chapterWordCount,
           genre: args.metadata?.genre,
           platform: args.metadata?.platform,
+          minChapterLength: args.metadata?.minChapterLength,
+          maxChapterLength: args.metadata?.maxChapterLength,
         }, { intent: args.intent }),
       }
     },

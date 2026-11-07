@@ -54,6 +54,10 @@ export interface WorkMetadata {
   genre?: string
   /** 目标平台，原样保存。 */
   platform?: string
+  /** 单章最小字数；作者明确给出时才有。 */
+  minChapterLength?: number
+  /** 单章最大字数；作者明确给出时才有。 */
+  maxChapterLength?: number
   /** 立项时的立意原文；原样保存，不 trim。 */
   intent?: string
 }
@@ -90,12 +94,14 @@ export interface WorkCreateInput {
   chapterWordCount?: unknown
   genre?: unknown
   platform?: unknown
+  minChapterLength?: unknown
+  maxChapterLength?: unknown
 }
 
 const FIELDS = [
   'version', 'id', 'title', 'profile', 'language', 'status', 'metadata', 'createdAt', 'updatedAt',
 ] as const
-const METADATA_FIELDS = ['targetChapters', 'chapterWordCount', 'genre', 'platform', 'intent'] as const
+const METADATA_FIELDS = ['targetChapters', 'chapterWordCount', 'genre', 'platform', 'intent', 'minChapterLength', 'maxChapterLength'] as const
 
 /** 报错一律带文件与字段，作者手改之后能直接定位。 */
 function fail(file: string, message: string): never {
@@ -172,6 +178,12 @@ export function parseWork(value: unknown, file: string = WORK_FILE): Work {
   }
   if (Object.hasOwn(metadata, 'platform')) {
     parsedMetadata.platform = text(metadata.platform, file, 'metadata.platform')
+  }
+  if (Object.hasOwn(metadata, 'minChapterLength')) {
+    parsedMetadata.minChapterLength = positiveInteger(metadata.minChapterLength, file, 'metadata.minChapterLength')
+  }
+  if (Object.hasOwn(metadata, 'maxChapterLength')) {
+    parsedMetadata.maxChapterLength = positiveInteger(metadata.maxChapterLength, file, 'metadata.maxChapterLength')
   }
   if (Object.hasOwn(metadata, 'intent')) {
     parsedMetadata.intent = verbatim(metadata.intent, file, 'metadata.intent')
@@ -287,6 +299,8 @@ export async function prepareWork(
   }
   if (input.genre !== undefined) metadata.genre = text(input.genre, path, 'genre')
   if (input.platform !== undefined) metadata.platform = text(input.platform, path, 'platform')
+  if (input.minChapterLength !== undefined) metadata.minChapterLength = positiveInteger(input.minChapterLength, path, 'minChapterLength')
+  if (input.maxChapterLength !== undefined) metadata.maxChapterLength = positiveInteger(input.maxChapterLength, path, 'maxChapterLength')
   const now = new Date().toISOString()
   const work: Work = {
     version: WORK_VERSION,

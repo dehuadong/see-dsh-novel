@@ -14,19 +14,23 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 
 ### `story_propose` 工具
 
-参数（`title` 与 `summary` 必填，其余可选，缺的按作品默认值走）：
+参数分两层（顶层卡片字段 + `createBook` 执行参数）：
 
 | 参数 | 含义 |
 | --- | --- |
-| `title` | 书名，必填 |
+| `title` | 确认卡上的标题，必填 |
 | `summary` | 一到两句：确认之后会发生什么 |
-| `genre` | 题材，例如「都市悬疑」 |
-| `platform` | 目标平台，原样存进作品元数据 |
-| `language` | `zh` 或 `en`，默认 `zh` |
-| `chapters` | 目标章数，正整数 |
-| `chapterWords` | 单章字数，正整数 |
+| `instruction` | 确认后要执行的那句话，自包含 |
+| `createBook.title` | 作品标题，必填 |
+| `createBook.genre` | 题材，例如「都市悬疑」 |
+| `createBook.platform` | 目标平台，原样存进作品元数据 |
+| `createBook.language` | `zh` 或 `en`，默认 `zh` |
+| `createBook.targetChapters` | 目标章数，正整数 |
+| `createBook.chapterWordCount` | 单章字数，正整数 |
+| `createBook.minChapterLength` | 单章最小字数；与 max 同时出现时要求 min ≤ max |
+| `createBook.maxChapterLength` | 单章最大字数 |
 
-参考工程的 `createBook` 还带 `minChapterLength`／`maxChapterLength`；它们是章长约束，`docs/scope.md` 不在本行要求里，所以不收——等章长约束成为独立能力时再进提案。
+卡片标题（`title`）与作品标题（`createBook.title`）是两个字段；卡片用前者，落盘用后者。
 
 执行顺序是固定的：
 
@@ -34,10 +38,10 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 2. 组装确认文案：`立项《标题》｜题材 · 平台 · 中文／English · 目标 N 章 × 单章 M 字` 加一句 `summary`；语言按实际值渲染，没给的字段不出现；
 3. 取 `approval` 服务与策略；缺席或 `never` → **不写任何文件**，返回 `outcome: "unavailable"` 与一句「确认条不可用，可以用 `/story-init`，或在作者明确说要立项后调 `story_work_create`」；
 4. 弹确认条（`toolName: story_propose`，`reason` 就是那张卡，带 `callId` 与 `signal`）；
-5. `allowed-once` → `writeWork` 写入身份（标题、语言、`metadata.targetChapters`／`chapterWordCount`／`genre`／`platform`），返回 `created: true` 与 `describeWork` 的一句话摘要；
+5. `allowed-once` → `initWork` 写入身份（标题、语言、`metadata.targetChapters`／`chapterWordCount`／`genre`／`platform`／`minChapterLength`／`maxChapterLength`）、`brief.md` 与方向文档，返回 `created: true` 与 `describeWork` 的一句话摘要；
 6. `rejected`／`cancelled` → `created: false`，同样不写盘，`outcome` 原样返回。
 
-工具不创建 `source/story/`，也不顺便写基础设定：立项与写设定是两步，写设定的入口仍是 foundation 段。
+提案批准后与身份同一次提交写 `source/story/brief.md`、`author_intent.md` 与 `current_focus.md`；基础设定本身仍由 foundation 段写。
 
 ### 作品身份补两个可选字段，三条路一起扩
 
@@ -73,6 +77,12 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 
 ## Alternatives considered
 
+**保留扁平参数，只加 min/max。** 否掉：源工具是顶层卡片字段加嵌套 `createBook`；扁平化是审计确认的结构债。
+
+**顶层同时接受扁平与嵌套。** 否掉：两套形状会让校验与文档分叉，工具只在预设内使用。
+
+**min/max 默认成固定值。** 否掉：作者没给就是没有约束，不能自创产品限制。
+
 **让模型直接调 `story_work_create`，把「提案」放进对话文本。** 少一个工具。否掉：那等于模型替作者拍板，作者没有一张能看清参数再决定的卡；参考工程把提案与执行分开，正是为了这一步。
 
 **用面板卡片而不是原生确认条。** 视觉更可控。否掉：面板要新增一块 UI 与状态通道，而确认条已经存在、已被 foundation 签核验证；先用确认条，等面板需要展示提案详情时再扩展。
@@ -96,4 +106,4 @@ DSH 侧已经有确认条（`approval` 服务，foundation 签核在用）与作
 - `genre`／`platform` 是自由字符串，没有枚举；拼写不一致不会报错，后续若要筛选题材需要另立词表。
 - 提案一次只落一个作品：确认后写盘与确认之间没有并发保护，同一会话里重复调用会被「已立项」挡住，跨会话同时立项仍可能各自创建。
 - 拒绝后没有任何提案留档：作者改主意要重新收敛，这是「提案不落盘」的代价。
-- `minChapterLength`／`maxChapterLength` 不在提案里：`docs/scope.md` 未要求，等章长约束成为独立能力时再进。
+- `minChapterLength`／`maxChapterLength` 只落盘，尚无消费方；写作与审阅的篇幅判断是后续能力。
