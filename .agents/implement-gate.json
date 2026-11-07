@@ -40,9 +40,5 @@
   "protected": [
     ".agents/implement-gate.json",
     ".agents/state/implement-gate"
-  ],
-  "commands": {
-    "planning": "^批准，使用(?:技能\\s*)?planning\\s+执行规划\\s+(.+)$",
-    "implement": "^批准，使用(?:技能\\s*)?implement\\s+执行实现\\s+(.+)$"
-  }
+  ]
 }
