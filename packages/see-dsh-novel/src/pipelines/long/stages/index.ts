@@ -12,10 +12,9 @@ import { renderReviewContract } from './review.js'
 import { renderPlannerContract } from './planner.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
 import {
-  STORY_CHAPTER_SUMMARIES_MD,
-  STORY_CURRENT_STATE_MD,
   STORY_FRAME_FILE,
   STORY_PENDING_HOOKS,
+  STORY_RULES_JSON,
   STORY_RULES_MD,
   STORY_VOLUME_MAP_FILE,
 } from '../../../core/story-paths.js'
@@ -32,9 +31,8 @@ const FOUNDATION_FILES = [
   STORY_FRAME_FILE,
   STORY_VOLUME_MAP_FILE,
   STORY_RULES_MD,
-  STORY_CURRENT_STATE_MD,
+  STORY_RULES_JSON,
   STORY_PENDING_HOOKS,
-  STORY_CHAPTER_SUMMARIES_MD,
 ] as const
 
 export interface StageFacts {

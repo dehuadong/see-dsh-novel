@@ -21,6 +21,7 @@ const foundation = [
   'source/story/outline/story_frame.md',
   'source/story/outline/volume_map.md',
   'source/story/book_rules.md',
+  'source/story/book_rules.json',
   'source/story/current_state.md',
   'source/story/pending_hooks.md',
   'source/story/chapter_summaries.md',
