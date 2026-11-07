@@ -1,16 +1,16 @@
 {
   "capability": "foundation.ready-check",
-  "date": "2026-11-05",
-  "sessionId": "session-17b1fe67-2867-433d-9607-2e51e5536710",
+  "date": "2026-11-07",
+  "sessionId": "session-9b39af0e-8b8b-410f-a9c0-df61c99891c0",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "215 passed — ready-check 5 例（七项判据、四个角色目录、只认 .md、manifest 单独不算、必需文件缺时不数卡、draft 两种 next）＋ work 11 例（探针逐项、四阶段）＋ host 5 例（真机工作区 foundation→draft→cast_index→ready）＋ client 29 例（六个锚点与五份设定文件判定）"
+    "summary": "276 passed — ready-check 七项探针与阶段边界（缺规则数据、缺角色卡、缺状态文件不影响）、stage foundation 判据与 workProbes 一致"
   },
   "receipts": [
-    "真实运行（`work-empty-2`，session `session-b113e1fa-126b-47f9-8af2-9090239eaea9`）：七项探针齐全时调 `story_next`，工具卡返回「阶段 ready · 夜行测试」",
-    "对照：把 `源/story/roles` 四个目录下的全部 `.md` 移出工作区后，探针变为 `hasRoleCard: false`，再调 `story_next`（session `session-d782ea5f-1775-4d52-a405-7f16417f3252`）返回「阶段 draft · 夜行测试」，`next` 为 `story_foundation_cast_index`",
-    "恢复全部角色卡后探针回到 `hasRoleCard: true`，再调 `story_next`（session `session-17b1fe67-2867-433d-9607-2e51e5536710`）返回「阶段 ready · 夜行测试」",
-    "七项探针与源工程的清单一致：`hasWork`／`hasFrame`／`hasVolumeMap`／`hasRulesMd`／`hasRulesJson`／`hasPendingHooks`／`hasRoleCard`；`manifest.json` 不参与判据"
+    "就绪（`.artifacts/work-ready`，session `session-9b39af0e-8b8b-410f-a9c0-df61c99891c0`）：基础设定齐全、无章纲无正文时调 `story_next`，回执「阶段 ready · 夜行测试」",
+    "缺规则数据：临时移除 `source/story/book_rules.json` 后再调，回执「阶段 draft · 夜行测试」（按 `story_next` 的判定，缺 RULES_PROBES 时下一步是 `story_foundation_details`），说明规则数据仍是从基础设定到就绪的门槛",
+    "判据与源一致：`workProbes` 的七项为 work.json（对应 book.json）、story_frame、volume_map、book_rules.md、book_rules.json、pending_hooks、至少一张角色卡；`current_state.md`／`chapter_summaries.md` 不参与门槛",
+    "阶段探针统一：`stages` 的同步判定改用同一组文件（含 book_rules.json），与 `story_next` 不再出现「ready 但阶段停在 foundation」的分叉"
   ]
 }
