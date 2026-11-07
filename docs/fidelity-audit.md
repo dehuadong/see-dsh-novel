@@ -213,7 +213,7 @@
 
 **复刻现状**：memo 三字段与 intent 投影一致；规划方法与流程在 `story:stage`／`story-plan`；**没有 planner system prompt 与 user message 的注入**；章节连续性按 `current_state.chapter + 1`，已有 plan 拒绝（源可复用）。
 
-**判定：保真债** — D14：planner 提示词未注入；D15：重规划／复用语义与源不同。偿还：`plan.chapter` 行补提示词与 plan 复用语义。
+**判定：机制等价（D14／D15 已偿还）** — planner 契约（方法句、memo 请求骨架、上一章结尾、hook id）已注入 `plan` 阶段；`story_plan_chapter` 命中已有 plan 时返回 `reused: true` 且不覆盖，与源缓存语义一致。上一章只取末尾 2000 字（源取全文）与进度来源仍属残余。
 
 ## 批次 D：P3 写作与审稿
 
