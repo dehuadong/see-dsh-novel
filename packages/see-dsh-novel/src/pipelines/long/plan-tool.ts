@@ -92,7 +92,9 @@ export function installPlanTool(ctx: PluginContext): Disposer {
       schema: output,
       render: (_args: unknown, value: PlanResult) => [{
         type: 'text' as const,
-        text: `第 ${value.chapter} 章章纲已落盘：${value.planPath}、${value.intentPath}`,
+        text: value.reused
+          ? `第 ${value.chapter} 章已有章纲，复用：${value.planPath}、${value.intentPath}`
+          : `第 ${value.chapter} 章章纲已落盘：${value.planPath}、${value.intentPath}`,
       }],
     },
     async execute(args: { chapter: number, goal: string, body: string, threadRefs: string[], plannerInputs?: string[] }, exec: ExecuteContext): Promise<PlanResult> {
