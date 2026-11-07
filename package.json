@@ -2,6 +2,7 @@
   "name": "see-dsh-novel",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@11.21.0",
   "description": "以 DSH 原生机制实现长篇写作流水线",
   "scripts": {
     "build": "pnpm -r --if-present build",
