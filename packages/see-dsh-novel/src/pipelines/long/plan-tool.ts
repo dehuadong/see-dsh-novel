@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
-import { chapterIntentPath, chapterPlanPath, saveChapterPlan } from '../../core/chapter-plan.js'
+import { chapterIntentPath, chapterPlanPath, loadChapterPlan, saveChapterPlan } from '../../core/chapter-plan.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
   STORY_CURRENT_STATE_MD,
@@ -47,8 +47,9 @@ const output: JsonSchema = {
     planPath: { type: 'string' },
     intentPath: { type: 'string' },
     plannerInputs: { type: 'array', items: { type: 'string' } },
+    reused: { type: 'boolean' },
   },
-  required: ['chapter', 'planPath', 'intentPath', 'plannerInputs'],
+  required: ['chapter', 'planPath', 'intentPath', 'plannerInputs', 'reused'],
 }
 
 async function readChapter(root: string): Promise<number> {
@@ -79,6 +80,7 @@ export interface PlanResult {
   planPath: string
   intentPath: string
   plannerInputs: string[]
+  reused: boolean
 }
 
 export function installPlanTool(ctx: PluginContext): Disposer {
@@ -99,11 +101,15 @@ export function installPlanTool(ctx: PluginContext): Disposer {
       await assertFoundation(root)
       const current = await readChapter(root)
       if (args.chapter !== current + 1) throw new Error(`只能规划第 ${current + 1} 章（当前第 ${current} 章）`)
-      try {
-        await readFile(join(root, chapterPlanPath(args.chapter)), 'utf8')
-        throw new Error(`第 ${args.chapter} 章已经有章纲，不覆盖`)
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+      const existing = await loadChapterPlan(root, args.chapter)
+      if (existing !== null) {
+        return {
+          chapter: args.chapter,
+          planPath: chapterPlanPath(args.chapter),
+          intentPath: chapterIntentPath(args.chapter),
+          plannerInputs: existing.plannerInputs,
+          reused: true,
+        }
       }
       const plannerInputs = [...(args.plannerInputs ?? [])]
       const { planPath, intentPath } = await saveChapterPlan(root, {
@@ -113,7 +119,7 @@ export function installPlanTool(ctx: PluginContext): Disposer {
         threadRefs: args.threadRefs,
         plannerInputs,
       })
-      return { chapter: args.chapter, planPath: chapterPlanPath(args.chapter), intentPath, plannerInputs }
+      return { chapter: args.chapter, planPath: chapterPlanPath(args.chapter), intentPath, plannerInputs, reused: false }
     },
   } as ToolDefinition<{ chapter: number, goal: string, body: string, threadRefs: string[], plannerInputs?: string[] }, PlanResult>)
 }

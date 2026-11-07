@@ -9,6 +9,7 @@ import { chapterPlanPath } from '../../../core/chapter-plan.js'
 import { renderArchitectContract } from './architect.js'
 import { renderWriterContract } from './writer.js'
 import { renderReviewContract } from './review.js'
+import { renderPlannerContract } from './planner.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -181,7 +182,7 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     text: (assembly) => {
       const facts = forAgent(assembly)
       if (facts === undefined) return ''
-      if (facts.stage !== 'foundation' && facts.stage !== 'write' && facts.stage !== 'review') return renderStageProtocol(facts)
+      if (facts.stage !== 'foundation' && facts.stage !== 'write' && facts.stage !== 'review' && facts.stage !== 'plan') return renderStageProtocol(facts)
       let root = ''
       try {
         const agent = assembly.agent as { session: unknown } | undefined
@@ -192,7 +193,9 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
       if (root === '') return renderStageProtocol(facts)
       const contract = facts.stage === 'foundation'
         ? renderArchitectContract(root)
-        : facts.stage === 'write' ? renderWriterContract(root) : renderReviewContract(root)
+        : facts.stage === 'write'
+          ? renderWriterContract(root)
+          : facts.stage === 'review' ? renderReviewContract(root) : renderPlannerContract(root)
       return `${renderStageProtocol(facts)}\n\n${contract}`
     },
   })
