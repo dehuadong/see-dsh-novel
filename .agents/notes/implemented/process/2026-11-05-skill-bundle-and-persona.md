@@ -17,7 +17,7 @@ Status: implemented
 - 预设 persona 补上源工程 harness prompt 的行为边界：最新用户消息优先、只有工具产生副作用、完成态只来自工具回执与落盘产物、确认动作不得用聊天文字代替、作者已确认的约束要完整继承、技能提供方法不授予执行权、缺必需输入只问一个关键问题；
 - 打包校验的允许集合加 `skills/*/references/*.md`，`test/agent-tools.test.mjs` 断言四份参考文件存在且 `SKILL.md` 路由到它们。
 
-第 3、4 层（角色方法 prompt、每轮上下文包）不在这篇笔记里，见 [`proposed/architecture/2026-11-05-prompt-assembly-layers.md`](../../proposed/architecture/2026-11-05-prompt-assembly-layers.md)。
+第 3、4 层（角色方法与契约、每轮上下文）由阶段上下文和各行的契约承接，见 [`implemented/architecture/2026-11-06-runtime-stage-context.md`](../../implemented/architecture/2026-11-06-runtime-stage-context.md)；未偿还的上下文债见 `docs/fidelity-audit.md`。
 
 ## Alternatives considered
 
