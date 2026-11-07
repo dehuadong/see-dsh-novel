@@ -38,6 +38,17 @@
 - **阶段节点由工作区状态判定**（`story_next`／探针），协议与技能随阶段切换；上下文注入统一走 `systemPrompt.context()`，不另建 prompt 拼装层。
 - **新增或修改技能时的检查**：内容若描述「先调什么、再调什么、产出到哪」，它属于阶段协议，移到阶段注入；技能只保留「怎么写」。
 
+## 任务完成前
+
+每次非平凡改动提交前，同一批更新以下六处；缺任何一处都算未完成：
+
+1. **笔记**：`proposed/` 的对应篇转 `implemented/`（或删除／归档被取代篇），入站链接改完，`pnpm run verify-notes` 通过；
+2. **账本**：`capabilities.yaml` 的 implementation／consumer／realRun 指向当前证据，跑 `pnpm run check-capabilities -- --write`；行为变化过的行必须重录 `artifacts/real-runs/<id>.json`，旧回执不得继续描述新行为；
+3. **审计**：`docs/fidelity-audit.md` 的该行判定（等价／机制等价／保真债）与债号同步；
+4. **范围**：`docs/scope.md` 的保真债表增删该行的债，债号与审计一致；
+5. **偏差**：仅「机制等价」需要 `docs/dsh-mapping.md` 的偏差行，格式为源行为 → DSH 落点 → 原因 → 验证；
+6. **CI**：推送后确认 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 两个 job 通过。
+
 ## 文档资源与约定
 
 - 文档遵循 [`docs/AGENTS.md`](docs/AGENTS.md)：文档分层、位置、职责与写法。

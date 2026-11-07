@@ -22,8 +22,8 @@
   - 立项后开工：`panel.foundation-start`（「已立项，还没有基础设定」状态给出「开始基础设定」，一键把开工指令投回会话，agent 起一轮写设定）。
   - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
   - P1 保真债（复审发现，按行序补齐后才进入 P2）：`foundation.rule-contract`（book_rules 的版本与严格读取）+ `foundation.ready-check`（五段齐全且至少一张角色卡）+ `foundation.truth-projections`（三份 truth 投影）+ `foundation.control-docs`（author_intent／current_focus／brief 的播种与读取）+ `foundation.truth-write`（真值文件替换写入：方向文档、状态真值、book rules、outline 与角色卡）+ `foundation.hook-ledger`（dependsOn／paysOffInArc 字段与严格校验）+ `runtime.commit-safety`（路径包含、串行化、失败保留日志）+ `runtime.work-lock`（跨进程作品锁）+ `runtime.txn-format`（事务目录、日志字段、rename 备份与 committed 阶段）+ `proposal.execution-brief`（instruction 与默认规模）。这些行补的是源工程已有、复刻侧缺失或放宽的行为，不是新能力。
-- **P2 章前规划**：`plan.retrieval` + `plan.context-select` + `plan.compression` + `plan.chapter`。检索用源工程的 FTS5/BM25，上下文用四个 LLM 选择器与 ChapterTrace 七字段，超预算走 LLM 压缩；`plan.chapter` 只负责 planner 提示词、memo 与 governed plan 落盘，消费前三层。源工程第 3、4 层提示词在此落地：`plan.chapter` 同时交付 planner 的方法 prompt 与章前上下文装配，`context.brief` 负责每轮上下文包的字段与装配时机。
-- **P3 正文生产**：`chapter.write` + `chapter.review` + `chapter.revise`。`chapter.write` 交付 writer 的方法 prompt 与场景／篇幅预算，`chapter.review`／`chapter.revise` 各自交付对应角色方法。
+- **P2 章前规划**：`plan.retrieval`（FTS5/BM25 与来源标注）+ `plan.context-select`（composer 选择、分层与 `ChapterTrace` 七字段）+ `plan.compression`（超预算压缩）+ `plan.chapter`（planner 契约、memo 与 plan 复用）。
+- **P3 正文生产**：`chapter.write`（writer 契约与章节文档）+ `chapter.review`（编号来源与观察校验）+ `chapter.revise`。
 - **P4 结算与定稿**：`chapter.summary` + `chapter.settle` + `chapter.finalize`。`chapter.settle` 交付 settler 的方法 prompt，以及伏笔六动作的合并规则（提及与延后不推进、撤回需要依据）。
 - **P5 章节运维与对账**：`chapter.reopen` + `chapter.move-delete` + `state.check`。
 - **P6 产物与工作台**：`artifact.identity` + `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
@@ -58,6 +58,21 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 - **旧作品迁移**：不导入既有作品库，不做历史数据清洗。
 - **横向重构**：不做跨模块统一抽象，按能力纵向交付。
 - **第二套状态表**：能力状态只由 `capabilities.yaml` 承载，不另建进度表、交付盘点或验收清单。
+
+## 保真债
+
+审计结论与逐行依据见 [`fidelity-audit.md`](fidelity-audit.md)；这里只列未偿还项与偿还位置。
+
+| 编号 | 行 | 欠什么 | 偿还位置 |
+|---|---|---|---|
+| D1／D2 | `proposal.creative` | 缺 `minChapterLength`／`maxChapterLength`；`createBook` 被扁平化 | 本行 |
+| D3／D4 | `runtime.commands` | 选项名与源 CLI 不一致；缺省题材/平台未对齐 | 本行 |
+| D8 | `foundation.truth-write` | 允许列表多出 style_guide／parent_canon／fanfic_canon | 本行 |
+| D9 | `runtime.commit-safety` | 事务目录前缀 `.staging-` ≠ 源 `.inkos-file-txn-` | 本行 |
+| D10 | `plan.retrieval` | CJK 分词与来源类型与源不同 | 本行 |
+| D11／D12 | `plan.context-select` | 固定来源缺 style_guide／上一章／chapter memo／canon；选择器合并 | 本行 |
+| D13 | `plan.compression` | 窗口与压缩文本由调用方手填 | 本行 |
+| D18 | `chapter.review` | 缺 `reviewedArtifact` | `artifact.identity` 行 |
 
 ## 边界
 
