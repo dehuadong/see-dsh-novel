@@ -1,18 +1,17 @@
 {
   "capability": "runtime.commands",
-  "date": "2026-11-06",
-  "sessionId": "session-d8617ae4-7867-49eb-ac7c-351e70492b7c",
+  "date": "2026-11-08",
+  "sessionId": "session-b5e96a1f-29b2-4204-9ed6-6738d65413c8",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "238 passed — 命令解析与回执逐字断言、默认 zh 与默认规模 200/3000、--brief 文件路径、写盘与幂等、坏 work.json、语法/语义错误不落盘，以及 `input` 提示让输入框先收参数再派发"
+    "summary": "286 passed — 选项名/别名/内联值/重复后者覆盖/parseInt/空值矩阵/--lang 归一与回退/缺省 genre 与 platform/--brief 与 -- 标题规则；命令落盘与逐字回执"
   },
   "receipts": [
-    "工作区 `E:\\see-dsh-novel\\.artifacts\\work-empty-4` 里执行 `/story-init 《雾津夜行》 --lang zh --chapters 90 --words 2800`：seq 33 `command/run`（args 就是命令行剩余文本）→ seq 34 `command/done` 成功",
-    "回执文本：「已立项《雾津夜行》：longform-novel，zh，draft（目标 90 章，单章 2800 字）」+「下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。」",
-    "磁盘结果：`work-empty-4/work.json` 的 `version/id/title/profile/language/status/metadata/createdAt/updatedAt` 齐全，标题按原样保留书名号，`metadata` 为 `{ targetChapters: 90, chapterWordCount: 2800 }`，`id` 取目录名",
-    "同一会话里此前两次 `story-init` 无参数（seq 25/26 与更早一次）都返回「缺少标题：用法 …」，说明参数确实由命令自己解析，而不是被忽略",
-    "命令入口与写入路径：`command/run` 由宿主派发（`source.kind: user`），处理器用 `workingDirectory.ensure` 解析工作区后走 `initWork`（身份 + `story/brief.md` + 方向文档一次提交）；注册时声明了 `input` 提示，输入框才在派发前接收参数",
-    "默认规模（`work-init`，session `session-88eb3ff4-1bd8-4765-b1ea-71f83191b3b7`）：`/story-init 夜行测试 --genre 都市悬疑`（不带 `--chapters`/`--words`）的 `command/done` 为「已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字，都市悬疑）」；`work.json` 的 `metadata` 为 `{targetChapters:200, chapterWordCount:3000, genre:\"都市悬疑\"}`，`source/story/brief.md` 为 `Create 夜行测试`"
+    "工作区 `E:\\novelist\\test-novel\\t001`，会话 `session-b5e96a1f-29b2-4204-9ed6-6738d65413c8`：seq 26 `command/run`（args 为 ` 《对齐验证》 --target-chapters=80 --chapter-words=2500 --lang=zh-CN`）→ seq 27 `command/done` 成功，回执为「已立项《对齐验证》：longform-novel，zh，draft（目标 80 章，单章 2500 字，xuanhuan，tomato）」+「下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。」",
+    "同一会话 seq 4 在加载新 bundle 前的一次相同尝试报「未知选项 --target-chapters=80」；新 bundle 生效后 seq 26/27 成功，回执来自新行为。",
+    "磁盘结果：`work.json` 的 `version/id/title/profile/language/status/metadata/createdAt/updatedAt` 齐全；`id` 为目录名 `t001`，`title` 按原样保留书名号，`language` 为 `zh`，`metadata` 为 `{ targetChapters: 80, chapterWordCount: 2500, genre: \"xuanhuan\", platform: \"tomato\" }`",
+    "同一提交写出 `source/story/brief.md` 为 `Create 《对齐验证》`，`author_intent.md` 为同一句加换行，`current_focus.md` 是默认方向模板；说明命令走的是 `initWork` 的「身份 + 简报 + 方向文档」一次提交。",
+    "别名、`--flag=value`、重复后者覆盖、`parseInt` 前导整数、空值矩阵与 `--lang fr` 回退 `zh` 由 `packages/see-dsh-novel/test/work-command.test.mjs` 的 17 例命令测试覆盖；完整 286 例由 `pnpm run verify` 跑绿。"
   ]
 }

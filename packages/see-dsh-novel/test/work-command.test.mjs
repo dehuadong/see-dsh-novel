@@ -33,6 +33,13 @@ function services(root) {
 
 const exec = { agent: { session: { snapshotEvents: () => [] } }, rawInput: '', signal: new AbortController().signal }
 
+const defaultMetadata = () => ({
+  targetChapters: 200,
+  chapterWordCount: 3000,
+  genre: 'xuanhuan',
+  platform: 'tomato',
+})
+
 async function exists(path) {
   try {
     await stat(path)
@@ -42,31 +49,73 @@ async function exists(path) {
   }
 }
 
-test('parseWorkCreate reads the title and the three options', () => {
-  assert.deepEqual(parseWorkCreate('《夜行测试》'), { title: '《夜行测试》', targetChapters: 200, chapterWordCount: 3000 })
+test('parseWorkCreate reads the title, options and defaults', () => {
+  assert.deepEqual(parseWorkCreate('《夜行测试》'), { title: '《夜行测试》', ...defaultMetadata() })
   assert.deepEqual(
     parseWorkCreate('  夜行 测试  --lang en --chapters 80 --words 2500 '),
-    { title: '夜行 测试', language: 'en', targetChapters: 80, chapterWordCount: 2500 },
+    {
+      title: '夜行 测试',
+      language: 'en',
+      ...defaultMetadata(),
+      targetChapters: 80,
+      chapterWordCount: 2500,
+    },
   )
   assert.equal(parseWorkCreate('标题 --brief briefs/创作.md').brief, 'briefs/创作.md')
+  assert.equal(parseWorkCreate('标题 --genre 都市悬疑').genre, '都市悬疑')
+})
+
+test('parseWorkCreate accepts the canonical option names, inline values and last-wins repeats', () => {
+  const canonical = parseWorkCreate('标题 --target-chapters 80 --chapter-words 2500')
+  assert.deepEqual(parseWorkCreate('标题 --chapters 80 --words 2500'), canonical)
+  assert.deepEqual(parseWorkCreate('标题 --target-chapters=80 --chapter-words=2500'), canonical)
+  assert.equal(parseWorkCreate('标题 --chapters 80 --target-chapters 90').targetChapters, 90)
+  assert.equal(parseWorkCreate('标题 --lang en --lang fr').language, undefined)
+})
+
+test('parseWorkCreate reads numbers the way parseInt does', () => {
+  assert.equal(parseWorkCreate('标题 --target-chapters 2.5').targetChapters, 2)
+  assert.equal(parseWorkCreate('标题 --target-chapters 80abc').targetChapters, 80)
+  assert.equal(parseWorkCreate('标题 --target-chapters +80').targetChapters, 80)
+  assert.equal(parseWorkCreate('标题 --chapters 1e3').targetChapters, 1)
+  assert.throws(() => parseWorkCreate('标题 --chapters abc'), /--chapters 取不出整数/)
+})
+
+test('parseWorkCreate normalizes --lang prefixes and falls back on unknown values', () => {
+  assert.equal(parseWorkCreate('标题 --lang zh-CN').language, 'zh')
+  assert.equal(parseWorkCreate('标题 --lang EN').language, 'en')
+  assert.equal(parseWorkCreate('标题 --lang fr').language, undefined)
+  assert.equal(parseWorkCreate('标题 --lang=').language, undefined)
+})
+
+test('parseWorkCreate separates empty option values', () => {
+  assert.equal(parseWorkCreate('标题 --brief=').brief, undefined)
+  assert.equal(parseWorkCreate('标题 --genre=').genre, '')
+  assert.equal(parseWorkCreate('标题 --platform=').platform, '')
+  assert.throws(() => parseWorkCreate('标题 --target-chapters='), /--target-chapters 取不出整数/)
+  assert.throws(() => parseWorkCreate('标题 --chapter-words='), /--chapter-words 取不出整数/)
 })
 
 test('parseWorkCreate keeps the title as the author wrote it', () => {
   // `--` 之后是标题原文：内部空白、`--` 字样都按原样保留。
-  assert.deepEqual(parseWorkCreate('-- 带 --lang 的标题'), { title: '带 --lang 的标题', targetChapters: 200, chapterWordCount: 3000 })
-  assert.deepEqual(parseWorkCreate('-- 夜行   测试'), { title: '夜行   测试', targetChapters: 200, chapterWordCount: 3000 })
+  assert.deepEqual(parseWorkCreate('-- 带 --lang 的标题'), { title: '带 --lang 的标题', ...defaultMetadata() })
+  assert.deepEqual(parseWorkCreate('-- 夜行   测试'), { title: '夜行   测试', ...defaultMetadata() })
   // 标题词被选项隔开时无法按原文取回，退回单空格连接。
-  assert.deepEqual(parseWorkCreate('夜行 --lang zh 测试'), { title: '夜行 测试', language: 'zh', targetChapters: 200, chapterWordCount: 3000 })
+  assert.deepEqual(parseWorkCreate('夜行 --lang zh 测试'), {
+    title: '夜行 测试',
+    language: 'zh',
+    ...defaultMetadata(),
+  })
 })
 
 test('parseWorkCreate reports the parameter it could not read', () => {
   assert.throws(() => parseWorkCreate(''), /缺少标题/)
   assert.throws(() => parseWorkCreate('--lang zh'), /缺少标题/)
   assert.throws(() => parseWorkCreate('标题 --foo bar'), /未知选项 --foo/)
-  assert.throws(() => parseWorkCreate('标题 --lang zh --lang en'), /--lang 重复/)
+  assert.throws(() => parseWorkCreate('标题 --foo=bar'), /未知选项 --foo/)
   assert.throws(() => parseWorkCreate('标题 --lang'), /--lang 缺少取值/)
-  assert.throws(() => parseWorkCreate('标题 --chapters 2.5'), /--chapters 必须是整数/)
-  assert.throws(() => parseWorkCreate('标题 --chapters abc'), /--chapters 必须是整数/)
+  assert.throws(() => parseWorkCreate('标题 --chapters --lang zh'), /--chapters 缺少取值/)
+  assert.throws(() => parseWorkCreate('标题 --chapters abc'), /--chapters 取不出整数/)
 })
 
 test('the command writes work.json and reports the identity', async () => {
@@ -76,13 +125,14 @@ test('the command writes work.json and reports the identity', async () => {
     const dispose = installInitCommand(ctx)
     assert.deepEqual([...commands.keys()], [COMMAND_INIT])
     // 不声明 input 时输入框会在选中命令后立即派发，参数没有机会输入。
-    assert.match(commands.get(COMMAND_INIT).input.hint, /--chapters N/)
+    assert.match(commands.get(COMMAND_INIT).input.hint, /--target-chapters N/)
+    assert.match(commands.get(COMMAND_INIT).input.hint, /--chapters／--words 为规模别名/)
 
     const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '《夜行测试》 --lang en --chapters 80 --words 2500' })
     assert.equal(result.kind, 'success')
     assert.equal(
       result.text,
-      '已立项《夜行测试》：longform-novel，en，draft（目标 80 章，单章 2500 字）\n'
+      '已立项《夜行测试》：longform-novel，en，draft（目标 80 章，单章 2500 字，xuanhuan，tomato）\n'
         + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
     )
 
@@ -92,7 +142,11 @@ test('the command writes work.json and reports the identity', async () => {
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.title, '《夜行测试》')
     assert.equal(onDisk.language, 'en')
-    assert.deepEqual(onDisk.metadata, { targetChapters: 80, chapterWordCount: 2500 })
+    assert.deepEqual(onDisk.metadata, {
+      ...defaultMetadata(),
+      targetChapters: 80,
+      chapterWordCount: 2500,
+    })
 
     // 第二次立项：错误文本来自 writeWork，原文件不变。
     const before = await readFile(join(root, WORK_FILE), 'utf8')
@@ -108,7 +162,7 @@ test('the command writes work.json and reports the identity', async () => {
   }
 })
 
-test('the default language is zh and the default scale is 200 x 3000', async () => {
+test('the default language and scale still fall back to zh and 200 x 3000', async () => {
   const root = await workspace()
   try {
     const { commands, ctx } = services(root)
@@ -117,13 +171,52 @@ test('the default language is zh and the default scale is 200 x 3000', async () 
     assert.equal(result.kind, 'success')
     assert.equal(
       result.text,
-      '已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字）\n'
+      '已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字，xuanhuan，tomato）\n'
         + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
     )
     assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), 'Create 夜行测试')
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(onDisk.language, 'zh')
-    assert.deepEqual(onDisk.metadata, { targetChapters: 200, chapterWordCount: 3000 })
+    assert.deepEqual(onDisk.metadata, defaultMetadata())
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('the command accepts the canonical names and inline values', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const result = await commands.get(COMMAND_INIT).handler({
+      ...exec,
+      rawInput: '内联写法 --target-chapters=80 --chapter-words=2500 --lang=zh-CN',
+    })
+    assert.equal(result.kind, 'success')
+    const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    assert.equal(onDisk.language, 'zh')
+    assert.deepEqual(onDisk.metadata, {
+      ...defaultMetadata(),
+      targetChapters: 80,
+      chapterWordCount: 2500,
+    })
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a later size option wins over an earlier alias', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const result = await commands.get(COMMAND_INIT).handler({
+      ...exec,
+      rawInput: '重复 --chapters 80 --target-chapters 90',
+    })
+    assert.equal(result.kind, 'success')
+    const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    assert.equal(onDisk.metadata.targetChapters, 90)
   } finally {
     await cleanup(root)
   }
@@ -134,7 +227,7 @@ test('--brief reads a file relative to the workspace root', async () => {
   try {
     const { commands, ctx } = services(root)
     installInitCommand(ctx)
-    const { mkdir, writeFile } = await import('node:fs/promises')
+    const { mkdir } = await import('node:fs/promises')
     await mkdir(join(root, 'briefs'), { recursive: true })
     await writeFile(join(root, 'briefs/创作.md'), '  自定义简报内容  \n', 'utf8')
     const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '带简报 --brief briefs/创作.md' })
@@ -153,21 +246,49 @@ test('--brief reads a file relative to the workspace root', async () => {
   }
 })
 
-test('an invalid language writes nothing at all', async () => {
+test('--brief= means no brief and keeps the generated instruction', async () => {
   const root = await workspace()
   try {
     const { commands, ctx } = services(root)
     installInitCommand(ctx)
-    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '坏语言 --lang fr' })
-    assert.equal(result.kind, 'error')
-    assert.match(result.text, /language/)
-    assert.deepEqual(await readdir(root), [])
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '没简报 --brief=' })
+    assert.equal(result.kind, 'success')
+    assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), 'Create 没简报')
   } finally {
     await cleanup(root)
   }
 })
 
-test('syntax and semantic errors both come back as command errors without writing', async () => {
+test('an unknown language falls back to zh instead of failing', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '回落 --lang fr' })
+    assert.equal(result.kind, 'success')
+    assert.match(result.text, /zh/)
+    const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    assert.equal(onDisk.language, 'zh')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('2.5 chapters follows parseInt and writes two chapters', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '截断 --chapters 2.5' })
+    assert.equal(result.kind, 'success')
+    const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    assert.equal(onDisk.metadata.targetChapters, 2)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('empty and invalid values both come back as command errors without writing', async () => {
   const root = await workspace()
   try {
     const { commands, ctx } = services(root)
@@ -176,9 +297,13 @@ test('syntax and semantic errors both come back as command errors without writin
 
     for (const [rawInput, pattern] of [
       ['', /缺少标题/],
-      ['标题 --chapters 2.5', /--chapters 必须是整数/],
-      ['标题 --lang fr', /language/],
+      ['标题 --chapters abc', /--chapters 取不出整数/],
+      ['标题 --target-chapters=', /--target-chapters 取不出整数/],
+      ['标题 --chapter-words=', /--chapter-words 取不出整数/],
+      ['标题 --genre=', /genre/],
+      ['标题 --platform=', /platform/],
       ['标题 --chapters 0', /targetChapters/],
+      ['标题 --chapters -5', /targetChapters/],
     ]) {
       const result = await handler({ ...exec, rawInput })
       assert.equal(result.kind, 'error', rawInput)

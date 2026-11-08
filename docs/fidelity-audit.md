@@ -60,28 +60,39 @@
   - `--title <title>` 必填；
   - `--genre` 默认 `xuanhuan`；
   - `--platform` 默认 `tomato`；
-  - `--target-chapters` 默认 `200`；
-  - `--chapter-words` 默认 `3000`；
+  - `--target-chapters` 默认 `200`，`--chapter-words` 默认 `3000`；
   - `--brief <path>` 读文件作为 `externalContext`；
-  - `--lang` 缺省由题材决定。
+  - `--lang` 取 `resolveCliLanguage(opts.lang ?? config.language)`：显式值按 `zh*`／`en*` 前缀归一，不匹配再读项目语言与宿主 locale，最后缺省 `zh`；
+  - `targetChapters`／`chapterWordCount` 用 `parseInt(…, 10)`；
+  - action 调 `createBookFoundationTool`，由 `pipeline.initBook` 生成基础设定；
+  - 已有目录先判 `isCompleteBookDirectory`，不完整就删除重建。
+- `packages/cli/package.json` 依赖 commander：重复选项后者覆盖，支持 `--flag=value`。
 
 **可验证不变量**
 
 1. 标题必填。
-2. 未给规模时落 200 章 × 3000 字。
-3. `--brief` 读文件，内容作为外部上下文。
-4. 缺省题材/平台有源工程的默认值（xuanhuan／tomato），或明确登记为 DSH 命令的偏差。
+2. 未给规模时落 200 章 × 3000 字；未给题材/平台时落 `xuanhuan`／`tomato`；未给语言时落 `zh`。
+3. 源选项名 `--target-chapters`／`--chapter-words` 可用；`--chapters`／`--words` 是别名。
+4. 解析接受 `--flag=value`、重复后者覆盖、`parseInt` 前导整数；空值按源行为分开。
+5. `--brief` 读文件，内容作为外部上下文；`--brief=` 视为没有简报。
+6. `--lang` 按前缀归一，未知值回退 `zh`。
+7. 源命令一次完成身份与基础设定；已有完整作品拒绝，不完整作品删除重建。
 
 **复刻现状**
 
-- `/story-init`：位置参数标题、`--lang`／`--chapters`／`--words`／`--genre`／`--platform`／`--brief`；
-- 缺省规模 200／3000；
-- `--genre`／`--platform` 无默认值；`--brief` 相对工作区根读文件。
+- `/story-init`：位置参数标题；源名与短别名都可用；支持 `--flag=value`、重复后者覆盖、`parseInt` 前导整数；空值矩阵与源一致。
+- 缺省规模 200／3000、题材 `xuanhuan`、平台 `tomato`、语言 `zh`。
+- `--lang` 按前缀归一，未知值回退 `zh`。
+- `--brief` 相对工作区根读文件；`--brief=` 用 `Create <标题>`。
+- 命令只写身份、`story/brief.md` 与方向文档；基础设定由 `story_next`／面板阶段继续。
+- 已有 `work.json` 一律拒绝，不删除工作区。
 
 **判定：保真债**
 
-- D3：选项名与源 CLI 不一致（`--target-chapters`／`--chapter-words` vs `--chapters`／`--words`）；CLI → DSH command 本身已登记为偏差，但选项名可在命令内兼容，不需新机制；偿还：`runtime.commands` 行补别名并同步文档与测试。
-- D4：缺省题材/平台未对齐（源 `xuanhuan`／`tomato`）；偿还：同 D3。
+- D3／D4：已偿还。源名与别名同表、缺省题材/平台随 `work.json` 落盘；同批补了 `--lang` 前缀归一与 `parseInt` 读取。
+- D19：源命令一次启动基础设定，复刻分成命令与阶段两步；偿还路径是命令写完身份后通过 `agent.followup`／`steer` 启动基础设定阶段，并补异步反馈、幂等与失败回执。
+- D20：源的项目语言与宿主 locale 层（`inkos.json`／`INKOS_DEFAULT_LANGUAGE`／`INKOS_LOCALE`／`LC_ALL` 等）未复刻；偿还路径是预设或插件配置提供默认语言，并按同一顺序解析。
+- D21：源遇到不完整作品目录会删除重建，复刻拒绝已有 `work.json`；偿还路径是为不完整作品定义安全清理集或显式 `force`，不删除工作区根。
 - D5：`--brief` 的路径基准从进程 cwd 改为工作区根——已登记为机制等价偏差（`docs/dsh-mapping.md`）。
 
 ---

@@ -2,8 +2,8 @@
  * `/story-init`：立项的命令行入口。
  *
  * 命令的输入是一整行文本、没有 schema，所以解析单独做成纯函数：语法错误在这里
- * 点名参数，语言枚举、正整数、已存在与坏文件这些语义错误仍由 `writeWork` 报
- * （消息里带文件与字段），命令层不复制同一套规则。
+ * 点名参数；语言归一也在这里完成，语言枚举、正整数、已存在与坏文件这些语义错误
+ * 仍由 `prepareWork` 报（消息里带文件与字段），命令层不复制同一套规则。
  * 建书写入与提案批准共用 `initWork`：身份、`story/brief.md` 与方向文档一次提交。
  */
 import { readFile } from 'node:fs/promises'
@@ -17,7 +17,19 @@ import { describeWork } from '../core/work.js'
 /** 命令名；注册与测试共用。 */
 export const COMMAND_INIT = 'story-init'
 
-/** 解析后的立项参数；与 `writeWork` 的入参同形，但这里已经是 string／number。 */
+/** 命令的缺省分类：作者没写时落这两个值。 */
+const DEFAULT_GENRE = 'xuanhuan'
+const DEFAULT_PLATFORM = 'tomato'
+/** 缺省规模：200 章 × 3000 字。 */
+const DEFAULT_CHAPTERS = 200
+const DEFAULT_WORDS = 3000
+
+/** 选项说明；用法与输入提示共用，避免两处文案漂移。 */
+const OPTION_HELP = '[--lang zh|en] [--target-chapters N] [--chapter-words N] [--genre 题材] [--platform 平台] [--brief 简报文件]（--chapters／--words 为规模别名）'
+const USAGE = `/story-init <标题> ${OPTION_HELP}`
+const INPUT_HINT = `《标题》 ${OPTION_HELP}`
+
+/** 解析后的立项参数；标题与五个选项名和 `WorkCreateInput` 同名，但这里已经是 string／number，另带 `brief`。 */
 export interface WorkCreateArgs {
   title: string
   language?: string
@@ -35,19 +47,50 @@ interface OptionSpec {
   apply(input: WorkCreateArgs, value: string, flag: string): void
 }
 
-/** 整数字面量转数字；非法时点名选项。 */
-function integerOf(flag: string, value: string): number {
-  if (!/^-?\d+$/.test(value)) throw new Error(`${flag} 必须是整数，实际是 ${value}`)
-  return Number(value)
+/** 按前导整数解析；取不出数字才算语法错误。 */
+function leadingIntegerOf(flag: string, value: string): number {
+  const parsed = Number.parseInt(value, 10)
+  if (Number.isNaN(parsed)) throw new Error(`${flag} 取不出整数，实际是 ${value}`)
+  return parsed
+}
+
+/** 按语言标签的前缀归一；不认识的写法留给缺省值处理。 */
+function normalizeLanguage(value: string): 'zh' | 'en' | undefined {
+  const normalized = value.trim().toLowerCase()
+  if (normalized.startsWith('en')) return 'en'
+  if (normalized.startsWith('zh')) return 'zh'
+  return undefined
+}
+
+const TARGET_CHAPTERS_OPTION: OptionSpec = {
+  apply: (input, value, flag) => { input.targetChapters = leadingIntegerOf(flag, value) },
+}
+const CHAPTER_WORDS_OPTION: OptionSpec = {
+  apply: (input, value, flag) => { input.chapterWordCount = leadingIntegerOf(flag, value) },
 }
 
 const OPTIONS: Record<string, OptionSpec> = {
-  '--lang': { apply: (input, value) => { input.language = value } },
-  '--chapters': { apply: (input, value, flag) => { input.targetChapters = integerOf(flag, value) } },
-  '--words': { apply: (input, value, flag) => { input.chapterWordCount = integerOf(flag, value) } },
+  '--lang': {
+    apply: (input, value) => {
+      const language = normalizeLanguage(value)
+      // 不认识的写法回退到缺省 zh；删掉键，让 `prepareWork` 用自己的默认值。
+      if (language === undefined) delete input.language
+      else input.language = language
+    },
+  },
+  '--target-chapters': TARGET_CHAPTERS_OPTION,
+  '--chapters': TARGET_CHAPTERS_OPTION,
+  '--chapter-words': CHAPTER_WORDS_OPTION,
+  '--words': CHAPTER_WORDS_OPTION,
   '--genre': { apply: (input, value) => { input.genre = value } },
   '--platform': { apply: (input, value) => { input.platform = value } },
-  '--brief': { apply: (input, value) => { input.brief = value } },
+  '--brief': {
+    apply: (input, value) => {
+      // 空串等于没给简报；删掉键，让处理器回退到 `Create <标题>`。
+      if (value === '') delete input.brief
+      else input.brief = value
+    },
+  },
 }
 
 interface Token {
@@ -63,6 +106,13 @@ function tokenize(rawInput: string): Token[] {
     tokens.push({ text: match[0], start: match.index ?? 0, end: (match.index ?? 0) + match[0].length })
   }
   return tokens
+}
+
+/** `--flag=value` 拆成选项名与内联取值；没有 `=` 时只返回选项名。 */
+function splitFlag(text: string): { flag: string; inline?: string } {
+  const equals = text.indexOf('=')
+  if (equals === -1) return { flag: text }
+  return { flag: text.slice(0, equals), inline: text.slice(equals + 1) }
 }
 
 /** 标题词在原文里连续时按原样取回，保留词与词之间的空白；不连续时退回单空格连接。 */
@@ -85,7 +135,6 @@ function titleOf(rawInput: string, indices: ReadonlyArray<number>, tokens: Reado
 export function parseWorkCreate(rawInput: string): WorkCreateArgs {
   const tokens = tokenize(rawInput)
   const input: WorkCreateArgs = { title: '' }
-  const seen = new Set<string>()
   const titleIndices: number[] = []
   let terminated = false
 
@@ -99,22 +148,29 @@ export function parseWorkCreate(rawInput: string): WorkCreateArgs {
       terminated = true
       continue
     }
-    const spec = OPTIONS[token.text]
-    if (spec === undefined) throw new Error(`未知选项 ${token.text}`)
-    if (seen.has(token.text)) throw new Error(`选项 ${token.text} 重复`)
-    seen.add(token.text)
-    const value = tokens[index + 1]
-    if (value === undefined || value.text.startsWith('--')) throw new Error(`${token.text} 缺少取值`)
-    index += 1
-    spec.apply(input, value.text, token.text)
+    const { flag, inline } = splitFlag(token.text)
+    const spec = OPTIONS[flag]
+    if (spec === undefined) throw new Error(`未知选项 ${flag}`)
+    let value: string
+    if (inline !== undefined) {
+      value = inline
+    } else {
+      const next = tokens[index + 1]
+      if (next === undefined || next.text.startsWith('--')) throw new Error(`${flag} 缺少取值`)
+      value = next.text
+      index += 1
+    }
+    spec.apply(input, value, flag)
   }
 
   const title = titleOf(rawInput, titleIndices, tokens)
-  if (title === '') throw new Error('缺少标题：用法 /story-init <标题> [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台]')
+  if (title === '') throw new Error(`缺少标题：用法 ${USAGE}`)
   input.title = title
-  // CLI `book create` 的默认规模：不带参数时 200 章 × 3000 字。
-  input.targetChapters ??= 200
-  input.chapterWordCount ??= 3000
+  // 空串保持原样，交给 prepareWork 拒绝；?? 只补没写的字段。
+  input.genre ??= DEFAULT_GENRE
+  input.platform ??= DEFAULT_PLATFORM
+  input.targetChapters ??= DEFAULT_CHAPTERS
+  input.chapterWordCount ??= DEFAULT_WORDS
   return input
 }
 
@@ -128,7 +184,7 @@ export function installInitCommand(ctx: PluginContext): Disposer {
     name: COMMAND_INIT,
     description: '在当前工作区立项：写下 work.json（标题、语言、目标章数、单章字数、题材与平台）。',
     // 不声明 input 时，命令在候选菜单里一选中就派发，作者来不及补参数。
-    input: { hint: '《标题》 [--lang zh|en] [--chapters N] [--words N] [--genre 题材] [--platform 平台] [--brief 简报文件]' },
+    input: { hint: INPUT_HINT },
     async handler(invocation: CommandInvocationLike): Promise<CommandResultLike> {
       try {
         const root = await ctx.workingDirectory.ensure(invocation.agent)

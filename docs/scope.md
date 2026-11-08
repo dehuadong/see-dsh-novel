@@ -65,13 +65,15 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 | 编号 | 行 | 欠什么 | 偿还位置 |
 |---|---|---|---|
-| D3／D4 | `runtime.commands` | 选项名与源 CLI 不一致；缺省题材/平台未对齐 | 本行 |
 | D8 | `foundation.truth-write` | 允许列表多出 style_guide／parent_canon／fanfic_canon | 本行 |
 | D9 | `runtime.commit-safety` | 事务目录前缀 `.staging-` ≠ 源 `.inkos-file-txn-` | 本行 |
 | D10 | `plan.retrieval` | CJK 分词与来源类型与源不同 | 本行 |
 | D11／D12 | `plan.context-select` | 固定来源缺 style_guide／上一章／chapter memo／canon；选择器合并 | 本行 |
 | D13 | `plan.compression` | 窗口与压缩文本由调用方手填 | 本行 |
 | D18 | `chapter.review` | 缺 `reviewedArtifact` | `artifact.identity` 行 |
+| D19 | `runtime.commands` | 源一条命令建书并启动基础设定；复刻是命令 + 阶段两步 | 本行 |
+| D20 | `runtime.commands` | 源的项目语言与宿主 locale 层未复刻，未知 `--lang` 恒回退 `zh` | 本行 |
+| D21 | `runtime.commands` | 源会删除不完整作品目录后重建；复刻拒绝已有 `work.json` | 本行 |
 
 ## 边界
 
