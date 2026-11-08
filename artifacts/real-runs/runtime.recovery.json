@@ -1,17 +1,15 @@
 {
   "capability": "runtime.recovery",
-  "date": "2026-11-05",
-  "sessionId": "session-38fb3525-5ad2-4c7b-b14e-500ee0ff3f86",
+  "date": "2026-11-08",
+  "sessionId": "session-be199bcf-db91-4deb-ae75-6da15a44a06f",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "162 passed — 自检 25 例（空工作区/空目录 unbound、只有 work、内容无身份、坏身份、三个索引逐个重建且摘要回到原值、缺索引与坏身份并存、hooks 不重建、死属主 prepared 回滚、搬空只清理、删除项回滚、混合提交清理、死属主 applied 清理、活属主不动、无日志/EISDIR/半截日志只报告、临时文件按属主、日志解析、提交不留暂存、prepared 空 work 清理、工具输出形状、needsReconfirm 两向、stateWritesIfMissing、schema 子集）＋工具清单"
+    "summary": "291 passed — 自检 27 例（索引缺失、投影重建、死 prepared 回滚、死 committed 清理、活属主、无日志/坏日志、临时文件、根事务扫描、旧 .staging 不扫描）＋ txn-format 5 例＋ commit-safety 8 例＋ foundation 8 例"
   },
   "receipts": [
-    "工作区 `work-empty-2`（《夜行测试》，16 个工件）先被弄坏：删掉 `source/story/state/manifest.json`，再造一个属主已死（pid 999999）的 `prepared` 暂存目录 `source/.staging-devetest`，其中含 `story_frame.md` 的备份，目标文件被追加了「半套写入」一行",
-    "会话里调 `story_recover`（apply: true）得到：`工作区自检发现 2 项`——`[warning] state-missing source/story/state/manifest.json`、`[warning] staging-rollback source/.staging-devetest：属主进程 999999 已退出，提交没走完；可以用备份还原`",
-    "同一次调用 `已修复 2 项`：`source/story/state/manifest.json`（按默认内容重建）与 `source/.staging-devetest`（用备份还原后删除）；工具给出 `摘要：修复前 36d0a1ba，修复后 210b3a1f；本会话没有可用的确认回执`",
-    "修复后的工作区与损坏前的备份逐字节一致：`readArtifacts` 两边都是 16 个文件、摘要 `210b3a1f4fd3fd66c1b816e1e57f5aaffe97f1f9d64bb78689743fa33682cbb3`；`story_frame.md` 里没有「半套写入」那行，`source/` 下只剩 `story`（暂存目录已消失），`manifest.json` 是 `{schemaVersion:2, language:zh, lastAppliedChapter:0, projectionVersion:1}`",
-    "随后 `story_next` 返回 `阶段 ready · 夜行测试`，自检没有把工作区改坏，也没有重建 `hooks.json`（原文件一直在，未被触碰）"
+    "工作区 `E:\\see-dsh-novel\\.artifacts\\work-txn-format`，会话 `session-be199bcf-db91-4deb-ae75-6da15a44a06f`：`story_recover`（apply: true）发现 5 项——`hooks-missing`、三条 `state-missing` 投影，以及 `[warning] staging-rollback .inkos-file-txn-fixture：属主进程 999999 已退出，提交没走完；可以用备份还原`；`已修复 3 项`：`source/story/current_state.md`、`source/story/chapter_summaries.md`、`.inkos-file-txn-fixture`；摘要从 `a022a236` 变为 `a8dcdbf3`，本会话没有可用确认回执。",
+    "修复后 `source/story/outline/story_frame.md` 从「半套新大纲」回到「旧大纲」；根目录不再有 `.inkos-file-txn-*`；`hooks.json` 缺失只报告、不补空；`story_next` 返回 `阶段 foundation · 事务格式验证`。",
+    "旧 `source/.staging-*` 目录不再被扫描，`test/txn-format.test.mjs` 与 `test/recovery.test.mjs` 均覆盖。"
   ]
 }

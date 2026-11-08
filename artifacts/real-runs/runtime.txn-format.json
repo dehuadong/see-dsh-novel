@@ -1,0 +1,16 @@
+{
+  "capability": "runtime.txn-format",
+  "date": "2026-11-08",
+  "sessionId": "session-be199bcf-db91-4deb-ae75-6da15a44a06f",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "291 passed — txn-format 5 例（根目录事务、运行中 layout/entries/紧凑日志、rename 备份、死 prepared 回滚、死 committed 清理、旧 .staging 不扫描）＋ commit-safety 8 例＋ recovery 27 例＋ foundation 8 例"
+  },
+  "receipts": [
+    "工作区 `E:\\see-dsh-novel\\.artifacts\\work-txn-format`，会话 `session-be199bcf-db91-4deb-ae75-6da15a44a06f`：`story_recover`（apply: true）的发现里有 `[warning] staging-rollback .inkos-file-txn-fixture：属主进程 999999 已退出，提交没走完；可以用备份还原`；`已修复 3 项` 包含 `.inkos-file-txn-fixture`。事务目录在作品根，不在 `source/` 下。",
+    "夹具的 `.inkos-file-txn-fixture` 是 `prepared`、pid 999999、`entries:[{path:\"source/story/outline/story_frame.md\",existed:true}]`，`backup/source/story/outline/story_frame.md` 是「旧大纲」；修复后 `story_frame.md` 从「半套新大纲」回到「旧大纲」，根目录不再有 `.inkos-file-txn-*`。",
+    "同会话 `story_truth_file` 写 `author_intent.md` 返回 `Updated \"author_intent.md\"`；`author_intent.md` 内容为 `# 验证`，根目录仍无 `.inkos-file-txn-*` 残留（提交成功即清理）。",
+    "`test/txn-format.test.mjs` 在运行中的提交里直接观察到作品根 `.inkos-file-txn-*`、`staged/`＋`backup/`、紧凑 `journal.json` 与 `entries`；旧目标在 backup 里以旧内容出现，证明备份是 rename 而不是复制。"
+  ]
+}

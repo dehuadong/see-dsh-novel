@@ -4,11 +4,11 @@
  * 扫描给出发现，修复只做无歧义的几件事：重建缺失的索引、回收属主已死的提交残留、
  * 删除属主已死的临时文件。判据与动作都是纯函数组合，工具层只负责调它们。
  */
-import { cp, readdir, readFile, rm } from 'node:fs/promises'
-import { join, resolve, sep } from 'node:path'
+import { readdir, readFile, rm } from 'node:fs/promises'
+import { join, resolve } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
-import { STAGING_PREFIX, commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive, restoreFromBackups } from './commit.js'
+import { TXN_PREFIX, commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAlive, restoreFromBackups } from './commit.js'
 import type { CommitJournal } from './commit.js'
 import { PROJECTION_SOURCES, inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
@@ -74,23 +74,13 @@ async function entriesOf(dir: string) {
   }
 }
 
-/** 递归数目录里的文件；不存在按 0 处理。 */
-async function countFiles(dir: string): Promise<number> {
-  let total = 0
-  for (const entry of await entriesOf(dir)) {
-    if (entry.isDirectory()) total += await countFiles(join(dir, entry.name))
-    else if (entry.isFile()) total += 1
-  }
-  return total
-}
-
-/** 提交残留：暂存目录按日志阶段处理，日志读不出来只报告。 */
+/** 提交残留：事务目录按日志阶段处理，日志读不出来只报告。 */
 async function stagingFindings(root: string): Promise<Finding[]> {
   const findings: Finding[] = []
-  for (const entry of await entriesOf(join(root, 'source'))) {
-    if (!entry.isDirectory() || !entry.name.startsWith(STAGING_PREFIX)) continue
-    const dir = join(root, 'source', entry.name)
-    const path = `source/${entry.name}`
+  for (const entry of await entriesOf(root)) {
+    if (!entry.isDirectory() || !entry.name.startsWith(TXN_PREFIX)) continue
+    const dir = join(root, entry.name)
+    const path = entry.name
     let raw: string | undefined
     try {
       raw = await readFile(join(dir, JOURNAL_FILE), 'utf8')
@@ -104,7 +94,7 @@ async function stagingFindings(root: string): Promise<Finding[]> {
         code: 'staging-unknown',
         severity: 'warning',
         path,
-        detail: '残留的提交暂存目录没有可读的日志；无法判断写到哪一步，留给人工检查。',
+        detail: '残留的提交事务目录没有可读的日志；无法判断写到哪一步，留给人工检查。',
         fixable: false,
       })
       continue
@@ -114,39 +104,25 @@ async function stagingFindings(root: string): Promise<Finding[]> {
         code: 'staging-active',
         severity: 'info',
         path,
-        detail: `提交暂存目录的属主进程 ${journal.pid} 还活着，可能正在提交；不动它。`,
+        detail: `提交事务目录的属主进程 ${journal.pid} 还活着，可能正在提交；不动它。`,
         fixable: false,
       })
       continue
     }
     if (journal.phase === 'prepared') {
-      // 日志没来得及改成 applied 时，用「staged 文件是否已经全部搬走」判进展：
-      // 全搬空了说明 rename 已完成，剩下的只是没写成的标记与清理。
-      // 只有删除项的提交没有 staged 文件可看，判不出来，一律按回滚（宁可恢复）。
-      const pending = journal.writes.length > 0 ? await countFiles(join(dir, 'work')) : 1
-      if (pending === 0) {
-        findings.push({
-          code: 'staging-cleanup',
-          severity: 'info',
-          path,
-          detail: `属主进程 ${journal.pid} 已退出；写入都已完成，只差清理暂存目录。`,
-          fixable: true,
-        })
-      } else {
-        findings.push({
-          code: 'staging-rollback',
-          severity: 'warning',
-          path,
-          detail: `属主进程 ${journal.pid} 已退出，提交没走完；可以用备份还原。`,
-          fixable: true,
-        })
-      }
+      findings.push({
+        code: 'staging-rollback',
+        severity: 'warning',
+        path,
+        detail: `属主进程 ${journal.pid} 已退出，提交没走完；可以用备份还原。`,
+        fixable: true,
+      })
     } else {
       findings.push({
         code: 'staging-cleanup',
         severity: 'info',
         path,
-        detail: `属主进程 ${journal.pid} 已退出，文件都已应用；只需要清掉暂存目录。`,
+        detail: `属主进程 ${journal.pid} 已退出，文件都已提交；只需要清掉事务目录。`,
         fixable: true,
       })
     }
@@ -334,16 +310,9 @@ export async function scanWorkspace(root: string): Promise<RecoveryScan> {
   return { root: base, findings, digest: artifacts.digest, files: artifacts.files.length }
 }
 
-/** 把日志里的相对路径收回作品根内；越界的一律拒绝。 */
-function contained(root: string, relativePath: string): string | undefined {
-  const target = resolve(root, relativePath)
-  const inside = target === resolve(root) || target.startsWith(`${resolve(root)}${sep}`)
-  return inside ? target : undefined
-}
-
 /** 用备份还原一份 `prepared` 提交；越界路径跳过，整目录最后删掉。 */
 async function rollback(root: string, staging: string, journal: CommitJournal): Promise<void> {
-  await restoreFromBackups(root, join(staging, 'backup'), [...journal.writes, ...journal.deletes], { existed: journal.existed })
+  await restoreFromBackups(root, join(staging, 'backup'), journal.entries)
   await rm(staging, { recursive: true, force: true })
 }
 

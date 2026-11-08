@@ -1,4 +1,4 @@
-# Agent Note: runtime.recovery —— 工作区自检、索引重建与残留暂存回收
+# Agent Note: runtime.recovery —— 工作区自检、索引重建与残留事务回收
 
 Status: implemented
 
@@ -7,7 +7,7 @@ Status: implemented
 作品的真相在文件里，但文件会被人手动改动，也会被进程崩溃留在半路：
 
 - 作者手滑删了 `source/story/state/manifest.json` 或 `current_state.json`，`story_next` 只会说阶段，不会告诉他少了索引；
-- `commitFoundation` 先写暂存目录 `source/.staging-<uuid>`、再逐个 rename；进程若在 rename 之间被杀，目录里留下 staged 文件与旧文件备份，没有任何东西会去认领它——提交原语本身不记阶段，也就无从判断改到哪一步。
+- `commitFoundation` 先在作品根建 `.inkos-file-txn-*` 事务目录、再逐个 rename；进程若在 rename 之间被杀，目录里留下 `staged/` 文件与旧文件备份，没有任何东西会去认领它——提交原语本身不记阶段，也就无从判断改到哪一步。
 
 参考工程有两半对应：`chapter-state-recovery.ts` 在审阅后按正文重算这一章的结算层，不一致就带观察报 `unresolved`；`atomic-file-set.ts` 的 `recoverAtomicFileSets` 扫 `.<prefix>-*` 事务目录，读 `journal.json`，属主进程已死时按阶段回滚后删除。第一半是**章节级**对账，需要章节文件、结算层与校验器（P2／P3）；第二半是**提交级**回收，现在就能做。
 
@@ -24,32 +24,17 @@ Status: implemented
 
 扫描与修复规则放在 `src/core/recovery.ts`：纯函数给出发现，执行壳只负责写盘与措辞。
 
-### 提交日志：让回收有依据
+### 事务格式与回收
 
-`commitFoundation` 增加一个轻量的 `journal.json`，写在暂存目录内：
-
-```json
-{ "version": 1, "pid": 12345, "phase": "prepared", "writes": ["source/story/outline/story_frame.md"], "deletes": [] }
-```
-
-- staging 建好、备份做完、rename 之前写 `phase: "prepared"`；
-- 全部 rename 与删除成功、清理暂存之前改写 `phase: "applied"`。
-
-不引入跨进程锁，也不做恢复线程：日志只是在崩溃后让下一个人能判断「这批文件改到哪一步了」。
-
-阶段标记的写是**尽力而为**：`prepared` 写成失败就不进入 rename（本来就该放弃这次提交）；`applied` 写成失败**不能**回滚已经 rename 成功的文件——提交事实上已经完成，只是少了一个标记。这时先把 `journal.json` **删掉**再清理暂存目录：留下的目录必须没有可回滚的日志，否则一个「属主已死 + prepared」的残留会被回收规则当成「没写完」而把已应用的文件回滚掉。清理若也失败，目录里没有 journal，回收只报 `staging-unknown`。`commitFoundation` 的 `catch` 只覆盖 rename 之前的阶段，`applied` 标记的失败不进入那条回滚路径。
-
-### 回收规则
-
-扫描 `source/.staging-*` 目录：
+事务目录、日志字段、备份方式与阶段由 [runtime.txn-format](2026-11-08-runtime-txn-format.md) 拥有：作品根 `.inkos-file-txn-*`、`staged/`＋`backup/`、`journal.json` 的 `entries:[{path,existed}]`、`prepared`｜`committed`。本篇只保留自检对事务的读法：
 
 - 有 journal 且 `pid` 还活着 → `staging-active`（`info`，不修）：那是一次正在进行的提交，碰它会把并发写弄坏；
-- 有 journal、属主已死、`phase: "applied"` → `staging-cleanup`（`info`，**可修**）：文件都已就位，只删暂存目录；
-- 有 journal、属主已死、`phase: "prepared"` → 按进展分两种：这次提交有写入、且 `work/` 里已经没有 staged 文件，说明 rename 全做完了、只差标记，记 `staging-cleanup`；否则（还有 staged 文件，或这次提交只有删除项、没有东西可看）记 `staging-rollback`（`warning`，**可修**）——把 `backup/` 里的旧文件写回，写了但原本不存在的目标删掉，然后删除暂存目录；
-- journal 读不出来（写了一半、JSON 坏了、`phase` 不是两个已知值）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
+- 有 journal、属主已死、`phase: "committed"` → `staging-cleanup`（`info`，**可修**）：文件都已提交，只删事务目录；
+- 有 journal、属主已死、`phase: "prepared"` → `staging-rollback`（`warning`，**可修**）：按 `backup/` 与 `entries[].existed` 回滚，然后删除事务目录；
+- journal 读不出来（写了一半、JSON 坏了、形状不对）→ `staging-unknown`（`warning`，不修）：和「没有 journal」一样，判断不了就只报告；
 - 没有 journal → `staging-unknown`（`warning`，不修）：无法判断 rename 到哪一步，留给人工检查，不猜。
 
-「`prepared` 但 staged 已搬空」这一条专门兜住「`applied` 标记没写成、删日志也失败、清理也失败」的叠加情况：那种残留日志还是 `prepared`，但工作已经做完，按 `work/` 是否为空就能判出来，不会被误当成没写完而回滚。
+`story_recover` 的扫描/修复与提交共用同一个按根队列，避免和进行中的提交交错。
 
 `commitFile` 也会留痕：它在目标目录写 `.tmp-<pid>-<uuid>`（本行把原来的 `.tmp-<uuid>` 加上 pid），rename 之前崩溃就把临时文件留在原地。工作区根（`work.json`）与 `source/story/**` 里都可能出现；后者里时还会计入工件摘要。回收时按 pid 判属主：属主已死的才删（`tmp-residue`，`warning`，**可修**）；属主活着的是另一个正在写的进程，保留；文件名不带 pid（旧格式）的无法判活，只报告。临时文件从未成为目标内容，删除是安全的，删除后摘要回到应有的值。
 
@@ -101,11 +86,11 @@ Status: implemented
 
 ## Consequences
 
-收益：工作区被手滑或崩溃弄坏之后，作者不必翻目录猜——`story_recover` 会把「少了什么、能不能补、补完要不要重新确认」一次说清；能安全重建的索引直接补回，属主已死的提交残留按日志回滚或清理，不必人工拆暂存目录。
+收益：工作区被手滑或崩溃弄坏之后，作者不必翻目录猜——`story_recover` 会把「少了什么、能不能补、补完要不要重新确认」一次说清；能安全重建的索引直接补回，属主已死的提交事务按日志回滚或清理，不必人工拆事务目录。
 
-这条能力只读会话与文件、只写三种索引与暂存残留，不引入新的服务或存储。发现分类以 `FINDING_CODES` 为唯一来源，工具 schema 的枚举直接取自它；状态文件的默认内容以 `defaultStateFiles` 为唯一来源，foundation 与自检共用，两边不会漂移。提交日志只记阶段、属主与清单，不做锁；回滚只认「属主已死 + `prepared` + 还没搬空」，已应用的写入不会被撤销。日志里的路径一律收回作品根内，越界路径既不写也不删。
+这条能力只读会话与文件、只写三种索引与事务目录，不引入新的服务或存储。发现分类以 `FINDING_CODES` 为唯一来源，工具 schema 的枚举直接取自它；状态文件的默认内容以 `defaultStateFiles` 为唯一来源，foundation 与自检共用，两边不会漂移。事务格式由 `runtime.txn-format` 拥有；回滚只认「属主已死 + `prepared`」，死 `prepared` 一律回滚，死 `committed` 只清理。日志里的路径一律收回作品根内，越界路径既不写也不删。
 
-验证见 `test/recovery.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_recover`）。
+验证见 `test/recovery.test.mjs`、`test/txn-format.test.mjs` 与 `test/host.test.mjs`（工具清单含 `story_recover`）。
 
 代价与已知限制：
 
@@ -114,5 +99,5 @@ Status: implemented
 - `pid` 只有本机意义：跨机器共享的工作区上，日志里的 pid 判定不可靠，工具会把残留当「属主活着」保留。
 - 索引默认值里 `language` 固定 `zh`（沿用 foundation 的播种值）；`work.json` 记了 `en` 的作品重建后两者不一致——这是既有播种的行为，不是本行引入，等要修时两处一起改。
 - `needsReconfirm` 依据的是会话里能读到的那次认可：如果当前会话没读过旧回执（换过会话），它会是 `false`，作者要自己按摘要判断。
-- `.tmp-*` 的属主判定与暂存同理：pid 被复用会误判为「活着」而保留临时文件，不会误删；旧格式的临时文件永远只报告，靠人工清理。
-- 「`work/` 已搬空」是间接证据：有写入时能判出 rename 做完没有；只有删除项的提交没有 staged 文件可看，一律按回滚处理。混合提交（写入 + 删除）在有写入时会按「搬空即完成」判，删除做到哪一步无法从日志判断——删除项当前没有生产调用方，等有调用方时再补更精确的阶段标记。
+- `.tmp-*` 的属主判定与事务同理：pid 被复用会误判为「活着」而保留临时文件，不会误删；旧格式的临时文件永远只报告，靠人工清理。
+- 旧 `source/.staging-*` 目录不再被扫描，残留需要人工清理；预发布格式不做迁移。

@@ -1,11 +1,12 @@
 /**
- * 整批写入：先 staging，再备份目标，再 rename 到位；失败用备份回滚。
+ * 整批写入：先 staged，再把目标 rename 到 backup，最后把 staged 写入 rename 到位；
+ * 失败用备份回滚。
  *
- * 暂存目录里写一份 `journal.json`（阶段 + 属主 pid + 写入/删除清单 + 提交前已存在的
- * 目标），让崩溃后的下一次运行能判断这批文件改到哪一步；认领与回滚由
- * `runtime.recovery` 负责。提交按作品根排队，提交前先回收属主已死的暂存目录。
+ * 事务目录在作品根 `.inkos-file-txn-<随机>`，里面有 `staged/` 与 `backup/`，以及
+ * `journal.json`（阶段 + 属主 pid + entries[{path,existed}]）。崩溃后的认领与回滚
+ * 由 `runtime.recovery` 负责。提交按作品根排队，提交前先回收属主已死的事务目录。
  */
-import { cp, mkdir, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { copyFile, cp, lstat, mkdir, mkdtemp, open, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { randomUUID } from 'node:crypto'
 import { dirname, isAbsolute, join, normalize, resolve, sep } from 'node:path'
 
@@ -19,22 +20,25 @@ export interface CommitResult {
   deleted: string[]
 }
 
-/** 暂存目录里的提交日志文件名。 */
+/** 事务目录里的提交日志文件名。 */
 export const JOURNAL_FILE = 'journal.json'
 
-/** 暂存目录前缀；自检按它扫描。 */
-export const STAGING_PREFIX = '.staging-'
+/** 事务目录前缀；自检按它扫描作品根。 */
+export const TXN_PREFIX = '.inkos-file-txn-'
+
+/** 一次提交触及的一条路径：本次请求的路径，以及提交前它是否存在。 */
+export interface CommitEntry {
+  path: string
+  existed: boolean
+}
 
 /** 一次提交的阶段与内容；写到一半的日志由自检按「读不出来」处理。 */
 export interface CommitJournal {
   version: 1
   /** 写这批文件的进程；自检用 liveness 判断属主是否已经死了。 */
   pid: number
-  phase: 'prepared' | 'applied'
-  writes: string[]
-  deletes: string[]
-  /** 提交前已经存在的目标；旧日志没有这个字段。 */
-  existed?: string[]
+  phase: 'prepared' | 'committed'
+  entries: CommitEntry[]
 }
 
 /** 进程是否还活着；`ESRCH` 才算已死，其它错误（如 `EPERM`）一律当活着，宁可不碰。 */
@@ -58,14 +62,16 @@ export function parseJournal(raw: string): CommitJournal | undefined {
   }
   if (value === null || typeof value !== 'object') return undefined
   const journal = value as Partial<CommitJournal>
+  if (Object.keys(journal).some((key) => !['version', 'pid', 'phase', 'entries'].includes(key))) return undefined
   if (journal.version !== 1) return undefined
-  if (journal.phase !== 'prepared' && journal.phase !== 'applied') return undefined
-  if (typeof journal.pid !== 'number') return undefined
-  if (!Array.isArray(journal.writes) || journal.writes.some((entry) => typeof entry !== 'string')) return undefined
-  if (!Array.isArray(journal.deletes) || journal.deletes.some((entry) => typeof entry !== 'string')) return undefined
-  if (journal.existed !== undefined
-    && (!Array.isArray(journal.existed) || journal.existed.some((entry) => typeof entry !== 'string'))) {
-    return undefined
+  if (journal.phase !== 'prepared' && journal.phase !== 'committed') return undefined
+  if (!Number.isInteger(journal.pid) || (journal.pid as number) < 0) return undefined
+  if (!Array.isArray(journal.entries)) return undefined
+  for (const entry of journal.entries) {
+    if (entry === null || typeof entry !== 'object') return undefined
+    if (Object.keys(entry).some((key) => !['path', 'existed'].includes(key))) return undefined
+    const record = entry as Partial<CommitEntry>
+    if (typeof record.path !== 'string' || typeof record.existed !== 'boolean') return undefined
   }
   return journal as CommitJournal
 }
@@ -120,35 +126,33 @@ export async function withCommitQueue<T>(root: string, task: () => Promise<T>): 
 }
 
 /** 写一份提交日志：临时文件 + fsync + rename，崩溃不会留下半份日志。 */
-async function writeJournal(staging: string, journal: CommitJournal): Promise<void> {
-  const temporary = join(staging, 'journal.next')
+async function writeJournal(transaction: string, journal: CommitJournal): Promise<void> {
+  const temporary = join(transaction, 'journal.next')
   const handle = await open(temporary, 'w', 0o600)
   try {
-    await handle.writeFile(`${JSON.stringify(journal, null, 2)}\n`)
+    await handle.writeFile(JSON.stringify(journal))
     await handle.sync()
   } finally {
     await handle.close()
   }
-  await rename(temporary, join(staging, JOURNAL_FILE))
+  await rename(temporary, join(transaction, JOURNAL_FILE))
 }
 
 /**
- * 按备份还原：有备份就写回；没有备份时按 existed / applied 判断要不要删掉半套产物。
+ * 按备份还原：有备份就复制回来；没有备份且提交前不存在就删掉半套产物。
  * @param base 作品根
  * @param backupDir 备份目录
- * @param touched 本次触及的路径
- * @param options existed（提交前已存在）与 applied（已应用）清单
+ * @param entries 本次提交触及的条目
  */
 export async function restoreFromBackups(
   base: string,
   backupDir: string,
-  touched: ReadonlyArray<string>,
-  options: { existed?: ReadonlyArray<string>, applied?: ReadonlyArray<string> },
+  entries: ReadonlyArray<CommitEntry>,
 ): Promise<void> {
-  for (const raw of touched) {
+  for (const entry of entries) {
     let relativePath: string
     try {
-      relativePath = safeRelativePath(raw)
+      relativePath = safeRelativePath(entry.path)
     } catch {
       continue
     }
@@ -156,59 +160,50 @@ export async function restoreFromBackups(
     const target = resolve(base, relativePath)
     if (await pathExists(backup)) {
       await mkdir(dirname(target), { recursive: true })
-      await rm(target, { recursive: true, force: true })
-      await cp(backup, target, { recursive: true, force: true })
+      if ((await lstat(backup)).isDirectory()) await cp(backup, target, { recursive: true, force: true })
+      else await copyFile(backup, target)
       continue
     }
-    const existed = options.existed
-    const shouldDelete = options.applied !== undefined
-      ? options.applied.includes(raw) && existed !== undefined && !existed.includes(raw)
-      : existed !== undefined && !existed.includes(raw)
-    if (shouldDelete) await rm(target, { force: true, recursive: true })
+    if (!entry.existed) await rm(target, { force: true, recursive: true })
   }
 }
 
 /**
- * 回收属主已死的暂存目录：`applied` 直接删，`prepared` 按备份与 `existed` 恢复。
+ * 回收属主已死的事务目录：`committed` 直接删，`prepared` 按备份与 `existed` 恢复。
  * 没有日志的目录、活属主的目录都不动。
  * @param base 作品根
  */
-export async function recoverDeadStaging(base: string): Promise<void> {
-  const sourceDir = join(base, 'source')
+export async function recoverDeadTransactions(base: string): Promise<void> {
   let entries
   try {
-    entries = await readdir(sourceDir, { withFileTypes: true })
+    entries = await readdir(base, { withFileTypes: true })
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return
     throw error
   }
   for (const entry of entries) {
-    if (!entry.isDirectory() || !entry.name.startsWith(STAGING_PREFIX)) continue
-    const staging = join(sourceDir, entry.name)
+    if (!entry.isDirectory() || !entry.name.startsWith(TXN_PREFIX)) continue
+    const transaction = join(base, entry.name)
     let raw: string
     try {
-      raw = await readFile(join(staging, JOURNAL_FILE), 'utf8')
+      raw = await readFile(join(transaction, JOURNAL_FILE), 'utf8')
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
       throw error
     }
     const journal = parseJournal(raw)
-    if (journal === undefined) throw new Error(`暂存目录 ${staging} 的提交日志读不出来`)
+    if (journal === undefined) throw new Error(`事务目录 ${transaction} 的提交日志读不出来`)
     if (pidAlive(journal.pid)) continue
-    if (journal.phase === 'prepared') await restoreDeadPrepared(base, staging, journal)
-    await rm(staging, { recursive: true, force: true })
+    if (journal.phase === 'prepared') {
+      await restoreFromBackups(base, join(transaction, 'backup'), journal.entries)
+    }
+    await rm(transaction, { recursive: true, force: true })
   }
-}
-
-/** 恢复一批已死属主的 `prepared` 提交；没有备份且原目标不存在的才删除。 */
-async function restoreDeadPrepared(base: string, staging: string, journal: CommitJournal): Promise<void> {
-  const backupDir = join(staging, 'backup')
-  await restoreFromBackups(base, backupDir, [...journal.writes, ...journal.deletes], { existed: journal.existed })
 }
 
 /**
  * @param root 作品根目录
- * @param plan 写入与删除清单；写入项的内容先落 staging
+ * @param plan 写入与删除清单；写入项的内容先落 staged
  */
 export async function commitFoundation(
   root: string,
@@ -225,7 +220,7 @@ async function commitBatch(
   rawWrites: ReadonlyArray<FileWrite>,
   rawDeletes: ReadonlyArray<string>,
 ): Promise<CommitResult> {
-  await recoverDeadStaging(base)
+  await recoverDeadTransactions(base)
   const writes = rawWrites.map((write) => ({ ...write, relativePath: safeRelativePath(write.relativePath) }))
   const deletes = rawDeletes.map(safeRelativePath)
   const writePaths = new Set(writes.map((write) => write.relativePath))
@@ -238,97 +233,84 @@ async function commitBatch(
     throw Object.assign(new Error('同一批提交不能同时触达目录和它的子路径'), { code: 'ATOMIC_PATH_OVERLAP' })
   }
 
-  const staging = join(base, 'source', `${STAGING_PREFIX}${randomUUID()}`)
-  const workDir = join(staging, 'work')
-  const backupDir = join(staging, 'backup')
+  await mkdir(base, { recursive: true })
+  const transaction = await mkdtemp(join(base, TXN_PREFIX))
+  const stagedDir = join(transaction, 'staged')
+  const backupDir = join(transaction, 'backup')
   const touched = [...writes.map((write) => write.relativePath), ...deletes]
-  const applied: string[] = []
-  const existed: string[] = []
-  for (const relativePath of touched) {
-    if (await pathExists(resolve(base, relativePath))) existed.push(relativePath)
+  const entries: CommitEntry[] = []
+  for (const path of touched) {
+    entries.push({ path, existed: await pathExists(resolve(base, path)) })
   }
   const journal: CommitJournal = {
     version: 1,
     pid: process.pid,
     phase: 'prepared',
-    writes: writes.map((write) => write.relativePath),
-    deletes: [...deletes],
-    existed,
+    entries,
   }
 
   let journalWritten = false
   try {
-    await mkdir(workDir, { recursive: true })
+    await mkdir(stagedDir, { recursive: true })
     await mkdir(backupDir, { recursive: true })
 
     for (const { relativePath, content } of writes) {
-      const staged = join(workDir, relativePath)
+      const staged = join(stagedDir, relativePath)
       await mkdir(dirname(staged), { recursive: true })
       await writeFile(staged, content, 'utf8')
     }
 
-    // 日志先行：崩溃在备份中途时，自检按 existed 判断哪些目标还没被搬走。
-    await writeJournal(staging, journal)
+    // 日志先行：崩溃在备份中途时，自检按 entries 的 existed 判断哪些目标还没被搬走。
+    await writeJournal(transaction, journal)
     journalWritten = true
 
-    for (const relativePath of touched) {
-      const target = resolve(base, relativePath)
+    for (const entry of entries) {
+      const target = resolve(base, entry.path)
+      await mkdir(dirname(target), { recursive: true })
       if (!(await pathExists(target))) continue
-      const backup = join(backupDir, relativePath)
+      const backup = join(backupDir, entry.path)
       await mkdir(dirname(backup), { recursive: true })
-      await cp(target, backup, { recursive: true })
+      await rename(target, backup)
     }
 
     for (const { relativePath } of writes) {
       const target = resolve(base, relativePath)
       await mkdir(dirname(target), { recursive: true })
-      await rm(target, { force: true, recursive: true })
-      await rename(join(workDir, relativePath), target)
-      applied.push(relativePath)
+      await rename(join(stagedDir, relativePath), target)
     }
 
-    for (const relativePath of deletes) {
-      await rm(resolve(base, relativePath), { force: true, recursive: true })
-    }
-
-    // 标记已经是尽力而为：写失败不能让下面的 catch 把已应用的文件回滚掉。
-    try {
-      await writeJournal(staging, { ...journal, phase: 'applied' })
-    } catch {
-      try {
-        await rm(join(staging, JOURNAL_FILE), { force: true })
-      } catch {
-        // 连删除都失败：留给自检报 staging-unknown，绝不回滚已应用的文件。
-      }
-    }
-
-    await rm(staging, { recursive: true, force: true })
-    return { written: writes.map((write) => write.relativePath), deleted: [...deletes] }
+    await writeJournal(transaction, { ...journal, phase: 'committed' })
   } catch (error) {
     if (journalWritten) {
+      let rollbackError: unknown
       try {
-        await restoreFromBackups(base, backupDir, touched, { existed, applied })
-      } catch {
+        await restoreFromBackups(base, backupDir, entries)
+      } catch (failure) {
+        rollbackError = failure
         // 回滚也失败：把日志属主改成 0，下一次提交或自检可以接管并保留现场。
         try {
-          await writeJournal(staging, { ...journal, pid: 0 })
+          await writeJournal(transaction, { ...journal, pid: 0 })
         } catch {
           // 连日志都写不了：目录仍然保留，留给人工处理。
         }
-        throw error
+      }
+      if (rollbackError !== undefined) {
+        throw new AggregateError([error, rollbackError], '提交失败且回滚失败；事务日志已保留')
       }
     }
-    await rm(staging, { recursive: true, force: true })
+    await rm(transaction, { recursive: true, force: true }).catch(() => undefined)
     throw error
   }
+
+  // 清理失败不能回滚已经提交的文件；留下的 committed 事务由自检清理。
+  await rm(transaction, { recursive: true, force: true }).catch(() => undefined)
+  return { written: writes.map((write) => write.relativePath), deleted: [...deletes] }
 }
-
-
 
 /**
  * 单文件写入：同目录临时文件写完再 rename。
  *
- * 与 `commitFoundation` 分工：后者服务多文件批量替换，要 staging 与备份回滚；
+ * 与 `commitFoundation` 分工：后者服务多文件批量替换，要 staged 与备份回滚；
  * 单写一份身份文件没有旧内容要保留，也不该为了写它就先把 `source/` 建出来。
  * @param root 作品根目录
  * @param relativePath 相对根本的路径

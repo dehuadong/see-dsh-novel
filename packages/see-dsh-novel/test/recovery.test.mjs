@@ -4,10 +4,9 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { commitFile, commitFoundation } from '../src/core/commit.ts'
+import { commitFile, commitFoundation, parseJournal, pidAlive, TXN_PREFIX } from '../src/core/commit.ts'
 import { readArtifacts } from '../src/core/artifacts.ts'
 import { defaultStateSnapshot, stateJsonWrites, stateProjectionWrites, stateWritesIfMissing } from '../src/core/state.ts'
-import { parseJournal, pidAlive } from '../src/core/commit.ts'
 import {
   repairWorkspace,
   scanWorkspace,
@@ -61,21 +60,18 @@ async function seedFoundation(root) {
 
 const DEAD_PID = 999999
 
-/** 造一个残留的暂存目录；`phase` 决定回收规则，`pending` 表示还有没搬走的 staged 文件。 */
+/** 造一个残留的事务目录；`phase` 决定回收规则。 */
 async function stagingFixture(root, {
   phase,
   journal = true,
   pid = DEAD_PID,
-  writes = ['source/story/outline/story_frame.md'],
-  deletes = [],
-  pending = true,
+  entries = [{ path: 'source/story/outline/story_frame.md', existed: true }],
 }) {
-  const dir = join(root, 'source', '.staging-fixture')
+  const dir = join(root, `${TXN_PREFIX}fixture`)
   await mkdir(join(dir, 'backup', 'source/story/outline'), { recursive: true })
-  await mkdir(join(dir, 'work'), { recursive: true })
-  if (pending && writes.length > 0) await writeFile(join(dir, 'work', 'staged.md'), 'staged\n', 'utf8')
+  await mkdir(join(dir, 'staged'), { recursive: true })
   if (journal) {
-    await writeFile(join(dir, 'journal.json'), JSON.stringify({ version: 1, pid, phase, writes, deletes }), 'utf8')
+    await writeFile(join(dir, 'journal.json'), JSON.stringify({ version: 1, pid, phase, entries }), 'utf8')
   }
   return dir
 }
@@ -271,7 +267,7 @@ test('a readable but wrong-shaped state file is reported and never overwritten',
   }
 })
 
-test('a dead prepared staging is rolled back from its backup', async () => {
+test('a dead prepared transaction is rolled back from its backup', async () => {
   const root = await workspace()
   try {
     await seedFoundation(root)
@@ -287,7 +283,7 @@ test('a dead prepared staging is rolled back from its backup', async () => {
     assert.equal(finding.fixable, true)
 
     const applied = await repairWorkspace(root, scan.findings)
-    assert.deepEqual(applied, ['source/.staging-fixture'])
+    assert.deepEqual(applied, [`${TXN_PREFIX}fixture`])
     assert.equal(await readFile(target, 'utf8'), original)
     assert.equal(await exists(staging), false)
   } finally {
@@ -295,35 +291,34 @@ test('a dead prepared staging is rolled back from its backup', async () => {
   }
 })
 
-test('a prepared staging whose files were all moved is cleaned, not rolled back', async () => {
+test('a prepared transaction is rolled back even when its staged directory is empty', async () => {
   const root = await workspace()
   try {
     await seedFoundation(root)
     const target = join(root, 'source/story/outline/story_frame.md')
     const applied = '# 已应用\n'
     await writeFile(target, applied, 'utf8')
-    // 日志停在 prepared（applied 标记没写成），但 work/ 已经空了：rename 全做完了。
-    const staging = await stagingFixture(root, { phase: 'prepared', pending: false })
+    const staging = await stagingFixture(root, { phase: 'prepared' })
     await writeFile(join(staging, 'backup/source/story/outline/story_frame.md'), '# 旧大纲\n', 'utf8')
 
     const scan = await scanWorkspace(root)
-    assert.ok(scan.findings.some((entry) => entry.code === 'staging-cleanup'))
-    assert.equal(scan.findings.some((entry) => entry.code === 'staging-rollback'), false)
+    assert.ok(scan.findings.some((entry) => entry.code === 'staging-rollback'))
+    assert.equal(scan.findings.some((entry) => entry.code === 'staging-cleanup'), false)
 
     await repairWorkspace(root, scan.findings)
-    assert.equal(await readFile(target, 'utf8'), applied, '已应用的文件不被回滚')
+    assert.equal(await readFile(target, 'utf8'), '# 旧大纲\n', '死 prepared 一律回滚')
     assert.equal(await exists(staging), false)
   } finally {
     await cleanup(root)
   }
 })
 
-test('a deletes-only prepared staging rolls back even with an empty work dir', async () => {
+test('a deletes-only prepared transaction rolls back even with an empty staged directory', async () => {
   const root = await workspace()
   try {
     await seedFoundation(root)
     const target = join(root, 'source/story/outline/story_frame.md')
-    const staging = await stagingFixture(root, { phase: 'prepared', pending: false, writes: [], deletes: ['source/story/outline/story_frame.md'] })
+    const staging = await stagingFixture(root, { phase: 'prepared' })
     await writeFile(join(staging, 'backup/source/story/outline/story_frame.md'), '# 被删前的内容\n', 'utf8')
     await rm(target)
 
@@ -336,7 +331,7 @@ test('a deletes-only prepared staging rolls back even with an empty work dir', a
   }
 })
 
-test('a mixed prepared staging with all writes moved is cleaned, not rolled back', async () => {
+test('a mixed prepared transaction is rolled back, not cleaned', async () => {
   const root = await workspace()
   try {
     await seedFoundation(root)
@@ -344,27 +339,30 @@ test('a mixed prepared staging with all writes moved is cleaned, not rolled back
     await writeFile(target, '# 已应用\n', 'utf8')
     const staging = await stagingFixture(root, {
       phase: 'prepared',
-      pending: false,
-      deletes: ['source/story/outline/old.md'],
+      entries: [
+        { path: 'source/story/outline/story_frame.md', existed: true },
+        { path: 'source/story/outline/old.md', existed: false },
+      ],
     })
+    await writeFile(join(staging, 'backup/source/story/outline/story_frame.md'), '# 旧大纲\n', 'utf8')
 
     const scan = await scanWorkspace(root)
-    assert.ok(scan.findings.some((entry) => entry.code === 'staging-cleanup'))
-    assert.equal(scan.findings.some((entry) => entry.code === 'staging-rollback'), false)
+    assert.ok(scan.findings.some((entry) => entry.code === 'staging-rollback'))
+    assert.equal(scan.findings.some((entry) => entry.code === 'staging-cleanup'), false)
     await repairWorkspace(root, scan.findings)
-    assert.equal(await readFile(target, 'utf8'), '# 已应用\n')
+    assert.equal(await readFile(target, 'utf8'), '# 旧大纲\n')
     assert.equal(await exists(staging), false)
   } finally {
     await cleanup(root)
   }
 })
 
-test('a dead applied staging is only cleaned up', async () => {
+test('a dead committed transaction is only cleaned up', async () => {
   const root = await workspace()
   try {
     await seedFoundation(root)
     const target = join(root, 'source/story/outline/story_frame.md')
-    const staging = await stagingFixture(root, { phase: 'applied' })
+    const staging = await stagingFixture(root, { phase: 'committed' })
     await writeFile(target, '# 已应用\n', 'utf8')
 
     const scan = await scanWorkspace(root)
@@ -453,25 +451,25 @@ test('temp files are removed only when their owner is dead', async () => {
 
 test('journal parsing rejects torn or unknown shapes', () => {
   assert.equal(parseJournal('{"version":1,"pid":1,'), undefined)
-  assert.equal(parseJournal(JSON.stringify({ version: 2, pid: 1, phase: 'prepared', writes: [], deletes: [] })), undefined)
-  assert.equal(parseJournal(JSON.stringify({ version: 1, pid: 1, phase: 'later', writes: [], deletes: [] })), undefined)
-  assert.ok(parseJournal(JSON.stringify({ version: 1, pid: 1, phase: 'prepared', writes: [], deletes: [] })))
+  assert.equal(parseJournal(JSON.stringify({ version: 2, pid: 1, phase: 'prepared', entries: [] })), undefined)
+  assert.equal(parseJournal(JSON.stringify({ version: 1, pid: 1, phase: 'later', entries: [] })), undefined)
+  assert.ok(parseJournal(JSON.stringify({ version: 1, pid: 1, phase: 'prepared', entries: [] })))
   assert.equal(pidAlive(DEAD_PID), false)
   assert.equal(pidAlive(process.pid), true)
 })
 
-test('a commit leaves no staging and writes a readable journal while running', async () => {
+test('a commit leaves no transaction and writes a readable journal while running', async () => {
   const root = await workspace()
   try {
     await commitFoundation(root, { writes: [{ relativePath: 'source/story/outline/a.md', content: 'a\n' }] })
-    assert.equal(await exists(join(root, 'source/.staging-fixture')), false)
+    assert.equal((await readdir(root)).some((name) => name.startsWith(TXN_PREFIX)), false)
     const entries = await readdir(join(root, 'source'))
     assert.equal(entries.some((name) => name.startsWith('.staging-')), false, '提交结束后不留暂存目录')
 
     // 回滚路径也不留目录：让 rename 失败（目标目录不可建）看它清理。
     await writeFile(join(root, 'blocked'), 'x', 'utf8')
     await assert.rejects(commitFoundation(root, { writes: [{ relativePath: 'blocked/a.md', content: 'a\n' }] }))
-    assert.equal((await readdir(join(root, 'source'))).some((name) => name.startsWith('.staging-')), false)
+    assert.equal((await readdir(root)).some((name) => name.startsWith(TXN_PREFIX)), false)
   } finally {
     await cleanup(root)
   }

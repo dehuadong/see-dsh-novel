@@ -7,8 +7,9 @@ import { join, normalize, sep } from 'node:path'
 import {
   commitFoundation,
   parseJournal,
-  recoverDeadStaging,
+  recoverDeadTransactions,
   safeRelativePath,
+  TXN_PREFIX,
   withCommitQueue,
 } from '../src/core/commit.ts'
 
@@ -50,8 +51,8 @@ test('duplicate, write-delete and directory-child conflicts are rejected', async
         { relativePath: 'source/story/a.md/b.md', content: 'y' },
       ],
     }), /目录和它的子路径/)
-    const staging = await readdir(join(root, 'source')).catch(() => [])
-    assert.equal(staging.some((entry) => entry.startsWith('.staging-')), false)
+    const rootEntries = await readdir(root).catch(() => [])
+    assert.equal(rootEntries.some((entry) => entry.startsWith(TXN_PREFIX)), false)
   } finally {
     await cleanup(root)
   }
@@ -80,44 +81,52 @@ test('commits on the same root run in queue order', async () => {
   }
 })
 
-test('dead prepared staging is restored, and old journals never delete files', async () => {
+test('dead prepared transaction is restored and new targets are removed', async () => {
   const root = await workspace()
   try {
     await mkdir(join(root, 'source/story'), { recursive: true })
     await writeFile(join(root, 'source/story/a.md'), 'half\n')
-    await writeFile(join(root, 'source/story/b.md'), 'kept\n')
+    await writeFile(join(root, 'source/story/b.md'), 'half-b\n')
 
-    const staging = join(root, 'source/.staging-dead')
-    await mkdir(join(staging, 'backup/source/story'), { recursive: true })
-    await writeFile(join(staging, 'backup/source/story/a.md'), 'original\n')
-    await writeFile(join(staging, 'backup/source/story/b.md'), 'original-b\n')
-    const journal = JSON.stringify({
-      version: 1, pid: 999999, phase: 'prepared',
-      writes: ['source/story/a.md', 'source/story/b.md'], deletes: [], existed: ['source/story/a.md'],
-    })
-    await writeFile(join(staging, 'journal.json'), journal)
+    const transaction = join(root, `${TXN_PREFIX}dead`)
+    await mkdir(join(transaction, 'backup/source/story'), { recursive: true })
+    await writeFile(join(transaction, 'backup/source/story/a.md'), 'original\n')
+    await writeFile(join(transaction, 'journal.json'), JSON.stringify({
+      version: 1,
+      pid: 999999,
+      phase: 'prepared',
+      entries: [
+        { path: 'source/story/a.md', existed: true },
+        { path: 'source/story/b.md', existed: false },
+      ],
+    }))
 
-    await recoverDeadStaging(root)
+    await recoverDeadTransactions(root)
     assert.equal(await readFile(join(root, 'source/story/a.md'), 'utf8'), 'original\n')
-    assert.equal(await readFile(join(root, 'source/story/b.md'), 'utf8'), 'original-b\n')
+    await assert.rejects(readFile(join(root, 'source/story/b.md'), 'utf8'), /ENOENT/)
     assert.deepEqual(await readdir(join(root, 'source')), ['story'])
+    assert.equal((await readdir(root)).some((entry) => entry.startsWith(TXN_PREFIX)), false)
   } finally {
     await cleanup(root)
   }
 })
 
-test('a journal without existed leaves an orphaned target alone', async () => {
+test('a dead committed transaction is cleaned without touching the files', async () => {
   const root = await workspace()
   try {
     await mkdir(join(root, 'source/story'), { recursive: true })
-    await writeFile(join(root, 'source/story/a.md'), 'orphan\n')
-    const staging = join(root, 'source/.staging-old')
-    await mkdir(staging, { recursive: true })
-    await writeFile(join(staging, 'journal.json'), JSON.stringify({
-      version: 1, pid: 999999, phase: 'prepared', writes: ['source/story/a.md'], deletes: [],
+    await writeFile(join(root, 'source/story/a.md'), 'kept\n')
+    const transaction = join(root, `${TXN_PREFIX}done`)
+    await mkdir(transaction, { recursive: true })
+    await writeFile(join(transaction, 'journal.json'), JSON.stringify({
+      version: 1,
+      pid: 999999,
+      phase: 'committed',
+      entries: [{ path: 'source/story/a.md', existed: true }],
     }))
-    await recoverDeadStaging(root)
-    assert.equal(await readFile(join(root, 'source/story/a.md'), 'utf8'), 'orphan\n')
+    await recoverDeadTransactions(root)
+    assert.equal(await readFile(join(root, 'source/story/a.md'), 'utf8'), 'kept\n')
+    assert.equal((await readdir(root)).some((entry) => entry.startsWith(TXN_PREFIX)), false)
   } finally {
     await cleanup(root)
   }
@@ -128,12 +137,15 @@ test('a journal that says the target existed keeps it when the backup is gone', 
   try {
     await mkdir(join(root, 'source/story'), { recursive: true })
     await writeFile(join(root, 'source/story/a.md'), 'kept\n')
-    const staging = join(root, 'source/.staging-nobackup')
-    await mkdir(staging, { recursive: true })
-    await writeFile(join(staging, 'journal.json'), JSON.stringify({
-      version: 1, pid: 999999, phase: 'prepared', writes: ['source/story/a.md'], deletes: [], existed: ['source/story/a.md'],
+    const transaction = join(root, `${TXN_PREFIX}nobackup`)
+    await mkdir(transaction, { recursive: true })
+    await writeFile(join(transaction, 'journal.json'), JSON.stringify({
+      version: 1,
+      pid: 999999,
+      phase: 'prepared',
+      entries: [{ path: 'source/story/a.md', existed: true }],
     }))
-    await recoverDeadStaging(root)
+    await recoverDeadTransactions(root)
     assert.equal(await readFile(join(root, 'source/story/a.md'), 'utf8'), 'kept\n')
     assert.deepEqual(await readdir(join(root, 'source')), ['story'])
   } finally {
@@ -141,10 +153,17 @@ test('a journal that says the target existed keeps it when the backup is gone', 
   }
 })
 
-test('the journal parser rejects malformed entries and accepts existed', () => {
-  const base = { version: 1, pid: 1, phase: 'prepared', writes: [], deletes: [] }
-  assert.equal(parseJournal(JSON.stringify(base))?.existed, undefined)
-  assert.deepEqual(parseJournal(JSON.stringify({ ...base, existed: ['a'] }))?.existed, ['a'])
-  assert.equal(parseJournal(JSON.stringify({ ...base, existed: 'a' })), undefined)
-  assert.equal(parseJournal(JSON.stringify({ ...base, phase: 'bogus' })), undefined)
+test('the journal parser accepts only the source shape', () => {
+  const base = { version: 1, pid: 1, phase: 'prepared', entries: [] }
+  assert.deepEqual(parseJournal(JSON.stringify(base))?.entries, [])
+  assert.deepEqual(parseJournal(JSON.stringify({
+    ...base,
+    entries: [{ path: 'source/story/a.md', existed: true }],
+  }))?.entries, [{ path: 'source/story/a.md', existed: true }])
+  assert.equal(parseJournal(JSON.stringify({ ...base, phase: 'applied' })), undefined)
+  assert.equal(parseJournal(JSON.stringify({ ...base, extra: true })), undefined)
+  assert.equal(parseJournal(JSON.stringify({ ...base, entries: [{ path: 'a' }] })), undefined)
+  assert.equal(parseJournal(JSON.stringify({ ...base, entries: [{ path: 'a', existed: 'yes' }] })), undefined)
+  assert.equal(parseJournal(JSON.stringify({ ...base, entries: [{ path: 'a', existed: true, extra: 1 }] })), undefined)
+  assert.equal(parseJournal(JSON.stringify({ ...base, entries: [{ path: 'a', existed: true }], phase: 'committed' }))?.phase, 'committed')
 })

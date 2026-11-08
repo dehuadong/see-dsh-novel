@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 事务目录与日志格式已由 [runtime.txn-format](2026-11-08-runtime-txn-format.md) 接管；本篇只保留 commit-safety 的路径校验、按根队列与失败留痕。
+
 ## Problem
 
 复刻的整批提交（`core/commit.ts`）已经有「staging → 备份 → rename → 失败回滚」和崩溃日志，但缺三件与源工程一致的保护：
@@ -10,7 +12,7 @@ Status: implemented
 - **串行化**：两批提交同时进行时 staging 会交错；源工程按作品根排队（`atomic-file-set.ts:28-35`），并在每次提交前先回收死进程留下的暂存目录（`:142-145`）；
 - **失败留痕**：本实现的 `finally` 无条件删除 staging；回滚本身失败时日志与备份一起消失。源实现在回滚失败时保留事务目录（`atomic-file-set.ts:196-210`）。
 
-此外两处与源实现的差额不在本行：事务目录/日志字段/备份方式（源在作品根用 `.inkos-file-txn-*`、`entries[{path,existed}]`、rename 备份、`committed` 阶段；本实现沿用 `source/.staging-*` 格式）与跨进程锁。它们既非 DSH 强制也非不可观测，不能登记成偏差，已各自登记为债行 `runtime.txn-format` 与 `runtime.work-lock`。
+事务目录、日志字段与备份方式已由 `runtime.txn-format` 接管；跨进程锁仍是未交付的 `runtime.work-lock`。
 
 ## Decision
 
@@ -30,17 +32,17 @@ Status: implemented
 - 同一路径不能既写又删；
 - 不能同时触达目录和它的子路径（源报 `ATOMIC_PATH_OVERLAP`）。
 
-### 串行化与死暂存回收
+### 串行化与死事务回收
 
 - `withCommitQueue(root, task)`：同一作品根上的提交依次执行；前一批失败不阻塞后一批。`commitFoundation` 走这个队列；
-- 每次提交前扫描 `source/.staging-*`：属主进程已死时，`applied` 阶段直接删除、`prepared` 阶段按备份与 `existed` 恢复后删除；属主还活着就跳过。这段逻辑与 `runtime.recovery` 共用同一个 `parseJournal`（从 recovery 移到 commit，删除/report 仍归 recovery）；
+- 每次提交前扫描作品根的 `.inkos-file-txn-*`：属主进程已死时，`committed` 阶段直接删除、`prepared` 阶段按备份与 `entries[].existed` 回滚后删除；属主还活着就跳过。事务格式与回收判据见 [runtime.txn-format](2026-11-08-runtime-txn-format.md)；这段逻辑与 `runtime.recovery` 共用同一个 `parseJournal`（从 recovery 移到 commit，删除/report 仍归 recovery）；
 - 跨进程的 book lock 不在本行：源工程用锁文件（`state/manager.ts:129-185`），复刻的并发都在同一宿主进程里。这条差额登记为新债行 `runtime.work-lock`（`source: state/manager.ts`），不写成合法偏差。
 
 ### 日志与留痕
 
-- 日志在备份**之前**写入，并记录 `existed`（哪些目标在提交前已存在）；回滚按「有备份 → 用备份；没有备份且 `existed` 为假 → 删除；`existed` 为真但没有备份 → 保持不动」判断，避免删掉尚未备份的原文件；
-- 回滚成功才删除 staging；回滚抛错时保留 staging（含日志与备份），把日志属主改成 0 以便下一次提交或自检接管，并把原始错误抛给调用方；
-- 成功路径的 `applied` 标记与清理不变；日志字段新增 `existed`，旧日志没有该字段时按「未知」处理（恢复时不删除文件，只报出来）。
+- 日志在备份**之前**写入，并记录 `entries[].existed`（哪些目标在提交前已存在）；回滚按「有备份 → 用备份；没有备份且 `existed` 为假 → 删除；`existed` 为真但没有备份 → 保持不动」判断，避免删掉尚未备份的原文件；
+- 回滚成功才删除事务目录；回滚抛错时保留事务目录（含日志与备份），把日志属主改成 0 以便下一次提交或自检接管，并把原始错误抛给调用方；
+- 成功路径写 `committed` 再清理；`committed` 写失败会进入回滚（源语义），不再有「已应用但不回滚」的尽力而为分支。
 
 ## Alternatives considered
 
@@ -54,15 +56,15 @@ Status: implemented
 
 ## Consequences
 
-收益：整批提交现在在动盘前拒绝越界路径、重复写、写删冲突与目录/子路径重叠；同一作品根上的提交串行执行，提交前先回收属主已死的暂存目录；日志在备份前写入并记录 `existed`，回滚据此判断「恢复、删除还是不动」，回滚失败时保留 staging 与备份而不是一起删掉。
+收益：整批提交现在在动盘前拒绝越界路径、重复写、写删冲突与目录/子路径重叠；同一作品根上的提交串行执行，提交前先回收属主已死的提交事务；日志在备份前写入并记录 `entries[].existed`，回滚据此判断「恢复、删除还是不动」，回滚失败时保留事务目录与备份而不是一起删掉。
 
-落地：`packages/see-dsh-novel/src/core/commit.ts`（`safeRelativePath`、冲突检查、`withCommitQueue`、`recoverDeadStaging`、`existed` 日志与失败留痕、`parseJournal`／`pidAlive` 迁入）、`src/core/recovery.ts`（复用同一份日志解析与 `existed` 判据）。
+落地：`packages/see-dsh-novel/src/core/commit.ts`（`safeRelativePath`、冲突检查、`withCommitQueue`、`recoverDeadTransactions`、`entries` 日志与失败留痕、`parseJournal`／`pidAlive`）、`src/core/recovery.ts`（复用同一份日志解析与 `existed` 判据）。
 
-验证见 `test/commit-safety.test.mjs`（路径越界、重复/冲突/重叠、队列顺序与失败不阻塞、死暂存按备份与 `existed` 恢复、旧日志不删文件、日志解析）与同批调整的 `test/foundation.test.mjs`（提交中途失败后回滚到旧内容）。
+验证见 `test/commit-safety.test.mjs`（路径越界、重复/冲突/重叠、队列顺序与失败不阻塞、死 `prepared` 按备份与 `existed` 恢复、死 `committed` 清理、日志解析）与 `test/txn-format.test.mjs`（根目录事务、entries、旧格式不扫描）；同批 `test/foundation.test.mjs` 的中途失败回滚保持通过。
 
 ### 代价与已知限制
 
 - 串行队列只在同一进程内生效；跨进程并发没有锁，差额已登记为债行 `runtime.work-lock`。
-- 事务目录位置、日志字段与备份方式仍沿用复刻自己的格式（`source/.staging-*`、`writes`／`deletes`、复制备份）；与源实现的差额登记为债行 `runtime.txn-format`，不写成合法偏差。
-- 旧日志没有 `existed` 时，恢复采取保守策略：没有备份的目标一律不动，可能留下半套文件等人工判断。
-- 回滚失败时 staging 会保留占盘，直到下一次提交或自检清理。
+- 事务格式已由 `runtime.txn-format` 交付；本行只保留路径、队列与失败留痕的行为。
+- 旧 `source/.staging-*` 目录与旧日志不迁移，自检不再扫描它们。
+- 回滚失败时事务目录会保留占盘，直到下一次提交或自检清理。

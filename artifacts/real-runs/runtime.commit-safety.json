@@ -1,17 +1,15 @@
 {
   "capability": "runtime.commit-safety",
-  "date": "2026-11-06",
-  "sessionId": "session-3995b578-1e73-4260-9d5a-7af0924f20fd",
+  "date": "2026-11-08",
+  "sessionId": "session-be199bcf-db91-4deb-ae75-6da15a44a06f",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "234 passed — commit-safety 8 例（路径越界、重复/写删/目录重叠、队列顺序与失败不阻塞、死暂存按备份与 existed 恢复、旧日志不删文件、日志解析、existed 无备份保留）＋ recovery 27 例（阶段与回滚）＋ foundation 8 例（中途失败回滚）"
+    "summary": "291 passed — commit-safety 8 例（路径越界、重复/冲突/重叠、队列顺序与失败不阻塞、死 prepared 按 entries/existed 恢复、死 committed 清理、source shape 日志解析）＋ txn-format 5 例＋ recovery 27 例＋ foundation 8 例"
   },
   "receipts": [
-    "真实运行（`work-commit`，脚本 `check-commit-safety.mjs`）：含 `../escape.md` 的提交被拒绝，回执为 `提交路径必须留在作品根内：\"../escape.md\"`，作品根外没有生成文件",
-    "两批并发提交（`withCommitQueue`）按队列顺序执行：先入队的延时任务先完成（输出 `A,B`）；两批 `commitFoundation` 并发写 `a.md`／`b.md` 都完整落盘（`A B`）",
-    "正常提交两条写入：回执 `source\\story\\c.md | source\\story\\d.md`（Windows 分隔符，与 `normalize` 一致），`source/` 下没有残留 `.staging-*` 目录",
-    "回滚失败时的日志属主会改成 0，下一次提交或 `story_recover` 可以接管；死暂存回收在提交前执行"
+    "真实运行（`work-commit-txn`，脚本 `check-commit-safety.mjs`）：`escape rejected: 提交路径必须留在作品根内：\"../escape.md\"`，`escape file exists: false`；并发队列 `queue order: A,B`，并发提交 `concurrent files: A B`；正常提交 `normal commit written: source\\story\\c.md | source\\story\\d.md`，`transaction left: 0`。",
+    "真实会话 `session-be199bcf-db91-4deb-ae75-6da15a44a06f`：`story_truth_file` 成功写 `author_intent.md` 后作品根没有 `.inkos-file-txn-*` 残留；同一会话的 `story_recover` 在提交前回收了死事务。回滚失败保留现场的分支由 `AggregateError` 与 pid 0 处理，未在会话里制造磁盘故障。",
+    "`test/txn-format.test.mjs` 的运行中提交用例断言旧目标被移入 `backup/`，且根事务只含 `staged/`、`backup/`、`journal.json`；`test/commit-safety.test.mjs` 覆盖回滚与失败留痕。"
   ]
 }
-

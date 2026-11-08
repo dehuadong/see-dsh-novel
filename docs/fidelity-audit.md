@@ -173,13 +173,23 @@
 
 ### runtime.commit-safety
 
-**源工程证据**：`utils/atomic-file-set.ts`：事务目录前缀 `.inkos-file-txn-`；journal `{version:1,pid,phase:prepared|committed,entries:[{path,existed}]}`；按根串行化；失败回滚。
+**源工程证据**：`utils/atomic-file-set.ts` 的路径包含校验、按根 `serialize`、`prepared` 日志先行、`existed` 回滚判据、回滚失败保留事务目录并把 pid 改成 0。
 
-**可验证不变量**：journal 先于备份；existed 决定回滚删除/恢复；phase 两阶段；同根串行；崩溃后按 journal 恢复。
+**可验证不变量**：越界路径拒绝；重复写、写删冲突、目录/子路径重叠拒绝；同根提交串行；journal 先于备份；`existed` 决定回滚删除/恢复；回滚失败保留现场；`committed` 写失败进入回滚。
 
-**复刻现状**：`core/commit.ts` 的 journal 字段与串行化一致；事务目录前缀是 `.staging-`。
+**复刻现状**：`core/commit.ts` 的 `safeRelativePath`、冲突检查、`withCommitQueue`、`entries[].existed` 与失败留痕与源一致；事务目录/日志/备份/阶段由 `runtime.txn-format` 承接。
 
-**判定：保真债** — D9：事务目录前缀与源不同（磁盘可见）；偿还：`runtime.commit-safety` 行改为源前缀。
+**判定：等价**。事务格式由 `runtime.txn-format` 拥有，本行不含该债。
+
+### runtime.txn-format
+
+**源工程证据**：`utils/atomic-file-set.ts`：`PREFIX = ".inkos-file-txn-"`；事务目录在 `rootDir` 用 `mkdtemp` 创建；`staged/`＋`backup/`；`JournalSchema` 为 `{version:1,pid,phase:"prepared"|"committed",entries:[{path,existed}]}`；目标 `rename` 到 backup；staged 写入 rename 到位；死 `prepared` 回滚、`committed` 清理；`recoverRoot` 扫作品根。
+
+**可验证不变量**：事务目录在作品根且以前缀识别；布局是 `staged/`＋`backup/`；日志只含 `entries` 与两阶段；备份用 rename（删除项由移动生效）；`committed` 写失败回滚；死 `prepared` 一律回滚，死 `committed` 只清理；活属主与无日志不动。
+
+**复刻现状**：`core/commit.ts` 的 `TXN_PREFIX`、`CommitJournal`、`recoverDeadTransactions` 与 `core/recovery.ts` 的根目录扫描/报告/修复；`test/txn-format.test.mjs` 覆盖根事务、entries、旧 `.staging-*` 不扫描，`test/recovery.test.mjs` 覆盖两种阶段。
+
+**判定：等价**。旧 `.staging-*` 与旧日志不迁移；预发布格式不做兼容层。
 
 ### runtime.stage-context
 
