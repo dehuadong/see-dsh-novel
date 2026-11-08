@@ -1,17 +1,16 @@
 {
   "capability": "proposal.creative",
-  "date": "2026-11-06",
-  "sessionId": "session-833f89c8-8832-4c6b-ac03-753af5a69ead",
+  "date": "2026-11-08",
+  "sessionId": "session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "238 passed — 提案 12 例（instruction、卡片、默认规模、brief/author_intent/current_focus、拒绝/取消/不可用不写盘、已立项先于字段校验、旧格式兼容、schema 子集）＋工具与技能清单"
+    "summary": "278 passed — 提案 14 例（嵌套 createBook、卡片/作品标题分离、缺 createBook、缺 createBook.title、min/max 各自 ≥1、缺省规模、拒绝/取消/不可用不写盘）＋ 身份 schema 含 min/max"
   },
   "receipts": [
-    "允许路径（`work-proposal`，session `session-833f89c8-8832-4c6b-ac03-753af5a69ead`）：主编先加载故事提案技能，`story_next` 报 `unbound`，随后调 `story_propose`：title「夜行长街」、summary 一句可读的创意说明、instruction「写《夜行长街》的基础设定与第一卷大纲，都市悬疑，中文，目标 120 章」、genre「都市悬疑」、platform「番茄小说」、language zh、chapters 120、chapterWords 2500",
-    "确认条上点「允许」后工具返回：`已立项《夜行长街》：longform-novel，zh，draft（目标 120 章，单章 2500 字，都市悬疑，番茄小说）`；随后 `story_next` 返回 `阶段 foundation · 夜行长街`",
-    "`work-proposal` 的 `work.json` 与提案逐项一致：`metadata` 为 `{targetChapters:120, chapterWordCount:2500, genre:\"都市悬疑\", platform:\"番茄小说\"}`，`language:\"zh\"`、`status:\"draft\"`；另写入 `source/story/brief.md`（instruction 原文）、`author_intent.md`（instruction 加换行）与默认 `current_focus.md`（由 proposal.execution-brief 行引入）",
-    "拒绝路径（`work-empty-5`，session `session-d13db094-d377-402d-99c6-fda469916d57`）：同一套追问后提案「末班之后」（120 章 × 2000 字），确认条上点「拒绝」，工具返回 `未立项（rejected）。作者退回了这次提案，问清想改哪一处再提。`，并附卡片原文；主编随即追问「改哪一处」",
-    "拒绝后 `work-empty-5` 仍是空目录（没有 work.json、没有 source/），说明确认前的提案不落盘"
+    "真实运行（`.artifacts/work-proposal2`，session `session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96`）：主编调 `story_propose`，顶层 title「夜行提案」、createBook.title「夜行长街」、genre「都市悬疑」、platform「番茄小说」、language「zh」、targetChapters 120、chapterWordCount 2500、minChapterLength 2200、maxChapterLength 2800；确认条上点允许后回执「已立项《夜行长街》：longform-novel，zh，draft（目标 120 章，单章 2500 字，都市悬疑，番茄小说）」",
+    "卡片与身份分离：卡片标题是「夜行提案」，落盘 `work.json` 的 `title` 是「夜行长街」；`metadata` 为 `{targetChapters:120, chapterWordCount:2500, genre:\"都市悬疑\", platform:\"番茄小说\", minChapterLength:2200, maxChapterLength:2800}`",
+    "落盘文件：`source/story/brief.md` 为 instruction 原文；`author_intent.md` 为同一句加换行；`current_focus.md` 为中文默认模板",
+    "嵌套参数与校验：缺 `createBook`、缺 `createBook.title`、`minChapterLength: 0` 均被拒绝且不落盘；`min > max` 不拒绝（源工具只要求每个值 ≥1）"
   ]
 }

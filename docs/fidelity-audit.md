@@ -26,14 +26,11 @@
 
 **复刻现状**
 
-- `core/proposal.ts`：`title`／`summary`／`instruction` 必填；卡片含标题、题材、平台、语言、规模与 instruction；
-- 规模只有 `chapters`／`chapterWords`；无 `minChapterLength`／`maxChapterLength`；
-- 字段是扁平的（`story_propose` 参数），没有 `createBook` 嵌套结构。
+- `core/proposal.ts`：顶层 `title`（卡片标题）／`summary`／`instruction` 与必填的 `createBook` 嵌套对象；
+- `createBook` 含 `title`、`genre`、`platform`、`language`、`targetChapters`、`chapterWordCount`、`minChapterLength`、`maxChapterLength`；卡片标题与作品标题分开；
+- 缺省规模在批准时补齐（200／语言默认章长）；`min`／`max` 只要求各自 ≥1，不校验顺序（与源一致）。
 
-**判定：保真债**
-
-- D1：缺 `minChapterLength`／`maxChapterLength`（源工程显式支持的范围约束）；偿还：`proposal.creative` 行补齐字段与落盘透传。
-- D2：源工程的 `createBook` 嵌套结构被扁平化；DSH 工具 schema 支持嵌套对象，不存在机制强制；偿还：同 D1 一行内改为嵌套或补登偏差（二选一，需裁决）。
+**判定：等价（D1／D2 已偿还）** — 嵌套形状与章长区间已落地，回执见 `artifacts/real-runs/proposal.creative.json`。
 
 ### proposal.execution-brief（执行说明与默认规模）
 

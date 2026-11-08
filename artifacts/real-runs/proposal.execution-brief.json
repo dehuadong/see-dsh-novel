@@ -1,17 +1,16 @@
 {
   "capability": "proposal.execution-brief",
-  "date": "2026-11-06",
-  "sessionId": "session-833f89c8-8832-4c6b-ac03-753af5a69ead",
+  "date": "2026-11-08",
+  "sessionId": "session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "238 passed — 提案 12 例（instruction 必填与原样、卡片、默认规模在批准时补、brief/author_intent/current_focus、拒绝不写盘、默认规模批准用例）＋ 命令 9 例（默认 200/3000、--brief 文件路径、坏语言不落盘）＋ length 1 例"
+    "summary": "278 passed — instruction 必填与原样、createBook 缺省规模在批准时补齐、brief/author_intent/current_focus、拒绝不写盘、命令入口默认 200/3000"
   },
   "receipts": [
-    "真实运行（提案，`work-proposal`，session `session-833f89c8-8832-4c6b-ac03-753af5a69ead`）：主编调 `story_propose`，instruction 为「写《夜行长街》的基础设定与第一卷大纲，都市悬疑，中文，目标 120 章」，确认条上点允许后回执「已立项《夜行长街》：longform-novel，zh，draft（目标 120 章，单章 2500 字，都市悬疑，番茄小说）」；随后 `story_next` 返回「阶段 foundation · 夜行长街」",
-    "提案落盘：`work.json` 的 `metadata` 为 `{targetChapters:120, chapterWordCount:2500, genre:\"都市悬疑\", platform:\"番茄小说\"}`；`source/story/brief.md` 与 instruction 逐字一致；`source/story/author_intent.md` 为 instruction 加一个换行；`source/story/current_focus.md` 为中文默认模板",
-    "真实运行（命令，`work-init`，session `session-88eb3ff4-1bd8-4765-b1ea-71f83191b3b7`）：`/story-init 夜行测试 --genre 都市悬疑`（不带规模参数）的 `command/done` 文本为「已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字，都市悬疑）」",
-    "命令落盘：`work.json` 的 `metadata` 为 `{targetChapters:200, chapterWordCount:3000, genre:\"都市悬疑\"}`；`source/story/brief.md` 为 `Create 夜行测试`；`author_intent.md` 同内容加换行；`current_focus.md` 为中文默认模板",
-    "命令幂等：同一会话再执行一次同样的命令，返回「已经存在，不覆盖」，`work.json` 未变"
+    "提案路径（`.artifacts/work-proposal2`，session `session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96`）：createBook 未给默认规模时，批准后 `work.json` 的 `metadata` 为 `{targetChapters:120, chapterWordCount:2500, minChapterLength:2200, maxChapterLength:2800}`；`source/story/brief.md` 与 instruction 逐字一致",
+    "`source/story/author_intent.md` 为 instruction 加一个换行；`source/story/current_focus.md` 为中文默认模板；三者与 `work.json` 同一次提交写入",
+    "命令路径（`.artifacts/work-init`，session `session-88eb3ff4-1bd8-4765-b1ea-71f83191b3b7`）：`/story-init 夜行测试 --genre 都市悬疑` 不带规模参数落 200 章 × 3000 字，`source/story/brief.md` 为 `Create 夜行测试`",
+    "缺省规模在批准时补齐：`createBook.targetChapters ?? 200`、`createBook.chapterWordCount ?? defaultChapterLength(language)`，提案卡不编造数字"
   ]
 }
