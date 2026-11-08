@@ -65,7 +65,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 | 编号 | 行 | 欠什么 | 偿还位置 |
 |---|---|---|---|
-| D8 | `foundation.truth-write` | 允许列表多出 style_guide／parent_canon／fanfic_canon | 本行 |
 | D9 | `runtime.commit-safety` | 事务目录前缀 `.staging-` ≠ 源 `.inkos-file-txn-` | 本行 |
 | D10 | `plan.retrieval` | CJK 分词与来源类型与源不同 | 本行 |
 | D11／D12 | `plan.context-select` | 固定来源缺 style_guide／上一章／chapter memo／canon；选择器合并 | 本行 |

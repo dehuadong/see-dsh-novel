@@ -153,13 +153,13 @@
 
 ### foundation.truth-write
 
-**源工程证据**：`interaction/truth-authority.ts` 的 8 个真值文件（author_intent、current_focus、outline 两份、book_rules、current_state、pending_hooks、chapter_summaries）。
+**源工程证据**：`harness/tools/longform-edits.ts` 的 `write_truth_file` 白名单：9 个平铺文件（author_intent、current_focus、book_rules、style_guide、parent_canon、fanfic_canon、current_state、pending_hooks、chapter_summaries）、2 个 outline、4 种角色目录。`interaction/truth-authority.ts` 的 8 项集合是 `edit-controller` 的 `truth-file-edit` 分类表，不是写入白名单。
 
-**可验证不变量**：只允许写这 8 个文件；文件名大小写归一；未知文件拒绝。
+**可验证不变量**：只允许写这份 9＋2＋角色目录的 allowlist；平铺与 outline 名字大小写不敏感并落规范小写，角色卡保留原名；未知文件拒绝。
 
-**复刻现状**：`core/truth-files.ts` 的允许列表除 8 个外还含 `style_guide.md`、`parent_canon.md`、`fanfic_canon.md`。
+**复刻现状**：`core/truth-files.ts` 的 `FLAT_NAMES`／`OUTLINE_NAMES`／`ROLE_TIERS` 与源逐项一致；`test/truth-file.test.mjs` 覆盖三份平铺文件、两份 outline 与两种角色目录。
 
-**判定：保真债** — D8：允许列表比源宽；偿还：`foundation.truth-write` 行对齐 8 个文件，其余走各自能力。
+**判定：等价**。`truth-authority.ts` 的 8 项集合属于 `truth-file-edit` 事务，不是本行的写入白名单。
 
 ### foundation.truth-projections
 
