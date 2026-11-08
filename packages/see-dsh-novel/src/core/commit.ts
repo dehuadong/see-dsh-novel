@@ -239,18 +239,19 @@ async function commitBatch(
   const backupDir = join(transaction, 'backup')
   const touched = [...writes.map((write) => write.relativePath), ...deletes]
   const entries: CommitEntry[] = []
-  for (const path of touched) {
-    entries.push({ path, existed: await pathExists(resolve(base, path)) })
-  }
-  const journal: CommitJournal = {
-    version: 1,
-    pid: process.pid,
-    phase: 'prepared',
-    entries,
-  }
-
+  let journal: CommitJournal | undefined
   let journalWritten = false
   try {
+    for (const path of touched) {
+      entries.push({ path, existed: await pathExists(resolve(base, path)) })
+    }
+    journal = {
+      version: 1,
+      pid: process.pid,
+      phase: 'prepared',
+      entries,
+    }
+
     await mkdir(stagedDir, { recursive: true })
     await mkdir(backupDir, { recursive: true })
 
@@ -281,7 +282,7 @@ async function commitBatch(
 
     await writeJournal(transaction, { ...journal, phase: 'committed' })
   } catch (error) {
-    if (journalWritten) {
+    if (journalWritten && journal !== undefined) {
       let rollbackError: unknown
       try {
         await restoreFromBackups(base, backupDir, entries)
