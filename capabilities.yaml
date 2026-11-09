@@ -24,6 +24,14 @@ capabilities:
     consumer: packages/see-dsh-novel/test/agent-tools.test.mjs
     realRun: artifacts/real-runs/runtime.agent-tools.json
     status: verified
+  - id: skill.references
+    title: 技能参考检索：use_skill.query 按需取技能参考，而非整份注入
+    source: inkos:packages/core/src/agent/skill-tool.ts
+    dsh: skills
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: runtime.client-ui
     title: 面板客户端基线：slots 注册、React/JSX 构建、类型化 props、样式安装
     source: inkos:packages/studio/
@@ -104,6 +112,14 @@ capabilities:
     consumer: packages/see-dsh-novel/test/client.test.mjs
     realRun: artifacts/real-runs/panel.foundation-start.json
     status: verified
+  - id: panel.confirm
+    title: 作者确认面：workflow start（create_book／write_next）的确认、拒绝与回执，不承载只读工作台
+    source: inkos:packages/core/src/agent/agent-tools.ts
+    dsh: client + commands + approval
+    implementation: null
+    consumer: null
+    realRun: null
+    status: missing
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     source: inkos:packages/core/src/agents/architect.ts
@@ -369,7 +385,7 @@ capabilities:
     realRun: null
     status: missing
   - id: panel.workbench
-    title: 工作台、阶段按钮、作者确认
+    title: 只读工作台：阶段产物浏览、文件树与内容预览
     source: inkos:packages/studio/src/pages/
     dsh: client
     implementation: null

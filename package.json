@@ -14,7 +14,8 @@
     "verify-note-lifecycle": "node .agents/skills/write-agent-notes/scripts/verify-agent-note-lifecycle.ts --root .agents/notes",
     "verify-notes": "npm run verify-agent-note-tree && npm run verify-agent-note-format && npm run verify-archived && npm run verify-note-lifecycle",
     "check-capabilities": "node scripts/check-capabilities.mjs",
-    "verify": "pnpm run typecheck && pnpm run build && pnpm run check-package && pnpm run check-boundary && pnpm run verify-notes && pnpm run check-capabilities && pnpm run test",
+    "verify-audit-coverage": "node scripts/verify-audit-coverage.mjs",
+    "verify": "pnpm run typecheck && pnpm run build && pnpm run check-package && pnpm run check-boundary && pnpm run verify-notes && pnpm run check-capabilities && pnpm run verify-audit-coverage && pnpm run test",
     "check-package": "node --import tsx scripts/check-package.mjs",
     "check-boundary": "node --import tsx scripts/check-boundary.mjs"
   },

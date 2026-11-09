@@ -10,28 +10,87 @@
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
-## 交付顺序
+## 阶段合同
 
-按纵向能力推进，一次一个 PR；顺序以账本行序为准，前一行未 `verified` 不跳行。本文只描述范围与顺序，不描述实现是否保真；保真判据、偏差的合法来源与登记位置见 [`AGENTS.md`](../AGENTS.md) 的「保真原则」。
+阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。每个阶段固定七项：源模块、能力行、横向不变量、用户可见面、入口条件、出口条件、非目标/债务。行清单按 `capabilities.yaml` 行序；`capabilities.yaml` 是唯一状态表。
 
-- **P0 运行时骨架**：`runtime.load` + `runtime.agent-tools`（写作预设的工具面：persona、指令、只读文件、联网检索、技能、子代理、ask-user、todo、jobs、上下文压缩；通用写工具不开放，内容写入只走 `story_*`）+ `runtime.client-ui`（面板客户端基线：DSH slots 注册、React/JSX 构建、类型化 slot props、样式安装）+ `runtime.package-check` + `runtime.boundary-check`（打包产物与 DSH 边界的机械校验）。
-- **P1 创意提案、立项与基础设定**：
-  - 立项：`runtime.session-binding`（一个工作区即一部作品，`work.json` 记身份、预设与语言，面板从会话进入作品）+ `runtime.commands`（至少一条 `init` 入口；`export` 由 P6 的 `export.work` 承担）+ `runtime.telemetry`（每次委派留下 usage／耗时／失败回执）+ `runtime.recovery`（作品索引自检与重建）。
-  - 创意提案：`proposal.creative`（对话收敛创意，只问缺的关键信息；结构化提案携带标题／题材／平台／语言／章数／单章字数与卡片文案；确认后按确认参数创建作品）。
-  - 确认后继续：`panel.gate-resume`（作者在面板认可之后，把「继续」投回会话，agent 复核回执再接着干；退回是停止信号，不唤醒）。
-  - 立项后开工：`panel.foundation-start`（「已立项，还没有基础设定」状态给出「开始基础设定」，一键把开工指令投回会话，agent 起一轮写设定）。
-  - 基础设定：`foundation.architect` + `foundation.hooks` + `foundation.approval` + `cast.single-authority`。
-  - P1 保真债（复审发现，按行序补齐后才进入 P2）：`foundation.rule-contract`（book_rules 的版本与严格读取）+ `foundation.ready-check`（五段齐全且至少一张角色卡）+ `foundation.truth-projections`（三份 truth 投影）+ `foundation.control-docs`（author_intent／current_focus／brief 的播种与读取）+ `foundation.truth-write`（真值文件替换写入：方向文档、状态真值、book rules、outline 与角色卡）+ `foundation.hook-ledger`（dependsOn／paysOffInArc 字段与严格校验）+ `runtime.commit-safety`（路径包含、串行化、失败保留日志）+ `runtime.work-lock`（跨进程作品锁）+ `runtime.txn-format`（事务目录、日志字段、rename 备份与 committed 阶段）+ `proposal.execution-brief`（instruction 与默认规模）。这些行补的是源工程已有、复刻侧缺失或放宽的行为，不是新能力。
-- **P2 章前规划**：`plan.retrieval`（FTS5/BM25 与来源标注）+ `plan.context-select`（composer 选择、分层与 `ChapterTrace` 七字段）+ `plan.compression`（超预算压缩）+ `plan.chapter`（planner 契约、memo 与 plan 复用）。
-- **P3 正文生产**：`chapter.write`（writer 契约与章节文档）+ `chapter.review`（编号来源与观察校验）+ `chapter.revise`。
-- **P4 结算与定稿**：`chapter.summary` + `chapter.settle` + `chapter.finalize`。`chapter.settle` 交付 settler 的方法 prompt，以及伏笔六动作的合并规则（提及与延后不推进、撤回需要依据）。
-- **P5 章节运维与对账**：`chapter.reopen` + `chapter.move-delete` + `state.check`。
-- **P6 产物与工作台**：`artifact.identity` + `export.work` + `backup.restore` + `materials.import` + `search.unified` + `panel.*`。
-- **P7 短篇流水线**：`short.*`，v1 之后独立推进。
-- **P8 剧本流水线**：`script.*`，v1 之后独立推进。
-- **P9 补强（v1 之后）**：`radar.topic` + `forecast.plot`——提案阶段的选题雷达与剧情预演，产出方向候选与非正式草案，不改作品事实。
+横向不变量的编号见 [`fidelity-audit.md`](./fidelity-audit.md) 的「跨能力不变量」段。阶段出口必须同时满足：本阶段行 `verified`、命中的不变量通过、真实回执存在、债号已偿还或有阻塞证据。
 
-阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。排序依据是源工程的长篇流水线阶段链：创意提案（无作品时的对话，结构化提案 + 确认卡）→ 立项（书配置与作品身份）→ 基础设定（四段设定 + 控制文档 + 初始快照）→ 每章（规划 memo → 装配上下文 → 初稿 → 审阅观察 → 修订 → 落盘 → 结算真相文件 → 校验）→ 定稿与快照 → 导出与备份。
+### P0 运行时骨架
+
+- **源模块**：Provider／Agent 循环／CLI、agent tools、Studio client、包与边界；见 `inkos/packages/core/src/agent/`、`packages/studio/src/`。
+- **能力行**：`runtime.load`、`runtime.agent-tools`、`runtime.client-ui`、`runtime.package-check`、`runtime.boundary-check`、`skill.references`（新行）。
+- **横向不变量**：3（作品边界）、7（面板/命令一致）的运行时前提；工具面只注册当前可用能力，内容写入只走 `story_*`。
+- **用户可见面**：DSH 会话加载插件、agent 工具面、client slot 基线、包/边界检查。
+- **入口**：仓库与 DSH 运行时可用。
+- **出口**：六行 `verified` + 行审计 + 真实回执；`verify-audit-coverage` 通过。
+- **非目标/债务**：D23 `skill.references` 的 `use_skill.query` 由本阶段新行偿还；不实现短篇/剧本。
+
+### P1 创意、立项与基础设定
+
+- **源模块**：`proposal`/`propose_action`、`book create`、`initBook`、foundation agents、truth 文件、`atomic-file-set`、Studio 确认卡；见 `inkos/packages/core/src/agent/`、`pipeline/runner.ts`、`state/manager.ts`、`studio/src/pages/`。
+- **能力行**：`runtime.session-binding`、`runtime.commands`、`runtime.telemetry`、`runtime.recovery`、`proposal.creative`、`panel.gate-resume`、`panel.foundation-start`、`foundation.architect`、`foundation.hooks`、`foundation.approval`、`cast.single-authority`、`foundation.rule-contract`、`foundation.ready-check`、`foundation.truth-projections`、`foundation.control-docs`、`foundation.truth-write`、`foundation.hook-ledger`、`runtime.commit-safety`、`runtime.work-lock`、`runtime.stage-context`、`runtime.txn-format`、`proposal.execution-brief`、`panel.confirm`（新行）。
+- **横向不变量**：1（workflow start 确认）、2（阶段停点）、3（作品边界）、4（证据同一）、7（面板/命令一致）。
+- **用户可见面**：`/story-init`、面板「开始基础设定」、workflow start 确认、`/story-approve`／`/story-reject`、失败回执。
+- **入口**：P0 出口。
+- **出口**：本阶段行 `verified` + 不变量 1/2/3/4/7 + `runtime.work-lock` + `runtime.commands` D19–D21 真机 + `panel.confirm`；`panel.workbench` 只读工作台仍留 P6。
+- **非目标/债务**：D27 `runtime.work-lock` 本阶段偿还；D28 workflow start 确认/阶段停点本阶段偿还；D19–D21 由 `runtime.commands` 偿还；不实现 plan/write。
+
+### P2 章前规划
+
+- **源模块**：retrieval、composer、semantic compressor、planner；见 `inkos/packages/core/src/retrieval/`、`agents/composer.ts`、`agents/planner.ts`。
+- **能力行**：`plan.retrieval`、`plan.context-select`、`plan.compression`、`plan.chapter`。
+- **横向不变量**：5（上下文同一）；1/2 的 workflow start 不越过 P1 确认。
+- **用户可见面**：规划阶段的候选/包/trace、章纲预览；面板显示规划产物。
+- **入口**：P1 出口。
+- **出口**：四行 `verified` + 不变量 5；D22／D24／D26 偿还或有阻塞证据。
+- **非目标/债务**：D22、D24、D26 在本阶段处理；不写正文。
+
+### P3 正文生产
+
+- **源模块**：writer、reviewer、revision；见 `inkos/packages/core/src/agents/`、`pipeline/`。
+- **能力行**：`chapter.write`、`chapter.review`、`chapter.revise`。
+- **横向不变量**：1（workflow start 确认，不逐工具确认）、6（产物同一）、2（阶段停点）。
+- **用户可见面**：写作/审阅阶段、章节正文与审阅记录、artifact revision；面板只读展示。
+- **入口**：P2 出口。
+- **出口**：三行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致；真实回执。
+- **非目标/债务**：不在每个 write 工具上加 approval；不实现 summary/settle。
+
+### P4 结算与定稿
+
+- **源模块**：summary、settler、finalize；见 `inkos/packages/core/src/pipeline/`。
+- **能力行**：`chapter.summary`、`chapter.settle`、`chapter.finalize`。
+- **横向不变量**：2、6；真值回写与快照。
+- **用户可见面**：结算记录、伏笔状态、定稿/快照。
+- **入口**：P3 出口。
+- **出口**：三行 `verified` + 不变量 2/6 + 回执。
+- **非目标/债务**：不做重开/移动/导出。
+
+### P5 章节运维与对账
+
+- **源模块**：reopen、move/delete、state check；见 `inkos/packages/core/src/state/`。
+- **能力行**：`chapter.reopen`、`chapter.move-delete`、`state.check`。
+- **横向不变量**：2、3、4、6；回滚与对账。
+- **用户可见面**：章节重开/移动/删除、状态核对。
+- **入口**：P4 出口。
+- **出口**：三行 `verified` + 不变量 + 回执。
+- **非目标/债务**：不导出。
+
+### P6 产物与工作台
+
+- **源模块**：artifact revisions、export、backup、materials、搜索、Studio workbench/logs/analysis；见 `inkos/packages/core/src/harness/`、`interaction/export-artifact.ts`、`studio/src/pages/`。
+- **能力行**：`artifact.identity`、`export.work`、`backup.restore`、`materials.import`、`search.unified`、`panel.workbench`（只读）、`panel.logs`、`panel.analysis`。
+- **横向不变量**：3（跨作品隔离）、4（证据同一）、6（产物同一）、7（面板只读同一证据）。
+- **用户可见面**：产物 revision、导出、备份/恢复、素材与检索、只读工作台/日志/分析。
+- **入口**：P5 出口。
+- **出口**：八行 `verified` + 不变量 3/4/6/7 + 真实回执。
+- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认。
+
+### v1 之外
+
+P7 短篇、P8 剧本、P9 雷达/预演不进入 v1 阶段合同；对应账本行保留 `missing`，不参与 P0–P6 出口。P7–P9 的源模块与能力另行规划，不能借“补齐”混进当前阶段。
+
+
 
 P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：源工程先 `init` 建项目、再 `book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代源工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
 
@@ -65,13 +124,12 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 | 编号 | 行 | 欠什么 | 偿还位置 |
 |---|---|---|---|
-| D19 | `runtime.commands` | 源一条命令建书并启动基础设定；复刻是命令 + 阶段两步 | 本行 |
-| D20 | `runtime.commands` | 源的项目语言与宿主 locale 层未复刻，未知 `--lang` 恒回退 `zh` | 本行 |
-| D21 | `runtime.commands` | 源会删除不完整作品目录后重建；复刻拒绝已有 `work.json` | 本行 |
 | D22 | `plan.retrieval` | 素材仍由 FTS 过渡候选供给作者搜索；源是 P6 素材 scope | `materials.import`／`search.unified` |
 | D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
+| D27 | `runtime.work-lock` | 跨进程作品锁仍是 `missing`；P1 出口缺锁 | P1 |
+| D28 | `runtime.stage-context`／`panel.confirm` | 没有 workflow start 确认与阶段停点；foundation 完成后会自动进入 plan/write | P1 |
 
 ## 边界
 

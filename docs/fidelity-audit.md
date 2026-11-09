@@ -2,7 +2,21 @@
 
 逐行对照源工程行为与复刻行为。判定只有三种：`等价`、`机制等价`（必须带 `docs/dsh-mapping.md` 偏差行）、`保真债`（必须带 `docs/scope.md` 偿还行）。
 
-审计范围：账本中全部 `verified` 行与待验行；按 P0 → P1 → P2 → P3 分批。
+审计范围：账本中全部 `verified` 行与待验行；按 P0 → P1 → P2 → P3 分批。`###` 段必须覆盖 v1 P0–P6 的每一行；`missing` 行也写源证据与阻塞。
+
+## 跨能力不变量
+
+行级判定之外，以下不变量必须由阶段出口同时验证；每条绑定源工程证据、DSH 落点与验证位置。
+
+1. **workflow start 确认**：源 `propose_action` 只枚举 15 个 workflow start（`agent/agent-tools.ts:178-194`）；`write_next` 是 confirmed production intent（`studio/src/shared/confirmed-production.ts`）；plan/write/revise 是内部步骤。DSH 的 approval／面板／命令只确认 workflow start，不逐工具确认；未确认不启动 workflow。
+2. **阶段停点**：源没有“阶段 prompt 自动推进”；DSH `systemPrompt.context` 只描述当前阶段。普通问候/讨论不改作品；workflow start 由作者动作触发；阶段完成必须停下；工具入口拒绝没有 workflow start 的跨阶段写入。
+3. **作品边界**：源 `works/<id>`、`WorkManifest`、`state` 锁与原子文件集 → DSH 一个工作区一部作品、`work.json`、`runtime.work-lock`／`commit`；跨作品隔离；失败不留半写。
+4. **证据同一**：会话日志、telemetry、realRun、面板展示来自同一证据；`capabilities.yaml` 状态只由 `check-capabilities` 依据证据生成。
+5. **上下文同一**：模型窗口、预算、检索候选、压缩、`ChapterTrace` 七字段、review 来源同一基准；不静默截断。
+6. **产物同一**：章节文档、artifact revision、`reviewedArtifact`、review 证据指向同一被审版本；写/审/改不跨 revision。
+7. **面板/命令一致**：面板按钮、`/story-*` 命令、原生 approval 不出现三套 decision；`panel.confirm`（P1）与只读 `panel.workbench`（P6）职责分开，面板只读同一证据。
+
+验证位置：1/2 见 `runtime.stage-context`／`foundation.approval`／`panel.confirm`；3 见 `runtime.session-binding`／`runtime.work-lock`／`runtime.commit-safety`；4 见 `runtime.telemetry`／`check-capabilities`；5 见 `plan.*`；6 见 `chapter.write`／`chapter.review`／`artifact.identity`；7 见 `panel.*` 与 `StoryView`。
 
 ---
 
@@ -87,12 +101,12 @@
 - 命令只写身份、`story/brief.md` 与方向文档；基础设定由 `story_next`／面板阶段继续。
 - 已有 `work.json` 一律拒绝，不删除工作区。
 
-**判定：保真债**
+**判定：机制等价**
 
 - D3／D4：已偿还。源名与别名同表、缺省题材/平台随 `work.json` 落盘；同批补了 `--lang` 前缀归一与 `parseInt` 读取。
-- D19：源命令一次启动基础设定，复刻分成命令与阶段两步；偿还路径是命令写完身份后通过 `agent.followup`／`steer` 启动基础设定阶段，并补异步反馈、幂等与失败回执。
-- D20：源的项目语言与宿主 locale 层（`inkos.json`／`INKOS_DEFAULT_LANGUAGE`／`INKOS_LOCALE`／`LC_ALL` 等）未复刻；偿还路径是预设或插件配置提供默认语言，并按同一顺序解析。
-- D21：源遇到不完整作品目录会删除重建，复刻拒绝已有 `work.json`；偿还路径是为不完整作品定义安全清理集或显式 `force`，不删除工作区根。
+- D19：已偿还。`/story-init` 成功后用 `agent.followup` 投一条基础设定指令；命令立即返回「已启动」，基础设定在下一轮完成。源命令同步等待，复刻异步启动，机制差异登记在 `docs/dsh-mapping.md`。
+- D20：已偿还。显式 `--lang` → `inkos.json.language`（缺字段按源默认 `zh`）→ `INKOS_LOCALE`／`LC_ALL`／`LC_MESSAGES`／`LANG` → `zh`；显式未知值跳过 config。
+- D21：已偿还。完整作品拒绝；不完整作品删除 `source/` 与根 `work.json` 后重建；不删工作区根。源删整个 workDir，复刻删除集不同，登记在 `docs/dsh-mapping.md`。
 - D5：`--brief` 的路径基准从进程 cwd 改为工作区根——已登记为机制等价偏差（`docs/dsh-mapping.md`）。
 
 ---
@@ -199,7 +213,7 @@
 
 **复刻现状**：`stages/index.ts` 注册 `story:stage`／`story:craft`，按工作区阶段注入。
 
-**判定：机制等价**（DSH 用 `systemPrompt.context()` 替代源调用点拼装；已在 `docs/dsh-mapping.md`「方法注入」行登记）。
+**判定：保真债 D28** — 阶段注入机制等价（DSH `systemPrompt.context()`）；但当前阶段协议把“当前阶段”当每轮强制推进，源工程是 workflow start 确认。偿还 P1：阶段协议只描述，完成一段停下；作者发起 `write_next` 才进入下一阶段；不在每个 write 工具上加 approval。
 
 ## 批次 C：P2 章前规划
 
@@ -265,7 +279,252 @@
 
 **判定：等价** — 章节产物 identity 与 review 消费已接通；manifest 是独立索引而非 WorkManifest 内嵌，登记在 `dsh-mapping.md`。
 
+### runtime.load
+
+**源工程证据**：`inkos/packages/core/src/harness/runtime.ts` 装载 profile／bundle、注册工具与 client。
+
+**复刻现状**：`packages/see-dsh-novel` 的 bundle/preset 由 DSH 加载；`host.test.mjs` 断言工具、命令、context 与 client 注册。
+
+**判定：机制等价** — DSH bundle/preset 替代源自建 runtime；验证 `host.test.mjs` 与 `runtime.load.json`。
+
+### runtime.agent-tools
+
+**源工程证据**：`inkos/packages/core/src/harness/builtin-profiles.ts` 的写作 profile 工具面；通用写工具不开放，内容写入走 `story_*`。
+
+**复刻现状**：`cordis.patch.yml` 组合 preset；`agent-tools.test.mjs` 校验 persona、只读、检索、技能、子代理、ask-user、todo、jobs、压缩；不注册通用写工具。
+
+**判定：机制等价** — DSH preset plugins 与 skills 承载；无内容写入旁路。
+
+### runtime.client-ui
+
+**源工程证据**：`inkos/packages/studio/` 的页面、确认卡与文件浏览；DSH 用 client 插件 + slots。
+
+**复刻现状**：`client/index.ts` 注册 slot 与 React 构建；当前只有 foundation 状态卡，尚无阶段时间线/产物浏览；`panel.confirm`/`panel.workbench` 仍是 missing。
+
+**判定：保真债 D28** — UI 基线与数据面存在，但工作台/确认面未交付；偿还 P1 `panel.confirm`、P6 `panel.workbench`。
+
+### runtime.package-check
+
+**源工程证据**：`dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs` 校验 tarball files／exports／patch。
+
+**复刻现状**：`src/tools/packaging.ts` 与 `packaging.test.mjs`；`check-package` 在 verify 中执行。
+
+**判定：机制等价** — DSH 打包检查；无产品行为差异。
+
+### runtime.boundary-check
+
+**源工程证据**：项目护栏：源码不得 import 源工程，`@deepseek-ai` 只允许预设与前端 type-only 引用。
+
+**复刻现状**：`src/tools/boundary.ts`、`source-boundary.test.mjs`、`check-boundary`。
+
+**判定：机制等价** — 项目护栏，不是源产品功能。
+
+### runtime.session-binding
+
+**源工程证据**：`inkos/packages/core/src/harness/session-binding.ts` 用 `works/<id>` 与 session 绑定；一个工作区一部作品。
+
+**复刻现状**：`work.json` 在工作区根，`workingDirectory` 绑定会话；面板从会话读取作品身份；跨作品隔离由工作区边界。
+
+**判定：机制等价** — 源多作品目录改为一个工作区；无跨作品路径。
+
+### runtime.telemetry
+
+**源工程证据**：源 pipeline／agent 记录 usage、耗时、失败回执。
+
+**复刻现状**：DSH session 日志记录 usage／耗时／失败；`story_*` 工具回执可追溯；没有独立遥测存储。
+
+**判定：机制等价** — DSH session 日志替代源 telemetry；面板/审计读取同一日志。
+
+### runtime.recovery
+
+**源工程证据**：源 `state` 重建索引与故障恢复。
+
+**复刻现状**：`core/recovery.ts` 自检与重建，`recovery` 测试覆盖；作品内容文档可重建索引。
+
+**判定：机制等价** — DSH 文件状态 + 恢复函数；无独立数据库。
+
+### panel.gate-resume
+
+**源工程证据**：Studio 确认卡确认后继续；退回是停止信号。
+
+**复刻现状**：`StoryView` 的认可/退回调用 `/story-approve`／`/story-reject`，`panel.gate-resume` 把「继续」投回会话；当前只覆盖 foundation decision，不覆盖 workflow start。
+
+**判定：保真债 D28** — 确认-继续通道存在，但 action/workflow start 面未接。
+
+### panel.foundation-start
+
+**源工程证据**：Studio 的创作入口在立项后启动基础设定。
+
+**复刻现状**：`StoryView` 的「开始基础设定」投一条开工指令；`panel.foundation-start` 有回执与失败提示。
+
+**判定：机制等价** — DSH 会话消息替代 Studio 按钮；确认/停点仍受 D28 约束。
+
+### foundation.hooks
+
+**源工程证据**：`inkos/packages/core/src/state` 的 hooks 池与六动作；状态由 settler 回写。
+
+**复刻现状**：`core/hooks.ts`、`foundation/hook-ledger`；`hooks.test.mjs` 覆盖 id、状态、结算。
+
+**判定：机制等价** — 文件状态 + 严格校验；无独立存储服务。
+
+### foundation.approval
+
+**源工程证据**：源 Studio 的 `propose_action`／confirmed production 只确认 workflow start（`create_book`、`write_next` 等，15 个）；确认后 host 执行；plan/write 是内部步骤。
+
+**复刻现状**：`gate.ts` 提供 foundation 签核工具与面板认可/退回；`story_foundation_signoff` 读 approval；但 `write_next` 的 workflow start 没有独立确认面，`story:stage` 在 foundation 完成后自动进入 plan/write。
+
+**判定：保真债 D28** — foundation 签核是 DSH 侧附加面；真正缺的是 workflow start 确认与阶段停点。偿还 P1 `panel.confirm` + `runtime.stage-context`；不得把 plan/write 改成逐工具 approval。
+
+### cast.single-authority
+
+**源工程证据**：`inkos/packages/core/src/references/reference-context.ts` 的角色权威；major/minor 都进入 brief/context。
+
+**复刻现状**：`core/cast.ts`／role 文件；`cast.test.mjs` 断言唯一权威与主次角色。
+
+**判定：机制等价** — 角色文件为唯一权威；DSH context 读取同一文件。
+
+### runtime.work-lock
+
+**源工程证据**：`inkos/packages/core/src/state/manager.ts` 的跨进程作品锁、心跳、死锁接管。
+
+**复刻现状**：无实现；`capabilities.yaml` 为 `missing`；P2/P3/P6 已 verified，违反 P1 出口。
+
+**判定：保真债 D27** — 偿还 P1；锁文件/心跳/接管与 `commit` 串行化必须一起验证。
+
+### panel.confirm
+
+**源工程证据**：`inkos/packages/core/src/agent/agent-tools.ts:178-194` 的 workflow start 枚举；`studio/src/shared/confirmed-production.ts` 的 `write_next` confirmed intent；确认卡确认后才执行。
+
+**复刻现状**：无独立确认面；`StoryView` 只有 foundation 认可/退回，`story:stage` 会自动推进。
+
+**判定：保真债 D28** — 新行，P1；Faces: workflow start 确认、拒绝/取消、与 approval/命令同一 decision；只有确认面，不承载只读工作台（P6 `panel.workbench`）。
+
+### skill.references
+
+**源工程证据**：源 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份技能。
+
+**复刻现状**：无 `use_skill.query`；技能整份注入。
+
+**判定：保真债 D23** — P0 新行；偿还需技能参考检索工具或声明不可观测；不得把整份注入当等价。
+
+### chapter.revise
+
+**源工程证据**：源 revision pipeline 的 spot-fix／polish／rewrite 等；修订后重新审阅。
+
+**复刻现状**：`chapter.revise` 未实现；`chapter.review` 只能审一次。
+
+**判定：保真债（未立债号）** — P3 行仍 missing；P3 出口前必须先立行/实现，不能以 review 代替 revise。
+
+### chapter.summary
+
+**源工程证据**：源 summary agent 写章节摘要并回写 `chapter_summaries`。
+
+**复刻现状**：未实现；`chapter_summary` 文件由 foundation 播种。
+
+**判定：保真债（未立债号）** — P4 行 missing；P3 出口后才做。
+
+### chapter.settle
+
+**源工程证据**：源 settler 的伏笔六动作、状态真值回写与快照。
+
+**复刻现状**：未实现；`chapter.settle` 行 missing。
+
+**判定：保真债（未立债号）** — P4 行 missing；需要 settler prompt 与合并规则。
+
+### chapter.finalize
+
+**源工程证据**：源定稿与快照。
+
+**复刻现状**：未实现；`chapter.finalize` 行 missing。
+
+**判定：保真债（未立债号）** — P4 行 missing。
+
+### chapter.reopen
+
+**源工程证据**：源章节重开/回滚。
+
+**复刻现状**：未实现；`chapter.reopen` 行 missing。
+
+**判定：保真债（未立债号）** — P5 行 missing。
+
+### chapter.move-delete
+
+**源工程证据**：源章节移动/删除与索引回滚。
+
+**复刻现状**：未实现；行 missing。
+
+**判定：保真债（未立债号）** — P5 行 missing。
+
+### state.check
+
+**源工程证据**：源状态核对/修复。
+
+**复刻现状**：未实现；行 missing。
+
+**判定：保真债（未立债号）** — P5 行 missing。
+
+### export.work
+
+**源工程证据**：`inkos/packages/core/src/interaction/export-artifact.ts` 的原子导出。
+
+**复刻现状**：未实现；`export.work` missing。
+
+**判定：保真债（未立债号）** — P6 行 missing。
+
+### backup.restore
+
+**源工程证据**：源 book backup/restore。
+
+**复刻现状**：未实现；行 missing。
+
+**判定：保真债（未立债号）** — P6 行 missing。
+
+### materials.import
+
+**源工程证据**：源素材导入与 reference context。
+
+**复刻现状**：未实现；行 missing；D22/D24 依赖它。
+
+**判定：保真债（未立债号）** — P6 行 missing。
+
+### search.unified
+
+**源工程证据**：源记忆／素材／技能统一检索。
+
+**复刻现状**：未实现；行 missing；D22/D24 依赖它。
+
+**判定：保真债（未立债号）** — P6 行 missing。
+
+### panel.workbench
+
+**源工程证据**：Studio `pages/` 的工作台、阶段按钮、只读产物浏览。
+
+**复刻现状**：未实现；P6 只读工作台；作者确认面拆到 P1 `panel.confirm`。
+
+**判定：保真债（未立债号）** — P6 行 missing；不得承载 P1 确认。
+
+### panel.logs
+
+**源工程证据**：Studio `components/` 的调用日志。
+
+**复刻现状**：未实现；行 missing。
+
+**判定：保真债（未立债号）** — P6 行 missing。
+
+### panel.analysis
+
+**源工程证据**：Studio `pages/` 的分析/节奏。
+
+**复刻现状**：未实现；行 missing。
+
+**判定：保真债（未立债号）** — P6 行 missing。
+
+### v1 之外
+
+`short.*`、`script.*`、`radar.topic`、`forecast.plot` 不在 v1 P0–P6 出口；账本保留 `missing`，对应源模块另行规划。它们不要求 `###` 审计段；不得借“补齐”混进当前阶段。
+
 ## 后续批次
+
 
 - ~~批次 B（P1）~~：已完成。
 - ~~批次 C（P2）~~：已完成。
