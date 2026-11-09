@@ -5,6 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
+import { withWorkAction } from '../../core/work-mutation.js'
 import { chapterIntentPath, chapterPlanPath, loadChapterPlan, loadPlannerContext, saveChapterPlan } from '../../core/chapter-plan.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -99,30 +100,32 @@ export function installPlanTool(ctx: PluginContext): Disposer {
     async execute(args: { chapter: number, goal: string, body: string, threadRefs: string[] }, exec: ExecuteContext): Promise<PlanResult> {
       if (!exec?.agent) throw new Error('story_plan_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
-      await assertFoundation(root)
-      const current = await readChapter(root)
-      if (args.chapter !== current + 1) throw new Error(`只能规划第 ${current + 1} 章（当前第 ${current} 章）`)
-      const existing = await loadChapterPlan(root, args.chapter)
-      if (existing !== null) {
-        return {
-          chapter: args.chapter,
-          planPath: chapterPlanPath(args.chapter),
-          intentPath: chapterIntentPath(args.chapter),
-          plannerInputs: existing.plannerInputs,
-          reused: true,
+      return withWorkAction(root, async () => {
+        await assertFoundation(root)
+        const current = await readChapter(root)
+        if (args.chapter !== current + 1) throw new Error(`只能规划第 ${current + 1} 章（当前第 ${current} 章）`)
+        const existing = await loadChapterPlan(root, args.chapter)
+        if (existing !== null) {
+          return {
+            chapter: args.chapter,
+            planPath: chapterPlanPath(args.chapter),
+            intentPath: chapterIntentPath(args.chapter),
+            plannerInputs: existing.plannerInputs,
+            reused: true,
+          }
         }
-      }
-      const plannerContext = await loadPlannerContext(root, args.chapter)
-      if (plannerContext === null) throw new Error(`第 ${args.chapter} 章缺少 planner 上下文，先完成 planner pass`)
-      const plannerInputs = plannerContext.selectedContext.map((entry) => entry.source)
-      const { planPath, intentPath } = await saveChapterPlan(root, {
-        chapter: args.chapter,
-        goal: args.goal,
-        body: args.body,
-        threadRefs: args.threadRefs,
-        plannerInputs,
+        const plannerContext = await loadPlannerContext(root, args.chapter)
+        if (plannerContext === null) throw new Error(`第 ${args.chapter} 章缺少 planner 上下文，先完成 planner pass`)
+        const plannerInputs = plannerContext.selectedContext.map((entry) => entry.source)
+        const { planPath, intentPath } = await saveChapterPlan(root, {
+          chapter: args.chapter,
+          goal: args.goal,
+          body: args.body,
+          threadRefs: args.threadRefs,
+          plannerInputs,
+        })
+        return { chapter: args.chapter, planPath: chapterPlanPath(args.chapter), intentPath, plannerInputs, reused: false }
       })
-      return { chapter: args.chapter, planPath: chapterPlanPath(args.chapter), intentPath, plannerInputs, reused: false }
     },
   } as ToolDefinition<{ chapter: number, goal: string, body: string, threadRefs: string[] }, PlanResult>)
 }

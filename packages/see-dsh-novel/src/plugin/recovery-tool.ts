@@ -10,6 +10,7 @@ import { shortDigest } from '../core/artifacts.js'
 import { latestDecision } from '../core/receipts.js'
 import type { Finding, RecoveryScan } from '../core/recovery.js'
 import { withCommitQueue } from '../core/commit.js'
+import { withWorkAction } from '../core/work-mutation.js'
 import { FINDING_CODES, repairWorkspace, scanWorkspace } from '../core/recovery.js'
 import { DECISION_SOURCES } from '../pipelines/long/contract.js'
 
@@ -85,7 +86,7 @@ export async function recoverWorkspace(
   const root = await ctx.workingDirectory.ensure(exec.agent)
   if (!root) throw new Error('无法解析当前工作区目录')
 
-  const { before, applied, after } = await withCommitQueue(root, async () => {
+  const scan = async () => withCommitQueue(root, async () => {
     const scanned: RecoveryScan = await scanWorkspace(root)
     let repaired: string[] = []
     let rescanned = scanned
@@ -95,6 +96,7 @@ export async function recoverWorkspace(
     }
     return { before: scanned, applied: repaired, after: rescanned }
   })
+  const { before, applied, after } = args.apply === true ? await withWorkAction(root, scan) : await scan()
 
   const decision = latestDecision(exec.agent.session.snapshotEvents(), DECISION_SOURCES)
   const approvedDigest = decision?.kind === 'approve' ? decision.digest : undefined

@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { loadChapterPlan } from '../../core/chapter-plan.js'
 import { writeChapterDocument } from '../../core/chapter-document.js'
+import { withWorkAction } from '../../core/work-mutation.js'
 import { defaultChapterLength } from '../../core/length.js'
 import { readWork } from '../../core/work.js'
 
@@ -57,21 +58,23 @@ export function installWriteTool(ctx: PluginContext): Disposer {
     async execute(args: { chapter: number, title: string, content: string }, exec: ExecuteContext): Promise<WriteResult> {
       if (!exec?.agent) throw new Error('story_write_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
-      if (/^\s*(第\s*\d+\s*章|chapter\s*\d+)/iu.test(args.title)) {
-        throw new Error('标题不要带章号前缀；章节文档头由宿主生成')
-      }
-      const plan = await loadChapterPlan(root, args.chapter)
-      if (plan === null) throw new Error(`第 ${args.chapter} 章还没有章纲，先规划再写`)
-      const work = await readWork(root)
-      if (work === null) throw new Error('工作区没有 work.json')
-      const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
-      const result = await writeChapterDocument(root, {
-        chapter: args.chapter,
-        title: args.title,
-        content: args.content,
-        language: work.language,
+      return withWorkAction(root, async () => {
+        if (/^\s*(第\s*\d+\s*章|chapter\s*\d+)/iu.test(args.title)) {
+          throw new Error('标题不要带章号前缀；章节文档头由宿主生成')
+        }
+        const plan = await loadChapterPlan(root, args.chapter)
+        if (plan === null) throw new Error(`第 ${args.chapter} 章还没有章纲，先规划再写`)
+        const work = await readWork(root)
+        if (work === null) throw new Error('工作区没有 work.json')
+        const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
+        const result = await writeChapterDocument(root, {
+          chapter: args.chapter,
+          title: args.title,
+          content: args.content,
+          language: work.language,
+        })
+        return { chapter: args.chapter, path: result.path, charCount: result.charCount, target }
       })
-      return { chapter: args.chapter, path: result.path, charCount: result.charCount, target }
     },
   } as ToolDefinition<{ chapter: number, title: string, content: string }, WriteResult>)
 }

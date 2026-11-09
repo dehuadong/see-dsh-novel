@@ -5,6 +5,7 @@
  */
 import type { Work, WorkCreateInput } from './work.js'
 import { createWork, prepareWork } from './work.js'
+import { withWorkAction } from './work-mutation.js'
 import { controlDocumentWrites } from './control-docs.js'
 import { STORY_EXTERNAL_BRIEF } from './story-paths.js'
 import type { WorkLanguage } from './work.js'
@@ -17,15 +18,17 @@ import type { WorkLanguage } from './work.js'
  * @returns 落盘的身份对象
  */
 export async function initWork(root: string, input: WorkCreateInput, instruction: string): Promise<Work> {
-  // 先校验身份（含已存在与字段），失败时一个文件都不写。
-  const prepared = await prepareWork(root, input)
-  const language: WorkLanguage = prepared.language
-  const controlWrites = await controlDocumentWrites(root, language, instruction)
-  return createWork(root, input, {
-    prepared,
-    extraWrites: [
-      ...controlWrites,
-      { relativePath: STORY_EXTERNAL_BRIEF, content: instruction },
-    ],
+  return withWorkAction(root, async () => {
+    // 先校验身份（含已存在与字段），失败时一个文件都不写。
+    const prepared = await prepareWork(root, input)
+    const language: WorkLanguage = prepared.language
+    const controlWrites = await controlDocumentWrites(root, language, instruction)
+    return createWork(root, input, {
+      prepared,
+      extraWrites: [
+        ...controlWrites,
+        { relativePath: STORY_EXTERNAL_BRIEF, content: instruction },
+      ],
+    })
   })
 }

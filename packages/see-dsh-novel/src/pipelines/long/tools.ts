@@ -19,6 +19,7 @@ import {
   roleCardPath,
 } from './contract.js'
 import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contract.js'
+import { withWorkAction } from '../../core/work-mutation.js'
 import { commitFoundation } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
 import { controlDocumentWrites } from '../../core/control-docs.js'
@@ -147,19 +148,21 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
       output: { schema: COMMIT_OUTPUT, render: renderCommit },
       async execute(args: CastDocumentsArgs, exec: ExecuteContext): Promise<CommitResult> {
         const root = await workRoot(exec)
-        const writes = indexedRoles.map((role, index) => {
-          const content = String(args[`role_${index + 1}_content`] ?? '').trim()
-          if (content === '') throw new Error(`角色卡内容不能为空：${role.name}`)
-          return { relativePath: roleCardPath(role.tier, role.name), content: `${content}\n` }
-        })
-        const written = writes.map((write) => write.relativePath)
-        // revise 删掉本次没重写的卡；换档写入再删掉另一档位里的同名旧卡。两者可能重叠，去重。
-        const deleted = args.mode === 'revise' ? await staleRoleCards(root, written) : []
-        const moved = await movedRoleCards(root, indexedRoles)
-        const controlWrites = await controlDocumentWrites(root, await projectionLanguage(root))
-        return commitFoundation(root, {
-          writes: [...writes, ...controlWrites],
-          deletes: [...new Set([...deleted, ...moved])],
+        return withWorkAction(root, async () => {
+          const writes = indexedRoles.map((role, index) => {
+            const content = String(args[`role_${index + 1}_content`] ?? '').trim()
+            if (content === '') throw new Error(`角色卡内容不能为空：${role.name}`)
+            return { relativePath: roleCardPath(role.tier, role.name), content: `${content}\n` }
+          })
+          const written = writes.map((write) => write.relativePath)
+          // revise 删掉本次没重写的卡；换档写入再删掉另一档位里的同名旧卡。两者可能重叠，去重。
+          const deleted = args.mode === 'revise' ? await staleRoleCards(root, written) : []
+          const moved = await movedRoleCards(root, indexedRoles)
+          const controlWrites = await controlDocumentWrites(root, await projectionLanguage(root))
+          return commitFoundation(root, {
+            writes: [...writes, ...controlWrites],
+            deletes: [...new Set([...deleted, ...moved])],
+          })
         })
       },
     })
@@ -175,13 +178,15 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
     output: { schema: COMMIT_OUTPUT, render: renderCommit },
     async execute(args: OutlineArgs, exec: ExecuteContext): Promise<CommitResult> {
       const root = await workRoot(exec)
-      const controlWrites = await controlDocumentWrites(root, await projectionLanguage(root))
-      return commitFoundation(root, {
-        writes: [
-          { relativePath: 'source/story/outline/story_frame.md', content: `${String(args.storyFrame).trim()}\n` },
-          { relativePath: 'source/story/outline/volume_map.md', content: `${String(args.volumeMap).trim()}\n` },
-          ...controlWrites,
-        ],
+      return withWorkAction(root, async () => {
+        const controlWrites = await controlDocumentWrites(root, await projectionLanguage(root))
+        return commitFoundation(root, {
+          writes: [
+            { relativePath: 'source/story/outline/story_frame.md', content: `${String(args.storyFrame).trim()}\n` },
+            { relativePath: 'source/story/outline/volume_map.md', content: `${String(args.volumeMap).trim()}\n` },
+            ...controlWrites,
+          ],
+        })
       })
     },
   } as ToolDefinition<OutlineArgs, CommitResult>))
@@ -194,18 +199,20 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
     output: { schema: COMMIT_OUTPUT, render: renderCommit },
     async execute(args: DetailsArgs, exec: ExecuteContext): Promise<CommitResult> {
       const root = await workRoot(exec)
-      // 先补版本、再严格校验：写坏的文件不能落到盘上。
-      const rules = withVersion(args.bookRulesData)
-      const language = await projectionLanguage(root)
-      const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, language)
-      // 第一次写真值：方向文档补默认模板。
-      const controlWrites = await controlDocumentWrites(root, language)
-      return commitFoundation(root, {
-        writes: [
-          ...bookRulesWrites(`${String(args.bookRules).trim()}\n`, rules),
-          ...stateWrites,
-          ...controlWrites,
-        ],
+      return withWorkAction(root, async () => {
+        // 先补版本、再严格校验：写坏的文件不能落到盘上。
+        const rules = withVersion(args.bookRulesData)
+        const language = await projectionLanguage(root)
+        const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, language)
+        // 第一次写真值：方向文档补默认模板。
+        const controlWrites = await controlDocumentWrites(root, language)
+        return commitFoundation(root, {
+          writes: [
+            ...bookRulesWrites(`${String(args.bookRules).trim()}\n`, rules),
+            ...stateWrites,
+            ...controlWrites,
+          ],
+        })
       })
     },
   } as ToolDefinition<DetailsArgs, CommitResult>))

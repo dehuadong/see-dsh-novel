@@ -387,9 +387,9 @@
 
 **源工程证据**：`inkos/packages/core/src/state/manager.ts` 的跨进程作品锁、心跳、死锁接管。
 
-**复刻现状**：无实现；`capabilities.yaml` 为 `missing`；P2/P3/P6 已 verified，违反 P1 出口。
+**复刻现状**：`core/work-lock.ts` 落 `source/.write.lock`，metadata/常量/stale/心跳/释放与源一致；`core/work-mutation.ts` 提供 `withWorkMutationScope`（AsyncLocalStorage reentrancy）与 `runInWorkMutationQueue`（root+action 串行），`withWorkAction` 在 init/foundation/truth/plan/write/review/recover 等 action 入口包锁；`commitFoundation`／`commitFile` 保持 lock-agnostic；跨进程 child 测试覆盖一个持锁一个 BOOK_BUSY。
 
-**判定：保真债 D27** — 偿还 P1；锁文件/心跳/接管与 `commit` 串行化必须一起验证。
+**判定：等价** — D27 已偿还；锁在 action 边界而不是 commit；`docs/dsh-mapping.md` 登记路径与 queue 语义；真实回执 `artifacts/real-runs/runtime.work-lock.json`。
 
 ### panel.confirm
 

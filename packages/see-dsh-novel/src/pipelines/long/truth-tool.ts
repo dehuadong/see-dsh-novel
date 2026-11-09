@@ -8,6 +8,7 @@ import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinitio
 import { commitFoundation } from '../../core/commit.js'
 import { controlDocumentWrites } from '../../core/control-docs.js'
 import { normalizeTruthFileName, truthFileRelativePath } from '../../core/truth-files.js'
+import { withWorkAction } from '../../core/work-mutation.js'
 import { bookRulesDataSchema, bookRulesWrites, withVersion } from './book-rules.js'
 import type { BookRulesInput } from './book-rules.js'
 import { projectionLanguage } from './language.js'
@@ -75,27 +76,29 @@ export function installTruthFileTool(ctx: PluginContext): Disposer {
       if (!exec?.agent) throw new Error('story_truth_file 需要所属 agent 会话')
       if (typeof args.content !== 'string') throw new Error('content 必须是字符串')
       const root = await ctx.workingDirectory.ensure(exec.agent)
-      const fileName = normalizeTruthFileName(args.fileName)
-      const language = await projectionLanguage(root)
-      // 与源实现一样，先补齐方向文档；book rules 校验失败时这一步也不能跳过。
-      const controlWrites = await controlDocumentWrites(root, language)
-      let targetWrites: Array<{ relativePath: string, content: string }>
-      if (fileName === 'book_rules.md') {
-        try {
-          targetWrites = bookRulesWrites(args.content, withVersion(requireBookRulesData(args.bookRulesData)))
-        } catch (error) {
-          if (controlWrites.length > 0) await commitFoundation(root, { writes: controlWrites })
-          throw error
+      return withWorkAction(root, async () => {
+        const fileName = normalizeTruthFileName(args.fileName)
+        const language = await projectionLanguage(root)
+        // 与源实现一样，先补齐方向文档；book rules 校验失败时这一步也不能跳过。
+        const controlWrites = await controlDocumentWrites(root, language)
+        let targetWrites: Array<{ relativePath: string, content: string }>
+        if (fileName === 'book_rules.md') {
+          try {
+            targetWrites = bookRulesWrites(args.content, withVersion(requireBookRulesData(args.bookRulesData)))
+          } catch (error) {
+            if (controlWrites.length > 0) await commitFoundation(root, { writes: controlWrites })
+            throw error
+          }
+        } else {
+          targetWrites = [{ relativePath: truthFileRelativePath(fileName), content: args.content }]
         }
-      } else {
-        targetWrites = [{ relativePath: truthFileRelativePath(fileName), content: args.content }]
-      }
-      const freshControlWrites = controlWrites.filter(
-        (write) => !targetWrites.some((own) => own.relativePath === write.relativePath),
-      )
-      await commitFoundation(root, { writes: [...targetWrites, ...freshControlWrites] })
-      // written 只列本次请求的真值文件；同批补齐的方向文档不算在内。
-      return { fileName, written: targetWrites.map((write) => write.relativePath) }
+        const freshControlWrites = controlWrites.filter(
+          (write) => !targetWrites.some((own) => own.relativePath === write.relativePath),
+        )
+        await commitFoundation(root, { writes: [...targetWrites, ...freshControlWrites] })
+        // written 只列本次请求的真值文件；同批补齐的方向文档不算在内。
+        return { fileName, written: targetWrites.map((write) => write.relativePath) }
+      })
     },
   } as ToolDefinition<TruthFileArgs, TruthFileResult>)
 }

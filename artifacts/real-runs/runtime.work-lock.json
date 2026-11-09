@@ -1,0 +1,17 @@
+{
+  "capability": "runtime.work-lock",
+  "date": "2026-11-09",
+  "sessionId": "process:runtime.work-lock",
+  "tests": {
+    "command": "pnpm test",
+    "passed": true,
+    "summary": "315 passed — work-lock 6 例：同进程并发 BOOK_BUSY、stale 同 pid、旧格式拒绝、mtime fallback lease、token 不误删、action 队列/嵌套、跨进程 child 持锁；work-command/foundation/plan/write/review/truth/recover 回归"
+  },
+  "receipts": [
+    "acquire 在 `source/.write.lock` 写入 `{version:1,pid,token,startedAt,heartbeatAt}`；同进程第二个 acquire 立即返回 `BOOK_BUSY`，release 后锁文件消失。",
+    "stale：同 pid 孤儿可接管；活 pid + 无 lease metadata 的旧格式保持 BOOK_BUSY；lease metadata 无 heartbeatAt 时按文件 mtime 超过 3 分钟接管。",
+    "release 只删 token 匹配的锁；锁被替换为其他 token 时保留文件，不误删。",
+    "`withWorkAction` 的 whole-action 队列串行（a-start → a-end → b-start → b-end），同一 async context 嵌套不重复建锁，结束后锁文件释放。",
+    "跨进程 child：子进程持锁时父进程 acquire 返回 `BOOK_BUSY`；子进程 release 后父进程可获取。该回执是 process-level 真实运行，不是 DSH 会话。"
+  ]
+}

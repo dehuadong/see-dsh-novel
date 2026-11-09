@@ -210,12 +210,12 @@ capabilities:
     status: verified
   - id: runtime.work-lock
     title: 跨进程作品锁：锁文件、心跳与死锁接管
-    source: inkos:packages/core/src/state/manager.ts
+    source: inkos:packages/core/src/state/manager.ts + inkos:packages/core/src/utils/work-mutation-scope.ts
     dsh: library
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
+    implementation: packages/see-dsh-novel/src/core/work-lock.ts
+    consumer: packages/see-dsh-novel/test/work-lock.test.mjs
+    realRun: artifacts/real-runs/runtime.work-lock.json
+    status: verified
   - id: runtime.stage-context
     title: 阶段上下文：按阶段主动注入协议与创作技能，技能只留方法
     source: inkos:packages/core/src/agents/writer-prompts.ts

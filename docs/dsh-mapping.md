@@ -25,6 +25,13 @@
 
 每项偏差按四段记录：源工程做法 / 复刻做法 / 原因 / 验证。相等实现不登记，避免把映射表写第二遍。
 
+### 作品锁：action 边界而不是 commit
+
+- 源工程做法：`StateManager.acquireBookLock` 在 `bookDir/.write.lock` 建锁；`withWorkMutationScope` 做同 async scope reentrancy，`runInWorkMutationQueue` 做 whole-action 串行；`commitAtomicFileSet` 不感知锁。
+- 复刻做法：`core/work-lock.ts` 的 `source/.write.lock` + metadata/心跳/lease；`core/work-mutation.ts` 的 `withWorkMutationScope`／`runInWorkMutationQueue`；`withWorkAction` 在 init/foundation/truth/plan/write/review/recover action 入口包锁；commit 保持 lock-agnostic。
+- 原因：DSH 的 action 边界是 `story_*` 工具/命令；把锁塞进 commit 会多一层源工程没有的行为，也让读-检查-写仍可能在锁外。
+- 验证：`test/work-lock.test.mjs` 的同进程/stale/token/队列/跨进程 child；真实回执 `artifacts/real-runs/runtime.work-lock.json`。
+
 ### 作者确认：原生确认条与面板命令双通道
 
 - 源工程做法：Studio `propose_action` 生成确认卡，携带 `action`／`targetSessionKind`／`instruction`／`title`／`summary`／`actionPayload`；`write_next` 是 confirmed production intent；确认后 host 用 confirmed binding 执行 workflow start。plan/write/revise 是 workflow 内部步骤，不逐工具确认。

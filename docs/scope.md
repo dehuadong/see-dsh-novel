@@ -128,7 +128,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D27 | `runtime.work-lock` | 跨进程作品锁仍是 `missing`；P1 出口缺锁 | P1 |
 | D28 | `runtime.stage-context`／`panel.confirm` | 没有 workflow start 确认与阶段停点；foundation 完成后会自动进入 plan/write | P1 |
 
 ## 边界

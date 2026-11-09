@@ -10,6 +10,7 @@ import { basename, join, resolve } from 'node:path'
 
 import { commitFile, commitFoundation, pathExists } from './commit.js'
 import type { FileWrite } from './commit.js'
+import { withWorkAction } from './work-mutation.js'
 
 import {
   BRIEF_FILE,
@@ -330,22 +331,24 @@ export async function createWork(
   options: { intent?: string, extraWrites?: ReadonlyArray<FileWrite>, prepared?: Work } = {},
 ): Promise<Work> {
   const base = resolve(root)
-  const work = options.prepared ?? await prepareWork(root, input, options.intent === undefined ? {} : { intent: options.intent })
-  const intent = 'intent' in options ? verbatim(options.intent, join(base, WORK_FILE), 'intent') : undefined
-  const extraWrites = [...(options.extraWrites ?? [])]
-  const content = `${JSON.stringify(work, null, 2)}\n`
-  if (extraWrites.length === 0 && intent === undefined) {
-    await commitFile(base, WORK_FILE, content)
-  } else {
-    await commitFoundation(base, {
-      writes: [
-        ...(intent === undefined ? [] : [{ relativePath: BRIEF_FILE, content: intent }]),
-        ...extraWrites,
-        { relativePath: WORK_FILE, content },
-      ],
-    })
-  }
-  return work
+  return withWorkAction(base, async () => {
+    const work = options.prepared ?? await prepareWork(root, input, options.intent === undefined ? {} : { intent: options.intent })
+    const intent = 'intent' in options ? verbatim(options.intent, join(base, WORK_FILE), 'intent') : undefined
+    const extraWrites = [...(options.extraWrites ?? [])]
+    const content = `${JSON.stringify(work, null, 2)}\n`
+    if (extraWrites.length === 0 && intent === undefined) {
+      await commitFile(base, WORK_FILE, content)
+    } else {
+      await commitFoundation(base, {
+        writes: [
+          ...(intent === undefined ? [] : [{ relativePath: BRIEF_FILE, content: intent }]),
+          ...extraWrites,
+          { relativePath: WORK_FILE, content },
+        ],
+      })
+    }
+    return work
+  })
 }
 
 /**
