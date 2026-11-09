@@ -128,7 +128,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D31 | `panel.workbench` 后续 | 工作台核心已接；简报正文、Markdown 渲染、P2/P3 阶段按钮与动态 currentChapter 仍待补 | P6 |
+| D31 | `panel.workbench` 真机收尾 | 工作台核心、`--brief-text`、P2/P3 阶段动作已接；真实 Web GUI 回执与索引热更新仍待验证 | P6 |
 
 ## 边界
 

@@ -14,7 +14,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PRESET_ID, presetSelector } from './preset.js'
-import { Workbench } from './Workbench.js'
+import { Workbench, newWorkCommand } from './Workbench.js'
 import type { NewWorkInput } from './Workbench.js'
 import type { PanelAction, PanelArtifact, PanelIndex } from './panel-types.js'
 import type { CommandOutcome, PromptOutcome, SessionId, ViewInjected } from './types.js'
@@ -107,7 +107,7 @@ function failureNotice(outcome: Exclude<CommandOutcome, 'ok'>): string {
  * @param props slot 的 owner 面加上注册时注入的业务面
  */
 export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): ReactNode {
-  const { sessionId, useSessions, useResource, canCommand, runCommand, resume, start, readArtifact } = props
+  const { sessionId, useSessions, useResource, canCommand, runCommand, resume, start, advance, readArtifact } = props
   const [notice, setNotice] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   // 双击在同一帧内连发两次 onClick，state 还没来得及更新；用 ref 抢先占位。
@@ -201,20 +201,28 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
       await refreshPanel()
       return
     }
+    if (['plan-chapter', 'write-chapter', 'review-chapter'].includes(action.id)) {
+      if (panelIndex?.work === null || panelIndex?.work === undefined) return
+      const chapter = panelIndex.work.nextChapter
+      const text = action.id === 'plan-chapter'
+        ? `作者在工作台确认规划第 ${chapter} 章；按当前阶段调用规划工具，不要写正文。`
+        : action.id === 'write-chapter'
+          ? `作者在工作台确认写第 ${chapter} 章正文；按当前阶段调用写作工具，不要审阅。`
+          : `作者在工作台确认审阅第 ${chapter} 章；按当前阶段调用审阅工具，不要进入下一章。`
+      setPanelBusy(true)
+      try {
+        await advance(sessionId, text)
+        await refreshPanel()
+      } finally {
+        setPanelBusy(false)
+      }
+    }
   }
 
   async function createWork(input: NewWorkInput): Promise<void> {
-    const fields = [
-      `《${input.title}》`,
-      `--lang ${input.language}`,
-      `--chapters ${input.targetChapters}`,
-      `--words ${input.chapterWordCount}`,
-      input.genre.trim() === '' ? '' : `--genre ${input.genre.trim()}`,
-      input.platform.trim() === '' ? '' : `--platform ${input.platform.trim()}`,
-    ].filter((field) => field !== '')
     setPanelBusy(true)
     try {
-      const outcome = await runCommand(sessionId, `/story-init ${fields.join(' ')}`)
+      const outcome = await runCommand(sessionId, newWorkCommand(input))
       setPanelNotice(outcome === 'ok' ? '立项已提交。' : failureNotice(outcome))
       if (outcome === 'ok') await refreshPanel()
     } catch {

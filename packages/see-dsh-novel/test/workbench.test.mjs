@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import React from 'react'
 import { act, create } from 'react-test-renderer'
 
-import { Workbench } from '../src/client/Workbench.tsx'
+import { Workbench, newWorkCommand } from '../src/client/Workbench.tsx'
 
 const index = {
   version: 1,
@@ -84,4 +84,14 @@ test('the workbench renders artifact content and a no-work new form', async () =
     tree.root.findByType('form').props.onSubmit({ preventDefault() {} })
   })
   assert.deepEqual(calls.filter((call) => call[0] === 'new')[0], ['new', '新书'])
+})
+
+test('the new-work command encodes the brief instead of splitting it into options', () => {
+  const command = newWorkCommand({
+    title: '新书', language: 'zh', targetChapters: '10', chapterWordCount: '3000',
+    genre: '悬疑', platform: '番茄', brief: '主角在雨夜醒来',
+  })
+  assert.match(command, /--brief-text /)
+  assert.equal(command.includes('主角在雨夜醒来'), false)
+  assert.equal(decodeURIComponent(command.match(/--brief-text (\S+)/)[1]), '主角在雨夜醒来')
 })

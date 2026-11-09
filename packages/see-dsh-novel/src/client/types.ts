@@ -32,6 +32,8 @@ export interface ViewInjected {
   resume(sessionId: SessionId): Promise<PromptOutcome>
   /** 立项之后投开工指令；`cwd` 是面板看到的工作区，用来让 agent 核对自己读到的目录。 */
   start(sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome>
+  /** 阶段动作的文本提示；规划/写作/审阅由 agent 继续调工具。 */
+  advance(sessionId: SessionId, text: string): Promise<PromptOutcome>
   /** 读一个作品文件正文；索引/产物都走宿主 workspace-files 读 API。 */
   readArtifact(sessionId: SessionId, path: string): Promise<string>
 }

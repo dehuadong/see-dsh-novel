@@ -42,6 +42,8 @@ export interface WorkCreateArgs {
   platform?: string
   /** 创作简报文件，相对工作区根；缺省时用 `Create <title>`。 */
   brief?: string
+  /** 表单简报正文；已解码，优先于 `--brief` 文件。 */
+  briefText?: string
 }
 
 /** 一个选项的写法：取值校验与落点都在这里，新增选项只改这张表。 */
@@ -93,6 +95,16 @@ const OPTIONS: Record<string, OptionSpec> = {
       // 空串等于没给简报；删掉键，让处理器回退到 `Create <标题>`。
       if (value === '') delete input.brief
       else input.brief = value
+    },
+  },
+  '--brief-text': {
+    apply: (input, value) => {
+      if (value === '') throw new Error('--brief-text 不能为空')
+      try {
+        input.briefText = decodeURIComponent(value)
+      } catch {
+        throw new Error('--brief-text 编码无效')
+      }
     },
   },
 }
@@ -259,9 +271,11 @@ export function installInitCommand(ctx: PluginContext): Disposer {
         const args = parseWorkCreate(invocation.rawInput)
         await prepareCommandRoot(root)
         const language = await resolveCommandLanguage(root, args)
-        const instruction = args.brief === undefined
-          ? `Create ${args.title}`
-          : (await readFile(join(root, safeRelativePath(args.brief)), 'utf8')).trim() || `Create ${args.title}`
+        const instruction = args.briefText !== undefined
+          ? args.briefText
+          : args.brief === undefined
+            ? `Create ${args.title}`
+            : (await readFile(join(root, safeRelativePath(args.brief)), 'utf8')).trim() || `Create ${args.title}`
         const work = await initWork(root, {
           title: args.title,
           language,

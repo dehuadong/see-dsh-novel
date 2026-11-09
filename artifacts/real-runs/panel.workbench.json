@@ -5,12 +5,12 @@
   "tests": {
     "command": "pnpm test",
     "passed": true,
-    "summary": "326 passed — panel 索引/产物/阶段 2 例、workbench 轨道/导航/产物/新建表单 2 例、client 30 例、story-index 命令注册 1 例、workflow/lock 回归"
+    "summary": "327 passed — panel 索引/产物/阶段 2 例、workbench 轨道/导航/产物/新建表单/简报编码 3 例、client 30 例、story-index 命令注册、workflow/lock 回归"
   },
   "receipts": [
     "`/story-index` 从文件构建 `panel.index.json`：stages、artifacts、work、confirmation；索引被 `readArtifacts` 排除。",
-    "Workbench 显示阶段轨道、左导航、右详情；动作只出现在轨道节点；产物内容通过宿主 read 回调。",
-    "无作品时右栏新建表单提交 `/story-init`；基础设定/确认/开始下一章走现有命令。",
-    "该回执是 process-level 组件/索引测试，不是 DSH 会话；D31 记录 brief/Markdown/P2 动作的后续项。"
+    "Workbench 显示阶段轨道、左导航、右详情；动作只出现在轨道节点；产物内容通过宿主 read 回调；plan/write/review 已按 verified 放开为 advance 提示。",
+    "新作品表单包含简报；`newWorkCommand` 用 encodeURIComponent 传 `--brief-text`，`/story-init` 解码后进入同一次 initWork。",
+    "该回执是 process-level 组件/索引测试，不是 DSH 会话；真实 Web GUI 验收仍待记录。"
   ]
 }

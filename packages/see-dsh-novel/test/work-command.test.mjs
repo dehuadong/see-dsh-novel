@@ -96,6 +96,9 @@ test('parseWorkCreate normalizes --lang prefixes and falls back on unknown value
 
 test('parseWorkCreate separates empty option values', () => {
   assert.equal(parseWorkCreate('标题 --brief=').brief, undefined)
+  assert.throws(() => parseWorkCreate('标题 --brief-text='), /不能为空/)
+  assert.throws(() => parseWorkCreate('标题 --brief-text=%E0%A4%A'), /编码无效/)
+  assert.equal(parseWorkCreate(`标题 --brief-text ${encodeURIComponent('一段简报')}`).briefText, '一段简报')
   assert.equal(parseWorkCreate('标题 --genre=').genre, '')
   assert.equal(parseWorkCreate('标题 --platform=').platform, '')
   assert.throws(() => parseWorkCreate('标题 --target-chapters='), /--target-chapters 取不出整数/)

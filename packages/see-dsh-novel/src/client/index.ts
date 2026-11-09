@@ -74,6 +74,7 @@ export function apply(ctx: Context): void {
     },
     resume: (sessionId: SessionId): Promise<PromptOutcome> => promptQueue(sessionId, RESUME_TEXT),
     start: (sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome> => promptQueue(sessionId, START_TEXT(cwd)),
+    advance: (sessionId: SessionId, text: string): Promise<PromptOutcome> => promptQueue(sessionId, text),
     readArtifact: async (sessionId: SessionId, path: string): Promise<string> => {
       const remote = ctx.get('remote') as FileRemote | undefined
       if (remote === undefined) throw new Error('workspaceFiles remote 不可用')

@@ -15,6 +15,7 @@ export interface NewWorkInput {
   chapterWordCount: string
   genre: string
   platform: string
+  brief: string
 }
 
 export interface WorkbenchProps {
@@ -31,6 +32,20 @@ export interface WorkbenchProps {
   onAction(action: PanelAction): void
   onRefresh(): void
   onNewWork(input: NewWorkInput): void
+}
+
+/** 把表单拼成 `/story-init` 参数；简报走 URL 编码，避免空格/引号破坏切词。 */
+export function newWorkCommand(input: NewWorkInput): string {
+  const fields = [
+    `《${input.title}》`,
+    `--lang ${input.language}`,
+    `--chapters ${input.targetChapters}`,
+    `--words ${input.chapterWordCount}`,
+    input.genre.trim() === '' ? '' : `--genre ${input.genre.trim()}`,
+    input.platform.trim() === '' ? '' : `--platform ${input.platform.trim()}`,
+    input.brief.trim() === '' ? '' : `--brief-text ${encodeURIComponent(input.brief)}`,
+  ].filter((field) => field !== '')
+  return `/story-init ${fields.join(' ')}`
 }
 
 /**
@@ -200,12 +215,13 @@ function NewWorkForm({ busy, notice, onSubmit }: {
   const [chapterWordCount, setChapterWordCount] = useState('3000')
   const [genre, setGenre] = useState('')
   const [platform, setPlatform] = useState('')
+  const [brief, setBrief] = useState('')
   return (
     <form
       className="sdn-form"
       onSubmit={(event) => {
         event.preventDefault()
-        onSubmit({ title, language, targetChapters, chapterWordCount, genre, platform })
+        onSubmit({ title, language, targetChapters, chapterWordCount, genre, platform, brief })
       }}
     >
       <h3>新建作品</h3>
@@ -215,6 +231,7 @@ function NewWorkForm({ busy, notice, onSubmit }: {
       <label>单章字数<input value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} /></label>
       <label>题材<input value={genre} onChange={(event) => setGenre(event.target.value)} /></label>
       <label>平台<input value={platform} onChange={(event) => setPlatform(event.target.value)} /></label>
+      <label>简报<textarea value={brief} onChange={(event) => setBrief(event.target.value)} rows={4} /></label>
       <div className="sdn-row">
         <button type="submit" disabled={busy || title.trim() === ''}>{busy ? '提交中…' : '立项'}</button>
       </div>

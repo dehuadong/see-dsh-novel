@@ -501,7 +501,7 @@
 
 **复刻现状**：`StoryView` 读 `/story-index` 投影，渲染阶段轨道、左导航、右详情和产物正文；动作走宿主命令；无作品时右栏新建表单。简报/Markdown/P2 动作仍是 D31。
 
-**判定：保真债 D31** — 核心工作台已接；简报正文、Markdown 渲染、P2/P3 阶段按钮与动态章节仍待补。
+**判定：保真债 D31** — 核心工作台、简报 `--brief-text`、plan/write/review 阶段动作已接；真实 Web GUI 回执仍待验证。
 
 ### panel.logs
 

@@ -53,9 +53,9 @@ function stageAction(stage: PanelStage['id'], status: PanelStage['status'], curr
     if (current === 'foundation-ready') return { id: 'confirm-foundation', label: '确认基础设定', enabled: true, reason: '' }
     return { id: 'start-foundation', label: '开始基础设定', enabled: true, reason: '' }
   }
-  if (stage === 'plan') return { id: 'plan-chapter', label: '规划下一章', enabled: false, reason: 'P2 尚未交付' }
-  if (stage === 'write') return { id: 'write-chapter', label: '写下一章', enabled: false, reason: 'P3 尚未交付' }
-  if (stage === 'review') return { id: 'review-chapter', label: '审阅下一章', enabled: false, reason: 'P3 尚未交付' }
+  if (stage === 'plan') return { id: 'plan-chapter', label: '规划下一章', enabled: true, reason: '' }
+  if (stage === 'write') return { id: 'write-chapter', label: '写下一章', enabled: true, reason: '' }
+  if (stage === 'review') return { id: 'review-chapter', label: '审阅下一章', enabled: true, reason: '' }
   return null
 }
 
