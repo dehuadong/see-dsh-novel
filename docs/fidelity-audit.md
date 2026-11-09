@@ -301,7 +301,7 @@
 
 **复刻现状**：`client/index.ts` 注册 slot；`StoryView` 有 foundation 状态、`开始下一章` 与 workflow start 回执；两列阶段/产物浏览尚未实现。
 
-**判定：保真债 D30** — 确认面已接；只读工作台/动态章节仍是 P6 `panel.workbench`。
+**判定：保真债 D31** — 确认面已接；工作台核心已接；简报/Markdown/P2 动作仍待补。
 
 ### runtime.package-check
 
@@ -499,9 +499,9 @@
 
 **源工程证据**：Studio `pages/` 的工作台、阶段按钮、只读产物浏览。
 
-**复刻现状**：未实现；P6 只读工作台；作者确认面拆到 P1 `panel.confirm`。
+**复刻现状**：`StoryView` 读 `/story-index` 投影，渲染阶段轨道、左导航、右详情和产物正文；动作走宿主命令；无作品时右栏新建表单。简报/Markdown/P2 动作仍是 D31。
 
-**判定：保真债 D30** — P6 行 missing；不得承载 P1 确认。
+**判定：保真债 D31** — 核心工作台已接；简报正文、Markdown 渲染、P2/P3 阶段按钮与动态章节仍待补。
 
 ### panel.logs
 

@@ -10,10 +10,13 @@ import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/clie
 import type {} from '@deepseek-ai/dsh-client-resources/client'
 import type {} from '@deepseek-ai/dsh-client-ui-session/client'
 import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { PRESET_ID, presetSelector } from './preset.js'
+import { Workbench } from './Workbench.js'
+import type { NewWorkInput } from './Workbench.js'
+import type { PanelAction, PanelArtifact, PanelIndex } from './panel-types.js'
 import type { CommandOutcome, PromptOutcome, SessionId, ViewInjected } from './types.js'
 
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
@@ -31,6 +34,7 @@ const ANCHOR_RULES_JSON = '/source/story/book_rules.json'
 const ANCHOR_PENDING_HOOKS = '/source/story/pending_hooks.md'
 const ANCHOR_WORKFLOW_START = '/source/story/runtime/workflow-start.json'
 const ANCHOR_REVIEW = '/source/story/runtime/chapter-0001.review.json'
+const ANCHOR_PANEL_INDEX = '/source/story/runtime/panel.index.json'
 
 /** 三个确认命令；按钮与命令成对写在这里，避免散落在渲染里。 */
 const COMMANDS = [
@@ -103,7 +107,7 @@ function failureNotice(outcome: Exclude<CommandOutcome, 'ok'>): string {
  * @param props slot 的 owner 面加上注册时注入的业务面
  */
 export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): ReactNode {
-  const { sessionId, useSessions, useResource, canCommand, runCommand, resume, start } = props
+  const { sessionId, useSessions, useResource, canCommand, runCommand, resume, start, readArtifact } = props
   const [notice, setNotice] = useState('')
   const [phase, setPhase] = useState<Phase>('idle')
   // 双击在同一帧内连发两次 onClick，state 还没来得及更新；用 ref 抢先占位。
@@ -127,6 +131,15 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
   const workflowStart = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORKFLOW_START}`)
   const review = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_REVIEW}`)
+  const panelIndexResource = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_PANEL_INDEX}`)
+  const [panelIndex, setPanelIndex] = useState<PanelIndex | null>(null)
+  const [panelBusy, setPanelBusy] = useState(false)
+  const [panelNotice, setPanelNotice] = useState('')
+  const [selectedStage, setSelectedStage] = useState('')
+  const [selectedArtifact, setSelectedArtifact] = useState<PanelArtifact | null>(null)
+  const [artifactText, setArtifactText] = useState('')
+  const [artifactError, setArtifactError] = useState('')
+  const panelRequested = useRef(false)
   const channel = channelState([frame.status, volumeMap.status, rulesMd.status, rulesJson.status, pendingHooks.status, identity.status])
   // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
   const identified = identity.status === 'live'
@@ -134,6 +147,96 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const hasFoundation = [frame, volumeMap, rulesMd, rulesJson, pendingHooks].every((resource) => resource.status === 'live')
   const hasWorkflowStart = workflowStart.status === 'live'
   const hasReview = review.status === 'live'
+
+  /** 读索引正文；索引 stat 只用于变更通知。 */
+  async function loadPanel(): Promise<void> {
+    if (typeof readArtifact !== 'function') return
+    const text = await readArtifact(sessionId, 'source/story/runtime/panel.index.json')
+    setPanelIndex(JSON.parse(text) as PanelIndex)
+  }
+
+  async function refreshPanel(): Promise<void> {
+    if (typeof readArtifact !== 'function') return
+    setPanelBusy(true)
+    try {
+      const outcome = await runCommand(sessionId, '/story-index')
+      if (outcome !== 'ok') {
+        setPanelNotice(failureNotice(outcome))
+        return
+      }
+      await loadPanel()
+      setPanelNotice('')
+    } catch {
+      setPanelNotice('索引刷新失败，稍后再试。')
+    } finally {
+      setPanelBusy(false)
+    }
+  }
+
+  async function openArtifact(artifact: PanelArtifact): Promise<void> {
+    setSelectedArtifact(artifact)
+    setArtifactText('')
+    setArtifactError('')
+    if (typeof readArtifact !== 'function') return
+    try {
+      setArtifactText(await readArtifact(sessionId, artifact.path))
+    } catch {
+      setArtifactError(`读不到 ${artifact.path}`)
+    }
+  }
+
+  async function handlePanelAction(action: PanelAction): Promise<void> {
+    if (action.id === 'start-foundation') {
+      await startFoundation()
+      await refreshPanel()
+      return
+    }
+    if (action.id === 'confirm-foundation') {
+      await submit('确认基础设定', '/story-approve')
+      await refreshPanel()
+      return
+    }
+    if (action.id === 'start-chapter') {
+      await submit('开始下一章', '/story-write')
+      await refreshPanel()
+      return
+    }
+  }
+
+  async function createWork(input: NewWorkInput): Promise<void> {
+    const fields = [
+      `《${input.title}》`,
+      `--lang ${input.language}`,
+      `--chapters ${input.targetChapters}`,
+      `--words ${input.chapterWordCount}`,
+      input.genre.trim() === '' ? '' : `--genre ${input.genre.trim()}`,
+      input.platform.trim() === '' ? '' : `--platform ${input.platform.trim()}`,
+    ].filter((field) => field !== '')
+    setPanelBusy(true)
+    try {
+      const outcome = await runCommand(sessionId, `/story-init ${fields.join(' ')}`)
+      setPanelNotice(outcome === 'ok' ? '立项已提交。' : failureNotice(outcome))
+      if (outcome === 'ok') await refreshPanel()
+    } catch {
+      setPanelNotice('立项提交失败，稍后再试。')
+    } finally {
+      setPanelBusy(false)
+    }
+  }
+
+  // 有索引文件就读；没有索引时由面板请求宿主重建一次，不把索引当作品状态。
+  useEffect(() => {
+    if (typeof readArtifact !== 'function' || !identified || !hasFoundation || panelRequested.current) return
+    panelRequested.current = true
+    void (async () => {
+      try {
+        if (panelIndexResource.status !== 'live') await refreshPanel()
+        else await loadPanel()
+      } catch {
+        setPanelNotice('工作台索引读取失败，稍后再试。')
+      }
+    })()
+  }, [identified, hasFoundation, panelIndexResource.status, sessionId])
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
   // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求
@@ -259,6 +362,25 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
       : undefined
 
   const body: ReactNode[] = []
+  if (panelIndex !== null) {
+    return (
+      <Workbench
+        index={panelIndex}
+        busy={panelBusy}
+        notice={panelNotice}
+        selectedStage={selectedStage}
+        selectedArtifact={selectedArtifact}
+        artifactText={artifactText}
+        artifactError={artifactError}
+        onSelectStage={setSelectedStage}
+        onOpenArtifact={(artifact) => { void openArtifact(artifact) }}
+        onCloseArtifact={() => setSelectedArtifact(null)}
+        onAction={(action) => { void handlePanelAction(action) }}
+        onRefresh={() => { void refreshPanel() }}
+        onNewWork={(input) => { void createWork(input) }}
+      />
+    )
+  }
   if (channel === 'unavailable') {
     body.push(<p key="none" className="sdn-muted">读不到工作区状态（文件资源通道不可用），暂时不能确认。</p>)
   } else if (channel === 'loading') {

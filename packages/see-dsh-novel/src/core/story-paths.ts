@@ -7,6 +7,9 @@
 /** 作品内容根目录；story 相关路径都由它拼出。 */
 export const STORY_ROOT = 'source/story'
 
+/** 面板只读投影；不是作品内容，不能进入 artifact digest／export。 */
+export const PANEL_INDEX_PATH = `${STORY_ROOT}/runtime/panel.index.json`
+
 /** 身份文件；与 `source/` 同级。 */
 export const WORK_FILE = 'work.json'
 

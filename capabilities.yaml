@@ -385,13 +385,13 @@ capabilities:
     realRun: null
     status: missing
   - id: panel.workbench
-    title: 只读工作台：阶段产物浏览、文件树与内容预览
-    source: inkos:packages/studio/src/pages/
+    title: 作品工作台：阶段轨道、产物浏览、内容预览与新建入口
+    source: inkos:packages/studio/src/pages/ + inkos:packages/studio/src/components/
     dsh: client
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
+    implementation: packages/see-dsh-novel/src/client/StoryView.tsx
+    consumer: packages/see-dsh-novel/test/workbench.test.mjs
+    realRun: artifacts/real-runs/panel.workbench.json
+    status: verified
   - id: panel.logs
     title: 调用日志
     source: inkos:packages/studio/src/components/

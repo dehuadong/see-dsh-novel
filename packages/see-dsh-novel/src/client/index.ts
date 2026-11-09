@@ -14,9 +14,9 @@ import { outcomeOf } from './outcome.js'
 import { PRESET_ID, SENTINEL_SLOT, VIEW_SLOT } from './preset.js'
 import { StoryView } from './StoryView.js'
 import { installStyles } from './styles.js'
-import type { CommandOutcome, PromptOutcome, SentinelInjected, SessionId, ViewInjected } from './types.js'
+import type { CommandOutcome, FileRemote, PromptOutcome, SentinelInjected, SessionId, ViewInjected } from './types.js'
 
-export const inject = ['slots', 'sessions'] as const
+export const inject = ['slots', 'sessions', 'remote'] as const
 
 /**
  * 认可之后投回会话的那条消息。
@@ -74,6 +74,18 @@ export function apply(ctx: Context): void {
     },
     resume: (sessionId: SessionId): Promise<PromptOutcome> => promptQueue(sessionId, RESUME_TEXT),
     start: (sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome> => promptQueue(sessionId, START_TEXT(cwd)),
+    readArtifact: async (sessionId: SessionId, path: string): Promise<string> => {
+      const remote = ctx.get('remote') as FileRemote | undefined
+      if (remote === undefined) throw new Error('workspaceFiles remote 不可用')
+      const result = await remote.workspaceFiles.read(
+        sessionId,
+        path,
+        { offset: 0, limit: 200_000 },
+        new AbortController().signal,
+      )
+      if (!result.ok) throw new Error(`读取 ${path} 失败：${result.error.message}`)
+      return result.value.text
+    },
   })
 
   let eligible = false

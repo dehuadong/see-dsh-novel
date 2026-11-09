@@ -266,6 +266,7 @@ async function renderView({
       if (address.endsWith('/work.json')) status = six[5]
       else if (address.endsWith('/workflow-start.json')) status = workflowStatus
       else if (address.endsWith('/chapter-0001.review.json')) status = reviewStatus
+      else if (address.endsWith('/panel.index.json')) status = 'none'
       else status = six[foundationIndex(address)]
       return {
         status,
@@ -479,6 +480,7 @@ test('the identity file decides between 未立项 and 已立项 without touching
     '/source/story/outline/volume_map.md',
     '/source/story/pending_hooks.md',
     '/source/story/runtime/chapter-0001.review.json',
+    '/source/story/runtime/panel.index.json',
     '/source/story/runtime/workflow-start.json',
     '/work.json',
   ])
@@ -752,7 +754,7 @@ test('the built client artifact keeps the module-loader handoff', () => {
     if (name === 'react/jsx-runtime') return jsxRuntime
     throw new Error(`unexpected client dependency: ${name}`)
   })
-  assert.deepEqual([...plugin.inject], ['slots', 'sessions'])
+  assert.deepEqual([...plugin.inject], ['slots', 'sessions', 'remote'])
   assert.equal(typeof plugin.apply, 'function')
 
   // 产物的 apply 也要真的能跑：装样式、声明两个槽位。

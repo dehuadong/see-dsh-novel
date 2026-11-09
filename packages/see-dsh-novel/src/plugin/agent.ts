@@ -24,6 +24,7 @@ import { installRecoveryTool } from './recovery-tool.js'
 import { installProposalTool } from './proposal-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
 import { installInitCommand } from './work-command.js'
+import { installIndexCommand } from './index-command.js'
 import { installWriteCommand } from './write-command.js'
 import { installWorkTools } from './work-tools.js'
 
@@ -111,6 +112,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
   const disposeInit = installInitCommand(ctx)
+  const disposeIndex = installIndexCommand(ctx)
   const disposeWrite = installWriteCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
@@ -129,6 +131,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeTelemetry()
     disposeWork()
     disposeInit()
+    disposeIndex()
     disposeWrite()
     disposeCommands()
     disposeGate()

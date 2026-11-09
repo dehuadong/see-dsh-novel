@@ -32,6 +32,20 @@ export interface ViewInjected {
   resume(sessionId: SessionId): Promise<PromptOutcome>
   /** 立项之后投开工指令；`cwd` 是面板看到的工作区，用来让 agent 核对自己读到的目录。 */
   start(sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome>
+  /** 读一个作品文件正文；索引/产物都走宿主 workspace-files 读 API。 */
+  readArtifact(sessionId: SessionId, path: string): Promise<string>
+}
+
+/** 宿主 workspace-files 读面；只声明面板用到的部分。 */
+export interface FileRemote {
+  workspaceFiles: {
+    read(
+      sessionId: SessionId,
+      path: string,
+      range: { offset: number, limit: number },
+      signal: AbortSignal,
+    ): Promise<{ ok: true, value: { text: string } } | { ok: false, error: { message: string } }>
+  }
 }
 
 /** 哨兵注册时注入的业务面。 */
