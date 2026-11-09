@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 部分被 [2026-11-09-plan-context-select-sources.md](2026-11-09-plan-context-select-sources.md) 取代：固定来源、planner／writer 两次 pass、五类选择、complete 分支与 trace 以新篇为准；本篇保留早期 composer 入口与分层的历史决定。
+
 ## Problem
 
 检索之后要把候选变成带层级、预算与 trace 的上下文包。源工程由 `ComposerAgent.selectTaskContext` 完成（`agents/composer.ts:591-981`）：固定来源 protected；伏笔与摘要、角色卡、当前状态、大纲分四类做语义选择；组装 `ContextPackage` 并写 `ChapterTrace`（七字段，`models/input-governance.ts:35-70`）。选择在源工程里是一个 agent 的行为，因此 DSH 落点是模型调用原生 `subagent` + 宿主校验，而不是自建 LLM 客户端或 prompt 拼装层。
@@ -41,7 +43,7 @@ Status: implemented
 代价与已知限制：
 
 - 选择质量取决于模型与指令；宿主只保证结构与 id 合法。
-- 四个选择器合并成一次 composer 任务（源工程也是一个 ComposerAgent 做四类选择）。
+- 四个选择器合并成一次 composer 任务是早期实现；现行按 planner／writer 两次 pass 与五类任务分开，见新篇。
 - token 是估算值，与源精确计数有差距。
 - 超预算不压缩，交给 `plan.compression`。
 - 上一章正文结尾尚未纳入 protected；等 P3 的章节文件路径确定后补。

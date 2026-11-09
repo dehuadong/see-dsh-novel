@@ -211,15 +211,17 @@
 
 **复刻现状**：`core/search-index.ts` 与 `core/story-index.ts` 已按源重写；scope `story-memory`、库 `source/story/memory.db`；角色/大纲/素材仍以 FTS 过渡候选供给 `collectCandidates`；技能引用没有 query 入口。
 
-**判定：保真债** — D10 已偿还；D22：角色/大纲/素材的 FTS 过渡候选（偿还：`plan.context-select`／`search.unified`／`materials.import`）；D23 归 `skill.references`：缺 `use_skill.query` 的技能参考检索（偿还：新行/工具）。
+**判定：保真债** — D10 已偿还；D22 已缩小为素材：角色／大纲的过渡候选已由 `plan.context-select` 接管，素材仍留到 P6（偿还：`materials.import`／`search.unified`）；D23 归 `skill.references`：缺 `use_skill.query` 的技能参考检索（偿还：新行/工具）。
 
 ### plan.context-select
 
-**源工程证据**：`agents/composer.ts` 的固定来源（方向、风格指南、大纲、上一章、runtime chapter memo、parent/fanfic canon）、四个选择器（memory／role／state／outline）、预算与 `ChapterTrace` 七字段。
+**源工程证据**：`agents/composer.ts` 的两次 composer——planner 的 `selectTaskContext`（无 memo，`plannerInputs` 来自 planner 包并追加 `runtime/previous_chapter`）与 writer 的 `composeChapter`（有 memo，写 `context.json`／`trace.json`）；固定来源 current_focus／author_intent／style_guide／parent_canon／fanfic_canon／chapter_memo／current_state facts／outline 两文件分节／role cards／referenced hooks，及 protected／compressible 分层；memory 一条提示、role／state／story-frame／volume-map 分别调用；`completeContextWithinBudget` 的全收分支；`buildGovernedTrace` 的 plannerInputs／composerInputs／tokenBudget。
 
-**复刻现状**：`core/context-package.ts` 用**一个** composer 指令做四类选择，protected 只有 current_focus／author_intent／大纲；无 style_guide、上一章正文、chapter_memo、parent/fanfic canon；trace 有七字段但 retrieval 候选结构与源不同。
+**可验证不变量**：planner pass 在 memo 之前、writer pass 在 plan 之后；固定来源整份；五类任务各自提示与候选；0/1 自动仅限 role／state／outline，memory 有候选即调模型；complete 分支不调 subagent；plannerInputs 含 previous_chapter，composerInputs 是 intent.md；retrieval 完整形状。
 
-**判定：保真债** — D11：固定来源缺项；D12：四个选择器合并为一个子代理任务（源是同一 ComposerAgent 的四类选择，但上下文与提示分开）；偿还：`plan.context-select` 行补齐固定来源与选择提示。
+**复刻现状**：`core/context-package.ts`／`src/pipelines/long/context-tool.ts` 已实现两 pass、固定来源、五类任务、complete／semantic、planner-context／context／trace 落盘；`src/pipelines/long/stages/writer.ts` 注入 selectedContext；role／outline 从 `story-index` 删除，素材保留。
+
+**判定：保真债** — D11／D12 已偿还；D24：book reference 上下文未实现（偿还：P6 的 materials／search.unified）；D25：memory 候选未按预算分组（偿还：`plan.compression` 或后续）。
 
 ### plan.compression
 
@@ -233,7 +235,7 @@
 
 **源工程证据**：`agents/planner.ts` 的 system prompt（"把 governed context 编译为章节 memo，不写正文，方法来自 Skill"）、user message 分段（指令／上下文／上一章／字数遥测）、memo 三字段、intent 投影；`runner.ts` 按持久进度取下一章、可复用已存 plan。
 
-**复刻现状**：memo 三字段与 intent 投影一致；规划方法与流程在 `story:stage`／`story-plan`；**没有 planner system prompt 与 user message 的注入**；章节连续性按 `current_state.chapter + 1`，已有 plan 拒绝（源可复用）。
+**复刻现状**：memo 三字段与 intent 投影一致；规划方法与流程在 `story:stage`／`story-plan`；planner system prompt 与 user message 已注入；`plannerInputs` 由 planner-context 推导；章节连续性按 `current_state.chapter + 1`，已有 plan 返回 `reused: true`。
 
 **判定：机制等价（D14／D15 已偿还）** — planner 契约（方法句、memo 请求骨架、上一章结尾、hook id）已注入 `plan` 阶段；`story_plan_chapter` 命中已有 plan 时返回 `reused: true` 且不覆盖，与源缓存语义一致。上一章只取末尾 2000 字（源取全文）与进度来源仍属残余。
 
@@ -245,7 +247,7 @@
 
 **复刻现状**：`story_write_chapter` 只校验章纲、标题、正文并落盘；标题由模型传入；writer 子代理的提示由主编临场拼，缺少上述契约块。
 
-**判定：机制等价（D16 已偿还）** — 六段 writer 契约（权威／字数／人称／主角／规则／风格）与本章章纲由 `stages/writer.ts` 注入 write 阶段；标题拒绝章号前缀。完整 `ContextPackage` 注入仍归 D11。
+**判定：机制等价（D16 已偿还）** — 六段 writer 契约（权威／字数／人称／主角／规则／风格）与本章章纲由 `stages/writer.ts` 注入 write 阶段；writer pass 的 `context.json` selectedContext 也已注入；标题拒绝章号前缀。
 
 ### chapter.review
 

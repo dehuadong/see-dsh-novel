@@ -12,7 +12,7 @@ Status: implemented
 
 ### 能力行定义
 
-`plan.retrieval` 的 `source` 是 `retrieval/local-search.ts`＋`utils/memory-retrieval.ts`；`title` 是「章前检索：FTS5/BM25、故事记忆与来源标注」。角色/大纲/素材不再声明为源行为；它们只在过渡期以 D22 保留候选。实现与消费证据落在 `src/core/story-index.ts` 与 `test/story-index.test.mjs`，内核测试在 `test/search-index.test.mjs`。
+`plan.retrieval` 的 `source` 是 `retrieval/local-search.ts`＋`utils/memory-retrieval.ts`；`title` 是「章前检索：FTS5/BM25、故事记忆与来源标注」。角色/大纲已由 `plan.context-select` 接管；素材只在过渡期以 D22 保留候选。实现与消费证据落在 `src/core/story-index.ts` 与 `test/story-index.test.mjs`，内核测试在 `test/search-index.test.mjs`。
 
 ### 内核
 
@@ -38,9 +38,9 @@ Status: implemented
 
 ### 过渡候选 D22
 
-- 角色、大纲、素材仍由 `story-index` 产出 `role`／`outline`／`material` 文档，保证 `collectCandidates` 在 `plan.context-select`／P6 落地前不失去候选；它们也走 `-1_000_000` 的非命中补入；
-- 这是对 `composer` 固定来源和 P6 素材 scope 的 **FTS 近似**，不是源的检索行为；保真债 D22，偿还位置 `plan.context-select`／`search.unified`／`materials.import`，落地时删除这三类候选；
-- 审计 `plan.retrieval` 行不把这三类写成「等价」的一部分，只写成过渡。
+- 角色、大纲已由 `plan.context-select` 的固定来源与选择接管并从 `story-index` 删除；素材仍是过渡候选，等 P6 的 materials 接管后删除；
+- 素材候选仍走 `-1_000_000` 的非命中补入；D22 已缩小为素材；
+- 审计 `plan.retrieval` 行不把素材写成「等价」的一部分，只写成过渡。
 
 ### 技能引用 D23
 
@@ -56,9 +56,9 @@ Status: implemented
 ## Testing
 
 - `test/search-index.test.mjs`：NFKC/lower、Segmenter 词、汉字 bigram、复合词、引号 OR、短拉丁过滤、metadata、BM25 标题 5/正文 1 的排序、增量与删除；
-- `test/story-index.test.mjs`：三类型、hook 状态过滤、summary 六字段、volume summaries、metadata/source、`story/memory.db` 与 `story-memory` scope；过渡 role/outline/material 用例保留并标注 D22；
+- `test/story-index.test.mjs`：三类型、hook 状态过滤、summary 六字段、volume summaries、metadata/source、`story/memory.db` 与 `story-memory` scope；素材过渡候选保留并标注 D22；
 - `test/context-package.test.mjs`：三类记忆 → memory 映射，未命中的记忆/过渡候选仍进入候选集；
-- `pnpm run verify` 295 例通过；真实运行 `session-6474765f-8537-4577-b53c-94b5a2eab9fd`（工作区 `.artifacts/work-retrieval`）返回 hook／chapter-summary／volume-summary 命中、resolved hook 过滤与过渡 role/material 候选，回执见 `artifacts/real-runs/plan.retrieval.json`。
+- `pnpm run verify` 294 例通过；真实运行 `session-6474765f-8537-4577-b53c-94b5a2eab9fd`（工作区 `.artifacts/work-retrieval`）返回 hook／chapter-summary／volume-summary 命中、resolved hook 过滤与过渡 role/material 候选，回执见 `artifacts/real-runs/plan.retrieval.json`；`plan.context-select` 删除 role／outline 后，素材仍保留。
 
 ## Alternatives considered
 
@@ -77,7 +77,7 @@ Status: implemented
 - `Intl.Segmenter` 依赖 Node 的 ICU；双端切分可能有细微差异，测试用源测试的固定短语。
 - external-content FTS5 的触发器要在 Windows/Ubuntu 双端跑通。
 - 索引路径从 `source/.index/retrieval.db` 改到 `source/story/memory.db`；旧索引不迁移，首次检索重建。
-- D22 必须随 `plan.context-select`／P6 删除，否则规划器会长期用 FTS 近似固定来源；D23 必须在 `skill.references` 落地时偿还。
+- D22 的素材必须随 P6 删除，D23 必须在 `skill.references` 落地时偿还。
 - 能力行 title／source 的更新改变了账本里这一行的定义；必须与审计、范围、测试同批维护。
 
 早期索引与 `story_search` 入口的历史决定保留在 [2026-11-06-plan-retrieval.md](2026-11-06-plan-retrieval.md)；本篇接管内核与故事记忆的现行事实。

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { renderWriterContract } from '../src/pipelines/long/stages/writer.ts'
-import { chapterPlanPath } from '../src/core/chapter-plan.ts'
+import { chapterContextPath, chapterPlanPath } from '../src/core/chapter-plan.ts'
 
 async function workspace(language = 'zh', withRules = true) {
   const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-writer-'))
@@ -24,6 +24,10 @@ async function workspace(language = 'zh', withRules = true) {
     plannerInputs: [],
   }))
   await writeFile(join(root, 'source/story/runtime/chapter-0001.intent.md'), '# Chapter Intent\n\n## Goal\n接案\n\n## Chapter Memo\n### Thread Refs\n- (none)\n\n### Body\n场景一：雨夜接案。\n')
+  await writeFile(join(root, chapterContextPath(1)), JSON.stringify({
+    chapter: 1,
+    selectedContext: [{ source: 'runtime/chapter_memo', reason: '章纲', excerpt: '场景一：雨夜接案。', protection: 'protected' }],
+  }))
   if (withRules) {
     await writeFile(join(root, 'source/story/book_rules.json'), JSON.stringify({
       version: '2', narrativePerson: '第三人称限知', prohibitions: ['不写超自然解释'],
@@ -49,6 +53,8 @@ test('the Chinese contract carries all six sections', async () => {
     assert.match(text, /## 本书规则\n# 本书规则/)
     assert.match(text, /## 风格指南\n# 风格指南/)
     assert.match(text, /## 本章章纲\n# Chapter Intent/)
+    assert.match(text, /## 已选上下文\n### runtime\/chapter_memo/)
+    assert.match(text, /场景一：雨夜接案。/)
   } finally {
     await cleanup(root)
   }

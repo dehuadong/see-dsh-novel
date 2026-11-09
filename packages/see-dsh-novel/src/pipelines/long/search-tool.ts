@@ -11,7 +11,7 @@ export const searchParameters: JsonSchema = {
   additionalProperties: false,
   properties: {
     query: { type: 'string', description: '检索词；按 FTS5 分词与短语匹配' },
-    kinds: { type: 'array', items: { type: 'string' }, description: '可选：hook/chapter-summary/volume-summary/role/material/outline' },
+    kinds: { type: 'array', items: { type: 'string' }, description: '可选：hook/chapter-summary/volume-summary/material' },
     limit: { type: 'integer', description: '最多返回条数，1..200，默认 24' },
   },
   required: ['query'],
@@ -47,7 +47,7 @@ export const searchOutput: JsonSchema = {
 export function installSearchTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: SEARCH_NAME,
-    description: 'Search this work\'s indexed story memory (hooks, chapter summaries, volume summaries) by BM25 relevance; role cards, materials and outline are transitional candidates.',
+    description: 'Search this work\'s indexed story memory (hooks, chapter summaries, volume summaries) by BM25 relevance; materials are a transitional candidate.',
     parameters: searchParameters,
     output: {
       schema: searchOutput,

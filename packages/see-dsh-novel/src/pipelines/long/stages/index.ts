@@ -100,10 +100,10 @@ export function renderStageProtocol(facts: StageFacts): string {
       return [
         header,
         `目标：规划第 ${next} 章。`,
-        '1. 调 `story_context_candidates`（query 用本章任务目标）。',
-        `2. 用原生 \`subagent\` 派发 composer，把返回的 instruction 与 candidates 交给它，拿回 {memory, role, state, outline} 的 id 集合。`,
-        '3. 调 `story_context_package`（超预算时连同压缩文本一起传）；读 package 与 trace。',
-        `4. 按 package 写 memo（goal / body / threadRefs），再调 \`story_plan_chapter\` 落盘第 ${next} 章。`,
+        '1. 调 `story_context_candidates`（purpose=planner，instruction 用本轮作者指令，contextWindowTokens 可带）。',
+        '2. 对 tasks 里的每个任务用原生 `subagent` 派发 composer；mode=complete 时跳过。拿回 {memory, role, state, outline} 的 id 集合。',
+        '3. 调 `story_context_package`（purpose=planner，selection=上一步的 id 集合）；读 package 与 trace。',
+        `4. 按 package 写 memo（goal / body / threadRefs），再调 \`story_plan_chapter\` 落盘第 ${next} 章；plannerInputs 由宿主从 planner 包读取。`,
         '只规划下一章；该章已有章纲时不覆盖。',
         common,
       ].join('\n')
@@ -122,9 +122,11 @@ export function renderStageProtocol(facts: StageFacts): string {
       return [
         header,
         `目标：写第 ${next} 章的首版正文。`,
-        `1. 读 \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\` 与 plan 作为章纲。`,
-        '2. 用原生 `subagent` 派发 writer：带上章纲、上下文、book rules、风格指南、目标字数；子代理只返回正文。',
-        '3. 调 `story_write_chapter`（chapter、title、content）落盘；字数偏差只报告，不据此拒稿。',
+        '1. 调 `story_context_candidates`（purpose=writer，contextWindowTokens 可带）。',
+        '2. 对 tasks 里的每个任务用原生 `subagent` 派发 composer；mode=complete 时跳过。拿回 {memory, role, state, outline} 的 id 集合。',
+        '3. 调 `story_context_package`（purpose=writer，selection=上一步的 id 集合）；package 与 trace 会落盘。',
+        `4. 读 \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`、plan 与 context 作为章纲与上下文，派 writer 写正文。`,
+        '5. 调 `story_write_chapter`（chapter、title、content）落盘；字数偏差只报告，不据此拒稿。',
         '不覆盖已存在的章节首版；修订走后续能力。',
         common,
       ].join('\n')

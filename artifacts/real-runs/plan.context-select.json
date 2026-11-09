@@ -1,15 +1,18 @@
 {
   "capability": "plan.context-select",
-  "date": "2026-11-06",
-  "sessionId": "session-7e9f1887-cdff-4b7b-9c12-571b29b87d44",
+  "date": "2026-11-09",
+  "sessionId": "session-e96508fc-aff4-48b4-a934-5b70e4519e06",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "247 passed — context-package 4 例（CJK token 估算、composer 指令、id 校验与未知 id 记录、空选择 complete 模式、trace 七字段与 token 合计一致）＋ host 工具清单含 story_context_candidates／story_context_package"
+    "summary": "294 passed — context-package 6 例（planner/writer 两 pass、previous chapter、五类任务、0/1 自动、complete/semantic、protected 分层、trace、planner/writer 包落盘）＋ story-index 2 例（role/outline 删除、material 保留）＋ writer-contract 3 例（selectedContext 注入）＋ plan-tool 1 例（plannerInputs 从 planner-context）"
   },
   "receipts": [
-    "真实运行（`work-empty-2`，session `session-7e9f1887-cdff-4b7b-9c12-571b29b87d44`）：主编调 `story_context_candidates`（query「夜行 身份 悬案」），回执「第 1 章候选 13 条」并附 composer 指令；随后用原生 `subagent` 工具派发 composer 选择任务（prompt 含工作区、四类选择要求与候选），子代理返回 `{memory:[],role:[…沈砚、秦望…],state:[],outline:[…]}` 形状的 id 集合",
-    "主编用子代理返回的 selection 调 `story_context_package`（query 同上），工具成功执行并按 id 校验、组装 package 与 trace；回执为「上下文包已组装」（该次运行的渲染只给了一行摘要，渲染已在本批改为输出分层来源与 trace JSON）",
-    "选择链路的顺序在会话里可见：候选（宿主）→ subagent（模型派发）→ package（宿主校验），插件未派发子代理、未调用裸 LLM、未降级 top-k"
+    "真实运行（工作区 `.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`story_context_candidates(purpose=planner, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=planner)` 回执「第 1 章上下文：43 条」，写入 `source/story/runtime/chapter-0001.planner-context.json`。",
+    "planner 包含 `runtime/chapter_memo`、`source/story/current_focus.md`、`author_intent.md`、`style_guide.md`、`parent_canon.md`、`fanfic_canon.md`、9 条 hook、8 张角色卡与两份大纲分节；planner-context 43 条与 `story_plan_chapter` 的 `plannerInputs` 完全一致，`plannerInputs` 由宿主从 planner-context 读取。",
+    "`story_context_candidates(purpose=writer, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=writer)` 回执「第 1 章上下文：47 条」，写入 `chapter-0001.context.json`／`.trace.json`。",
+    "writer 包比 planner 包多出 4 条 `runtime/referenced_hook#H-01/H-02/H-03/H-08`；trace 的 `composerInputs` 为 `source/story/runtime/chapter-0001.intent.md`，`plannerInputs` 为 plan 的 plannerInputs；memory 为 compressible，固定来源／role／state／outline 为 protected。",
+    "两次 128k 窗口都命中源 `completeContextWithinBudget` 分支，因此没有 composer subagent；semantic 分支的五类任务、0/1 自动与 selection 校验由 `test/context-package.test.mjs` 覆盖。",
+    "writer 子代理按 `context.json` 的 selectedContext 与 plan 写出了 `source/chapters/0001_无尸.md`；`story_write_chapter` 回执「第 1 章已落盘：source/chapters/0001_无尸.md（2363 / 目标 3000）」。"
   ]
 }

@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { commitFoundation } from './commit.js'
 import { STORY_ROOT } from './story-paths.js'
+import type { ContextPackage } from './context-package.js'
 
 const STORY_RUNTIME_DIR = `${STORY_ROOT}/runtime`
 
@@ -26,6 +27,73 @@ export function chapterPlanPath(chapter: number): string {
 
 export function chapterIntentPath(chapter: number): string {
   return `${STORY_RUNTIME_DIR}/chapter-${pad(chapter)}.intent.md`
+}
+
+export function chapterPlannerContextPath(chapter: number): string {
+  return `${STORY_RUNTIME_DIR}/chapter-${pad(chapter)}.planner-context.json`
+}
+
+export function chapterContextPath(chapter: number): string {
+  return `${STORY_RUNTIME_DIR}/chapter-${pad(chapter)}.context.json`
+}
+
+export function chapterTracePath(chapter: number): string {
+  return `${STORY_RUNTIME_DIR}/chapter-${pad(chapter)}.trace.json`
+}
+
+function parseContextPackage(raw: string, chapter: number, label: string): ContextPackage {
+  const parsed = JSON.parse(raw) as { chapter?: number, selectedContext?: unknown }
+  if (parsed.chapter !== chapter || !Array.isArray(parsed.selectedContext)) {
+    throw new Error(`${label} 的章号或 selectedContext 不合法`)
+  }
+  return parsed as ContextPackage
+}
+
+/** 读取 planner pass 的上下文包；缺文件返回 null。 */
+export async function loadPlannerContext(root: string, chapter: number): Promise<ContextPackage | null> {
+  try {
+    return parseContextPackage(await readFile(join(root, chapterPlannerContextPath(chapter)), 'utf8'), chapter, 'planner-context')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
+/** 写入 planner pass 的上下文包。 */
+export async function savePlannerContext(root: string, chapter: number, value: ContextPackage): Promise<string> {
+  const relativePath = chapterPlannerContextPath(chapter)
+  await commitFoundation(root, {
+    writes: [{ relativePath, content: `${JSON.stringify(value, null, 2)}\n` }],
+  })
+  return relativePath
+}
+
+/** 读取 writer pass 的上下文包；缺文件返回 null。 */
+export async function loadWriterContext(root: string, chapter: number): Promise<ContextPackage | null> {
+  try {
+    return parseContextPackage(await readFile(join(root, chapterContextPath(chapter)), 'utf8'), chapter, 'context')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null
+    throw error
+  }
+}
+
+/** 写入 writer pass 的上下文包与 trace。 */
+export async function saveWriterContext(
+  root: string,
+  chapter: number,
+  value: ContextPackage,
+  trace: unknown,
+): Promise<{ contextPath: string, tracePath: string }> {
+  const contextPath = chapterContextPath(chapter)
+  const tracePath = chapterTracePath(chapter)
+  await commitFoundation(root, {
+    writes: [
+      { relativePath: contextPath, content: `${JSON.stringify(value, null, 2)}\n` },
+      { relativePath: tracePath, content: `${JSON.stringify(trace, null, 2)}\n` },
+    ],
+  })
+  return { contextPath, tracePath }
 }
 
 /** 源格式的 intent 投影。 */

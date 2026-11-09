@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
-import { chapterIntentPath, chapterPlanPath, loadChapterPlan, saveChapterPlan } from '../../core/chapter-plan.js'
+import { chapterIntentPath, chapterPlanPath, loadChapterPlan, loadPlannerContext, saveChapterPlan } from '../../core/chapter-plan.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
   STORY_CURRENT_STATE_MD,
@@ -34,7 +34,6 @@ const parameters: JsonSchema = {
     goal: { type: 'string', description: '一个具体的章目标' },
     body: { type: 'string', description: '可读的 Markdown 章纲' },
     threadRefs: { type: 'array', items: { type: 'string' }, description: '引用到的伏笔/摘要 id' },
-    plannerInputs: { type: 'array', items: { type: 'string' }, description: '上下文里实际用到的 source 列表' },
   },
   required: ['chapter', 'goal', 'body', 'threadRefs'],
 }
@@ -97,7 +96,7 @@ export function installPlanTool(ctx: PluginContext): Disposer {
           : `第 ${value.chapter} 章章纲已落盘：${value.planPath}、${value.intentPath}`,
       }],
     },
-    async execute(args: { chapter: number, goal: string, body: string, threadRefs: string[], plannerInputs?: string[] }, exec: ExecuteContext): Promise<PlanResult> {
+    async execute(args: { chapter: number, goal: string, body: string, threadRefs: string[] }, exec: ExecuteContext): Promise<PlanResult> {
       if (!exec?.agent) throw new Error('story_plan_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
       await assertFoundation(root)
@@ -113,7 +112,9 @@ export function installPlanTool(ctx: PluginContext): Disposer {
           reused: true,
         }
       }
-      const plannerInputs = [...(args.plannerInputs ?? [])]
+      const plannerContext = await loadPlannerContext(root, args.chapter)
+      if (plannerContext === null) throw new Error(`第 ${args.chapter} 章缺少 planner 上下文，先完成 planner pass`)
+      const plannerInputs = plannerContext.selectedContext.map((entry) => entry.source)
       const { planPath, intentPath } = await saveChapterPlan(root, {
         chapter: args.chapter,
         goal: args.goal,
@@ -123,5 +124,5 @@ export function installPlanTool(ctx: PluginContext): Disposer {
       })
       return { chapter: args.chapter, planPath: chapterPlanPath(args.chapter), intentPath, plannerInputs, reused: false }
     },
-  } as ToolDefinition<{ chapter: number, goal: string, body: string, threadRefs: string[], plannerInputs?: string[] }, PlanResult>)
+  } as ToolDefinition<{ chapter: number, goal: string, body: string, threadRefs: string[] }, PlanResult>)
 }

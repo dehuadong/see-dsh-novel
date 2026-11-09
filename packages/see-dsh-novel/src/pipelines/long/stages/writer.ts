@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { chapterIntentPath, chapterPlanPath } from '../../../core/chapter-plan.js'
+import { chapterContextPath, chapterIntentPath, chapterPlanPath } from '../../../core/chapter-plan.js'
 import { defaultChapterLength } from '../../../core/length.js'
 import { STORY_RULES_MD, STORY_STYLE_GUIDE_MD } from '../../../core/story-paths.js'
 import type { WorkLanguage } from '../../../core/work.js'
@@ -49,9 +49,15 @@ export function renderWriterContract(root: string): string {
   const chapter = currentChapter(root) + 1
   const plan = readJson<{ memo?: { goal?: string, body?: string } }>(join(root, chapterPlanPath(chapter)))
   const intent = readText(join(root, chapterIntentPath(chapter)))
+  const context = readJson<{ selectedContext?: Array<{ source: string, reason: string, excerpt?: string, protection: string }> }>(join(root, chapterContextPath(chapter)))
   const bookRulesBody = readText(join(root, STORY_RULES_MD))
   const styleGuide = readText(join(root, STORY_STYLE_GUIDE_MD))
   const target = work.metadata?.chapterWordCount ?? defaultChapterLength(language)
+
+  const selectedContext = (context?.selectedContext ?? [])
+    .filter((entry) => entry.protection === 'protected' || entry.protection === 'compressible')
+    .map((entry) => [`### ${entry.source}`, entry.reason, entry.excerpt ?? ''].filter(Boolean).join('\n'))
+    .join('\n\n')
 
   const sections: string[] = []
   if (language === 'en') {
@@ -73,6 +79,7 @@ export function renderWriterContract(root: string): string {
     if (bookRulesBody) sections.push(`## Book rules\n${bookRulesBody}`)
     if (styleGuide) sections.push(`## Style guide\n${styleGuide}`)
     if (plan?.memo?.body) sections.push(`## Chapter memo\n${intent || plan.memo.body}`)
+    if (selectedContext !== '') sections.push(`## Selected context\n${selectedContext}`)
   } else {
     sections.push([
       '## 权威顺序',
@@ -92,6 +99,7 @@ export function renderWriterContract(root: string): string {
     if (bookRulesBody) sections.push(`## 本书规则\n${bookRulesBody}`)
     if (styleGuide) sections.push(`## 风格指南\n${styleGuide}`)
     if (plan?.memo?.body) sections.push(`## 本章章纲\n${intent || plan.memo.body}`)
+    if (selectedContext !== '') sections.push(`## 已选上下文\n${selectedContext}`)
   }
   return sections.join('\n\n')
 }

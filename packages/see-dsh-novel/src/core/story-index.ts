@@ -13,10 +13,8 @@ import { LocalSearchIndex } from './search-index.js'
 import type { SearchDocument } from './search-index.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
-  STORY_FRAME_FILE,
   STORY_PENDING_HOOKS,
   STORY_ROOT,
-  STORY_VOLUME_MAP_FILE,
   STORY_VOLUME_SUMMARIES_MD,
 } from './story-paths.js'
 
@@ -52,29 +50,6 @@ async function readOptional(path: string): Promise<string | undefined> {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
     throw error
   }
-}
-
-/** 按 Markdown 二级标题切节；没有标题时整份一段。 */
-export function splitMarkdownSections(markdown: string): Array<{ heading: string, body: string }> {
-  const lines = markdown.split(/\r?\n/u)
-  const sections: Array<{ heading: string, body: string }> = []
-  let heading: string | undefined
-  let buffer: string[] = []
-  const flush = (): void => {
-    if (heading === undefined) return
-    sections.push({ heading, body: buffer.join('\n').trim() })
-    buffer = []
-  }
-  for (const line of lines) {
-    if (line.startsWith('## ')) {
-      flush()
-      heading = line.slice(3).trim()
-      continue
-    }
-    if (heading !== undefined) buffer.push(line)
-  }
-  flush()
-  return sections
 }
 
 function slugifyAnchor(value: string): string {
@@ -162,17 +137,7 @@ export async function storyDocuments(root: string): Promise<Array<Omit<SearchDoc
     }
   }
 
-  // D22：以下三类是角色/大纲/素材行的过渡候选，等 context-select／P6 接管后删除。
-  for (const file of await markdownFiles(join(root, STORY_ROOT, 'roles'))) {
-    docs.push({
-      id: `role:${relative(root, file).replaceAll('\\', '/')}`,
-      kind: 'role',
-      source: relative(root, file).replaceAll('\\', '/'),
-      title: file.split(/[\\/]/u).at(-1) ?? 'role',
-      body: (await readFile(file, 'utf8')).slice(0, 4000),
-    })
-  }
-
+  // D22：素材仍是过渡候选，等 P6 的 materials 接管后删除。
   for (const file of await markdownFiles(join(root, STORY_ROOT, 'materials'))) {
     docs.push({
       id: `material:${relative(root, file).replaceAll('\\', '/')}`,
@@ -180,21 +145,6 @@ export async function storyDocuments(root: string): Promise<Array<Omit<SearchDoc
       source: relative(root, file).replaceAll('\\', '/'),
       title: file.split(/[\\/]/u).at(-1) ?? 'material',
       body: (await readFile(file, 'utf8')).slice(0, 4000),
-    })
-  }
-
-  for (const [file, prefix] of [[STORY_FRAME_FILE, 'story_frame'], [STORY_VOLUME_MAP_FILE, 'volume_map']] as const) {
-    const markdown = await readOptional(join(root, file))
-    if (markdown === undefined) continue
-    const sections = splitMarkdownSections(markdown)
-    sections.forEach((section, index) => {
-      docs.push({
-        id: `outline:${prefix}:${index}`,
-        kind: 'outline',
-        source: file,
-        title: section.heading,
-        body: section.body,
-      })
     })
   }
 

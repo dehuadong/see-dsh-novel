@@ -1,16 +1,16 @@
 {
   "capability": "chapter.write",
-  "date": "2026-11-06",
-  "sessionId": "session-ce205fc1-132d-4795-a5dd-748cd6312358",
+  "date": "2026-11-09",
+  "sessionId": "session-e96508fc-aff4-48b4-a934-5b70e4519e06",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "269 passed — chapter-document 4 例（标题、去标题行、路径安全、计数、重复拒绝、读取）＋ writer-contract 3 例（中文六段、缺省省略、英文版）＋ host 工具清单"
+    "summary": "294 passed — chapter-document 4 例＋ writer-contract 3 例（中文六段、缺省省略、英文版、selectedContext 注入）＋ host 工具清单"
   },
   "receipts": [
-    "writer 契约注入（`work-writer`，session `session-ce205fc1-132d-4795-a5dd-748cd6312358`）：未调用工具，首轮直接贴出「## 权威顺序」原文，说明契约已随上下文提供",
-    "标题规则：调 `story_write_chapter`（chapter 1，title「第1章 雨夜」，content「测试」）返回「Error: 标题不要带章号前缀；章节文档头由宿主生成」，未写文件",
-    "同一会话随后用 title「雨夜」正常落盘 `source/chapters/0001_雨夜.md`；章节文档头为 `# 第1章 雨夜`，正文为 writer 子代理写的叙事文本",
-    "落盘契约：`charCount` 按 CJK 字符统计、`target` 取作品 `chapterWordCount`（缺省回退语言默认章长），字数偏差只报告不拒稿"
+    "writer 契约注入（`.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：write 阶段先做 writer pass，`chapter-0001.context.json` 的 selectedContext 被注入 `renderWriterContract` 的「已选上下文」段；随后派 writer 子代理写正文。",
+    "writer 子代理返回约 2950 字正文；`story_write_chapter`（chapter 1，title「无尸」）回执「第 1 章已落盘：source/chapters/0001_无尸.md（2363 / 目标 3000）」，字数偏差只报告、不拒稿。",
+    "章节文档头由宿主生成：`# 第1章 无尸`；正文为 writer 子代理的叙事文本，卷首档案摘录保留。",
+    "落盘契约：`charCount` 按 CJK 字符统计、`target` 取作品 `chapterWordCount`（缺省回退语言默认章长）。"
   ]
 }

@@ -24,6 +24,11 @@ async function workspace() {
   }
   await mkdir(join(root, 'source/story/state'), { recursive: true })
   await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 0 }))
+  await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+  await writeFile(join(root, 'source/story/runtime/chapter-0001.planner-context.json'), JSON.stringify({
+    chapter: 1,
+    selectedContext: [{ source: 'source/story/outline/story_frame.md', reason: 'planner', protection: 'protected' }],
+  }))
   return root
 }
 
@@ -38,7 +43,7 @@ function fakeContext(root) {
 }
 
 const exec = { agent: { session: 's' } }
-const args = { chapter: 1, goal: '接案', body: '场景一。', threadRefs: [], plannerInputs: ['source/story/outline/story_frame.md'] }
+const args = { chapter: 1, goal: '接案', body: '场景一。', threadRefs: [] }
 
 test('a missing plan is written once and reused afterwards', async () => {
   const root = await workspace()

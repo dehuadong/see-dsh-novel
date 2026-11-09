@@ -65,14 +65,15 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 | 编号 | 行 | 欠什么 | 偿还位置 |
 |---|---|---|---|
-| D11／D12 | `plan.context-select` | 固定来源缺 style_guide／上一章／chapter memo／canon；选择器合并 | 本行 |
 | D13 | `plan.compression` | 窗口与压缩文本由调用方手填 | 本行 |
 | D18 | `chapter.review` | 缺 `reviewedArtifact` | `artifact.identity` 行 |
 | D19 | `runtime.commands` | 源一条命令建书并启动基础设定；复刻是命令 + 阶段两步 | 本行 |
 | D20 | `runtime.commands` | 源的项目语言与宿主 locale 层未复刻，未知 `--lang` 恒回退 `zh` | 本行 |
 | D21 | `runtime.commands` | 源会删除不完整作品目录后重建；复刻拒绝已有 `work.json` | 本行 |
-| D22 | `plan.retrieval` | 角色/大纲/素材仍由 FTS 过渡候选供给规划器；源是 context-select 固定来源 / P6 素材 scope | `plan.context-select`／`search.unified`／`materials.import` |
+| D22 | `plan.retrieval` | 素材仍由 FTS 过渡候选供给作者搜索；源是 P6 素材 scope | `materials.import`／`search.unified` |
 | D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
+| D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
+| D25 | `plan.context-select` | memory 候选未按预算分组；源 `groupMemoryCandidates` 多轮选择 | `plan.compression` 或后续 |
 
 ## 边界
 

@@ -5,13 +5,12 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "295 passed — search-index 5 例（tokenizer/引号 OR/NFKC/metadata/BM25 标题权重/增量删除）、story-index 3 例（故事记忆三类型、hook 状态过滤、六字段 summary、volume summaries、过渡候选）、context-package 6 例（三类记忆到 memory 的映射、未命中候选补入）、host 工具清单含 story_search"
+    "summary": "294 passed — search-index 5 例（tokenizer/引号 OR/NFKC/metadata/BM25 标题权重/增量删除）、story-index 2 例（故事记忆三类型、material 过渡、resolved hook 过滤）、context-package 6 例、host 工具清单含 story_search"
   },
   "receipts": [
-    "真实运行（工作区 `.artifacts/work-retrieval`，session `session-6474765f-8537-4577-b53c-94b5a2eab9fd`）：`story_search` 查「悬案」返回 2 条：`hook · source/story/pending_hooks.md#H1 · H1 悬案`、`outline · source/story/outline/story_frame.md · 前提`；H2 是 resolved，没有出现。",
-    "同一会话查「卷摘要」返回 `volume-summary · source/story/volume_summaries.md#第一卷 · 第一卷` 与 `hook · source/story/pending_hooks.md#H1 · H1 悬案`；故事记忆的卷摘要已可检索。",
-    "查「修表匠」返回 `role · source/story/roles/主要角色/甲.md · 甲.md` 与 `material · source/story/materials/素材.md · 素材.md`，这是 D22 过渡候选。",
-    "查「已解」返回「没有命中。」，确认 resolved hook 被过滤。",
-    "四次均为只读检索；索引库在 `source/story/memory.db`，scope 为 `story-memory`，source 为 `source/story/...` 的工作区路径。"
+    "真实运行（工作区 `.artifacts/work-retrieval`，session `session-6474765f-8537-4577-b53c-94b5a2eab9fd`）：`story_search` 查「悬案」只返回 `hook · source/story/pending_hooks.md#H1 · H1 悬案`；outline 已从故事索引删除。",
+    "查「卷摘要」返回 `volume-summary · source/story/volume_summaries.md#第一卷 · 第一卷` 与 `hook · source/story/pending_hooks.md#H1`；卷摘要仍可检索。",
+    "查「修表匠」返回 `material · source/story/materials/素材.md · 素材.md`，role 卡已从故事索引删除；查「账本」同样返回该 material，确认 D22 只保留素材过渡候选。",
+    "resolved hook H2 仍被过滤（查「已解」为空）；索引库在 `source/story/memory.db`，scope 为 `story-memory`，source 为 `source/story/...` 的工作区路径。"
   ]
 }

@@ -1,16 +1,16 @@
 {
   "capability": "plan.chapter",
-  "date": "2026-11-07",
-  "sessionId": "session-38d1b8b8-df27-4ae4-9f4a-49d7325beef1",
+  "date": "2026-11-09",
+  "sessionId": "session-e96508fc-aff4-48b4-a934-5b70e4519e06",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "276 passed — planner-contract 3 例（中文契约、英文、缺省省略）、plan-tool 1 例（首次写入、二次 reused 且文件不变）、chapter-plan 4 例、stage plan 阶段"
+    "summary": "294 passed — planner-contract 3 例、plan-tool 1 例（plannerInputs 从 planner-context 读取、首次写入、二次 reused）、chapter-plan 4 例、stage plan 阶段"
   },
   "receipts": [
-    "planner 契约注入（`.artifacts/work-plan`，session `session-38d1b8b8-df27-4ae4-9f4a-49d7325beef1`）：未调用工具，首轮抄出方法句「把输入的 governed context 编译为一份章节 memo，不写正文」、约束句「只使用输入中存在的 hook id」、标题 `# 第1章 memo 请求` 与可用 hook id 列表 H-01…H-09",
-    "首次规划：`story_plan_chapter`（chapter 1，goal「让沈砚接下无尸命案」，threadRefs [\"H-01\"]，plannerInputs [\"source/story/outline/story_frame.md\"]）回执「第 1 章章纲已落盘」，写入 `chapter-0001.plan.json` 与 `chapter-0001.intent.md`",
-    "复用：同参数第二次调用返回 `reused: true`（结构化输出），文件未被覆写；渲染文字在 `07a612e` 起改为「已有章纲，复用」以便直接观察",
-    "章节连续性：当前章 0、只允许规划第 1 章；plan 已存在时不再写盘（`test/plan-tool.test.mjs` 断言文件字节不变）"
+    "planner 契约注入（`.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`renderPlannerContract` 的首轮上下文包含方法句「把输入的 governed context 编译为一份章节 memo，不写正文」、`# 第1章 memo 请求`、当前用户指令、可用 hook id 与字数遥测。",
+    "planner pass 先于 memo：`story_context_candidates(purpose=planner)` → `story_context_package(purpose=planner)` 写 `chapter-0001.planner-context.json`（43 条），再调 `story_plan_chapter`。",
+    "`story_plan_chapter` 回执「第 1 章章纲已落盘」，写入 `chapter-0001.plan.json` 与 `chapter-0001.intent.md`；`plannerInputs` 来自 planner-context（含 current_focus、author_intent、style_guide、parent/fanfic canon、9 条 hook、8 张角色卡、两份大纲分节），不再由模型传入。",
+    "复用由 `test/plan-tool.test.mjs` 覆盖：已有 plan 返回 `reused: true`，文件字节不变。"
   ]
 }
