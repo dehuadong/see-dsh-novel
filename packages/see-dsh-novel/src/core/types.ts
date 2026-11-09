@@ -185,6 +185,16 @@ export interface SubagentsLike {
   listDescendants(rootSessionId: string, signal?: AbortSignal): Promise<readonly SubagentRowLike[]>
 }
 
+/** 模型信息的最小面：压缩预算只需要 context window。 */
+export interface LlmModelInfoLike {
+  context: { contextWindow: number }
+}
+
+/** 宿主的 llm 服务面：按 provider／model 解析模型信息。 */
+export interface LlmLike {
+  resolveModelInfo(provider: string, model: string): Promise<LlmModelInfoLike>
+}
+
 /** foundation 阶段产出的未解伏笔，播种进 hooks 状态。 */
 export interface PendingHook {
   hookId: string

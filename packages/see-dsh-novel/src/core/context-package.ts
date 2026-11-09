@@ -64,8 +64,31 @@ export interface ChapterTrace {
   notes: string[]
 }
 
+export interface ContextBudget {
+  contextWindowTokens: number
+  reservedOutputTokens: number
+}
+
+export interface CompressionChunk {
+  instruction: string
+  fragments: ContextSource[]
+  maxTokens: number
+}
+
+export interface CompressionTask {
+  chapter: number
+  goal: string
+  language: 'zh' | 'en'
+  maxInputTokens: number
+  protectedSources: string[]
+  compressibleEntries: ContextSource[]
+  chunks: CompressionChunk[]
+}
+
 export interface Candidate {
   id: string
+  /** 子代理实际提交的 id；切块时是 `<id>:part-N`。 */
+  selectionId: string
   kind: SelectionKind
   source: string
   title: string
@@ -303,6 +326,7 @@ async function memoryCandidates(root: string, query: string): Promise<Candidate[
   const hitScores = new Map(hits.map((hit) => [`memory:${hit.source}`, hit.score]))
   const candidates: Candidate[] = docs.map((doc) => ({
     id: `memory:${doc.source}`,
+    selectionId: `memory:${doc.source}`,
     kind: 'memory',
     source: doc.source,
     title: doc.title,
@@ -340,6 +364,7 @@ async function roleCandidates(root: string): Promise<Candidate[]> {
       const source = relative(root, file).replaceAll('\\', '/')
       candidates.push({
         id: `role:${source}`,
+        selectionId: `role:${source}`,
         kind: 'role',
         source,
         title: name,
@@ -357,6 +382,7 @@ async function stateCandidates(root: string): Promise<Candidate[]> {
     const source = `runtime/current_state#${index + 1}-${slugifyAnchor(`${fact.subject}-${fact.predicate}`)}`
     return {
       id: `state:${source}`,
+      selectionId: `state:${source}`,
       kind: 'state',
       source,
       title: `${fact.subject} / ${fact.predicate}`,
@@ -381,6 +407,7 @@ async function outlineCandidates(root: string, file: string): Promise<Candidate[
     const source = `${file}#${sections.length > 0 ? slugifyAnchor(section.heading) : 'document'}`
     return {
       id: `outline:${source}`,
+      selectionId: `outline:${source}`,
       kind: 'outline',
       source,
       title: section.heading,
@@ -414,7 +441,7 @@ function selectionInstruction(kind: SelectionKind, chapter: number, query: strin
 export async function buildSelectionGroups(
   root: string,
   purpose: ContextPurpose,
-  options: { instruction?: string } = {},
+  options: { instruction?: string, budget?: ContextBudget } = {},
 ): Promise<{ chapter: number, query: string, fixedEntries: ContextSource[], groups: SelectionGroup[] }> {
   const chapter = await nextChapter(root)
   const plan = purpose === 'writer' ? await loadChapterPlan(root, chapter) : null
@@ -424,8 +451,16 @@ export async function buildSelectionGroups(
     ? goal
     : [plan?.intent.goal, plan?.memo.body, ...(plan?.memo.threadRefs ?? [])].filter(Boolean).join('\n')
   const fixed = await fixedContext(root, plan, purpose, goal)
+  const memoryGroups = groupMemoryCandidates(
+    await memoryCandidates(root, query),
+    semanticInputBudget(options.budget),
+  )
   const groups: SelectionGroup[] = [
-    { kind: 'memory', instruction: selectionInstruction('memory', chapter, query), candidates: await memoryCandidates(root, query) },
+    ...memoryGroups.map((candidates) => ({
+      kind: 'memory' as const,
+      instruction: selectionInstruction('memory', chapter, query),
+      candidates,
+    })),
     { kind: 'role', instruction: selectionInstruction('role', chapter, query), candidates: await roleCandidates(root) },
     { kind: 'state', instruction: selectionInstruction('state', chapter, query), candidates: await stateCandidates(root) },
     { kind: 'outline', file: STORY_FRAME_FILE, instruction: selectionInstruction('outline', chapter, query, STORY_FRAME_FILE), candidates: await outlineCandidates(root, STORY_FRAME_FILE) },
@@ -434,9 +469,92 @@ export async function buildSelectionGroups(
   return { chapter: fixed.chapter, query, fixedEntries: fixed.entries, groups }
 }
 
-function completeAllowance(contextWindowTokens: number | undefined, reservedOutputTokens: number | undefined): number | undefined {
-  if (contextWindowTokens === undefined || contextWindowTokens <= 0) return undefined
-  return Math.floor((contextWindowTokens - Math.max(0, reservedOutputTokens ?? 0)) / 2)
+function availableTokens(budget: ContextBudget | undefined): number | undefined {
+  if (budget === undefined || budget.contextWindowTokens <= 0) return undefined
+  return budget.contextWindowTokens - Math.max(0, budget.reservedOutputTokens)
+}
+
+function semanticInputBudget(budget: ContextBudget | undefined): number | undefined {
+  const available = availableTokens(budget)
+  return available === undefined ? undefined : Math.max(1, available - 3072)
+}
+
+/** 按 token 预算切分候选 excerpt 并分组；无预算时一组全收。 */
+function groupMemoryCandidates(candidates: Candidate[], budgetTokens: number | undefined): Candidate[][] {
+  if (candidates.length === 0) return []
+  if (budgetTokens === undefined) return [candidates.map((candidate) => ({ ...candidate, selectionId: candidate.id }))]
+  const chunks: Candidate[] = []
+  for (const candidate of candidates) {
+    const metadata = [candidate.id, candidate.kind, candidate.source, candidate.title].join('\n')
+    const excerptBudget = Math.max(1, budgetTokens - estimateTokens(metadata) - 64)
+    const parts = splitByEstimatedTokens(candidate.excerpt, excerptBudget)
+    parts.forEach((part, index) => {
+      chunks.push({
+        ...candidate,
+        selectionId: parts.length === 1 ? candidate.id : `${candidate.id}:part-${index + 1}`,
+        excerpt: part,
+      })
+    })
+  }
+  const groups: Candidate[][] = []
+  let current: Candidate[] = []
+  let tokens = 0
+  for (const chunk of chunks) {
+    const size = estimateTokens([chunk.selectionId, chunk.kind, chunk.source, chunk.title, chunk.excerpt].join('\n'))
+    if (current.length > 0 && tokens + size > budgetTokens) {
+      groups.push(current)
+      current = []
+      tokens = 0
+    }
+    current.push(chunk)
+    tokens += size
+  }
+  if (current.length > 0) groups.push(current)
+  return groups
+}
+
+function splitByEstimatedTokens(text: string, budgetTokens: number): string[] {
+  if (estimateTokens(text) <= budgetTokens) return [text]
+  const lines = text.match(/[^\n]*\n|[^\n]+$/gu) ?? [text]
+  const chunks: string[] = []
+  let current = ''
+  const flush = (): void => {
+    if (current !== '') chunks.push(current)
+    current = ''
+  }
+  for (const line of lines) {
+    if (estimateTokens(line) > budgetTokens) {
+      flush()
+      const chars = [...line]
+      let start = 0
+      while (start < chars.length) {
+        let low = start + 1
+        let high = chars.length
+        let end = low
+        while (low <= high) {
+          const mid = Math.floor((low + high) / 2)
+          if (estimateTokens(chars.slice(start, mid).join('')) <= budgetTokens) {
+            end = mid
+            low = mid + 1
+          } else {
+            high = mid - 1
+          }
+        }
+        chunks.push(chars.slice(start, end).join(''))
+        start = end
+      }
+      continue
+    }
+    if (current !== '' && estimateTokens(current + line) > budgetTokens) flush()
+    current += line
+  }
+  flush()
+  return chunks.length > 0 ? chunks : [text]
+}
+
+function completeAllowance(budget: ContextBudget | undefined): number | undefined {
+  const available = availableTokens(budget)
+  return available === undefined ? undefined : Math.floor(available / 2)
 }
 
 function completeFits(fixed: ReadonlyArray<ContextSource>, groups: ReadonlyArray<SelectionGroup>, allowance: number | undefined): boolean {
@@ -452,10 +570,10 @@ function completeFits(fixed: ReadonlyArray<ContextSource>, groups: ReadonlyArray
 export async function buildSelectionTasks(
   root: string,
   purpose: ContextPurpose,
-  options: { instruction?: string, contextWindowTokens?: number, reservedOutputTokens?: number } = {},
+  options: { instruction?: string, budget?: ContextBudget } = {},
 ): Promise<SelectionTasks & { fixedEntries: ContextSource[], groups: SelectionGroup[] }> {
   const built = await buildSelectionGroups(root, purpose, options)
-  const allowance = completeAllowance(options.contextWindowTokens, options.reservedOutputTokens)
+  const allowance = completeAllowance(options.budget)
   const mode = completeFits(built.fixedEntries, built.groups, allowance) ? 'complete' : 'semantic'
   const tasks = mode === 'complete'
     ? []
@@ -465,15 +583,15 @@ export async function buildSelectionTasks(
 }
 
 function selectedIdsFor(group: SelectionGroup, selection: Selection, mode: 'semantic' | 'complete'): string[] {
-  if (mode === 'complete') return group.candidates.map((candidate) => candidate.id)
-  if (group.kind !== 'memory' && group.candidates.length === 1) return [group.candidates[0]!.id]
+  if (mode === 'complete') return group.candidates.map((candidate) => candidate.selectionId)
+  if (group.kind !== 'memory' && group.candidates.length === 1) return [group.candidates[0]!.selectionId]
   if (group.kind === 'outline') {
     return [...new Set(group.file === STORY_FRAME_FILE ? selection.storyFrame : selection.volumeMap)]
   }
   return [...new Set(selection[group.kind])]
 }
 
-/** 组装 package 与 trace；selection 里的未知 id 直接报错。 */
+/** 组装 package 与 trace；超预算且无压缩文本时返回 compressionTask。 */
 export function assembleContext(input: {
   chapter: number
   query: string
@@ -481,25 +599,25 @@ export function assembleContext(input: {
   groups: ReadonlyArray<SelectionGroup>
   selection: Selection
   mode: 'semantic' | 'complete'
+  budget?: ContextBudget
+  language?: 'zh' | 'en'
   plannerInputs?: ReadonlyArray<string>
   composerInputs?: ReadonlyArray<string>
-  contextWindowTokens?: number
-  reservedOutputTokens?: number
   compression?: { text: string }
-}): { package: ContextPackage, trace: ChapterTrace } {
+}): { package?: ContextPackage, trace?: ChapterTrace, compressionTask?: CompressionTask } {
   const notes: string[] = []
   const selected: ContextSource[] = [...input.fixedEntries]
   const memorySelected: string[] = []
   const selectedIds = new Set<string>()
   for (const group of input.groups) {
     const selectedForGroup = selectedIdsFor(group, input.selection, input.mode)
-    const byId = new Map(group.candidates.map((candidate) => [candidate.id, candidate]))
+    const byId = new Map(group.candidates.map((candidate) => [candidate.selectionId, candidate]))
     for (const id of selectedForGroup) {
       const candidate = byId.get(id)
       if (candidate === undefined) throw new Error(`未知的候选 id：${id}`)
-      if (selectedIds.has(id)) continue
-      selectedIds.add(id)
-      if (group.kind === 'memory') memorySelected.push(id)
+      if (selectedIds.has(candidate.id)) continue
+      selectedIds.add(candidate.id)
+      if (group.kind === 'memory') memorySelected.push(candidate.id)
       selected.push({
         source: candidate.source,
         reason: `composer ${group.kind}`,
@@ -514,64 +632,126 @@ export function assembleContext(input: {
   const protectedTokens = protectedEntries.reduce((sum, entry) => sum + contextTokens(entry), 0)
   let compressibleTokens = compressible.reduce((sum, entry) => sum + contextTokens(entry), 0)
   const totalTokens = protectedTokens + compressibleTokens
-  const budgetTokens = input.contextWindowTokens === undefined || input.contextWindowTokens <= 0
-    ? undefined
-    : input.contextWindowTokens - Math.max(0, input.reservedOutputTokens ?? 0)
-  let compressionTrace: ChapterTrace['compression']
+  const budgetTokens = availableTokens(input.budget)
   if (budgetTokens !== undefined && totalTokens > budgetTokens) {
     if (protectedTokens > budgetTokens) {
       throw new Error(`protected 层超过可用输入预算（${protectedTokens}/${budgetTokens} tokens），不压缩 protected`)
     }
-    if (input.compression === undefined) {
-      throw new Error(`上下文超预算 ${totalTokens - budgetTokens} tokens，需要先压缩可压缩层`)
+    if (compressible.length === 0) {
+      notes.push('context-over-budget-no-compressible-entries')
+    } else if (input.compression === undefined) {
+      return { compressionTask: buildCompressionTask(input, protectedEntries, compressible, protectedTokens, budgetTokens) }
+    } else {
+      const maxInputTokens = Math.max(1, budgetTokens - protectedTokens)
+      const compiled = input.compression.text.trim()
+      if (compiled === '') throw new Error('compressedText 不能为空')
+      if (estimateTokens(compiled) > maxInputTokens) {
+        throw new Error(`压缩文本超过 maxInputTokens（${estimateTokens(compiled)}/${maxInputTokens} tokens）`)
+      }
+      const compressedSources = compressible.map((entry) => entry.source)
+      const preCompressibleTokens = compressibleTokens
+      selected.splice(0, selected.length, ...protectedEntries, {
+        source: 'runtime/compiled-compressible-context',
+        reason: 'Semantic compilation of lower-priority context after protected context exceeded the input budget.',
+        excerpt: compiled,
+        protection: 'compressible',
+      })
+      compressibleTokens = estimateTokens(compiled)
+      notes.push('compiled-compressible-context')
+      const trace = buildTrace(input, selected, memorySelected, notes, input.groups, {
+        compiledSource: 'runtime/compiled-compressible-context',
+        protectedSources: protectedEntries.map((entry) => entry.source),
+        compressedSources,
+        protectedTokens,
+        compressibleTokens: preCompressibleTokens,
+        budgetTokens: maxInputTokens,
+      })
+      return { package: { chapter: input.chapter, selectedContext: selected }, trace }
     }
-    const compiled = input.compression.text.trim()
-    if (compiled === '') throw new Error('compressedText 不能为空')
-    const compressedSources = compressible.map((entry) => entry.source)
-    const protectedOnly = selected.filter((entry) => entry.protection === 'protected')
-    compressionTrace = {
-      compiledSource: compiled,
-      protectedSources: protectedOnly.map((entry) => entry.source),
-      compressedSources,
-      protectedTokens,
-      compressibleTokens: estimateTokens(compiled),
-      budgetTokens,
-    }
-    compressibleTokens = estimateTokens(compiled)
-    notes.push(`已压缩 ${compressedSources.length} 条可压缩来源`)
-    selected.splice(0, selected.length, ...protectedOnly, {
-      source: 'runtime/compiled-compressible-context',
-      reason: '压缩后的可压缩层',
-      excerpt: compiled,
-      protection: 'compressible',
-    })
   }
 
-  const finalProtected = selected.filter((entry) => entry.protection === 'protected')
-  const finalCompressible = selected.filter((entry) => entry.protection === 'compressible')
-  const memoryCandidates = input.groups.filter((group) => group.kind === 'memory').flatMap((group) => group.candidates)
+  const trace = buildTrace(input, selected, memorySelected, notes, input.groups)
+  return { package: { chapter: input.chapter, selectedContext: selected }, trace }
+}
+
+function buildCompressionTask(
+  input: {
+    chapter: number
+    query: string
+    language?: 'zh' | 'en'
+    budget?: ContextBudget
+  },
+  protectedEntries: ContextSource[],
+  compressible: ContextSource[],
+  protectedTokens: number,
+  budgetTokens: number,
+): CompressionTask {
+  const maxInputTokens = Math.max(1, budgetTokens - protectedTokens)
+  const language = input.language ?? 'zh'
+  const semanticBudget = Math.max(1, (input.budget?.contextWindowTokens ?? budgetTokens) - Math.min(
+    Math.max(0, input.budget?.reservedOutputTokens ?? 0),
+    Math.max(1024, maxInputTokens),
+  ) - 3072)
+  const rendered = compressible.map((entry) => [`## ${entry.source}`, entry.reason, entry.excerpt].filter(Boolean).join('\n')).join('\n\n')
+  const parts = splitByEstimatedTokens(rendered, semanticBudget)
+  const perChunk = Math.max(512, Math.ceil(maxInputTokens / Math.max(1, parts.length)))
+  const system = language === 'en'
+    ? 'Compile only the supplied lower-priority context for the current task. Preserve exact entity ids, names, unresolved state, causal facts, constraints, and source pointers that remain relevant. Omit unrelated history. Return Markdown only.'
+    : '只编译本次提供的低优先级上下文。围绕当前任务保留仍相关的精确实体 id、名称、未解状态、因果事实、约束和来源指针，省略无关历史。只返回 Markdown。'
+  const chunks = parts.map((part, index) => ({
+    instruction: [
+      system,
+      '',
+      language === 'en' ? `Current intent:\n${input.query}` : `当前意图：\n${input.query}`,
+      language === 'en' ? `Source chunk ${index + 1}/${parts.length}:` : `来源分块 ${index + 1}/${parts.length}：`,
+      part,
+    ].join('\n\n'),
+    fragments: compressible,
+    maxTokens: perChunk,
+  }))
   return {
-    package: { chapter: input.chapter, selectedContext: selected },
-    trace: {
-      chapter: input.chapter,
-      plannerInputs: [...(input.plannerInputs ?? [])],
-      composerInputs: [...(input.composerInputs ?? [])],
-      selectedSources: selected.map((entry) => entry.source),
-      contextTiers: {
-        protectedSources: finalProtected.map((entry) => entry.source),
-        compressibleSources: finalCompressible.map((entry) => entry.source),
-      },
-      tokenBudget: { protectedTokens, compressibleTokens, totalSelectedTokens: protectedTokens + compressibleTokens },
-      retrieval: {
-        engine: 'sqlite-fts5-bm25',
-        query: input.query,
-        selectionMode: input.mode,
-        candidates: memoryCandidates.map((candidate) => ({ id: candidate.id, kind: candidate.kind, source: candidate.source, score: candidate.score })),
-        semanticSelectedIds: input.mode === 'complete' ? [] : memorySelected,
-      },
-      notes,
-      ...(compressionTrace === undefined ? {} : { compression: compressionTrace }),
+    chapter: input.chapter,
+    goal: input.query,
+    language,
+    maxInputTokens,
+    protectedSources: protectedEntries.map((entry) => entry.source),
+    compressibleEntries: compressible,
+    chunks,
+  }
+}
+
+function buildTrace(
+  input: { chapter: number, query: string, mode: 'semantic' | 'complete', plannerInputs?: ReadonlyArray<string>, composerInputs?: ReadonlyArray<string> },
+  selected: ContextSource[],
+  memorySelected: ReadonlyArray<string>,
+  notes: ReadonlyArray<string>,
+  groups: ReadonlyArray<SelectionGroup>,
+  compression?: ChapterTrace['compression'],
+): ChapterTrace {
+  const memoryCandidates = groups.filter((group) => group.kind === 'memory').flatMap((group) => group.candidates)
+  return {
+    chapter: input.chapter,
+    plannerInputs: [...(input.plannerInputs ?? [])],
+    composerInputs: [...(input.composerInputs ?? [])],
+    selectedSources: selected.map((entry) => entry.source),
+    contextTiers: {
+      protectedSources: selected.filter((entry) => entry.protection === 'protected').map((entry) => entry.source),
+      compressibleSources: selected.filter((entry) => entry.protection === 'compressible').map((entry) => entry.source),
     },
+    tokenBudget: {
+      protectedTokens: selected.filter((entry) => entry.protection === 'protected').reduce((sum, entry) => sum + contextTokens(entry), 0),
+      compressibleTokens: selected.filter((entry) => entry.protection === 'compressible').reduce((sum, entry) => sum + contextTokens(entry), 0),
+      totalSelectedTokens: selected.reduce((sum, entry) => sum + contextTokens(entry), 0),
+    },
+    retrieval: {
+      engine: 'sqlite-fts5-bm25',
+      query: input.query,
+      selectionMode: input.mode,
+      candidates: memoryCandidates.map((candidate) => ({ id: candidate.id, kind: candidate.kind, source: candidate.source, score: candidate.score })),
+      semanticSelectedIds: input.mode === 'complete' ? [] : [...memorySelected],
+    },
+    notes: [...notes],
+    ...(compression === undefined ? {} : { compression }),
   }
 }
 

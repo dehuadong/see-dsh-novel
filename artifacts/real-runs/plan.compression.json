@@ -1,16 +1,17 @@
 {
   "capability": "plan.compression",
-  "date": "2026-11-06",
-  "sessionId": "session-31b86131-95d0-41d4-ac2f-86a7241841c3",
+  "date": "2026-11-09",
+  "sessionId": "session-e96508fc-aff4-48b4-a934-5b70e4519e06",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "248 passed — context-package 5 例（未超预算不压缩、超预算缺压缩报错、protected 超预算报错、压缩后替换与 trace 六字段、空压缩文本报错）"
+    "summary": "299 passed — context-package 9 例（模型预算、D25 分组、compressionTask、六字段 trace、protected/空 compressible、空文本、超预算文本）＋ context-spool 2 例（任务/manifest 与压缩分块 spool）＋ story-index 2 例＋ writer-contract 3 例＋ host 工具清单含 story_context_task／story_context_compression_task"
   },
   "receipts": [
-    "protected 守卫（`work-empty-2`，session `session-31b86131-95d0-41d4-ac2f-86a7241841c3`）：`contextWindowTokens 200 / reservedOutputTokens 50` 时返回 `protected 层超过可用输入预算（4010/2100 tokens），不压缩 protected`",
-    "超预算（同一会话）：`contextWindowTokens 6000 / reservedOutputTokens 900`（预算 5100）且不传 `compressedText` 时返回 `上下文超预算 1377 tokens，需要先压缩可压缩层`",
-    "压缩成功（同一会话）：同样的 selection 加 `compressedText`（一段手写摘要）后返回 3 条上下文——2 条 protected（`story_frame.md`、`volume_map.md`）+ 1 条 `compiled:context`；trace.compression 为 `{compiledSource, protectedSources:[story_frame, volume_map], compressedSources:[沈砚, 林小满, story_frame×2, volume_map], protectedTokens:4010, compressibleTokens:79, budgetTokens:5100}`，notes 为「已压缩 5 条可压缩来源」",
-    "压缩后 trace 的 `tokenBudget` 按压缩后的条目重算（`compressibleTokens` 与 `compression.compressibleTokens` 一致），不再保留压缩前的 2467"
+    "真实运行（`.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`story_context_candidates(purpose=writer)` 回执「第 1 章 complete 选择：0 个任务」；宿主从 session 的 request/header + llm 模型信息派生窗口（1,048,576，reserved 256,000），没有 caller 传窗口；上下文总量在可用输入内，走 complete。",
+    "同一会话 `story_context_task(purpose=writer, taskId=task-1)` 返回 `ENOENT ... chapter-0001.writer.task-1.json`；complete 不写候选 task 文件，任务由 spool 文件承载，符合设计。",
+    "`test/context-spool.test.mjs`：selection spool 写 `chapter-0001.writer.tasks.json` 与 `task-1.json` 并一次读一个；compression spool 写 `compress-1.json` 并一次读一个。",
+    "大 compressible 夹具 `.artifacts/work-compression`（139 个 hook，约 1.7M tokens）：`story_context_candidates(purpose=writer)` 在 runtime 写出 6 个 writer task 文件（task-1 2.3MB、task-2 2.3MB、task-3 0.4MB 等）；主模型读取 task-1 时卡死，未取得 selection/compression 回执。这是 D26 的证据缺口，不冒充真压缩等价。",
+    "压缩算法、D25 分组、六字段 trace 由 `test/context-package.test.mjs` 覆盖；task spool 由 `test/context-spool.test.mjs` 覆盖；真压缩的大上下文执行仍待小窗口测试模型或专用夹具。"
   ]
 }

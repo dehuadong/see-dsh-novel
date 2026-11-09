@@ -52,6 +52,13 @@
 - 原因：复刻的状态读写以 `hookId` 为索引（投影排序、计数、结算合并都按 id 归并），重复 id 会让读到的状态与写入的不一致，且没有可观察的修复点。
 - 验证：`packages/see-dsh-novel/test/hooks.test.mjs` 的 `hookId 重复` 用例。
 
+### plan.compression：memory 分组预算按 DSH 子代理输出预留
+
+- 源工程做法：`groupMemoryCandidates` 用 `semanticInputBudget(client,{reservedOutputTokens:2048,promptOverheadTokens:2048})` 分组，选择调用的输出上限是 2048。
+- 复刻做法：D25 分组用 `contextWindow - reservedOutputTokens - 3072`；`reservedOutputTokens` 取自模型 `maxTokens`（当前 256k），每个选择任务交给 DSH subagent。
+- 原因：DSH subagent 的输出预算由模型 `maxTokens` 决定，不能在调用级设 2048；照搬源的 2048 会让选择请求本身接近 1M 窗口，无法放进模型。分组更保守，选择结果与 candidate 映射不变。
+- 验证：`test/context-package.test.mjs` 的 D25 分组用例；`test/context-spool.test.mjs` 的句柄读取；真实运行 `artifacts/real-runs/plan.compression.json` 记录派生窗口与 D26 证据缺口。
+
 ### `/story-init --brief`：简报路径相对工作区根解析
 
 - 源工程做法：CLI `book create --brief <path>` 从进程当前目录读取简报文件。

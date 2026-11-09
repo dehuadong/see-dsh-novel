@@ -221,15 +221,15 @@
 
 **复刻现状**：`core/context-package.ts`／`src/pipelines/long/context-tool.ts` 已实现两 pass、固定来源、五类任务、complete／semantic、planner-context／context／trace 落盘；`src/pipelines/long/stages/writer.ts` 注入 selectedContext；role／outline 从 `story-index` 删除，素材保留。
 
-**判定：保真债** — D11／D12 已偿还；D24：book reference 上下文未实现（偿还：P6 的 materials／search.unified）；D25：memory 候选未按预算分组（偿还：`plan.compression` 或后续）。
+**判定：保真债** — D11／D12 已偿还；D24：book reference 上下文未实现（偿还：P6 的 materials／search.unified）；D25 已由 `plan.compression` 偿还。
 
 ### plan.compression
 
-**源工程证据**：`composer.ts` 用模型 context window 计算可用输入预算，超预算时用 LLM 压缩 compressible，protected 超预算直接报错，压缩结果写 trace.compression。
+**源工程证据**：`composer.ts` 的 `contextBudgetFromClient`（模型 contextWindow + defaults.maxTokens）、`applyContextBudgetIfNeeded`（protected 不压、compressible 超预算交给 `SemanticContextCompilerAgent`、trace 六字段）与 `SemanticContextCompilerAgent`（按 semantic input budget 分块、逐块 Markdown、合并后重压一次、仍超报错）；memory 的 `groupMemoryCandidates` 按 `semanticInputBudget` 分组。
 
-**复刻现状**：`assembleContext` 的预算来自调用方传入的 `contextWindowTokens`／`reservedOutputTokens`；压缩文本由调用方传入；protected 超预算报错一致；trace.compression 六字段一致。
+**复刻现状**：`core/context-package.ts` 从模型信息派生预算；D25 memory 分组与超长 excerpt 切块；超预算返回 `compressionTask`（chunks、maxInputTokens、language）；候选与压缩分块由 `core/context-spool.ts` 落 runtime 任务文件，`story_context_candidates` 只返回句柄，`story_context_task`／`story_context_compression_task` 一次读一个；trace.compression 按源六字段（`compiledSource` 为 `runtime/compiled-compressible-context`、压缩前 token、`budgetTokens=max(1, available-protected)`）。
 
-**判定：保真债** — D13：窗口与压缩文本由调用方手填，宿主没有从模型信息推导窗口、也没有把 compressible 交给子代理压缩的固定路径。偿还：`plan.compression` 行接模型窗口并固定压缩任务协议。
+**判定：保真债** — D13、D25 行为已偿还；D26：大 compressible 夹具已写出 task spool，但主模型读取 2.3MB task 时卡死，真压缩真机回执未取得；压缩行为由 core 测试与 spool 测试覆盖，证据缺口保留。
 
 ### plan.chapter
 

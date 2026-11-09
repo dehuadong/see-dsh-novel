@@ -172,10 +172,68 @@ test('outline selections are validated per file', async () => {
   }
 })
 
+test('over-budget assembly returns a compression task and applies validated text', () => {
+  const fixed = [{ source: 'fixed', reason: 'r', excerpt: '甲'.repeat(100), protection: 'protected' }]
+  const candidate = {
+    id: 'memory:x', selectionId: 'memory:x', kind: 'memory', source: 'memory/x', title: 'x',
+    excerpt: '乙'.repeat(200), score: 1,
+  }
+  const groups = [{ kind: 'memory', instruction: 'select', candidates: [candidate] }]
+  const budget = { contextWindowTokens: 150, reservedOutputTokens: 0 }
+  const task = assembleContext({
+    chapter: 1,
+    query: '任务',
+    fixedEntries: fixed,
+    groups,
+    selection: { memory: ['memory:x'], role: [], state: [], storyFrame: [], volumeMap: [] },
+    mode: 'semantic',
+    budget,
+    language: 'zh',
+  })
+  assert.ok(task.compressionTask !== undefined)
+  assert.ok(task.compressionTask.maxInputTokens > 0)
+  assert.ok(task.compressionTask.chunks.length >= 1)
+  assert.equal(task.compressionTask.language, 'zh')
+  assert.equal(task.package, undefined)
+
+  const compiled = '短'.repeat(5)
+  const assembled = assembleContext({
+    chapter: 1,
+    query: '任务',
+    fixedEntries: fixed,
+    groups,
+    selection: { memory: ['memory:x'], role: [], state: [], storyFrame: [], volumeMap: [] },
+    mode: 'semantic',
+    budget,
+    language: 'zh',
+    compression: { text: compiled },
+  })
+  assert.ok(assembled.package !== undefined && assembled.trace !== undefined)
+  assert.equal(assembled.trace.compression.compiledSource, 'runtime/compiled-compressible-context')
+  assert.equal(assembled.trace.compression.budgetTokens, task.compressionTask.maxInputTokens)
+  assert.equal(assembled.trace.compression.compressibleTokens > assembled.trace.compression.budgetTokens, true)
+  assert.ok(assembled.package.selectedContext.some((entry) => entry.source === 'runtime/compiled-compressible-context'))
+})
+
+test('memory candidates split and group under the semantic budget', async () => {
+  const root = await workspace()
+  try {
+    const built = await buildSelectionTasks(root, 'planner', {
+      budget: { contextWindowTokens: 800, reservedOutputTokens: 0 },
+    })
+    const memoryTasks = built.tasks.filter((task) => task.kind === 'memory')
+    assert.ok(memoryTasks.length > 1)
+    assert.ok(memoryTasks.every((task) => task.candidates.length >= 1))
+    assert.ok(memoryTasks.some((task) => task.candidates.some((candidate) => candidate.selectionId.includes(':part-'))))
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('complete mode selects all candidates and returns no tasks', async () => {
   const root = await workspace()
   try {
-    const built = await buildSelectionTasks(root, 'writer', { contextWindowTokens: 1_000_000 })
+    const built = await buildSelectionTasks(root, 'writer', { budget: { contextWindowTokens: 1_000_000, reservedOutputTokens: 0 } })
     assert.equal(built.mode, 'complete')
     assert.deepEqual(built.tasks, [])
     const assembled = assembleContext({

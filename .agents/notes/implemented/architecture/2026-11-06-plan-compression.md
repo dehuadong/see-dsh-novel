@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 部分被 [2026-11-09-plan-compression-budget.md](2026-11-09-plan-compression-budget.md) 取代：模型窗口派生、D25 memory 分组、task spool、compressionTask／分块／重压与 trace 六字段以新篇为准；本篇保留早期 `assembleContext` 压缩入口的历史决定。
+
 ## Problem
 
 上下文超出预算时，源工程由 composer 里的 LLM 压缩可压缩层：protected 原样保留，compressible 压成一段 `compiledSource`，把压缩前后的 token 与来源清单写进 `ChapterTrace.compression`；压缩失败就报错，从不静默截断。复刻的上下文装配只记「超预算」，没有压缩。
