@@ -253,9 +253,17 @@
 
 **源工程证据**：审稿 system prompt 要求按审稿 Skill 与权威上下文审查、提交编号原文证据；宿主把 `governed-context` 与 `chapter-N` 一起编号；审计失败生成 `unavailable` 观察；`reviewedArtifact` 记录被审版本。
 
-**复刻现状**：`story_review_chapter` 校验观察并落盘；来源只有章节正文与章纲 memo；**编号原文没有注入**，模型需自己读取；没有 `reviewedArtifact`。
+**复刻现状**：`story_review_chapter` 校验观察并落盘；来源为章节正文与章纲 memo；`sourceRefs` 工具 schema 已收紧为对象数组；`reviewedArtifact` 由 artifact store 的 current revision 填充，number-aware 标题归一化后字节不匹配则省略；没有 artifact 的旧工作区仍可审稿，但记录无 identity。
 
-**判定：保真债（D17 已偿还，D18 未偿还）** — 编号原文与章纲已由 `stages/review.ts` 注入 `review` 阶段，审稿方与宿主共用同一编号基准；`sourceRefs` 工具 schema 已收紧为对象数组（字符串 sourceRefs 在入参被拒绝）；`reviewedArtifact` 仍缺，阻塞于 `artifact.identity`，本行只保留可选字段与校验，不生成值。
+**判定：等价（D17、D18 已偿还）** — 编号原文与章纲由 `stages/review.ts` 注入；`sourceRefs` 字符串在入参被拒绝；`reviewedArtifact` 来自 `source/artifacts/manifest.json` 的 `chapter-<NNNN>` current revision，且只在 revision bytes 与被审正文一致时写入。
+
+### artifact.identity
+
+**源工程证据**：`harness/artifact-revisions.ts` 的 `createCurrentArtifact`／`stageArtifactRevision`／`promoteArtifactRevision`、`contracts.ts` 的 manifest/revision 不变量与 `WorkResourceIdSchema`／`RelativeArtifactPathSchema`；章节 revision 的 path 直接指向 `source/chapters/...`，`agents/continuity.ts` 用 current revision 生成 `reviewedArtifact`。
+
+**复刻现状**：`core/artifact-store.ts` 用 `source/artifacts/manifest.json` 记录 chapter artifact 的 `r1` current revision，path 指向章节文件；`writeChapterDocument` 同一次提交写章节与 manifest；`reviewChapter` 读取 current revision 并写 `reviewedArtifact`；checksum/byteLength/current/parent/superseded/ID/路径校验与源一致。
+
+**判定：等价** — 章节产物 identity 与 review 消费已接通；manifest 是独立索引而非 WorkManifest 内嵌，登记在 `dsh-mapping.md`。
 
 ## 后续批次
 

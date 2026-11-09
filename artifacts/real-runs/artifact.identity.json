@@ -1,0 +1,16 @@
+{
+  "capability": "artifact.identity",
+  "date": "2026-11-09",
+  "sessionId": "session-14076820-d53e-4fe6-8cff-40a75dae6e93",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "305 passed — artifact-store 3 例（stage/promote/current、checksum、parent、ID/路径）、chapter-document 5 例（number-aware 标题）、chapter-review 3 例（reviewedArtifact、无 artifact 省略、缺稿拒绝）、review-tool 1 例、context/review 等"
+  },
+  "receipts": [
+    "`.artifacts/work-review2` 的 `source/artifacts/manifest.json`：workId `work-empty-2`；artifact `chapter-0001`，kind `chapter`，currentRevisionId `r1`；revision path `source/chapters/0001_雨夜.md`（章节文件本身，无副本），checksum `sha256:b9293dc866e591d12b6165f1b01f0031931ff78e86f91f1a4815840136ddf748`，byteLength 25，parentRevisionId null。",
+    "真实审稿（session `session-14076820-d53e-4fe6-8cff-40a75dae6e93`）：`story_review_chapter` 回执「第 1 章审稿已落盘：source/story/runtime/chapter-0001.review.json（issue 1／resolved 0／observation 0／unavailable 3）」。",
+    "`chapter-0001.review.json` 的 `reviewedArtifact` 为 `{workId:\"work-empty-2\", artifactId:\"chapter-0001\", revisionId:\"r1\"}`；reviewedArtifact 只在 current revision 的 number-aware bytes 与被审正文一致时写入。",
+    "`test/artifact-store.test.mjs` 覆盖 stage/promote/current、parent、checksum、非法 ID/路径；`test/chapter-document.test.mjs` 覆盖 `chapterBodyForChapter` 只剥章号匹配的标题；`test/chapter-review.test.mjs` 覆盖无 artifact 时省略 reviewedArtifact。"
+  ]
+}

@@ -7,7 +7,7 @@
 import { readFile, readdir } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 
-import { chapterBody } from './chapter-document.js'
+import { chapterBodyForChapter } from './chapter-document.js'
 import { loadChapterPlan } from './chapter-plan.js'
 import type { ChapterPlan } from './chapter-plan.js'
 import { searchStory, storyDocuments } from './story-index.js'
@@ -221,7 +221,7 @@ async function previousChapterExcerpt(root: string, chapter: number): Promise<st
   }
   const file = files.find((name) => name.startsWith(prefix) && name.endsWith('.md'))
   if (file === undefined) return ''
-  return chapterBody(await readText(join(root, 'source/chapters', file))).slice(-2000)
+  return chapterBodyForChapter(await readText(join(root, 'source/chapters', file)), chapter).slice(-2000)
 }
 
 async function plannerGoal(root: string, instruction?: string): Promise<string> {

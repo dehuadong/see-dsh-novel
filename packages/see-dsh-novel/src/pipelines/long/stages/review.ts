@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { chapterBody } from '../../../core/chapter-document.js'
+import { chapterBodyForChapter } from '../../../core/chapter-document.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
 import { numberSourceLines } from '../../../core/observation.js'
 import type { WorkLanguage } from '../../../core/work.js'
@@ -37,7 +37,7 @@ export function readCurrentChapterBody(root: string, chapter: number): string | 
   const file = files.find((name) => name.startsWith(prefix) && name.endsWith('.md'))
   if (file === undefined) return undefined
   const raw = readText(join(root, 'source/chapters', file))
-  return raw === undefined ? undefined : chapterBody(raw)
+  return raw === undefined ? undefined : chapterBodyForChapter(raw, chapter)
 }
 
 /** 审稿要求 + 两块编号来源；缺正文或章纲时返回空串。 */

@@ -13,6 +13,9 @@ export interface ObservationInput {
   summary: string
   assessment: Assessment
   category?: 'quality' | 'execution' | 'scope'
+  scope?: string
+  targetHash?: string
+  target?: { workId: string, artifactId: string, revisionId: string }
   evidence?: string[]
   sourceRefs?: Array<{ sourceId: string, quote?: string, startLine?: number, endLine?: number }>
 }
@@ -22,6 +25,9 @@ export interface Observation {
   summary: string
   assessment: Assessment
   category?: 'quality' | 'execution' | 'scope'
+  scope?: string
+  targetHash?: string
+  target?: { workId: string, artifactId: string, revisionId: string }
   evidence: string[]
   sourceRefs: ObservationSourceRef[]
 }

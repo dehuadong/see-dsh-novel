@@ -5,6 +5,7 @@ import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { commitFoundation } from './commit.js'
+import { chapterArtifactWrite } from './artifact-store.js'
 import type { WorkLanguage } from './work.js'
 
 const UNSAFE_TITLE = /[\u0000-\u001f/\\:*?"<>|]/g
@@ -20,7 +21,7 @@ export function chapterHeading(chapter: number, title: string, language: WorkLan
   return language === 'en' ? `# Chapter ${chapter}: ${title}` : `# 第${chapter}章 ${title}`
 }
 
-/** 去掉正文里自带的一级标题与首尾空白。 */
+/** 去掉正文里自带的一级标题与首尾空白；用于不关心章号的通用读取。 */
 export function chapterBody(content: string): string {
   const lines = content.replace(/\r\n/gu, '\n').split('\n')
   let index = 0
@@ -32,8 +33,33 @@ export function chapterBody(content: string): string {
   return lines.slice(index).join('\n').trim()
 }
 
+function headingNumber(line: string): number | undefined {
+  const match = /^#\s*第\s*(\d+)\s*章/u.exec(line) ?? /^#\s*Chapter\s+(\d+)\b/iu.exec(line)
+  if (match === null) return undefined
+  return Number(match[1])
+}
+
+/**
+ * 只剥掉章号等于本章的一级标题；别的章号标题保留，避免把别章文件归一成本章。
+ * @param content 章节文件原文
+ * @param chapter 被读的章号
+ * @returns 正文
+ */
+export function chapterBodyForChapter(content: string, chapter: number): string {
+  const lines = content.replace(/\r\n/gu, '\n').split('\n')
+  let index = 0
+  while (index < lines.length) {
+    while (index < lines.length && (lines[index] ?? '').trim() === '') index += 1
+    const line = (lines[index] ?? '').trim()
+    if (!line.startsWith('# ') || headingNumber(line) !== chapter) break
+    index += 1
+    while (index < lines.length && (lines[index] ?? '').trim() === '') index += 1
+  }
+  return lines.slice(index).join('\n').trim()
+}
+
 export function renderChapterDocument(input: { chapter: number, title: string, content: string, language: WorkLanguage }): string {
-  return `${chapterHeading(input.chapter, input.title, input.language)}\n\n${chapterBody(input.content)}\n`
+  return `${chapterHeading(input.chapter, input.title, input.language)}\n\n${chapterBodyForChapter(input.content, input.chapter)}\n`
 }
 
 /** 中文字符数或英文词数。 */
@@ -57,7 +83,7 @@ export async function writeChapterDocument(
   root: string,
   input: { chapter: number, title: string, content: string, language: WorkLanguage },
 ): Promise<WriteChapterResult> {
-  const body = chapterBody(input.content)
+  const body = chapterBodyForChapter(input.content, input.chapter)
   if (body === '') throw new Error('content 不能为空')
   const fileName = `${chapterPrefix(input.chapter)}${safeChapterTitle(input.title)}.md`
   const relativePath = `source/chapters/${fileName}`
@@ -68,8 +94,17 @@ export async function writeChapterDocument(
   if (entries.some((entry) => entry.startsWith(chapterPrefix(input.chapter)))) {
     throw new Error(`第 ${input.chapter} 章已经有正文，不覆盖`)
   }
+  const document = renderChapterDocument({ ...input, content: body })
+  const artifact = await chapterArtifactWrite(root, {
+    chapter: input.chapter,
+    chapterPath: relativePath,
+    content: document,
+  })
   await commitFoundation(root, {
-    writes: [{ relativePath, content: renderChapterDocument({ ...input, content: body }) }],
+    writes: [
+      { relativePath, content: document },
+      { relativePath: artifact.relativePath, content: artifact.content },
+    ],
   })
   return { path: relativePath, charCount: countChapterLength(body, input.language) }
 }
@@ -93,5 +128,5 @@ export async function loadChapterDocument(root: string, chapter: number): Promis
   const relativePath = `source/chapters/${file}`
   const raw = await readFile(join(root, relativePath), 'utf8')
   const lines = raw.replace(/\r\n/gu, '\n').split('\n')
-  return { path: relativePath, heading: lines[0] ?? '', content: lines.slice(1).join('\n').trim() }
+  return { path: relativePath, heading: lines[0] ?? '', content: chapterBodyForChapter(raw, chapter) }
 }

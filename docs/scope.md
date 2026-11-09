@@ -65,7 +65,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 | 编号 | 行 | 欠什么 | 偿还位置 |
 |---|---|---|---|
-| D18 | `chapter.review` | 缺 `reviewedArtifact` | `artifact.identity` 行 |
 | D19 | `runtime.commands` | 源一条命令建书并启动基础设定；复刻是命令 + 阶段两步 | 本行 |
 | D20 | `runtime.commands` | 源的项目语言与宿主 locale 层未复刻，未知 `--lang` 恒回退 `zh` | 本行 |
 | D21 | `runtime.commands` | 源会删除不完整作品目录后重建；复刻拒绝已有 `work.json` | 本行 |

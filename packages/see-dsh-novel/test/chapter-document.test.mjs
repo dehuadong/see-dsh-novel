@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  chapterBodyForChapter,
   chapterHeading,
   countChapterLength,
   loadChapterDocument,
@@ -28,6 +29,11 @@ test('headings follow the language and the body drops its own title line', () =>
     renderChapterDocument({ chapter: 1, title: '雨夜', content: '# 第1章 雨夜\n\n正文一。\n' , language: 'zh' }),
     '# 第1章 雨夜\n\n正文一。\n',
   )
+})
+
+test('number-aware headings keep a wrong chapter title in the body', () => {
+  assert.equal(chapterBodyForChapter('# 第1章 雨夜\n\n正文。\n', 1), '正文。')
+  assert.equal(chapterBodyForChapter('# 第2章 雨夜\n\n正文。\n', 1), '# 第2章 雨夜\n\n正文。')
 })
 
 test('file titles are path-safe', () => {

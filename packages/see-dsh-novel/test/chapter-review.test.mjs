@@ -5,10 +5,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { chapterReviewPath, loadChapterReview, reviewChapter } from '../src/core/chapter-review.ts'
+import { writeChapterDocument } from '../src/core/chapter-document.ts'
 import { chapterPlanPath } from '../src/core/chapter-plan.ts'
 
 async function workspace() {
   const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-review-'))
+  await mkdir(join(root, 'source/artifacts'), { recursive: true })
   await mkdir(join(root, 'source/story/runtime'), { recursive: true })
   await mkdir(join(root, 'source/chapters'), { recursive: true })
   await writeFile(join(root, 'source/chapters/0001_雨夜.md'), '# 第1章 雨夜\n\n雨从二十三点下到现在。\n\n沈砚站在巷口。\n')
@@ -40,6 +42,7 @@ test('review persists validated observations with counts and refuses a second re
     assert.equal(record.version, 1)
     assert.equal(record.observations[0].sourceRefs[0].quote, '雨从二十三点下到现在。')
     assert.equal(record.observations[1].assessment, 'unavailable')
+    assert.equal(record.reviewedArtifact, undefined)
     assert.deepEqual((await loadChapterReview(root, 1)).counts, result.counts)
     await assert.rejects(
       reviewChapter(root, { chapter: 1, summary: '再审', observations: [] }),
@@ -50,27 +53,14 @@ test('review persists validated observations with counts and refuses a second re
   }
 })
 
-test('review records an explicit reviewedArtifact when supplied and rejects empty ids', async () => {
+test('review records reviewedArtifact only from a matching chapter revision', async () => {
   const root = await workspace()
   try {
-    const result = await reviewChapter(root, {
-      chapter: 1,
-      summary: '可继续',
-      observations: [],
-      reviewedArtifact: { workId: 'w1', artifactId: 'a1', revisionId: 'r1' },
-    })
+    await rm(join(root, 'source/chapters/0001_雨夜.md'))
+    await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '雨从二十三点下到现在。', language: 'zh' })
+    const result = await reviewChapter(root, { chapter: 1, summary: '可继续', observations: [] })
     const record = JSON.parse(await readFile(join(root, result.path), 'utf8'))
-    assert.deepEqual(record.reviewedArtifact, { workId: 'w1', artifactId: 'a1', revisionId: 'r1' })
-    await rm(join(root, result.path))
-    await assert.rejects(
-      reviewChapter(root, {
-        chapter: 1,
-        summary: '可继续',
-        observations: [],
-        reviewedArtifact: { workId: '', artifactId: 'a1', revisionId: 'r1' },
-      }),
-      /reviewedArtifact\.workId 不能为空/,
-    )
+    assert.deepEqual(record.reviewedArtifact, { workId: 'work', artifactId: 'chapter-0001', revisionId: 'r1' })
   } finally {
     await cleanup(root)
   }

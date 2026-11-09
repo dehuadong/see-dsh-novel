@@ -6,7 +6,9 @@ import { join } from 'node:path'
 
 import { commitFoundation } from './commit.js'
 import { loadChapterDocument } from './chapter-document.js'
+import { chapterBodyForChapter } from './chapter-document.js'
 import { loadChapterPlan } from './chapter-plan.js'
+import { currentChapterArtifact, readArtifactRevision } from './artifact-store.js'
 import { countObservations, resolveObservationSources } from './observation.js'
 import type { Observation, ObservationCounts, ObservationInput } from './observation.js'
 import { STORY_ROOT } from './story-paths.js'
@@ -35,11 +37,9 @@ export interface ReviewRecord {
 function assertReviewedArtifact(value: ReviewedArtifact | undefined): ReviewedArtifact | undefined {
   if (value === undefined) return undefined
   for (const key of ['workId', 'artifactId', 'revisionId'] as const) {
-    if (typeof value[key] !== 'string' || value[key].trim() === '') {
-      throw new Error(`reviewedArtifact.${key} 不能为空`)
-    }
+    if (typeof value[key] !== 'string') throw new Error(`reviewedArtifact.${key} 必须是字符串`)
   }
-  return { workId: value.workId, artifactId: value.artifactId, revisionId: value.revisionId }
+  return value
 }
 
 /** 读取章纲与正文，作为审稿可引用的来源。 */
@@ -55,10 +55,9 @@ export async function reviewSources(root: string, chapter: number): Promise<Map<
 
 export async function reviewChapter(
   root: string,
-  input: { chapter: number, summary: string, observations: ReadonlyArray<ObservationInput>, reviewedArtifact?: ReviewedArtifact },
+  input: { chapter: number, summary: string, observations: ReadonlyArray<ObservationInput> },
 ): Promise<{ path: string, counts: ObservationCounts, observations: Observation[] }> {
   if (input.summary.trim() === '') throw new Error('summary 不能为空')
-  const reviewedArtifact = assertReviewedArtifact(input.reviewedArtifact)
   const existing = await readFile(join(root, chapterReviewPath(input.chapter)), 'utf8').catch((error: NodeJS.ErrnoException) => {
     if (error.code === 'ENOENT') return null
     throw error
@@ -67,6 +66,19 @@ export async function reviewChapter(
   const sources = await reviewSources(root, input.chapter)
   const observations = resolveObservationSources(input.observations, sources)
   const counts = countObservations(observations)
+  let reviewedArtifact: ReviewedArtifact | undefined
+  const artifact = await currentChapterArtifact(root, input.chapter)
+  if (artifact !== null) {
+    const current = await readArtifactRevision(root, { artifactId: artifact.artifact.id, revisionId: artifact.revision.id })
+    const currentBody = chapterBodyForChapter(current.bytes.toString('utf8'), input.chapter)
+    if (currentBody === sources.get(`chapter-${input.chapter}`)) {
+      reviewedArtifact = assertReviewedArtifact({
+        workId: artifact.workId,
+        artifactId: artifact.artifact.id,
+        revisionId: artifact.revision.id,
+      })
+    }
+  }
   const record: ReviewRecord = {
     version: 1,
     chapter: input.chapter,

@@ -59,6 +59,13 @@
 - 原因：DSH subagent 的输出预算由模型 `maxTokens` 决定，不能在调用级设 2048；照搬源的 2048 会让选择请求本身接近 1M 窗口，无法放进模型。分组更保守，选择结果与 candidate 映射不变。
 - 验证：`test/context-package.test.mjs` 的 D25 分组用例；`test/context-spool.test.mjs` 的句柄读取；真实运行 `artifacts/real-runs/plan.compression.json` 记录派生窗口与 D26 证据缺口。
 
+### artifact.identity：产物 manifest 独立于作品身份文件
+
+- 源工程做法：`WorkManifest.artifacts` 嵌在作品 manifest 里，`stageArtifactRevision` 同时写 revision 文件与 manifest；章节 revision 的 `path` 由调用方给，指向 `source/chapters/...`，不复制正文。
+- 复刻做法：`source/artifacts/manifest.json` 独立记录 `workId`、artifact、revision、current、checksum、byteLength；`writeChapterDocument` 同一次提交写章节文件与该 manifest；章节 revision path 也直接指向章节文件。
+- 原因：复刻的 `work.json` 是作品身份文件，产物索引可重建；把 artifacts 混进身份会耦合身份校验与产物状态。DSH 单工作区一作品，跨作品隔离由工作区边界保证。
+- 验证：`test/artifact-store.test.mjs` 覆盖 stage/promote/current、checksum、parent、ID/路径；`artifacts/real-runs/artifact.identity.json` 记录 `chapter-0001` 的 r1 current revision 与 `reviewedArtifact`。
+
 ### `/story-init --brief`：简报路径相对工作区根解析
 
 - 源工程做法：CLI `book create --brief <path>` 从进程当前目录读取简报文件。

@@ -4,7 +4,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { chapterBody } from '../../../core/chapter-document.js'
+import { chapterBodyForChapter } from '../../../core/chapter-document.js'
 import { defaultChapterLength } from '../../../core/length.js'
 import {
   AUTHOR_INTENT_FILE,
@@ -63,7 +63,7 @@ export function renderPlannerContract(root: string): string {
     }
     const file = files.find((name) => name.startsWith(prefix) && name.endsWith('.md'))
     if (file === undefined) return ''
-    const body = chapterBody(readText(join(root, 'source/chapters', file)))
+    const body = chapterBodyForChapter(readText(join(root, 'source/chapters', file)), next - 1)
     return body.slice(-2000)
   })()
   const hooks = (() => {
