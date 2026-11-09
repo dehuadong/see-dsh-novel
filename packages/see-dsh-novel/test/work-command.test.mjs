@@ -1,10 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { COMMAND_INIT, installInitCommand, parseWorkCreate } from '../src/plugin/work-command.ts'
+import { COMMAND_INIT, installInitCommand, parseWorkCreate, prepareCommandRoot, resolveCommandLanguage } from '../src/plugin/work-command.ts'
 import { WORK_FILE } from '../src/core/work.ts'
 
 /** 一个空的临时工作区。 */
@@ -31,7 +31,11 @@ function services(root) {
   }
 }
 
-const exec = { agent: { session: { snapshotEvents: () => [] } }, rawInput: '', signal: new AbortController().signal }
+const exec = {
+  agent: { session: { snapshotEvents: () => [] }, followup: () => {} },
+  rawInput: '',
+  signal: new AbortController().signal,
+}
 
 const defaultMetadata = () => ({
   targetChapters: 200,
@@ -56,6 +60,7 @@ test('parseWorkCreate reads the title, options and defaults', () => {
     {
       title: '夜行 测试',
       language: 'en',
+      languageProvided: true,
       ...defaultMetadata(),
       targetChapters: 80,
       chapterWordCount: 2500,
@@ -71,6 +76,7 @@ test('parseWorkCreate accepts the canonical option names, inline values and last
   assert.deepEqual(parseWorkCreate('标题 --target-chapters=80 --chapter-words=2500'), canonical)
   assert.equal(parseWorkCreate('标题 --chapters 80 --target-chapters 90').targetChapters, 90)
   assert.equal(parseWorkCreate('标题 --lang en --lang fr').language, undefined)
+  assert.equal(parseWorkCreate('标题 --lang en --lang fr').languageProvided, true)
 })
 
 test('parseWorkCreate reads numbers the way parseInt does', () => {
@@ -104,6 +110,7 @@ test('parseWorkCreate keeps the title as the author wrote it', () => {
   assert.deepEqual(parseWorkCreate('夜行 --lang zh 测试'), {
     title: '夜行 测试',
     language: 'zh',
+    languageProvided: true,
     ...defaultMetadata(),
   })
 })
@@ -133,7 +140,7 @@ test('the command writes work.json and reports the identity', async () => {
     assert.equal(
       result.text,
       '已立项《夜行测试》：longform-novel，en，draft（目标 80 章，单章 2500 字，xuanhuan，tomato）\n'
-        + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
+        + '基础设定已启动：按 story_next 的指示完成 outline、details 与角色卡，不要开始写正文。',
     )
 
     assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), 'Create 《夜行测试》')
@@ -148,12 +155,11 @@ test('the command writes work.json and reports the identity', async () => {
       chapterWordCount: 2500,
     })
 
-    // 第二次立项：错误文本来自 writeWork，原文件不变。
-    const before = await readFile(join(root, WORK_FILE), 'utf8')
+    // 第二次立项：当前作品只有身份、基础设定未完成，按源行为清理内容后重建。
     const again = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '另一部' })
-    assert.equal(again.kind, 'error')
-    assert.match(again.text, /已经存在/)
-    assert.equal(await readFile(join(root, WORK_FILE), 'utf8'), before)
+    assert.equal(again.kind, 'success')
+    assert.match(again.text, /已立项《另一部》/)
+    assert.equal(JSON.parse(await readFile(join(root, WORK_FILE), 'utf8')).title, '另一部')
 
     dispose()
     assert.equal(commands.size, 0)
@@ -172,7 +178,7 @@ test('the default language and scale still fall back to zh and 200 x 3000', asyn
     assert.equal(
       result.text,
       '已立项《夜行测试》：longform-novel，zh，draft（目标 200 章，单章 3000 字，xuanhuan，tomato）\n'
-        + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
+        + '基础设定已启动：按 story_next 的指示完成 outline、details 与角色卡，不要开始写正文。',
     )
     assert.equal(await readFile(join(root, 'source/story/brief.md'), 'utf8'), 'Create 夜行测试')
     const onDisk = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
@@ -315,15 +321,94 @@ test('empty and invalid values both come back as command errors without writing'
   }
 })
 
-test('a corrupt work.json surfaces its field error', async () => {
+test('a corrupt work.json is treated as an incomplete work and rebuilt', async () => {
   const root = await workspace()
   try {
     await writeFile(join(root, WORK_FILE), JSON.stringify({ version: 9 }), 'utf8')
     const { commands, ctx } = services(root)
     installInitCommand(ctx)
     const result = await commands.get(COMMAND_INIT).handler({ ...exec, rawInput: '标题' })
+    assert.equal(result.kind, 'success')
+    assert.equal(JSON.parse(await readFile(join(root, WORK_FILE), 'utf8')).title, '标题')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a successful init queues exactly one foundation turn', async () => {
+  const root = await workspace()
+  try {
+    const messages = []
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const agent = { session: { snapshotEvents: () => [] }, followup: (message) => messages.push(message) }
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, agent, rawInput: '标题' })
+    assert.equal(result.kind, 'success')
+    assert.equal(messages.length, 1)
+    assert.equal(messages[0].role, 'user')
+    assert.deepEqual(messages[0].source, { kind: 'story-command', command: 'story-init' })
+    assert.match(messages[0].content[0].text, /story_next/)
+    assert.match(messages[0].content[0].text, /不要开始写正文/)
+    assert.match(messages[0].content[0].text, /不要开始写正文/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a followup failure is an error but keeps the written identity', async () => {
+  const root = await workspace()
+  try {
+    const { commands, ctx } = services(root)
+    installInitCommand(ctx)
+    const agent = { session: { snapshotEvents: () => [] }, followup: () => { throw new Error('会话已关闭') } }
+    const result = await commands.get(COMMAND_INIT).handler({ ...exec, agent, rawInput: '标题' })
     assert.equal(result.kind, 'error')
-    assert.match(result.text, /字段 version/)
+    assert.match(result.text, /基础设定未启动/)
+    assert.equal(JSON.parse(await readFile(join(root, WORK_FILE), 'utf8')).title, '标题')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('language falls back through inkos.json, locale variables and zh', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'inkos.json'), JSON.stringify({}), 'utf8')
+    assert.equal(await resolveCommandLanguage(root, { languageProvided: false }, { LANG: 'en_US.UTF-8' }), 'zh')
+    await rm(join(root, 'inkos.json'))
+    assert.equal(await resolveCommandLanguage(root, { languageProvided: false }, { LANG: 'en_US.UTF-8' }), 'en')
+    assert.equal(await resolveCommandLanguage(root, { languageProvided: true, language: 'fr' }, { LANG: 'en_US.UTF-8' }), 'en')
+    assert.equal(await resolveCommandLanguage(root, { languageProvided: true, language: 'fr' }, { INKOS_LOCALE: 'zh_CN', LANG: 'en' }), 'zh')
+    assert.equal(await resolveCommandLanguage(root, { languageProvided: false }, {}), 'zh')
+    await writeFile(join(root, 'inkos.json'), JSON.stringify({ language: 'en' }), 'utf8')
+    assert.equal(await resolveCommandLanguage(root, { languageProvided: false }, { LANG: 'zh_CN' }), 'en')
+    await writeFile(join(root, 'inkos.json'), JSON.stringify({ language: 'fr' }), 'utf8')
+    await assert.rejects(resolveCommandLanguage(root, { languageProvided: false }, {}), /language 必须是 zh 或 en/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('reinit rejects a complete work and clears only an incomplete content root', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, WORK_FILE), JSON.stringify({ version: 1 }), 'utf8')
+    await mkdir(join(root, 'source/story/outline'), { recursive: true })
+    for (const path of [
+      'source/story/outline/story_frame.md',
+      'source/story/outline/volume_map.md',
+      'source/story/book_rules.md',
+      'source/story/book_rules.json',
+      'source/story/pending_hooks.md',
+    ]) await writeFile(join(root, path), 'x', 'utf8')
+    await assert.rejects(prepareCommandRoot(root), /已经存在完整作品/)
+    await rm(join(root, 'source/story/outline/volume_map.md'))
+    await writeFile(join(root, 'notes.md'), '保留', 'utf8')
+    await writeFile(join(root, 'source/partial.md'), '删除', 'utf8')
+    await prepareCommandRoot(root)
+    assert.equal(await exists(join(root, WORK_FILE)), false)
+    assert.equal(await exists(join(root, 'source')), false)
+    assert.equal(await readFile(join(root, 'notes.md'), 'utf8'), '保留')
   } finally {
     await cleanup(root)
   }

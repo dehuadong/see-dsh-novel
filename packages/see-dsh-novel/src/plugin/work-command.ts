@@ -6,13 +6,14 @@
  * 仍由 `prepareWork` 报（消息里带文件与字段），命令层不复制同一套规则。
  * 建书写入与提案批准共用 `initWork`：身份、`story/brief.md` 与方向文档一次提交。
  */
-import { readFile } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { safeRelativePath } from '../core/commit.js'
-import type { CommandInvocationLike, CommandResultLike, Disposer, PluginContext } from '../core/types.js'
+import type { CommandInvocationLike, CommandResultLike, Disposer, PluginContext, UserMessageLike } from '../core/types.js'
 import { initWork } from '../core/init-work.js'
-import { describeWork } from '../core/work.js'
+import { WORK_FILE } from '../core/story-paths.js'
+import { describeWork, workProbes } from '../core/work.js'
 
 /** 命令名；注册与测试共用。 */
 export const COMMAND_INIT = 'story-init'
@@ -33,6 +34,8 @@ const INPUT_HINT = `《标题》 ${OPTION_HELP}`
 export interface WorkCreateArgs {
   title: string
   language?: string
+  /** `--lang` 是否出现过；空串／未知值也要走显式路径。 */
+  languageProvided?: boolean
   targetChapters?: number
   chapterWordCount?: number
   genre?: string
@@ -72,8 +75,9 @@ const CHAPTER_WORDS_OPTION: OptionSpec = {
 const OPTIONS: Record<string, OptionSpec> = {
   '--lang': {
     apply: (input, value) => {
+      input.languageProvided = true
       const language = normalizeLanguage(value)
-      // 不认识的写法回退到缺省 zh；删掉键，让 `prepareWork` 用自己的默认值。
+      // 不认识的写法保留“显式出现过”，由命令解析层按源顺序回退；不在这里落默认值。
       if (language === undefined) delete input.language
       else input.language = language
     },
@@ -175,6 +179,69 @@ export function parseWorkCreate(rawInput: string): WorkCreateArgs {
 }
 
 /**
+ * 按源顺序解析语言：显式 `--lang` 优先；未给时读项目 `inkos.json`（缺字段按 zh）；
+ * 没有项目配置或显式值不认识时读宿主 locale；最后 zh。
+ * @param root 工作区根
+ * @param args 解析后的立项参数
+ * @param env 宿主环境，测试可注入
+ * @returns `zh` 或 `en`
+ */
+export async function resolveCommandLanguage(
+  root: string,
+  args: Pick<WorkCreateArgs, 'language' | 'languageProvided'>,
+  env: NodeJS.ProcessEnv = process.env,
+): Promise<'zh' | 'en'> {
+  if (args.languageProvided === true) return args.language === 'en' || args.language === 'zh' ? args.language : envLanguage(env)
+  const project = await projectLanguage(root)
+  return project ?? envLanguage(env)
+}
+
+function envLanguage(env: NodeJS.ProcessEnv): 'zh' | 'en' {
+  for (const key of ['INKOS_LOCALE', 'LC_ALL', 'LC_MESSAGES', 'LANG'] as const) {
+    const language = normalizeLanguage(env[key] ?? '')
+    if (language !== undefined) return language
+  }
+  return 'zh'
+}
+
+async function projectLanguage(root: string): Promise<'zh' | 'en' | undefined> {
+  let raw: string
+  try {
+    raw = await readFile(join(root, 'inkos.json'), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+  let parsed: { language?: unknown }
+  try {
+    parsed = JSON.parse(raw) as { language?: unknown }
+  } catch {
+    throw new Error('inkos.json 不是有效 JSON')
+  }
+  if (parsed.language === undefined) return 'zh'
+  if (parsed.language !== 'zh' && parsed.language !== 'en') throw new Error('inkos.json 的 language 必须是 zh 或 en')
+  return parsed.language
+}
+
+/** 判定工作区是否已经是完整作品；复刻没有 chapters/index，按六项 foundation 探针。 */
+function completeWork(probes: Awaited<ReturnType<typeof workProbes>>): boolean {
+  return probes.hasWork && probes.hasFrame && probes.hasVolumeMap && probes.hasRulesMd && probes.hasRulesJson && probes.hasPendingHooks
+}
+
+/**
+ * `/story-init` 的重新立项预检：完整作品拒绝；不完整作品删除内容根与身份后重建。
+ * 只清 `source/` 与根 `work.json`，不删除工作区根本身。
+ * @param root 工作区根
+ */
+export async function prepareCommandRoot(root: string): Promise<void> {
+  const probes = await workProbes(root)
+  if (!probes.hasWork) return
+  if (completeWork(probes)) throw new Error('已经存在完整作品，不覆盖；要重开请先删除当前作品内容')
+  await rm(join(root, 'source'), { recursive: true, force: true })
+  await rm(join(root, WORK_FILE), { force: true })
+}
+
+/**
  * 注册立项命令。
  * @param ctx 插件上下文：命令注册面与工作目录服务
  * @returns 注销函数
@@ -190,21 +257,40 @@ export function installInitCommand(ctx: PluginContext): Disposer {
         const root = await ctx.workingDirectory.ensure(invocation.agent)
         if (!root) throw new Error('无法解析当前工作区目录')
         const args = parseWorkCreate(invocation.rawInput)
+        await prepareCommandRoot(root)
+        const language = await resolveCommandLanguage(root, args)
         const instruction = args.brief === undefined
           ? `Create ${args.title}`
           : (await readFile(join(root, safeRelativePath(args.brief)), 'utf8')).trim() || `Create ${args.title}`
         const work = await initWork(root, {
           title: args.title,
-          language: args.language,
+          language,
           targetChapters: args.targetChapters,
           chapterWordCount: args.chapterWordCount,
           genre: args.genre,
           platform: args.platform,
         }, instruction)
+        const identity = `已立项${describeWork(work)}`
+        const message: UserMessageLike = {
+          role: 'user',
+          content: [{
+            type: 'text',
+            text: '已完成立项。请按 story_next 的指示完成基础设定（outline → details / cast_index），不要开始写正文。',
+          }],
+          source: { kind: 'story-command', command: 'story-init' },
+        }
+        try {
+          if (invocation.agent.followup === undefined) throw new Error('当前会话不支持 followup')
+          invocation.agent.followup(message)
+        } catch (error) {
+          return {
+            kind: 'error',
+            text: `${identity}\n基础设定未启动：${error instanceof Error ? error.message : String(error)}；请按 story_next 继续，或重新立项。`,
+          }
+        }
         return {
           kind: 'success',
-          text: `已立项${describeWork(work)}\n`
-            + '下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。',
+          text: `${identity}\n基础设定已启动：按 story_next 的指示完成 outline、details 与角色卡，不要开始写正文。`,
         }
       } catch (error) {
         return { kind: 'error', text: error instanceof Error ? error.message : String(error) }

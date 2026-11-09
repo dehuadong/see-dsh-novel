@@ -20,9 +20,18 @@ export interface SessionLike {
   snapshotEvents(): ReadonlyArray<SessionEventLike>
 }
 
+/** 一条最小的宿主用户消息；只声明命令排队所需的字段。 */
+export interface UserMessageLike {
+  role: 'user'
+  content: ReadonlyArray<{ type: 'text', text: string }>
+  source: { kind: string, [key: string]: unknown } | { kind: 'user' }
+}
+
 /** 一个会话所属的 agent；原样传给宿主服务。 */
 export interface AgentLike {
   session: SessionLike
+  /** 把一条消息排到当前会话的下一轮；命令启动后续阶段用。 */
+  followup?(message: UserMessageLike): void
 }
 
 /** 运行时会让工具看到的宿主 approval 结论。 */

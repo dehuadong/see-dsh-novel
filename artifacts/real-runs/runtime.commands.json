@@ -1,17 +1,18 @@
 {
   "capability": "runtime.commands",
-  "date": "2026-11-08",
-  "sessionId": "session-b5e96a1f-29b2-4204-9ed6-6738d65413c8",
+  "date": "2026-11-09",
+  "sessionId": "session-ed36c90b-a1dc-4767-b47e-58dbd72eb705",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "286 passed — 选项名/别名/内联值/重复后者覆盖/parseInt/空值矩阵/--lang 归一与回退/缺省 genre 与 platform/--brief 与 -- 标题规则；命令落盘与逐字回执"
+    "summary": "309 passed — work-command 21 例（followup 一次/角色/source、init 失败不投、followup 失败、语言矩阵、完整/不完整重新立项）；stage-context、plan-tool、client、host 等相关测试"
   },
   "receipts": [
-    "工作区 `E:\\novelist\\test-novel\\t001`，会话 `session-b5e96a1f-29b2-4204-9ed6-6738d65413c8`：seq 26 `command/run`（args 为 ` 《对齐验证》 --target-chapters=80 --chapter-words=2500 --lang=zh-CN`）→ seq 27 `command/done` 成功，回执为「已立项《对齐验证》：longform-novel，zh，draft（目标 80 章，单章 2500 字，xuanhuan，tomato）」+「下一步：让主编按 story_next 的指示写基础设定，或在「作品」面板点「开始基础设定」。」",
-    "同一会话 seq 4 在加载新 bundle 前的一次相同尝试报「未知选项 --target-chapters=80」；新 bundle 生效后 seq 26/27 成功，回执来自新行为。",
-    "磁盘结果：`work.json` 的 `version/id/title/profile/language/status/metadata/createdAt/updatedAt` 齐全；`id` 为目录名 `t001`，`title` 按原样保留书名号，`language` 为 `zh`，`metadata` 为 `{ targetChapters: 80, chapterWordCount: 2500, genre: \"xuanhuan\", platform: \"tomato\" }`",
-    "同一提交写出 `source/story/brief.md` 为 `Create 《对齐验证》`，`author_intent.md` 为同一句加换行，`current_focus.md` 是默认方向模板；说明命令走的是 `initWork` 的「身份 + 简报 + 方向文档」一次提交。",
-    "别名、`--flag=value`、重复后者覆盖、`parseInt` 前导整数、空值矩阵与 `--lang fr` 回退 `zh` 由 `packages/see-dsh-novel/test/work-command.test.mjs` 的 17 例命令测试覆盖；完整 286 例由 `pnpm run verify` 跑绿。"
+    "`.artifacts/work-real` 空工作区，新会话第一条消息执行 `/story-init 真机收尾 --lang en --target-chapters 1 --chapter-words 300`；`command/run` 记录 args「 真机收尾 --lang en --target-chapters 1 --chapter-words 300」，source user。",
+    "命令后 followup：`agent/inbox/spliced` 插入 `{role:'user', source:{kind:'story-command',command:'story-init'}, content:'已完成立项。请按 story_next 的指示完成基础设定…'}`；followup 的 role/source 均可被 v4 持久化与 LLM 请求接受，不再出现 `format v4 message requires a producer-owned source kind` 或 `missing field role`。",
+    "`command/done`：kind success，text「已立项《真机收尾》：longform-novel，en，draft（目标 1 章，单章 300 字，xuanhuan，tomato）\\n基础设定已启动：按 story_next 的指示完成 outline、details 与角色卡，不要开始写正文。」",
+    "同一会话随后自动 foundation → plan → writer，证明 D19 followup 已启动基础设定；自动继续 plan/write 属于 D28 阶段停点，不在 D19–D21 回执里冒充通过。",
+    "语言使用显式 `--lang en` 仅用于本次真机；默认/后续真机按 zh，不再使用 en。D20 的单测覆盖显式归一、`inkos.json`、`INKOS_LOCALE`/`LC_*`/`LANG`、缺省 zh。",
+    "D21 由 `test/work-command.test.mjs` 覆盖完整作品拒绝、不完整作品删除 `source/`+`work.json` 重建、坏 `work.json` 重建；本会话的前一个不完整 work-real 由命令清理后重建。"
   ]
 }
