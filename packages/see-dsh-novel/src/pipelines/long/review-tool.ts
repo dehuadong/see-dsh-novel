@@ -16,7 +16,32 @@ const parameters: JsonSchema = {
     observations: {
       type: 'array',
       description: '每条观察：code、summary、assessment、category?、evidence?、sourceRefs?',
-      items: { type: 'object' },
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          code: { type: 'string' },
+          summary: { type: 'string' },
+          assessment: { type: 'string', enum: ['issue', 'resolved', 'unavailable', 'observation'] },
+          category: { type: 'string', enum: ['quality', 'execution', 'scope'] },
+          evidence: { type: 'array', items: { type: 'string' } },
+          sourceRefs: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                sourceId: { type: 'string' },
+                quote: { type: 'string' },
+                startLine: { type: 'integer' },
+                endLine: { type: 'integer' },
+              },
+              required: ['sourceId'],
+            },
+          },
+        },
+        required: ['code', 'summary', 'assessment'],
+      },
     },
   },
   required: ['chapter', 'summary', 'observations'],
@@ -42,7 +67,7 @@ export interface ReviewResult {
 export function installReviewTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: REVIEW_NAME,
-    description: 'Validate evidence-backed review observations against the chapter and its plan, then persist source/story/runtime/chapter-XXXX.review.json. One review per chapter.',
+    description: 'Validate evidence-backed review observations against the chapter and its plan, then persist source/story/runtime/chapter-XXXX.review.json. sourceRefs must be objects ({sourceId, quote?}, or {sourceId, startLine, endLine}) referring to the numbered sources. One review per chapter.',
     parameters,
     output: {
       schema: output,

@@ -1,16 +1,17 @@
 {
   "capability": "chapter.review",
-  "date": "2026-11-06",
-  "sessionId": "session-537f5d37-9a32-4f9c-8377-3f7133346435",
+  "date": "2026-11-09",
+  "sessionId": "session-16757a75-d74f-4391-b90d-94093ccee4b9",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "272 passed — observation 4 例、chapter-review 2 例、review-contract 3 例（编号来源、去标题行、英文、缺文件）、stage review 阶段"
+    "summary": "301 passed — observation 4 例、chapter-review 3 例（落盘/重复拒绝、reviewedArtifact 可选字段与空 id、缺正文/章纲）、review-tool 1 例（observations/sourceRefs schema）、review-contract 3 例、stage review 阶段"
   },
   "receipts": [
-    "编号原文注入（`work-review`，session `session-537f5d37-9a32-4f9c-8377-3f7133346435`）：未调用工具，首轮抄出「## 来源 chapter-1」下 `1 | 测试` 与「## 来源 governed-context」下 `1 | 场景一：雨夜接案…`，与宿主 `numberSourceLines` 的编号逐字一致，且不含 `# 第1章 雨夜` 标题行",
-    "按注入行号提交观察：`{code:\"opening\", assessment:\"observation\", sourceRefs:[{sourceId:\"chapter-1\", startLine:1, endLine:1}]}` 落盘 `chapter-0001.review.json`，回执「issue 0／resolved 0／observation 1／unavailable 0」；记录中的 quote 为行 1 原文「测试」",
-    "校验错误码：同一工作区早前提交未知 sourceId 的观察返回 `REVIEW_SOURCE_UNKNOWN` 且不落盘（`work-writer`，session `session-ce205fc1-132d-4795-a5dd-748cd6312358`）",
-    "同一章再提交审稿会被拒绝；缺章纲或正文时报错且不落盘（测试覆盖）"
+    "编号原文注入（`.artifacts/work-review2`，session `session-16757a75-d74f-4391-b90d-94093ccee4b9`）：审稿契约提供「来源 chapter-1」与「来源 governed-context」两块编号原文；观察的 sourceRefs 全部是对象。",
+    "按对象 sourceRefs 提交：`chapter-1` 的 `{sourceId,quote}` 与 `governed-context` 的 `{sourceId,quote}` 均通过；`story_review_chapter` 回执「第 1 章审稿已落盘：source/story/runtime/chapter-0001.review.json（issue 4／resolved 0／observation 1／unavailable 2）」。",
+    "记录中的 sourceRefs 已被宿主解析成 `{sourceId,quote}`；例如 `chapter-1` 的 quote「测试」、`governed-context` 的 quote「场景一：雨夜接案，沈砚发现没有尸体。」；不再出现字符串 sourceRefs 或 `REVIEW_SOURCE_UNKNOWN`。",
+    "`review-tool.test.mjs` 断言 observations 的 code/summary/assessment 必填、sourceRefs 为对象数组且 sourceId 必填；字符串 sourceRefs 在工具入参被 schema 拒绝。",
+    "`chapter-review.test.mjs` 覆盖 reviewedArtifact 可选字段与空 id 拒绝；本行不生成 reviewedArtifact，D18 仍阻塞于 `artifact.identity`。"
   ]
 }

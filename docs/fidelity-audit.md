@@ -255,7 +255,7 @@
 
 **复刻现状**：`story_review_chapter` 校验观察并落盘；来源只有章节正文与章纲 memo；**编号原文没有注入**，模型需自己读取；没有 `reviewedArtifact`。
 
-**判定：保真债（D17 已偿还，D18 未偿还）** — 编号原文与章纲已由 `stages/review.ts` 注入 `review` 阶段，审稿方与宿主共用同一编号基准；`reviewedArtifact` 仍缺，随 `artifact.identity` 行偿还。
+**判定：保真债（D17 已偿还，D18 未偿还）** — 编号原文与章纲已由 `stages/review.ts` 注入 `review` 阶段，审稿方与宿主共用同一编号基准；`sourceRefs` 工具 schema 已收紧为对象数组（字符串 sourceRefs 在入参被拒绝）；`reviewedArtifact` 仍缺，阻塞于 `artifact.identity`，本行只保留可选字段与校验，不生成值。
 
 ## 后续批次
 

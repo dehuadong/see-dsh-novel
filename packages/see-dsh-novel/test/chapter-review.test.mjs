@@ -50,6 +50,32 @@ test('review persists validated observations with counts and refuses a second re
   }
 })
 
+test('review records an explicit reviewedArtifact when supplied and rejects empty ids', async () => {
+  const root = await workspace()
+  try {
+    const result = await reviewChapter(root, {
+      chapter: 1,
+      summary: '可继续',
+      observations: [],
+      reviewedArtifact: { workId: 'w1', artifactId: 'a1', revisionId: 'r1' },
+    })
+    const record = JSON.parse(await readFile(join(root, result.path), 'utf8'))
+    assert.deepEqual(record.reviewedArtifact, { workId: 'w1', artifactId: 'a1', revisionId: 'r1' })
+    await rm(join(root, result.path))
+    await assert.rejects(
+      reviewChapter(root, {
+        chapter: 1,
+        summary: '可继续',
+        observations: [],
+        reviewedArtifact: { workId: '', artifactId: 'a1', revisionId: 'r1' },
+      }),
+      /reviewedArtifact\.workId 不能为空/,
+    )
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('a chapter without a draft or plan cannot be reviewed', async () => {
   const root = await workspace()
   try {

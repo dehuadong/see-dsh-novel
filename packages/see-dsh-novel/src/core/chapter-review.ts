@@ -17,12 +17,29 @@ export function chapterReviewPath(chapter: number): string {
   return `${STORY_ROOT}/runtime/chapter-${pad(chapter)}.review.json`
 }
 
+export interface ReviewedArtifact {
+  workId: string
+  artifactId: string
+  revisionId: string
+}
+
 export interface ReviewRecord {
   version: 1
   chapter: number
   summary: string
   observations: Observation[]
   counts: ObservationCounts
+  reviewedArtifact?: ReviewedArtifact
+}
+
+function assertReviewedArtifact(value: ReviewedArtifact | undefined): ReviewedArtifact | undefined {
+  if (value === undefined) return undefined
+  for (const key of ['workId', 'artifactId', 'revisionId'] as const) {
+    if (typeof value[key] !== 'string' || value[key].trim() === '') {
+      throw new Error(`reviewedArtifact.${key} 不能为空`)
+    }
+  }
+  return { workId: value.workId, artifactId: value.artifactId, revisionId: value.revisionId }
 }
 
 /** 读取章纲与正文，作为审稿可引用的来源。 */
@@ -38,9 +55,10 @@ export async function reviewSources(root: string, chapter: number): Promise<Map<
 
 export async function reviewChapter(
   root: string,
-  input: { chapter: number, summary: string, observations: ReadonlyArray<ObservationInput> },
+  input: { chapter: number, summary: string, observations: ReadonlyArray<ObservationInput>, reviewedArtifact?: ReviewedArtifact },
 ): Promise<{ path: string, counts: ObservationCounts, observations: Observation[] }> {
   if (input.summary.trim() === '') throw new Error('summary 不能为空')
+  const reviewedArtifact = assertReviewedArtifact(input.reviewedArtifact)
   const existing = await readFile(join(root, chapterReviewPath(input.chapter)), 'utf8').catch((error: NodeJS.ErrnoException) => {
     if (error.code === 'ENOENT') return null
     throw error
@@ -49,7 +67,14 @@ export async function reviewChapter(
   const sources = await reviewSources(root, input.chapter)
   const observations = resolveObservationSources(input.observations, sources)
   const counts = countObservations(observations)
-  const record: ReviewRecord = { version: 1, chapter: input.chapter, summary: input.summary, observations, counts }
+  const record: ReviewRecord = {
+    version: 1,
+    chapter: input.chapter,
+    summary: input.summary,
+    observations,
+    counts,
+    ...(reviewedArtifact === undefined ? {} : { reviewedArtifact }),
+  }
   const path = chapterReviewPath(input.chapter)
   await commitFoundation(root, { writes: [{ relativePath: path, content: `${JSON.stringify(record, null, 2)}\n` }] })
   return { path, counts, observations }
