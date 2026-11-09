@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "294 passed — chapter-document 4 例＋ writer-contract 3 例（中文六段、缺省省略、英文版、selectedContext 注入）＋ host 工具清单"
+    "summary": "295 passed — chapter-document 4 例＋ writer-contract 3 例（中文六段、缺省省略、英文版、selectedContext 注入）＋ host 工具清单"
   },
   "receipts": [
     "writer 契约注入（`.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：write 阶段先做 writer pass，`chapter-0001.context.json` 的 selectedContext 被注入 `renderWriterContract` 的「已选上下文」段；随后派 writer 子代理写正文。",

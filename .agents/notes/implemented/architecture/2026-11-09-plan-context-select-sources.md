@@ -88,7 +88,7 @@ Status: implemented
 - `test/writer-contract.test.mjs`：writer pass 的 selectedContext 注入。
 - `test/plan-tool.test.mjs`：plannerInputs 从 planner-context 读取。
 - `test/host.test.mjs`／`stages`：plan 阶段 planner pass、write 阶段 writer pass。
-- `pnpm run verify` 294 例通过。
+- `pnpm run verify` 295 例通过。
 - 更新 `docs/fidelity-audit.md`：`plan.context-select` D11／D12 偿还、D24／D25；`plan.retrieval` D22 缩小；`plan.chapter` 的 plannerInputs；`chapter.write` 的 ContextPackage 注入；`docs/scope.md` 同步。
 - `capabilities.yaml` 的 realRun 重录；`artifacts/real-runs/plan.context-select.json` 与受影响的 `plan.chapter`／`chapter.write` 回执。
 

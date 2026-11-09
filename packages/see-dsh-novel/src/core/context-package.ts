@@ -77,7 +77,8 @@ export interface Selection {
   memory: string[]
   role: string[]
   state: string[]
-  outline: string[]
+  storyFrame: string[]
+  volumeMap: string[]
 }
 
 export interface SelectionGroup {
@@ -134,22 +135,6 @@ async function readJson(path: string): Promise<unknown | undefined> {
   }
 }
 
-async function markdownFiles(dir: string): Promise<string[]> {
-  let entries
-  try {
-    entries = await readdir(dir, { withFileTypes: true })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw error
-  }
-  const files: string[] = []
-  for (const entry of entries) {
-    if (entry.isDirectory()) files.push(...await markdownFiles(join(dir, entry.name)))
-    else if (entry.name.endsWith('.md')) files.push(join(dir, entry.name))
-  }
-  return files
-}
-
 interface OutlineSection { heading: string, raw: string }
 
 function splitOutlineSections(markdown: string): OutlineSection[] {
@@ -166,6 +151,7 @@ function splitOutlineSections(markdown: string): OutlineSection[] {
     if (match !== null) {
       flush()
       heading = match[2]?.trim() ?? heading
+      lines = [line]
       continue
     }
     if (heading !== undefined) lines.push(line)
@@ -320,7 +306,7 @@ async function memoryCandidates(root: string, query: string): Promise<Candidate[
     kind: 'memory',
     source: doc.source,
     title: doc.title,
-    excerpt: doc.body.slice(0, 1000),
+    excerpt: doc.body,
     score: hitScores.get(`memory:${doc.source}`) ?? -1_000_000,
   }))
   const hitOrder = new Map(hits.map((hit, index) => [`memory:${hit.source}`, index]))
@@ -337,14 +323,27 @@ async function memoryCandidates(root: string, query: string): Promise<Candidate[
 async function roleCandidates(root: string): Promise<Candidate[]> {
   const candidates: Candidate[] = []
   for (const tier of Object.values(ROLE_DIR_NAMES)) {
-    for (const file of await markdownFiles(join(root, 'source/story/roles', tier))) {
+    const dir = join(root, 'source/story/roles', tier)
+    let entries
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
+      throw error
+    }
+    const files = entries
+      .filter((entry) => entry.isFile() && entry.name.endsWith('.md'))
+      .map((entry) => entry.name)
+      .sort()
+    for (const name of files) {
+      const file = join(dir, name)
       const source = relative(root, file).replaceAll('\\', '/')
       candidates.push({
         id: `role:${source}`,
         kind: 'role',
         source,
-        title: file.split(/[\\/]/u).at(-1) ?? 'role',
-        excerpt: (await readText(file)).slice(0, 4000),
+        title: name,
+        excerpt: await readText(file),
         score: 0,
       })
     }
@@ -385,7 +384,7 @@ async function outlineCandidates(root: string, file: string): Promise<Candidate[
       kind: 'outline',
       source,
       title: section.heading,
-      excerpt: section.raw.slice(0, 4000),
+      excerpt: section.raw,
       score: 0,
     }
   })
@@ -468,10 +467,13 @@ export async function buildSelectionTasks(
 function selectedIdsFor(group: SelectionGroup, selection: Selection, mode: 'semantic' | 'complete'): string[] {
   if (mode === 'complete') return group.candidates.map((candidate) => candidate.id)
   if (group.kind !== 'memory' && group.candidates.length === 1) return [group.candidates[0]!.id]
+  if (group.kind === 'outline') {
+    return [...new Set(group.file === STORY_FRAME_FILE ? selection.storyFrame : selection.volumeMap)]
+  }
   return [...new Set(selection[group.kind])]
 }
 
-/** 组装 package 与 trace；selection 里的未知 id 丢弃并记 notes。 */
+/** 组装 package 与 trace；selection 里的未知 id 直接报错。 */
 export function assembleContext(input: {
   chapter: number
   query: string
@@ -489,22 +491,12 @@ export function assembleContext(input: {
   const selected: ContextSource[] = [...input.fixedEntries]
   const memorySelected: string[] = []
   const selectedIds = new Set<string>()
-  const knownByKind = new Map<SelectionKind, Set<string>>()
-  for (const group of input.groups) {
-    const known = knownByKind.get(group.kind) ?? new Set<string>()
-    for (const candidate of group.candidates) known.add(candidate.id)
-    knownByKind.set(group.kind, known)
-  }
   for (const group of input.groups) {
     const selectedForGroup = selectedIdsFor(group, input.selection, input.mode)
     const byId = new Map(group.candidates.map((candidate) => [candidate.id, candidate]))
     for (const id of selectedForGroup) {
-      if (!knownByKind.get(group.kind)?.has(id)) {
-        notes.push(`丢弃未知 id: ${id}`)
-        continue
-      }
       const candidate = byId.get(id)
-      if (candidate === undefined) continue
+      if (candidate === undefined) throw new Error(`未知的候选 id：${id}`)
       if (selectedIds.has(id)) continue
       selectedIds.add(id)
       if (group.kind === 'memory') memorySelected.push(id)
@@ -522,8 +514,9 @@ export function assembleContext(input: {
   const protectedTokens = protectedEntries.reduce((sum, entry) => sum + contextTokens(entry), 0)
   let compressibleTokens = compressible.reduce((sum, entry) => sum + contextTokens(entry), 0)
   const totalTokens = protectedTokens + compressibleTokens
-  const allowance = completeAllowance(input.contextWindowTokens, input.reservedOutputTokens)
-  const budgetTokens = allowance === undefined ? undefined : allowance * 2
+  const budgetTokens = input.contextWindowTokens === undefined || input.contextWindowTokens <= 0
+    ? undefined
+    : input.contextWindowTokens - Math.max(0, input.reservedOutputTokens ?? 0)
   let compressionTrace: ChapterTrace['compression']
   if (budgetTokens !== undefined && totalTokens > budgetTokens) {
     if (protectedTokens > budgetTokens) {
@@ -547,13 +540,15 @@ export function assembleContext(input: {
     compressibleTokens = estimateTokens(compiled)
     notes.push(`已压缩 ${compressedSources.length} 条可压缩来源`)
     selected.splice(0, selected.length, ...protectedOnly, {
-      source: 'compiled:context',
+      source: 'runtime/compiled-compressible-context',
       reason: '压缩后的可压缩层',
       excerpt: compiled,
       protection: 'compressible',
     })
   }
 
+  const finalProtected = selected.filter((entry) => entry.protection === 'protected')
+  const finalCompressible = selected.filter((entry) => entry.protection === 'compressible')
   const memoryCandidates = input.groups.filter((group) => group.kind === 'memory').flatMap((group) => group.candidates)
   return {
     package: { chapter: input.chapter, selectedContext: selected },
@@ -563,8 +558,8 @@ export function assembleContext(input: {
       composerInputs: [...(input.composerInputs ?? [])],
       selectedSources: selected.map((entry) => entry.source),
       contextTiers: {
-        protectedSources: protectedEntries.map((entry) => entry.source),
-        compressibleSources: compressible.map((entry) => entry.source),
+        protectedSources: finalProtected.map((entry) => entry.source),
+        compressibleSources: finalCompressible.map((entry) => entry.source),
       },
       tokenBudget: { protectedTokens, compressibleTokens, totalSelectedTokens: protectedTokens + compressibleTokens },
       retrieval: {

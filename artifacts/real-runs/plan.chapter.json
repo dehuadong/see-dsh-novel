@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "294 passed — planner-contract 3 例、plan-tool 1 例（plannerInputs 从 planner-context 读取、首次写入、二次 reused）、chapter-plan 4 例、stage plan 阶段"
+    "summary": "295 passed — planner-contract 3 例、plan-tool 1 例（plannerInputs 从 planner-context 读取、首次写入、二次 reused）、chapter-plan 4 例、stage plan 阶段"
   },
   "receipts": [
     "planner 契约注入（`.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`renderPlannerContract` 的首轮上下文包含方法句「把输入的 governed context 编译为一份章节 memo，不写正文」、`# 第1章 memo 请求`、当前用户指令、可用 hook id 与字数遥测。",

@@ -114,12 +114,19 @@ test('assembleContext protects fixed and selected non-memory entries', async () 
     const built = await buildSelectionGroups(root, 'writer')
     const candidates = built.groups.flatMap((group) => group.candidates)
     const byKind = (kind) => candidates.filter((candidate) => candidate.kind === kind).map((candidate) => candidate.id)
+    const byOutline = (file) => candidates.filter((candidate) => candidate.kind === 'outline' && candidate.source.includes(file)).map((candidate) => candidate.id)
     const assembled = assembleContext({
       chapter: built.chapter,
       query: built.query,
       fixedEntries: built.fixedEntries,
       groups: built.groups,
-      selection: { memory: [byKind('memory')[0]], role: byKind('role'), state: byKind('state'), outline: byKind('outline') },
+      selection: {
+        memory: [byKind('memory')[0]],
+        role: byKind('role'),
+        state: byKind('state'),
+        storyFrame: byOutline('story_frame.md'),
+        volumeMap: byOutline('volume_map.md'),
+      },
       mode: 'semantic',
       plannerInputs: ['runtime/chapter_memo'],
       composerInputs: ['source/story/runtime/chapter-0002.intent.md'],
@@ -138,6 +145,33 @@ test('assembleContext protects fixed and selected non-memory entries', async () 
   }
 })
 
+test('outline selections are validated per file', async () => {
+  const root = await workspace()
+  try {
+    const built = await buildSelectionGroups(root, 'writer')
+    const outline = built.groups.filter((group) => group.kind === 'outline').flatMap((group) => group.candidates)
+    const storyFrame = outline.find((candidate) => candidate.source.includes('story_frame.md'))
+    const volumeMap = outline.find((candidate) => candidate.source.includes('volume_map.md'))
+    assert.ok(storyFrame !== undefined && volumeMap !== undefined)
+    assert.throws(() => assembleContext({
+      chapter: built.chapter,
+      query: built.query,
+      fixedEntries: built.fixedEntries,
+      groups: built.groups,
+      selection: {
+        memory: [],
+        role: [],
+        state: [],
+        storyFrame: [volumeMap.id],
+        volumeMap: [storyFrame.id],
+      },
+      mode: 'semantic',
+    }), /未知的候选 id/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('complete mode selects all candidates and returns no tasks', async () => {
   const root = await workspace()
   try {
@@ -149,7 +183,7 @@ test('complete mode selects all candidates and returns no tasks', async () => {
       query: built.query,
       fixedEntries: built.fixedEntries,
       groups: built.groups,
-      selection: { memory: [], role: [], state: [], outline: [] },
+      selection: { memory: [], role: [], state: [], storyFrame: [], volumeMap: [] },
       mode: built.mode,
     })
     assert.equal(assembled.trace.retrieval.selectionMode, 'complete')

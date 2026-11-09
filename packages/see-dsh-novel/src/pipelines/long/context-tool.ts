@@ -43,11 +43,13 @@ const packageParameters: JsonSchema = {
         memory: { type: 'array', items: { type: 'string' } },
         role: { type: 'array', items: { type: 'string' } },
         state: { type: 'array', items: { type: 'string' } },
-        outline: { type: 'array', items: { type: 'string' } },
+        storyFrame: { type: 'array', items: { type: 'string' } },
+        volumeMap: { type: 'array', items: { type: 'string' } },
       },
-      required: ['memory', 'role', 'state', 'outline'],
+      required: ['memory', 'role', 'state', 'storyFrame', 'volumeMap'],
     },
     compressedText: { type: 'string', description: '超预算时由 composer 子代理给出的压缩文本；未超预算可省略' },
+    instruction: { type: 'string', description: 'planner pass 的本轮作者指令；必须与 story_context_candidates 相同' },
     contextWindowTokens: { type: 'integer', description: '模型上下文窗口 tokens；缺失则不压缩' },
     reservedOutputTokens: { type: 'integer', description: '为输出预留的 tokens；默认 0' },
   },
@@ -64,7 +66,7 @@ export interface CandidatesResult {
 export function installContextTools(ctx: PluginContext): Disposer {
   const candidates = ctx.tools.register({
     name: CANDIDATES_NAME,
-    description: 'Build the planner or writer context-selection tasks. Pass each task to a subagent, then call story_context_package with the four id sets.',
+    description: 'Build the planner or writer context-selection tasks. Pass each task to a subagent, then call story_context_package with the five id sets.',
     parameters: candidatesParameters,
     output: {
       schema: {
@@ -124,6 +126,7 @@ export function installContextTools(ctx: PluginContext): Disposer {
     async execute(args: {
       purpose: ContextPurpose
       selection: Selection
+      instruction?: string
       compressedText?: string
       contextWindowTokens?: number
       reservedOutputTokens?: number
@@ -131,6 +134,7 @@ export function installContextTools(ctx: PluginContext): Disposer {
       if (!exec?.agent) throw new Error('story_context_package 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
       const built = await buildSelectionTasks(root, args.purpose, {
+        ...(args.instruction === undefined ? {} : { instruction: args.instruction }),
         ...(args.contextWindowTokens === undefined ? {} : { contextWindowTokens: args.contextWindowTokens }),
         ...(args.reservedOutputTokens === undefined ? {} : { reservedOutputTokens: args.reservedOutputTokens }),
       })

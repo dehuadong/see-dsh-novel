@@ -58,7 +58,7 @@ Status: implemented
 - `test/search-index.test.mjs`：NFKC/lower、Segmenter 词、汉字 bigram、复合词、引号 OR、短拉丁过滤、metadata、BM25 标题 5/正文 1 的排序、增量与删除；
 - `test/story-index.test.mjs`：三类型、hook 状态过滤、summary 六字段、volume summaries、metadata/source、`story/memory.db` 与 `story-memory` scope；素材过渡候选保留并标注 D22；
 - `test/context-package.test.mjs`：三类记忆 → memory 映射，未命中的记忆/过渡候选仍进入候选集；
-- `pnpm run verify` 294 例通过；真实运行 `session-6474765f-8537-4577-b53c-94b5a2eab9fd`（工作区 `.artifacts/work-retrieval`）返回 hook／chapter-summary／volume-summary 命中、resolved hook 过滤与过渡 role/material 候选，回执见 `artifacts/real-runs/plan.retrieval.json`；`plan.context-select` 删除 role／outline 后，素材仍保留。
+- `pnpm run verify` 295 例通过；真实运行 `session-6474765f-8537-4577-b53c-94b5a2eab9fd`（工作区 `.artifacts/work-retrieval`）返回 hook／chapter-summary／volume-summary 命中、resolved hook 过滤与过渡 role/material 候选，回执见 `artifacts/real-runs/plan.retrieval.json`；`plan.context-select` 删除 role／outline 后，素材仍保留。
 
 ## Alternatives considered
 

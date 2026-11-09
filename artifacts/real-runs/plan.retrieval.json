@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "294 passed — search-index 5 例（tokenizer/引号 OR/NFKC/metadata/BM25 标题权重/增量删除）、story-index 2 例（故事记忆三类型、material 过渡、resolved hook 过滤）、context-package 6 例、host 工具清单含 story_search"
+    "summary": "295 passed — search-index 5 例（tokenizer/引号 OR/NFKC/metadata/BM25 标题权重/增量删除）、story-index 2 例（故事记忆三类型、material 过渡、resolved hook 过滤）、context-package 7 例、host 工具清单含 story_search"
   },
   "receipts": [
     "真实运行（工作区 `.artifacts/work-retrieval`，session `session-6474765f-8537-4577-b53c-94b5a2eab9fd`）：`story_search` 查「悬案」只返回 `hook · source/story/pending_hooks.md#H1 · H1 悬案`；outline 已从故事索引删除。",

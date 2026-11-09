@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "294 passed — context-package 6 例（planner/writer 两 pass、previous chapter、五类任务、0/1 自动、complete/semantic、protected 分层、trace、planner/writer 包落盘）＋ story-index 2 例（role/outline 删除、material 保留）＋ writer-contract 3 例（selectedContext 注入）＋ plan-tool 1 例（plannerInputs 从 planner-context）"
+    "summary": "295 passed — context-package 7 例（planner/writer 两 pass、previous chapter、五类任务、0/1 自动、complete/semantic、protected 分层、trace、planner/writer 包落盘、按文件校验）＋ story-index 2 例（role/outline 删除、material 保留）＋ writer-contract 3 例（selectedContext 注入）＋ plan-tool 1 例（plannerInputs 从 planner-context）"
   },
   "receipts": [
     "真实运行（工作区 `.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`story_context_candidates(purpose=planner, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=planner)` 回执「第 1 章上下文：43 条」，写入 `source/story/runtime/chapter-0001.planner-context.json`。",
