@@ -205,11 +205,13 @@
 
 ### plan.retrieval
 
-**源工程证据**：`retrieval/local-search.ts` 的 `retrieval_documents`（scope、kind、source、title/body 与各自 tokens、metadata、content_hash）、FTS5 索引、BM25 排序、`buildMatchQuery` 的分词规则。
+**源工程证据**：`retrieval/local-search.ts` 的 tokenizer（NFKC/lower、`Intl.Segmenter`、汉字 bigram、连字符复合词）、`retrieval_documents`＋external-content FTS5、`bm25(…, 5.0, 1.0)` 与 `score = -rank`、metadata 与含 metadata 的 content_hash；`utils/memory-retrieval.ts` 的 `story-memory` 三类型（hook／chapter-summary／volume-summary）、hook 状态过滤、source anchor 与 metadata。素材/技能引用是各自 scope（`materials/retrieve.ts`、`agent/skill-tool.ts`）。
 
-**复刻现状**：`core/search-index.ts` 用 `retrieval_documents` + `retrieval_fts`，按 scope/kind 过滤、BM25 排序、内容哈希增量；CJK 用逐字加空格 + 短语匹配（源是 unicode61 分词）；文档类型只有 hook／summary／role／material／outline。
+**可验证不变量**：tokenizer 与 match query 按源（引号 OR，无前缀通配）；external-content FTS5 的 schema/触发器；BM25 权重 5／1 与 `-rank`；故事记忆三类型、hook 过滤、summary 六字段、volume 分节。
 
-**判定：保真债** — D10：分词与文档类型与源不同（CJK 逐字 vs unicode61；缺 skill 参考资料等 scope）。偿还：`plan.retrieval` 行对齐分词与来源类型。
+**复刻现状**：`core/search-index.ts` 与 `core/story-index.ts` 已按源重写；scope `story-memory`、库 `source/story/memory.db`；角色/大纲/素材仍以 FTS 过渡候选供给 `collectCandidates`；技能引用没有 query 入口。
+
+**判定：保真债** — D10 已偿还；D22：角色/大纲/素材的 FTS 过渡候选（偿还：`plan.context-select`／`search.unified`／`materials.import`）；D23 归 `skill.references`：缺 `use_skill.query` 的技能参考检索（偿还：新行/工具）。
 
 ### plan.context-select
 

@@ -1,15 +1,17 @@
 {
   "capability": "plan.retrieval",
-  "date": "2026-11-06",
-  "sessionId": "session-60b16c7b-5401-4b96-b6f4-6bf767c30116",
+  "date": "2026-11-09",
+  "sessionId": "session-6474765f-8537-4577-b53c-94b5a2eab9fd",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "243 passed — search-index 2 例（匹配、BM25 排序、kind/limit 过滤、空查询、增量更新与删除、CJK 短语查询构造）＋ story-index 3 例（Markdown 分节、五类文档索引、删角色后重建不再命中）＋ host 工具清单含 story_search"
+    "summary": "295 passed — search-index 5 例（tokenizer/引号 OR/NFKC/metadata/BM25 标题权重/增量删除）、story-index 3 例（故事记忆三类型、hook 状态过滤、六字段 summary、volume summaries、过渡候选）、context-package 6 例（三类记忆到 memory 的映射、未命中候选补入）、host 工具清单含 story_search"
   },
   "receipts": [
-    "真实运行（`work-empty-2`，session `session-60b16c7b-5401-4b96-b6f4-6bf767c30116`）：`story_search` 查「悬案」返回「没有命中。」（该工作区的伏笔与大纲里没有这个词）",
-    "同一会话查「岑野」返回 10 条命中：`outline · source/story/outline/story_frame.md · 核心冲突与动机链`、`role · source/story/roles/主要角色/岑野.md · 岑野.md`，以及林小满／商黎／秦望／沈砚四张角色卡与卷图分节；每条都带来源路径、kind 与标题",
-    "命中来源与摘要：角色卡来自 `source/story/roles/主要角色/*.md`，大纲来自 `source/story/outline/*.md`（按 `##` 分节），伏笔来自 `source/story/state/hooks.json`；同一份文档在索引里按内容哈希增量更新"
+    "真实运行（工作区 `.artifacts/work-retrieval`，session `session-6474765f-8537-4577-b53c-94b5a2eab9fd`）：`story_search` 查「悬案」返回 2 条：`hook · source/story/pending_hooks.md#H1 · H1 悬案`、`outline · source/story/outline/story_frame.md · 前提`；H2 是 resolved，没有出现。",
+    "同一会话查「卷摘要」返回 `volume-summary · source/story/volume_summaries.md#第一卷 · 第一卷` 与 `hook · source/story/pending_hooks.md#H1 · H1 悬案`；故事记忆的卷摘要已可检索。",
+    "查「修表匠」返回 `role · source/story/roles/主要角色/甲.md · 甲.md` 与 `material · source/story/materials/素材.md · 素材.md`，这是 D22 过渡候选。",
+    "查「已解」返回「没有命中。」，确认 resolved hook 被过滤。",
+    "四次均为只读检索；索引库在 `source/story/memory.db`，scope 为 `story-memory`，source 为 `source/story/...` 的工作区路径。"
   ]
 }

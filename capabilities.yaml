@@ -225,11 +225,11 @@ capabilities:
     realRun: artifacts/real-runs/proposal.execution-brief.json
     status: verified
   - id: plan.retrieval
-    title: 章前检索：FTS5/BM25、伏笔/摘要/角色/素材与来源标注
-    source: inkos:packages/core/src/retrieval/local-search.ts
+    title: 章前检索：FTS5/BM25、故事记忆与来源标注
+    source: inkos:packages/core/src/retrieval/local-search.ts + inkos:packages/core/src/utils/memory-retrieval.ts
     dsh: library
-    implementation: packages/see-dsh-novel/src/core/search-index.ts
-    consumer: packages/see-dsh-novel/test/search-index.test.mjs
+    implementation: packages/see-dsh-novel/src/core/story-index.ts
+    consumer: packages/see-dsh-novel/test/story-index.test.mjs
     realRun: artifacts/real-runs/plan.retrieval.json
     status: verified
   - id: plan.context-select

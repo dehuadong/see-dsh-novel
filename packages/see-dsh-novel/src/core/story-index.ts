@@ -1,10 +1,14 @@
 /**
- * 故事索引：把伏笔、章节摘要、角色卡、素材与大纲装进检索库。
+ * 故事索引：故事记忆三类型（hook／chapter-summary／volume-summary），外加
+ * 过渡期的角色/大纲/素材候选（D22）。
  */
 import { readFile, readdir } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 
-import { readWork } from './work.js'
+import { validateHooks } from './hooks.js'
+import type { HooksState } from './hooks.js'
+import { validateChapterSummaries } from './state.js'
+import type { ChapterSummariesState } from './state-projections.js'
 import { LocalSearchIndex } from './search-index.js'
 import type { SearchDocument } from './search-index.js'
 import {
@@ -13,12 +17,15 @@ import {
   STORY_PENDING_HOOKS,
   STORY_ROOT,
   STORY_VOLUME_MAP_FILE,
+  STORY_VOLUME_SUMMARIES_MD,
 } from './story-paths.js'
 
-export const INDEX_PATH = 'source/.index/retrieval.db'
+/** 故事记忆的索引文件；可重建投影。 */
+export const INDEX_PATH = 'source/story/memory.db'
+/** 故事记忆的 scope。 */
+export const STORY_SCOPE = 'story-memory'
 
-interface HookRecord { hookId: string, type: string, expectedPayoff?: string, notes?: string }
-interface SummaryRow { chapter: number, title?: string, events?: string }
+interface VolumeSummary { heading: string, content: string, anchor: string }
 
 /** 递归列出某目录下的 .md；目录不存在按空处理。 */
 async function markdownFiles(dir: string): Promise<string[]> {
@@ -70,41 +77,92 @@ export function splitMarkdownSections(markdown: string): Array<{ heading: string
   return sections
 }
 
-/** 重建整个故事的检索索引，返回文档数。 */
-export async function rebuildStoryIndex(root: string): Promise<{ documents: number, scope: string }> {
-  const work = await readWork(root)
-  const scope = work?.id ?? 'work'
+function slugifyAnchor(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\u4e00-\u9fff]+/gu, '-')
+    .replace(/^-+|-+$/gu, '')
+    || 'volume-summary'
+}
+
+/** 按二级标题分节解析卷摘要；标题与正文都为空的分节丢弃。 */
+function parseVolumeSummaries(markdown: string): VolumeSummary[] {
+  if (!markdown.trim()) return []
+  return markdown
+    .split(/^##\s+/m)
+    .map((section) => section.trim())
+    .filter((section) => section !== '')
+    .map((section) => {
+      const [headingLine, ...bodyLines] = section.split('\n')
+      const heading = headingLine?.trim() ?? ''
+      const content = bodyLines.join('\n').trim()
+      return { heading, content, anchor: slugifyAnchor(heading) }
+    })
+    .filter((section) => section.heading !== '' && section.content !== '')
+}
+
+/**
+ * 构造故事检索文档，不写索引。
+ * @param root 作品根
+ * @returns 故事记忆三类型与过渡候选
+ */
+export async function storyDocuments(root: string): Promise<Array<Omit<SearchDocument, 'scope'>>> {
   const docs: Array<Omit<SearchDocument, 'scope'>> = []
 
-  // 状态 JSON 是结构化来源；pending_hooks.md / chapter_summaries.md 只是投影，不参与索引。
   const hooksRaw = await readOptional(join(root, 'source/story/state/hooks.json'))
   if (hooksRaw !== undefined) {
-    const hooks = (JSON.parse(hooksRaw) as { hooks?: HookRecord[] }).hooks ?? []
-    for (const hook of hooks) {
+    const state = validateHooks(JSON.parse(hooksRaw) as HooksState)
+    for (const hook of state.hooks) {
+      if (hook.status === 'resolved' || hook.status === 'superseded') continue
       docs.push({
         id: `hook:${hook.hookId}`,
         kind: 'hook',
-        source: 'source/story/state/hooks.json',
-        title: `${hook.hookId} ${hook.type}`,
-        body: [hook.expectedPayoff ?? '', hook.notes ?? ''].join('\n').trim(),
+        source: `${STORY_PENDING_HOOKS}#${hook.hookId}`,
+        title: [hook.hookId, hook.type].filter(Boolean).join(' '),
+        body: [hook.status, hook.expectedPayoff, hook.notes].filter(Boolean).join('\n'),
+        metadata: { hookId: hook.hookId },
       })
     }
   }
 
   const summariesRaw = await readOptional(join(root, 'source/story/state/chapter_summaries.json'))
   if (summariesRaw !== undefined) {
-    const rows = (JSON.parse(summariesRaw) as { rows?: SummaryRow[] }).rows ?? []
-    for (const row of rows) {
+    const state: ChapterSummariesState = validateChapterSummaries(JSON.parse(summariesRaw))
+    for (const row of state.rows) {
       docs.push({
         id: `summary:${row.chapter}`,
-        kind: 'summary',
-        source: 'source/story/state/chapter_summaries.json',
-        title: `第 ${row.chapter} 章 ${row.title ?? ''}`.trim(),
-        body: row.events ?? '',
+        kind: 'chapter-summary',
+        source: `${STORY_CHAPTER_SUMMARIES_MD}#${row.chapter}`,
+        title: row.title.trim() || `Chapter ${row.chapter}`,
+        body: [
+          row.characters,
+          row.events,
+          row.stateChanges,
+          row.hookActivity,
+          row.mood,
+          row.chapterType,
+        ].filter(Boolean).join('\n'),
+        metadata: { chapter: row.chapter },
       })
     }
   }
 
+  const volumeRaw = await readOptional(join(root, STORY_VOLUME_SUMMARIES_MD))
+  if (volumeRaw !== undefined) {
+    for (const [index, summary] of parseVolumeSummaries(volumeRaw).entries()) {
+      docs.push({
+        id: `volume-summary:${index}`,
+        kind: 'volume-summary',
+        source: `${STORY_VOLUME_SUMMARIES_MD}#${summary.anchor}`,
+        title: summary.heading,
+        body: summary.content,
+        metadata: { index },
+      })
+    }
+  }
+
+  // D22：以下三类是角色/大纲/素材行的过渡候选，等 context-select／P6 接管后删除。
   for (const file of await markdownFiles(join(root, STORY_ROOT, 'roles'))) {
     docs.push({
       id: `role:${relative(root, file).replaceAll('\\', '/')}`,
@@ -140,13 +198,19 @@ export async function rebuildStoryIndex(root: string): Promise<{ documents: numb
     })
   }
 
+  return docs
+}
+
+/** 重建整个故事的检索索引，返回文档数。 */
+export async function rebuildStoryIndex(root: string): Promise<{ documents: number, scope: string }> {
+  const docs = await storyDocuments(root)
   const index = new LocalSearchIndex(join(root, INDEX_PATH))
   try {
-    index.replaceScope(scope, docs)
+    index.replaceScope(STORY_SCOPE, docs)
   } finally {
     index.close()
   }
-  return { documents: docs.length, scope }
+  return { documents: docs.length, scope: STORY_SCOPE }
 }
 
 /** 重建并检索；返回命中。 */
@@ -155,10 +219,10 @@ export async function searchStory(
   query: string,
   options: { kinds?: ReadonlyArray<string>, limit?: number } = {},
 ) {
-  const { scope } = await rebuildStoryIndex(root)
+  await rebuildStoryIndex(root)
   const index = new LocalSearchIndex(join(root, INDEX_PATH))
   try {
-    return index.search(query, { scope, ...options })
+    return index.search(query, { scope: STORY_SCOPE, ...options })
   } finally {
     index.close()
   }

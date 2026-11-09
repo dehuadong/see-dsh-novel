@@ -41,6 +41,9 @@ export const STORY_CURRENT_STATE_MD = `${STORY_ROOT}/current_state.md`
 export const STORY_PENDING_HOOKS = `${STORY_ROOT}/pending_hooks.md`
 export const STORY_CHAPTER_SUMMARIES_MD = `${STORY_ROOT}/chapter_summaries.md`
 
+/** 卷摘要；故事记忆的第三个来源。 */
+export const STORY_VOLUME_SUMMARIES_MD = `${STORY_ROOT}/volume_summaries.md`
+
 /** 角色级别 → 磁盘目录名。 */
 export const ROLE_DIR_NAMES = { major: '主要角色', minor: '次要角色' } as const
 

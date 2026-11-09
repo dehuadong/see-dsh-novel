@@ -7,7 +7,7 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { searchStory } from './story-index.js'
+import { searchStory, storyDocuments } from './story-index.js'
 import {
   AUTHOR_INTENT_FILE,
   CURRENT_FOCUS_FILE,
@@ -81,7 +81,7 @@ export function estimateTokens(text: string): number {
 export function buildComposerInstruction(chapter: number): string {
   return [
     `你是第 ${chapter} 章的上下文选择器。读候选列表，按四类各选真正需要的条目：`,
-    '- memory：伏笔与章节摘要里，本章必须承接的承诺与事实；',
+    '- memory：伏笔、章节摘要与卷摘要里，本章必须承接的承诺与事实；',
     '- role：本章会出场或必须遵守其设定的角色卡；',
     '- state：与本章冲突相关的当前事实；',
     '- outline：本章所属分卷与相邻章节的章纲。',
@@ -223,15 +223,27 @@ export async function nextChapter(root: string): Promise<number> {
   }
 }
 
-/** 检索候选：四类统一 query，按 kind 映射到选择器。 */
-export async function collectCandidates(root: string, query: string, limit = 24): Promise<Candidate[]> {
-  const hits = await searchStory(root, query, { limit })
-  return hits.map((hit) => ({
-    id: `${hit.kind}:${hit.source}#${hit.title}`,
-    kind: hit.kind === 'hook' || hit.kind === 'summary' ? 'memory' : hit.kind,
-    source: hit.source,
-    title: hit.title,
-    excerpt: hit.body.slice(0, 1000),
-    score: hit.score,
-  }))
+/** 检索候选：先取 BM25 命中，再把未命中的记忆与过渡候选按低位分补进来。 */
+export async function collectCandidates(root: string, query: string, limit = 200): Promise<Candidate[]> {
+  const [hits, docs] = await Promise.all([
+    searchStory(root, query, { limit }),
+    storyDocuments(root),
+  ])
+  const toCandidate = (doc: { kind: string, source: string, title: string, body: string }, score: number): Candidate => ({
+    id: `${doc.kind}:${doc.source}#${doc.title}`,
+    kind: doc.kind === 'hook' || doc.kind === 'chapter-summary' || doc.kind === 'volume-summary' ? 'memory' : doc.kind,
+    source: doc.source,
+    title: doc.title,
+    excerpt: doc.body.slice(0, 1000),
+    score,
+  })
+  const candidates = hits.map((hit) => toCandidate(hit, hit.score))
+  const seen = new Set(candidates.map((candidate) => candidate.id))
+  for (const doc of docs) {
+    const candidate = toCandidate(doc, -1_000_000)
+    if (seen.has(candidate.id)) continue
+    seen.add(candidate.id)
+    candidates.push(candidate)
+  }
+  return candidates
 }

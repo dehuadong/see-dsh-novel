@@ -156,10 +156,28 @@ function isHooksState(value: unknown): value is HooksState {
 
 const SUMMARY_FIELDS = ['title', 'characters', 'events', 'stateChanges', 'hookActivity', 'mood', 'chapterType'] as const
 
+/**
+ * 校验整份章节摘要状态；任何一条字段不合法就抛错。
+ * @param value 待校验的值
+ * @returns 校验通过的章节摘要状态
+ */
+export function validateChapterSummaries(value: unknown): ChapterSummariesState {
+  if (!isRecord(value) || !Array.isArray(value.rows)) throw new Error('chapter_summaries 必须是带 rows 数组的对象')
+  for (const [index, row] of value.rows.entries()) {
+    if (!isRecord(row) || typeof row.chapter !== 'number' || SUMMARY_FIELDS.some((field) => typeof row[field] !== 'string')) {
+      throw new Error(`第 ${index + 1} 条章节摘要字段不合法`)
+    }
+  }
+  return value as unknown as ChapterSummariesState
+}
+
 function isChapterSummaries(value: unknown): value is ChapterSummariesState {
-  return isRecord(value) && Array.isArray(value.rows) && value.rows.every((row) => isRecord(row)
-    && typeof row.chapter === 'number'
-    && SUMMARY_FIELDS.every((field) => typeof row[field] === 'string'))
+  try {
+    validateChapterSummaries(value)
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** 读一份 JSON 的三种结局：成功、缺失、内容坏了。 */
