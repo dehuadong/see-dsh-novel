@@ -24,7 +24,7 @@ export const NEXT_STEPS = {
   unbound: 'story_work_create',
   foundation: 'story_foundation_outline',
   draft: 'story_foundation_details',
-  ready: 'story_gate',
+  ready: 'panel.confirm',
 } as const
 
 /** 工具名，注册与测试共用同一个常量，避免两处字面量漂移。 */

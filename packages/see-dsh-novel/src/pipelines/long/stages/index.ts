@@ -11,6 +11,7 @@ import { renderWriterContract } from './writer.js'
 import { renderReviewContract } from './review.js'
 import { renderPlannerContract } from './planner.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
+import { workflowStartedSync } from '../../../core/workflow-start.js'
 import {
   STORY_FRAME_FILE,
   STORY_PENDING_HOOKS,
@@ -24,7 +25,7 @@ export const STAGE_CONTEXT_ORDER = 90
 export const CRAFT_CONTEXT_NAME = 'story:craft'
 export const CRAFT_CONTEXT_ORDER = 95
 
-export type Stage = 'proposal' | 'foundation' | 'plan' | 'write' | 'review'
+export type Stage = 'proposal' | 'foundation' | 'foundation-ready' | 'plan' | 'write' | 'review' | 'chapter-done'
 
 /** 基础设定六件套；齐了才算进入规划。 */
 const FOUNDATION_FILES = [
@@ -60,20 +61,22 @@ export function detectStage(root: string): StageFacts {
     return { stage: 'foundation', title, currentChapter }
   }
   const nextChapter = currentChapter + 1
+  const review = chapterReviewPath(nextChapter)
+  if (existsSync(join(root, review))) return { stage: 'chapter-done', title, currentChapter }
+  if (!workflowStartedSync(root, nextChapter)) return { stage: 'foundation-ready', title, currentChapter }
   const nextPlan = chapterPlanPath(nextChapter)
   if (!existsSync(join(root, nextPlan))) return { stage: 'plan', title, currentChapter }
   const prefix = `${String(nextChapter).padStart(4, '0')}_`
   const chaptersDir = join(root, 'source/chapters')
   const hasChapter = existsSync(chaptersDir) && readdirSync(chaptersDir).some((file) => file.startsWith(prefix) && file.endsWith('.md'))
   if (!hasChapter) return { stage: 'write', title, currentChapter }
-  void chapterReviewPath(nextChapter)
   return { stage: 'review', title, currentChapter }
 }
 
 /** 阶段协议：只写做什么、按什么顺序调什么、产出什么。 */
 export function renderStageProtocol(facts: StageFacts): string {
   const next = facts.currentChapter + 1
-  const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', plan: '章前规划', write: '正文写作', review: '章后审阅' }[facts.stage]}`
+  const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', 'foundation-ready': '等待开工', plan: '章前规划', write: '正文写作', review: '章后审阅', 'chapter-done': '本章完成' }[facts.stage]}`
   const common = '本阶段的创作方法已随上下文提供；不需要再调用技能工具加载。'
   switch (facts.stage) {
     case 'proposal':
@@ -88,12 +91,21 @@ export function renderStageProtocol(facts: StageFacts): string {
     case 'foundation':
       return [
         header,
-        '目标：按四段把基础设定写全，再请作者签核。',
+        '目标：按四段把基础设定写全；写全后停在这里，等作者发起 workflow start。',
         '1. `story_foundation_outline`：提交 storyFrame 与 volumeMap。',
         '2. `story_foundation_details`：入参带上第 1 步的 storyFrame／volumeMap，提交 bookRules、bookRulesData 与 pendingHooks。',
         '3. `story_foundation_cast_index`：入参带上 storyFrame／volumeMap／bookRules，只提交姓名与主次级别。',
         '4. `story_foundation_cast_documents`：为第 3 步的每个人提交一张卡（当下动机、已知信息、关系压力、能力边界，中文约 150–250 字／英文 80–120 词）。',
-        '5. `story_gate` 查看签核状态；作者确认后进入规划。',
+        '基础设定写全后只是 `foundation-ready`；不要自动规划或写正文。',
+        common,
+      ].join('\n')
+    case 'foundation-ready':
+      return [
+        header,
+        '目标：基础设定已齐，等待作者发起一章的 workflow start；现在不规划、不写正文。',
+        '1. 如果作者只是问候/讨论，正常回答，不改作品。',
+        '2. 只有作者明确要求开始写下一章（panel.confirm 或命令）后，才进入 plan/write；workflow start 由作者确认写入。',
+        '3. 不要自行调用 `story_plan_chapter`／`story_write_chapter`；没有 start 时它们会拒绝。',
         common,
       ].join('\n')
     case 'plan':
@@ -105,6 +117,7 @@ export function renderStageProtocol(facts: StageFacts): string {
         '3. 调 `story_context_package`（purpose=planner，instruction 与上一步相同，selection=上一步的 id 集合）。若返回 compressionTask：对每个 chunk 派 subagent 压缩，合并后超预算重压一次；把最终文本作为 compressedText 重调 package。',
         `4. 按 package 写 memo（goal / body / threadRefs），再调 \`story_plan_chapter\` 落盘第 ${next} 章；plannerInputs 由宿主从 planner 包读取。`,
         '只规划下一章；该章已有章纲时不覆盖。',
+        '规划落盘后即停，不自动写正文；正文仍属于同一个 workflow start，由当前阶段继续。',
         common,
       ].join('\n')
     case 'review':
@@ -116,6 +129,7 @@ export function renderStageProtocol(facts: StageFacts): string {
         '3. 引文只能引用注入的编号来源（sourceId 加行号或逐字 quote）；没有证据的条目不提交。',
         `4. 调 \`story_review_chapter\` 落盘第 ${next} 章的审稿记录。`,
         '同一章只审一次；重审留给修订能力。',
+        '审稿落盘后即停；不自动修订、结算或开下一章。',
         common,
       ].join('\n')
     case 'write':
@@ -128,6 +142,16 @@ export function renderStageProtocol(facts: StageFacts): string {
         `4. 读 \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`、plan 与 context 作为章纲与上下文，派 writer 写正文。`,
         '5. 调 `story_write_chapter`（chapter、title、content）落盘；字数偏差只报告，不据此拒稿。',
         '不覆盖已存在的章节首版；修订走后续能力。',
+        '正文落盘后即停，不自动审稿或进入下一章。',
+        common,
+      ].join('\n')
+    case 'chapter-done':
+      return [
+        header,
+        `目标：第 ${next - 1} 章审稿已落盘，本章 workflow 结束；停下。`,
+        '1. 如果作者只是问候/讨论，正常回答，不改作品。',
+        '2. 不要自动修订、结算、定稿或开下一章；这些是后续能力/作者动作。',
+        '3. 下一章若要开始，需要作者对下一章重新发起 workflow start。',
         common,
       ].join('\n')
   }

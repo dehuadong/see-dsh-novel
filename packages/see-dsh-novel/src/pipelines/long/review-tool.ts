@@ -4,6 +4,7 @@
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { reviewChapter } from '../../core/chapter-review.js'
 import { withWorkAction } from '../../core/work-mutation.js'
+import { workflowStarted } from '../../core/workflow-start.js'
 import type { ObservationCounts, ObservationInput } from '../../core/observation.js'
 
 export const REVIEW_NAME = 'story_review_chapter'
@@ -81,6 +82,7 @@ export function installReviewTool(ctx: PluginContext): Disposer {
       if (!exec?.agent) throw new Error('story_review_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
       return withWorkAction(root, async () => {
+        if (!await workflowStarted(root, args.chapter)) throw new Error('这一章还没有作者确认的 workflow start；先由作者开始本章')
         const result = await reviewChapter(root, { chapter: args.chapter, summary: args.summary, observations: args.observations })
         return { chapter: args.chapter, path: result.path, counts: result.counts }
       })

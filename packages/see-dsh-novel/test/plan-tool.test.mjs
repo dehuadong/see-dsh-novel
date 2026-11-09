@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { installPlanTool, PLAN_NAME } from '../src/pipelines/long/plan-tool.ts'
 import { chapterPlanPath } from '../src/core/chapter-plan.ts'
+import { writeWorkflowStart } from '../src/core/workflow-start.ts'
 
 const foundation = [
   'source/story/outline/story_frame.md',
@@ -29,6 +30,7 @@ async function workspace() {
     chapter: 1,
     selectedContext: [{ source: 'source/story/outline/story_frame.md', reason: 'planner', protection: 'protected' }],
   }))
+  await writeWorkflowStart(root, { chapter: 1, instruction: '写第一章' })
   return root
 }
 

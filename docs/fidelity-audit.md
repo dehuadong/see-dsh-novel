@@ -213,7 +213,7 @@
 
 **复刻现状**：`stages/index.ts` 注册 `story:stage`／`story:craft`，按工作区阶段注入。
 
-**判定：保真债 D28** — 阶段注入机制等价（DSH `systemPrompt.context()`）；但当前阶段协议把“当前阶段”当每轮强制推进，源工程是 workflow start 确认。偿还 P1：阶段协议只描述，完成一段停下；作者发起 `write_next` 才进入下一阶段；不在每个 write 工具上加 approval。
+**判定：等价** — 阶段注入机制等价；workflow start 记录、foundation-ready/chapter-done 停点、plan/write/review 工具准入已接通。`panel.confirm` 仍是 D29（写 start 的入口），不在本行。
 
 ## 批次 C：P2 章前规划
 
@@ -301,7 +301,7 @@
 
 **复刻现状**：`client/index.ts` 注册 slot 与 React 构建；当前只有 foundation 状态卡，尚无阶段时间线/产物浏览；`panel.confirm`/`panel.workbench` 仍是 missing。
 
-**判定：保真债 D28** — UI 基线与数据面存在，但工作台/确认面未交付；偿还 P1 `panel.confirm`、P6 `panel.workbench`。
+**判定：保真债 D29** — UI 基线与数据面存在，但工作台/确认面未交付；偿还 P1 `panel.confirm`、P6 `panel.workbench`。
 
 ### runtime.package-check
 
@@ -349,7 +349,7 @@
 
 **复刻现状**：`StoryView` 的认可/退回调用 `/story-approve`／`/story-reject`，`panel.gate-resume` 把「继续」投回会话；当前只覆盖 foundation decision，不覆盖 workflow start。
 
-**判定：保真债 D28** — 确认-继续通道存在，但 action/workflow start 面未接。
+**判定：保真债 D29** — 确认-继续通道存在，但 action/workflow start 面未接。
 
 ### panel.foundation-start
 
@@ -357,7 +357,7 @@
 
 **复刻现状**：`StoryView` 的「开始基础设定」投一条开工指令；`panel.foundation-start` 有回执与失败提示。
 
-**判定：机制等价** — DSH 会话消息替代 Studio 按钮；确认/停点仍受 D28 约束。
+**判定：机制等价** — DSH 会话消息替代 Studio 按钮；确认/停点仍受 D29 约束。
 
 ### foundation.hooks
 
@@ -373,7 +373,7 @@
 
 **复刻现状**：`gate.ts` 提供 foundation 签核工具与面板认可/退回；`story_foundation_signoff` 读 approval；但 `write_next` 的 workflow start 没有独立确认面，`story:stage` 在 foundation 完成后自动进入 plan/write。
 
-**判定：保真债 D28** — foundation 签核是 DSH 侧附加面；真正缺的是 workflow start 确认与阶段停点。偿还 P1 `panel.confirm` + `runtime.stage-context`；不得把 plan/write 改成逐工具 approval。
+**判定：保真债 D29** — foundation 签核是 DSH 侧附加面；真正缺的是 workflow start 确认面。偿还 P1 `panel.confirm`；`runtime.stage-context` 已完成停点/准入，不得把 plan/write 改成逐工具 approval。
 
 ### cast.single-authority
 
@@ -397,7 +397,7 @@
 
 **复刻现状**：无独立确认面；`StoryView` 只有 foundation 认可/退回，`story:stage` 会自动推进。
 
-**判定：保真债 D28** — 新行，P1；Faces: workflow start 确认、拒绝/取消、与 approval/命令同一 decision；只有确认面，不承载只读工作台（P6 `panel.workbench`）。
+**判定：保真债 D29** — 新行，P1；Faces: workflow start 确认、拒绝/取消、与 approval/命令同一 decision；只有确认面，不承载只读工作台（P6 `panel.workbench`）。
 
 ### skill.references
 

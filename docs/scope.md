@@ -128,7 +128,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D28 | `runtime.stage-context`／`panel.confirm` | 没有 workflow start 确认与阶段停点；foundation 完成后会自动进入 plan/write | P1 |
+| D29 | `panel.confirm`（新行） | workflow start 的作者确认面未实现；阶段上下文已停在 foundation-ready，缺写 start 的入口 | P1 |
 
 ## 边界
 

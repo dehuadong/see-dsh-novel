@@ -162,7 +162,7 @@ test('story_next execute reads the workspace instead of guessing', async () => {
     await mkdir(join(root, 'source/story/roles/主要角色'), { recursive: true })
     await writeFile(join(root, 'source/story/roles/主要角色/甲.md'), '# 甲\n', 'utf8')
     const ready = await definition.execute({}, { agent: { session: { snapshotEvents: () => [] } } })
-    assert.deepEqual(ready, { work: '真机作品', phase: 'ready', next: 'story_gate' })
+    assert.deepEqual(ready, { work: '真机作品', phase: 'ready', next: 'panel.confirm' })
 
     // The runtime renders this as the tool card's content and calls `.some` on
     // it: it must be an array of lossless-JSON content blocks.

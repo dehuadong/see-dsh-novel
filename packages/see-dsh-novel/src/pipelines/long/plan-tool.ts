@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { withWorkAction } from '../../core/work-mutation.js'
+import { workflowStarted } from '../../core/workflow-start.js'
 import { chapterIntentPath, chapterPlanPath, loadChapterPlan, loadPlannerContext, saveChapterPlan } from '../../core/chapter-plan.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -102,6 +103,7 @@ export function installPlanTool(ctx: PluginContext): Disposer {
       const root = await ctx.workingDirectory.ensure(exec.agent)
       return withWorkAction(root, async () => {
         await assertFoundation(root)
+        if (!await workflowStarted(root, args.chapter)) throw new Error('这一章还没有作者确认的 workflow start；先由作者开始本章')
         const current = await readChapter(root)
         if (args.chapter !== current + 1) throw new Error(`只能规划第 ${current + 1} 章（当前第 ${current} 章）`)
         const existing = await loadChapterPlan(root, args.chapter)
