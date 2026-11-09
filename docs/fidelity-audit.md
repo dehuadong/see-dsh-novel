@@ -299,9 +299,9 @@
 
 **源工程证据**：`inkos/packages/studio/` 的页面、确认卡与文件浏览；DSH 用 client 插件 + slots。
 
-**复刻现状**：`client/index.ts` 注册 slot 与 React 构建；当前只有 foundation 状态卡，尚无阶段时间线/产物浏览；`panel.confirm`/`panel.workbench` 仍是 missing。
+**复刻现状**：`client/index.ts` 注册 slot；`StoryView` 有 foundation 状态、`开始下一章` 与 workflow start 回执；两列阶段/产物浏览尚未实现。
 
-**判定：保真债 D29** — UI 基线与数据面存在，但工作台/确认面未交付；偿还 P1 `panel.confirm`、P6 `panel.workbench`。
+**判定：保真债 D30** — 确认面已接；只读工作台/动态章节仍是 P6 `panel.workbench`。
 
 ### runtime.package-check
 
@@ -347,9 +347,9 @@
 
 **源工程证据**：Studio 确认卡确认后继续；退回是停止信号。
 
-**复刻现状**：`StoryView` 的认可/退回调用 `/story-approve`／`/story-reject`，`panel.gate-resume` 把「继续」投回会话；当前只覆盖 foundation decision，不覆盖 workflow start。
+**复刻现状**：`StoryView` 的认可/退回调用 `/story-approve`／`/story-reject`，`panel.gate-resume` 把「继续」投回会话；workflow start 另由 `/story-write` + `panel.confirm` 处理。
 
-**判定：保真债 D29** — 确认-继续通道存在，但 action/workflow start 面未接。
+**判定：机制等价** — 确认-继续通道在；workflow start 不再是确认-继续，而是独立 start 记录。
 
 ### panel.foundation-start
 
@@ -357,7 +357,7 @@
 
 **复刻现状**：`StoryView` 的「开始基础设定」投一条开工指令；`panel.foundation-start` 有回执与失败提示。
 
-**判定：机制等价** — DSH 会话消息替代 Studio 按钮；确认/停点仍受 D29 约束。
+**判定：机制等价** — DSH 会话消息替代 Studio 按钮；workflow start 由 `panel.confirm` 接；工作台 D30。
 
 ### foundation.hooks
 
@@ -371,9 +371,9 @@
 
 **源工程证据**：源 Studio 的 `propose_action`／confirmed production 只确认 workflow start（`create_book`、`write_next` 等，15 个）；确认后 host 执行；plan/write 是内部步骤。
 
-**复刻现状**：`gate.ts` 提供 foundation 签核工具与面板认可/退回；`story_foundation_signoff` 读 approval；但 `write_next` 的 workflow start 没有独立确认面，`story:stage` 在 foundation 完成后自动进入 plan/write。
+**复刻现状**：`gate.ts` 提供 foundation 签核工具与面板认可/退回；`story_foundation_signoff` 读 approval；workflow start 由 `/story-write`/`panel.confirm` 独立确认，不再自动进入 plan。
 
-**判定：保真债 D29** — foundation 签核是 DSH 侧附加面；真正缺的是 workflow start 确认面。偿还 P1 `panel.confirm`；`runtime.stage-context` 已完成停点/准入，不得把 plan/write 改成逐工具 approval。
+**判定：机制等价** — foundation 签核是 DSH 侧附加面；workflow start 确认已接；不把 plan/write 改成逐工具 approval。
 
 ### cast.single-authority
 
@@ -393,11 +393,11 @@
 
 ### panel.confirm
 
-**源工程证据**：`inkos/packages/core/src/agent/agent-tools.ts:178-194` 的 workflow start 枚举；`studio/src/shared/confirmed-production.ts` 的 `write_next` confirmed intent；确认卡确认后才执行。
+**源工程证据**：`inkos/packages/core/src/interaction/action-envelope.ts:14-32` 的 `write_next`；`:46-48` 的 `chapterCount`（默认 1）；`studio/src/shared/confirmed-production.ts:3-20,28-30` 的 confirmed production intent；button／slash／quick-action 才有执行权。
 
-**复刻现状**：无独立确认面；`StoryView` 只有 foundation 认可/退回，`story:stage` 会自动推进。
+**复刻现状**：`/story-write` 在 foundation-ready、无 review、无 start 时写 `workflow-start.json`；`StoryView` 的「开始下一章」/「稍后」与 start/已开始/本章完成状态已接；命令 followup 带 `story-command` source。P1 面板固定第 1 章。
 
-**判定：保真债 D29** — 新行，P1；Faces: workflow start 确认、拒绝/取消、与 approval/命令同一 decision；只有确认面，不承载只读工作台（P6 `panel.workbench`）。
+**判定：等价** — 确认/取消、锁竞争、followup 回执有测试；P1 面板固定第 1 章、动态章节与两列工作台是 D30（P6 `panel.workbench`）。
 
 ### skill.references
 
@@ -501,7 +501,7 @@
 
 **复刻现状**：未实现；P6 只读工作台；作者确认面拆到 P1 `panel.confirm`。
 
-**判定：保真债（未立债号）** — P6 行 missing；不得承载 P1 确认。
+**判定：保真债 D30** — P6 行 missing；不得承载 P1 确认。
 
 ### panel.logs
 

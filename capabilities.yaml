@@ -114,12 +114,12 @@ capabilities:
     status: verified
   - id: panel.confirm
     title: 作者确认面：workflow start（create_book／write_next）的确认、拒绝与回执，不承载只读工作台
-    source: inkos:packages/core/src/agent/agent-tools.ts
-    dsh: client + commands + approval
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
+    source: inkos:packages/core/src/interaction/action-envelope.ts + inkos:packages/studio/src/shared/confirmed-production.ts
+    dsh: client + commands
+    implementation: packages/see-dsh-novel/src/plugin/write-command.ts
+    consumer: packages/see-dsh-novel/test/write-command.test.mjs
+    realRun: artifacts/real-runs/panel.confirm.json
+    status: verified
   - id: foundation.architect
     title: architect 单 child 四段（outline/details/cast_index/cards），每段 tool schema
     source: inkos:packages/core/src/agents/architect.ts

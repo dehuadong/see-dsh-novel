@@ -44,7 +44,7 @@
 - 源工程做法：没有每轮自动推进的阶段 prompt；`book create`／`write_next` 等 workflow start 由作者/命令触发，之后才跑 workflow 内部步骤。
 - 复刻做法：`systemPrompt.context()` 注入当前阶段说明；阶段完成必须停下；普通问候/讨论不改作品；下一阶段必须由 workflow start（命令/面板/确认）触发。
 - 原因：DSH 的阶段上下文只提供模型上下文，不是授权；把描述当命令会绕过作者确认。
-- 验证：`runtime.stage-context` 的测试与真实回执；workflow start 由 `panel.confirm`（D29）写入前，阶段停在 `foundation-ready`，不得自动 plan/write。
+- 验证：`runtime.stage-context` 的测试与真实回执；workflow start 由 `/story-write`/`panel.confirm` 写入前，阶段停在 `foundation-ready`，不得自动 plan/write。
 
 ### 面板：确认面与只读工作台分开
 

@@ -34,7 +34,7 @@
 - **用户可见面**：`/story-init`、面板「开始基础设定」、workflow start 确认、`/story-approve`／`/story-reject`、失败回执。
 - **入口**：P0 出口。
 - **出口**：本阶段行 `verified` + 不变量 1/2/3/4/7 + `runtime.work-lock` + `runtime.commands` D19–D21 真机 + `panel.confirm`；`panel.workbench` 只读工作台仍留 P6。
-- **非目标/债务**：D27 `runtime.work-lock` 本阶段偿还；D28 workflow start 确认/阶段停点本阶段偿还；D19–D21 由 `runtime.commands` 偿还；不实现 plan/write。
+- **非目标/债务**：D27/D28/D29 已偿还；D30 `panel.workbench`（P6 只读工作台/动态章节）留 P6；D19–D21 由 `runtime.commands` 偿还；不实现 plan/write。
 
 ### P2 章前规划
 
@@ -128,7 +128,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D29 | `panel.confirm`（新行） | workflow start 的作者确认面未实现；阶段上下文已停在 foundation-ready，缺写 start 的入口 | P1 |
+| D30 | `panel.workbench` | P1 面板固定第 1 章；两列产物浏览、动态 currentChapter 与阶段时间线仍是 P6 缺失 | P6 |
 
 ## 边界
 

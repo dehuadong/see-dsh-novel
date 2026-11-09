@@ -112,7 +112,7 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
     'story_work_show',
     'story_write_chapter',
   ])
-  assert.deepEqual([...commands.keys()].sort(), ['story-approve', 'story-init', 'story-reject', 'story-review'])
+  assert.deepEqual([...commands.keys()].sort(), ['story-approve', 'story-init', 'story-reject', 'story-review', 'story-write'])
   assert.deepEqual(contexts.map((contribution) => contribution.name), ['story:cast', 'story:stage', 'story:craft'])
   assert.deepEqual(skills.map((skill) => skill.name), ['longform-writing', 'story-proposal', 'story-review'])
   const definition = registered.get(STORY_NEXT_NAME)

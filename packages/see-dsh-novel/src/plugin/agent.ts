@@ -24,6 +24,7 @@ import { installRecoveryTool } from './recovery-tool.js'
 import { installProposalTool } from './proposal-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
 import { installInitCommand } from './work-command.js'
+import { installWriteCommand } from './write-command.js'
 import { installWorkTools } from './work-tools.js'
 
 export const name = 'see-dsh-novel-agent'
@@ -110,6 +111,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeGate = installGateTools(ctx)
   const disposeCommands = installApprovalCommands(ctx)
   const disposeInit = installInitCommand(ctx)
+  const disposeWrite = installWriteCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
   const disposeRecovery = installRecoveryTool(ctx)
@@ -127,6 +129,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeTelemetry()
     disposeWork()
     disposeInit()
+    disposeWrite()
     disposeCommands()
     disposeGate()
     disposeFoundation()

@@ -122,6 +122,13 @@ function textOf(tree) {
   return chunks.join('')
 }
 
+/** 按文案取按钮，避免按钮顺序变化把语义测试绑到下标。 */
+function buttonByLabel(tree, label) {
+  const button = tree.root.findAllByType('button').find((node) => node.children.join('') === label)
+  assert.ok(button, `missing button: ${label}`)
+  return button
+}
+
 /** 渲染一个元素并返回树。 */
 async function render(element) {
   let tree
@@ -227,6 +234,8 @@ test('the preset reader tolerates both projection channels', () => {
 async function renderView({
   state = sessionState('see-dsh-novel'),
   statuses = ['live', 'live', 'live', 'live', 'live', 'live'],
+  workflowStatus = 'none',
+  reviewStatus = 'none',
   canCommand = true,
   outcome = 'ok',
   runCommand,
@@ -253,7 +262,11 @@ async function renderView({
     useSessions: selectorOf(state),
     useResource: (address) => {
       requests.push(address)
-      const status = address.endsWith('/work.json') ? six[5] : six[foundationIndex(address)]
+      let status
+      if (address.endsWith('/work.json')) status = six[5]
+      else if (address.endsWith('/workflow-start.json')) status = workflowStatus
+      else if (address.endsWith('/chapter-0001.review.json')) status = reviewStatus
+      else status = six[foundationIndex(address)]
       return {
         status,
         value: undefined,
@@ -282,10 +295,10 @@ test('the view shows the gate and dispatches the three commands', async () => {
   installDocumentStub()
   const { tree, calls, resumes } = await renderView()
   const buttons = tree.root.findAllByType('button')
-  assert.deepEqual(buttons.map((node) => node.children.join('')), ['查看待确认', '认可', '退回'])
+  assert.deepEqual(buttons.map((node) => node.children.join('')), ['开始下一章', '稍后', '查看待确认', '认可', '退回'])
 
   // 认可：先写回执，再把「继续」投回会话。
-  await act(async () => { buttons[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-approve' }])
   assert.deepEqual(resumes, [SESSION])
   assert.match(textOf(tree), /已确认，正在继续…/)
@@ -295,7 +308,7 @@ test('the view shows the gate and dispatches the three commands', async () => {
 test('a failed resume says the confirmation stands but the session did not continue', async () => {
   installDocumentStub()
   const { tree, resumes } = await renderView({ resumeOutcome: 'failed' })
-  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.deepEqual(resumes, [SESSION])
   assert.match(textOf(tree), /已确认；会话没能自动继续/)
   assert.equal(tree.root.findAllByType('button').length, 0)
@@ -304,14 +317,14 @@ test('a failed resume says the confirmation stands but the session did not conti
 test('reject and review never wake the session', async () => {
   installDocumentStub()
   const reject = await renderView()
-  await act(async () => { reject.tree.root.findAllByType('button')[2].props.onClick() })
+  await act(async () => { buttonByLabel(reject.tree, '退回').props.onClick() })
   assert.deepEqual(reject.calls, [{ sessionId: SESSION, line: '/story-reject' }])
   assert.deepEqual(reject.resumes, [])
   assert.match(textOf(reject.tree), /已退回；这一版不会签核，等意见后重写再确认/)
-  assert.equal(reject.tree.root.findAllByType('button').length, 3, '退回后按钮仍在')
+  assert.equal(reject.tree.root.findAllByType('button').length, 5, '退回后按钮仍在')
 
   const review = await renderView()
-  await act(async () => { review.tree.root.findAllByType('button')[0].props.onClick() })
+  await act(async () => { buttonByLabel(review.tree, '查看待确认').props.onClick() })
   assert.deepEqual(review.calls, [{ sessionId: SESSION, line: '/story-review' }])
   assert.deepEqual(review.resumes, [])
   assert.match(textOf(review.tree), /已提交，结果在「对话」里/)
@@ -320,10 +333,10 @@ test('reject and review never wake the session', async () => {
 test('a failed command does not wake the session and keeps the buttons', async () => {
   installDocumentStub()
   const { tree, resumes } = await renderView({ outcome: 'error' })
-  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.deepEqual(resumes, [])
   assert.match(textOf(tree), /提交失败，稍后再试/)
-  assert.equal(tree.root.findAllByType('button').length, 3)
+  assert.equal(tree.root.findAllByType('button').length, 5)
 })
 
 test('a throwing command is reported instead of leaving the panel stuck', async () => {
@@ -331,16 +344,16 @@ test('a throwing command is reported instead of leaving the panel stuck', async 
   const { tree, resumes } = await renderView({
     runCommand: () => { throw new Error('rpc down') },
   })
-  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.deepEqual(resumes, [])
   assert.match(textOf(tree), /提交失败，稍后再试/)
-  assert.equal(tree.root.findAllByType('button').length, 3, '失败后按钮应恢复可用')
+  assert.equal(tree.root.findAllByType('button').length, 5, '失败后按钮应恢复可用')
 })
 
 test('a resume that rejects is reported as a failed continuation, not a failed confirmation', async () => {
   installDocumentStub()
   const { tree, resumes } = await renderView({ resume: () => { throw new Error('rpc down') } })
-  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.deepEqual(resumes, [SESSION])
   assert.match(textOf(tree), /已确认；会话没能自动继续/)
   assert.doesNotMatch(textOf(tree), /提交失败/)
@@ -353,34 +366,34 @@ test('a stale submission does not paint the previous session state', async () =>
   let release
   const pending = new Promise((resolve) => { release = resolve })
   const { tree, props } = await renderView({ state: twoSessionState(other), runCommand: () => pending })
-  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
 
   // 切换会话，然后旧请求才完成：结果必须被丢弃。
   await act(async () => { tree.update(React.createElement(StoryView, { ...props, sessionId: other })) })
   await act(async () => { release('ok') })
 
   assert.doesNotMatch(textOf(tree), /已确认/)
-  assert.equal(tree.root.findAllByType('button').length, 3, '新会话的按钮应可用')
+  assert.equal(tree.root.findAllByType('button').length, 5, '新会话的按钮应可用')
 })
 
 test('switching sessions resets the panel state', async () => {
   installDocumentStub()
   const other = 'session-2'
   const { tree, props } = await renderView({ state: twoSessionState(other) })
-  await act(async () => { tree.root.findAllByType('button')[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.match(textOf(tree), /已确认，正在继续…/)
 
   await act(async () => {
     tree.update(React.createElement(StoryView, { ...props, sessionId: other }))
   })
   assert.doesNotMatch(textOf(tree), /已确认，正在继续…/)
-  assert.equal(tree.root.findAllByType('button').length, 3, '换会话后按钮应回来')
+  assert.equal(tree.root.findAllByType('button').length, 5, '换会话后按钮应回来')
 })
 
 test('a double click dispatches one command and one resume', async () => {
   installDocumentStub()
   const { tree, calls, resumes } = await renderView()
-  const button = tree.root.findAllByType('button')[1]
+  const button = buttonByLabel(tree, '认可')
   await act(async () => {
     button.props.onClick()
     button.props.onClick()
@@ -389,14 +402,34 @@ test('a double click dispatches one command and one resume', async () => {
   assert.equal(resumes.length, 1)
 })
 
+test('the panel starts next only before a start or review and later writes nothing', async () => {
+  installDocumentStub()
+  const ready = await renderView()
+  await act(async () => { buttonByLabel(ready.tree, '稍后').props.onClick() })
+  assert.deepEqual(ready.calls, [])
+  assert.match(textOf(ready.tree), /已稍后/)
+
+  await act(async () => { buttonByLabel(ready.tree, '开始下一章').props.onClick() })
+  assert.deepEqual(ready.calls, [{ sessionId: SESSION, line: '/story-write' }])
+  assert.deepEqual(ready.resumes, [])
+
+  const started = await renderView({ workflowStatus: 'live' })
+  assert.match(textOf(started.tree), /本章 workflow 已开始/)
+  assert.equal(started.tree.root.findAllByType('button').length, 0)
+
+  const done = await renderView({ reviewStatus: 'live' })
+  assert.match(textOf(done.tree), /本章审稿已落盘/)
+  assert.equal(done.tree.root.findAllByType('button').length, 0)
+})
+
 test('the view reports failure and unmatched results in words', async () => {
   installDocumentStub()
   const failed = await renderView({ outcome: 'error' })
-  await act(async () => { failed.tree.root.findAllByType('button')[0].props.onClick() })
+  await act(async () => { buttonByLabel(failed.tree, '查看待确认').props.onClick() })
   assert.match(textOf(failed.tree), /提交失败，稍后再试/)
 
   const unmatched = await renderView({ outcome: 'unmatched' })
-  await act(async () => { unmatched.tree.root.findAllByType('button')[0].props.onClick() })
+  await act(async () => { buttonByLabel(unmatched.tree, '查看待确认').props.onClick() })
   assert.match(textOf(unmatched.tree), /这个会话没有该命令/)
 })
 
@@ -435,7 +468,7 @@ test('the identity file decides between 未立项 and 已立项 without touching
   const missing = await renderView({ statuses: ['live', 'live', 'live', 'live', 'live', 'failed'] })
   assert.match(textOf(missing.tree), /身份文件缺失/)
   assert.match(textOf(missing.tree), /作者确认闸门/)
-  assert.equal(missing.tree.root.findAllByType('button').length, 3)
+  assert.equal(missing.tree.root.findAllByType('button').length, 5)
 
   // 身份与设定都在：闸门 + 按钮，没有提示。
   const complete = await renderView()
@@ -445,10 +478,12 @@ test('the identity file decides between 未立项 and 已立项 without touching
     '/source/story/outline/story_frame.md',
     '/source/story/outline/volume_map.md',
     '/source/story/pending_hooks.md',
+    '/source/story/runtime/chapter-0001.review.json',
+    '/source/story/runtime/workflow-start.json',
     '/work.json',
   ])
   assert.doesNotMatch(textOf(complete.tree), /身份文件缺失/)
-  assert.equal(complete.tree.root.findAllByType('button').length, 3)
+  assert.equal(complete.tree.root.findAllByType('button').length, 5)
 
   // 六份文件缺一份就不算有设定：仍显示开工按钮，而不是闸门。
   const mixed = await renderView({ statuses: ['live', 'live', 'live', 'live', 'failed', 'live'] })
@@ -563,20 +598,24 @@ test('a start-unknown panel still lets the author approve once the foundation la
     statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
     start: () => { throw new Error('rpc down') },
   })
-  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '开始基础设定').props.onClick() })
   assert.match(textOf(tree), /没能确认会话是否收到开工指令/)
 
   // 指令其实送达了、基础设定写了出来：闸门要恢复可用，不能因为一个开工状态卡死。
   await act(async () => {
     tree.update(React.createElement(StoryView, {
       ...props,
-      useResource: () => ({ status: 'live', value: undefined, failure: undefined }),
+      useResource: (address) => ({
+        status: address.endsWith('/workflow-start.json') || address.endsWith('/chapter-0001.review.json') ? 'none' : 'live',
+        value: undefined,
+        failure: undefined,
+      }),
     }))
   })
   const buttons = tree.root.findAllByType('button')
-  assert.deepEqual(buttons.map((node) => node.children.join('')), ['查看待确认', '认可', '退回'])
+  assert.deepEqual(buttons.map((node) => node.children.join('')), ['开始下一章', '稍后', '查看待确认', '认可', '退回'])
 
-  await act(async () => { buttons[1].props.onClick() })
+  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
   assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-approve' }])
 })
 

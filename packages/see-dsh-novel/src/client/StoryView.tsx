@@ -29,6 +29,8 @@ const ANCHOR_VOLUME_MAP = '/source/story/outline/volume_map.md'
 const ANCHOR_RULES_MD = '/source/story/book_rules.md'
 const ANCHOR_RULES_JSON = '/source/story/book_rules.json'
 const ANCHOR_PENDING_HOOKS = '/source/story/pending_hooks.md'
+const ANCHOR_WORKFLOW_START = '/source/story/runtime/workflow-start.json'
+const ANCHOR_REVIEW = '/source/story/runtime/chapter-0001.review.json'
 
 /** 三个确认命令；按钮与命令成对写在这里，避免散落在渲染里。 */
 const COMMANDS = [
@@ -123,11 +125,15 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   const rulesJson = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_RULES_JSON}`)
   const pendingHooks = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_PENDING_HOOKS}`)
   const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
+  const workflowStart = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORKFLOW_START}`)
+  const review = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_REVIEW}`)
   const channel = channelState([frame.status, volumeMap.status, rulesMd.status, rulesJson.status, pendingHooks.status, identity.status])
   // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
   const identified = identity.status === 'live'
   // 五份设定文件都在才算有基础设定；身份单独判，缺身份不影响「设定齐不齐」。
   const hasFoundation = [frame, volumeMap, rulesMd, rulesJson, pendingHooks].every((resource) => resource.status === 'live')
+  const hasWorkflowStart = workflowStart.status === 'live'
+  const hasReview = review.status === 'live'
 
   // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
   // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求
@@ -234,6 +240,17 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     }
   }
 
+  /** 作者确认开始下一章：命令自己写 start 并 followup，不再额外 resume。 */
+  async function startNext(): Promise<void> {
+    await submit('开始下一章', '/story-write')
+  }
+
+  /** 稍后：只清提示，不调命令、不写 start。 */
+  function later(): void {
+    setNotice('已稍后：开始下一章前不会写入 workflow start。')
+    moveTo('idle')
+  }
+
   /** 两屏共用的状态行：会话运行中优先于「刚开工」。 */
   const status = sessionRunning
     ? '会话正在运行，结束后这里会按实际文件重新判定。'
@@ -279,14 +296,31 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     body.push(<p key="preset-other" className="sdn-muted">这是一部作品，但当前会话用的是预设「{preset}」，不能在这里确认基础设定。</p>)
   } else if (status !== undefined) {
     body.push(<p key="status" className="sdn-muted">{status}</p>)
+  } else if (hasReview) {
+    body.push(<p key="review" className="sdn-muted">本章审稿已落盘：本章 workflow 结束。下一章要等结算/新章节能力，不会自动开始。</p>)
+  } else if (hasWorkflowStart) {
+    body.push(<p key="started" className="sdn-muted">本章 workflow 已开始。规划/写作进行中，结束后这里会按实际文件重新判定。</p>)
   } else {
-    body.push(<p key="gate" className="sdn-muted">作者确认闸门：这一版基础设定需要作者认可，才允许签核定稿。</p>)
+    body.push(<p key="gate" className="sdn-muted">作者确认闸门：基础设定已齐，由作者确认开始下一章；面板不会自动推进。</p>)
     if (!identified) {
       body.push(
         <p key="identity" className="sdn-muted">
           身份文件缺失：这个工作区有基础设定，但没有 work.json；让主编补一次立项，导出与备份才有元信息。
         </p>,
       )
+    }
+    if (canCommand(sessionId) && !isApproveSettled(phase)) {
+      body.push(
+        <div key="write" className="sdn-row">
+          <button type="button" disabled={phase === 'submitting'} onClick={() => { void startNext() }}>
+            开始下一章
+          </button>
+          <button type="button" disabled={phase === 'submitting'} onClick={later}>
+            稍后
+          </button>
+        </div>,
+      )
+      body.push(<p key="write-hint" className="sdn-muted">点击「开始下一章」会写入 workflow start 并启动规划；「稍后」不写。</p>)
     }
     if (isApproveSettled(phase)) {
       body.push(<p key="settled" className="sdn-muted">{settledText(phase)}</p>)

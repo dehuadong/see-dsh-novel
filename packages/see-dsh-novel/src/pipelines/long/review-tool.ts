@@ -4,7 +4,7 @@
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { reviewChapter } from '../../core/chapter-review.js'
 import { withWorkAction } from '../../core/work-mutation.js'
-import { workflowStarted } from '../../core/workflow-start.js'
+import { workflowStarted, clearWorkflowStart } from '../../core/workflow-start.js'
 import type { ObservationCounts, ObservationInput } from '../../core/observation.js'
 
 export const REVIEW_NAME = 'story_review_chapter'
@@ -84,6 +84,16 @@ export function installReviewTool(ctx: PluginContext): Disposer {
       return withWorkAction(root, async () => {
         if (!await workflowStarted(root, args.chapter)) throw new Error('这一章还没有作者确认的 workflow start；先由作者开始本章')
         const result = await reviewChapter(root, { chapter: args.chapter, summary: args.summary, observations: args.observations })
+        try {
+          await clearWorkflowStart(root)
+        } catch (error) {
+          return {
+            chapter: args.chapter,
+            path: result.path,
+            counts: result.counts,
+            warning: `审稿已落盘，但 workflow start 未清除：${error instanceof Error ? error.message : String(error)}`,
+          } as ReviewResult & { warning: string }
+        }
         return { chapter: args.chapter, path: result.path, counts: result.counts }
       })
     },

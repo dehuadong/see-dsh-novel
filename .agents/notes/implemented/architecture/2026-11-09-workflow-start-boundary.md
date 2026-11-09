@@ -57,12 +57,12 @@ Status: implemented
 
 ### panel.confirm（依赖）
 
-`runtime.stage-context` 只读 start；写 start 的 `panel.confirm`（P1 新行）必须先规划/实现，否则阶段上下文无法从 `foundation-ready` 进入 plan。两行分开交付；`runtime.stage-context` 的测试用 fixture 写 start，真机在 `panel.confirm` 完成后跑。
+`runtime.stage-context` 只读 start；写 start 的 `panel.confirm`（P1）已实现 `/story-write` + `StoryView` 开始下一章；两行分开交付；本行测试用 fixture 写 start。
 
 ### 文档/账本
 
-- `docs/scope.md` P1 合同：`runtime.stage-context` 的出口包含“无 workflow start 不进入 plan”；`panel.confirm` 是写 start 的入口；D28 在 `panel.confirm` 完成后才能删除。
-- `docs/fidelity-audit.md` `runtime.stage-context` 从 D28 改为等价/机制偏差；`panel.confirm` 的 D28 分开。
+- `docs/scope.md` P1 合同：`runtime.stage-context` 的出口包含“无 workflow start 不进入 plan”；`panel.confirm` 是写 start 的入口；D28/D29 已偿还。
+- `docs/fidelity-audit.md` `runtime.stage-context` 改为等价；`panel.confirm` 的 D29 改为等价，D30 记录 P6 工作台。
 - `docs/dsh-mapping.md` 增加 workflow start 记录/阶段停点映射。
 - `capabilities.yaml` `runtime.stage-context` consumer 更新；`panel.confirm` 的 implementation/consumer 在下一行。
 
@@ -89,4 +89,4 @@ Status: implemented
 - `chapter-done` 是本章终点：`current_state.chapter` 的推进/结算仍是 P4 `chapter.settle`，本行不实现；因此下一章在 P4 前不可达，`story_next` 的 ready 路牌只是 foundation 级，不是下一章入口。这是本行的限制，不是已完成。
 - `create_book` 这一腿由 `/story-init`/`story_work_create` 直接启动；命令本身是作者动作，不写 `workflow-start`。`workflow-start` 只记录一章的 `write_next`。源 `create_book` 的 confirmed intent 由命令/创建入口承担。
 - `story_next` 仍是 foundation 级路牌（ready → panel.confirm）；`runtime.stage-context` 是实际阶段判定。两者在 P4 结算/下一章接入前不完全重合。
-- `panel.confirm` 未实现（D29）；阶段上下文只能停在 `foundation-ready`，无法真机写 start。
+- `panel.confirm` 已实现（D29 偿还）；P1 面板固定第 1 章，D30/P6 `panel.workbench` 解决动态章节。
