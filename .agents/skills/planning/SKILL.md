@@ -15,9 +15,6 @@ description: 创建或更新工作项、按需维护独立产品合同与技术�
 - 技术设计与长期决定写入 Agent Note；
 - 模板只用 `<skills-root>/write-agent-notes/templates/proposed.md`；不新增或复制模板；
 - Note 的位置、格式、生命周期遵循 `write-agent-notes` Skill；不得在 planning 内另建生命周期或状态；
-- Plan Review 由 gate 的 `gate-plan-review` worker 执行；planning 接收主代理转交的 findings，负责决定与修正。
-
-把当前对话与项目上下文整理成最少但足够的规划工件，使工作具备实施条件。先确定各项事实的项目属主，再按需让产品合同与技术探索往返收敛；不为填满文档类型而创建工件。
 
 ## 1. 确定工作项
 
@@ -25,7 +22,6 @@ description: 创建或更新工作项、按需维护独立产品合同与技术�
 
 复用合适的既有 Note；需要新 Note 时加载技能 `write-agent-notes` 创建 proposed Note，不另建独立 Proposal 文件，也不要求 Issue tracker。
 
-在 gate 环境中，proposed Note 的落盘使用 `gate_note_write`（路径相对 `.agents/notes/proposed`）；通用 `write`/`edit`/shell 在 planning 被限制。
 
 工作项与设计在同一份 Note 分节；工作项不复制 Design 正文，Design 不改写工作项验收。
 
@@ -77,4 +73,4 @@ Planning 完成需要同时满足：
 
 若用户只要求规划，交付规划结果与评审证据后结束。端到端任务继续进入项目的 Implementation Gate，并单独核对执行授权。
 
-交付规划结果前，如果 `implement_gate` 可用且当前项目已启用，调用 `implement_gate({action:'end-planning'})` 回到 `discuss`。这样用户收到规划后的普通提问不会解锁 Note 写入；需要修改规划时必须重新取得 planning 授权。
+
