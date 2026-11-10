@@ -1,0 +1,18 @@
+{
+  "capability": "chapter.reopen",
+  "date": "2026-11-10",
+  "sessionId": "process:chapter.reopen",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "370 passed — chapter-reopen 5 例（版本列表倒序与非法 id 忽略、读取版本、重开删审稿/章纲并回退指针、恢复版本归档当前正文、同内容拒绝、更早章节 D33 拒绝、阶段回到 plan）＋ host 工具清单与 stage 协议回归"
+  },
+  "receipts": [
+    "`story_chapter_versions({chapter})` 列出 `source/chapters/.versions/<NNNN>/` 中合法 id 的归档版本（来源、时间、字数），按 createdAt 倒序；非法文件被忽略。",
+    "`story_reopen_chapter({chapter})` 删除该章审稿与章纲、保留正文与 user-brief，写（或沿用）workflow start；`manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，摘要行删除；facts/hooks 保持，留待重结算。",
+    "带 `versionId` 时：当前正文归档为 `<ts>_restore_<uuid>.md`，章节文件替换为版本全文；版本内容与当前相同则拒绝。",
+    "只允许重开最后已结算的一章；更早章节拒绝并指向 D33。",
+    "重开后 `detectStage` 回到 `plan`（start 在、章纲删、正文在）。",
+    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

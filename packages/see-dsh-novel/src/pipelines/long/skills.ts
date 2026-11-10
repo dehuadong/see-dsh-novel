@@ -19,6 +19,9 @@ import type { Disposer, PluginContext, SkillRegistrationLike } from '../../core/
 const SKILLS_DIRECTORY = 'skills'
 const SKILL_FILE = 'SKILL.md'
 
+/** 随包技能的提供方标签；与插件名一致。 */
+const SKILL_PROVIDER = 'see-dsh-novel'
+
 /** 一条待注册的技能：注册参数里由文件提供的那部分。 */
 export type BundledSkill = Omit<SkillRegistrationLike, 'source'>
 
@@ -147,7 +150,13 @@ export function readBundledSkills(packageRoot: string): BundledSkill[] {
  */
 export function installStorySkills(ctx: PluginContext, packageRoot: string): Disposer {
   const disposers = readBundledSkills(packageRoot).map((skill) =>
-    ctx.skills.register({ ...skill, source: 'runtime' }),
+    ctx.skills.register({
+      ...skill,
+      source: 'runtime',
+      provider: SKILL_PROVIDER,
+      // 模型面靠它解析技能正文里的相对参考路径（references/...）。
+      resourceBase: { kind: 'directory', path: join(packageRoot, SKILLS_DIRECTORY, skill.name) },
+    }),
   )
   return (): void => {
     for (const dispose of disposers.reverse()) dispose()

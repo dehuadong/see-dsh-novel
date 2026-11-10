@@ -9,6 +9,23 @@ import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-api-session-controller/client'
 
 /**
+ * `file` 协议的值：宿主 `WorkspaceFileStat` 的只读子集。
+ *
+ * 本包没有 `@deepseek-ai/dsh-api-workspace-files` 依赖，资源协议表里因此没有
+ * `file`；不声明这项时 `useResource(...).value` 会被推成 `never`，取不到
+ * `version`。这里只补面板用到的字段，`version` 是宿主给的新鲜度令牌。
+ */
+declare module '@deepseek-ai/dsh-client-ui-slots' {
+  interface ResourceProtocolMap {
+    file: {
+      readonly absolutePath: string
+      readonly version: string
+      readonly bytes?: number
+    }
+  }
+}
+
+/**
  * 会话标识的品牌类型。
  *
  * 宿主定义在 `@deepseek-ai/dsh-session`，从 `sessions.binding` 的参数推出来就够用，
@@ -46,7 +63,10 @@ export interface FileRemote {
       path: string,
       range: { offset: number, limit: number },
       signal: AbortSignal,
-    ): Promise<{ ok: true, value: { text: string } } | { ok: false, error: { message: string } }>
+    ): Promise<
+      | { ok: true, value: { text: string, lines: number, eof: boolean } }
+      | { ok: false, error: { message: string } }
+    >
   }
 }
 

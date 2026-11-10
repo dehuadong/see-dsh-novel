@@ -25,6 +25,14 @@ import { installProposalTool } from './proposal-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
 import { installInitCommand } from './work-command.js'
 import { installIndexCommand } from './index-command.js'
+import { PRESET_ID } from './preset.js'
+import { installReviseTool } from '../pipelines/long/revise-tool.js'
+import { installSummaryTool } from '../pipelines/long/summary-tool.js'
+import { installSettleTool } from '../pipelines/long/settle-tool.js'
+import { installStateCheckTool } from '../pipelines/long/state-check-tool.js'
+import { installFinalizeTool } from '../pipelines/long/finalize-tool.js'
+import { installReopenTools } from '../pipelines/long/reopen-tool.js'
+import { installDeleteTool } from '../pipelines/long/delete-tool.js'
 import { installWriteCommand } from './write-command.js'
 import { installWorkTools } from './work-tools.js'
 
@@ -35,9 +43,6 @@ export const name = 'see-dsh-novel-agent'
  * story tools write into.
  */
 export const inject = ['tools', 'workingDirectory', 'commands', 'skills', 'systemPrompt'] as const
-
-/** 本插件所属的预设 id；与 `cordis.patch.yml` 里 `preset-see-dsh-novel` 保持一致。 */
-const PRESET_ID = 'see-dsh-novel'
 
 /** 包根目录：随包技能从这里读，源码与打包产物的深度不同。 */
 const PACKAGE_ROOT = packageRootOf(import.meta.url, 'see-dsh-novel')
@@ -113,6 +118,13 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeCommands = installApprovalCommands(ctx)
   const disposeInit = installInitCommand(ctx)
   const disposeIndex = installIndexCommand(ctx)
+  const disposeRevise = installReviseTool(ctx)
+  const disposeSummary = installSummaryTool(ctx)
+  const disposeSettle = installSettleTool(ctx)
+  const disposeStateCheck = installStateCheckTool(ctx)
+  const disposeFinalize = installFinalizeTool(ctx)
+  const disposeReopen = installReopenTools(ctx)
+  const disposeDelete = installDeleteTool(ctx)
   const disposeWrite = installWriteCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
@@ -132,6 +144,13 @@ export function apply(ctx: PluginContext): Disposer {
     disposeWork()
     disposeInit()
     disposeIndex()
+    disposeRevise()
+    disposeSummary()
+    disposeSettle()
+    disposeStateCheck()
+    disposeFinalize()
+    disposeReopen()
+    disposeDelete()
     disposeWrite()
     disposeCommands()
     disposeGate()

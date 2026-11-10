@@ -1,26 +1,20 @@
 /**
- * 作品工作台：阶段轨道 + 左导航 + 右详情。
+ * 作品工作台：阶段栏 → 本阶段产物 → 详情/正文。
  *
- * 组件只接收索引和回调；动作由 StoryView 交给宿主命令/提示，组件不写文件。
+ * 一条导航轴（阶段）只出现一次；左侧列表只列该阶段的展示集合，运行时诊断收在
+ * 默认折叠的分组里；当前阶段的动作集中在右栏顶部的动作条。组件只接收索引和
+ * 回调，动作由 StoryView 交给宿主命令/提示，组件不写文件。
  */
-import { useState } from 'react'
 import type { ReactNode } from 'react'
 
-import type { PanelAction, PanelArtifact, PanelIndex } from './panel-types.js'
-
-export interface NewWorkInput {
-  title: string
-  language: string
-  targetChapters: string
-  chapterWordCount: string
-  genre: string
-  platform: string
-  brief: string
-}
+import { JsonView } from './JsonView.js'
+import type { PanelAction, PanelArtifact, PanelIndex, PanelStage } from './panel-types.js'
 
 export interface WorkbenchProps {
   index: PanelIndex
   busy: boolean
+  /** 会话正在跑别的轮：动作一并禁用，但不是本面板在提交。 */
+  running: boolean
   notice: string
   selectedStage: string
   selectedArtifact: PanelArtifact | null
@@ -30,22 +24,10 @@ export interface WorkbenchProps {
   onOpenArtifact(artifact: PanelArtifact): void
   onCloseArtifact(): void
   onAction(action: PanelAction): void
-  onRefresh(): void
-  onNewWork(input: NewWorkInput): void
 }
 
-/** 把表单拼成 `/story-init` 参数；简报走 URL 编码，避免空格/引号破坏切词。 */
-export function newWorkCommand(input: NewWorkInput): string {
-  const fields = [
-    `《${input.title}》`,
-    `--lang ${input.language}`,
-    `--chapters ${input.targetChapters}`,
-    `--words ${input.chapterWordCount}`,
-    input.genre.trim() === '' ? '' : `--genre ${input.genre.trim()}`,
-    input.platform.trim() === '' ? '' : `--platform ${input.platform.trim()}`,
-    input.brief.trim() === '' ? '' : `--brief-text ${encodeURIComponent(input.brief)}`,
-  ].filter((field) => field !== '')
-  return `/story-init ${fields.join(' ')}`
+function statusMark(status: PanelStage['status']): string {
+  return status === 'done' ? '✓' : status === 'current' ? '●' : '○'
 }
 
 /**
@@ -53,189 +35,165 @@ export function newWorkCommand(input: NewWorkInput): string {
  * @param props 索引、选中项与动作回调
  */
 export function Workbench(props: WorkbenchProps): ReactNode {
-  const { index, busy, notice, selectedStage, selectedArtifact, artifactText, artifactError } = props
-  const [newWork, setNewWork] = useState(false)
-  const current = index.stages.find((stage) => stage.status === 'current') ?? index.stages[0]
+  const { index, busy, running, notice, selectedStage, selectedArtifact, artifactText, artifactError } = props
+  const disabled = busy || running
+  // 一章审阅完时没有「当前阶段」节点：标题按本章完成显示，导航默认停在审阅。
+  const current = index.stages.find((stage) => stage.status === 'current')
+  const defaultStage = current?.id
+    ?? [...index.stages].reverse().find((stage) => stage.status === 'done')?.id
+    ?? 'proposal'
+  const activeId = selectedStage === '' ? defaultStage : selectedStage
+  const active = index.stages.find((stage) => stage.id === activeId)
+  const rows = index.artifacts.filter((artifact) => artifact.stages.includes(activeId as PanelStage['id']))
+  const visible = rows.filter((artifact) => artifact.class !== 'diagnostic')
+  const diagnostics = rows.filter((artifact) => artifact.class === 'diagnostic')
+  const currentLabel = current?.label ?? (index.work === null ? '还没有作品' : '本章完成')
+  // 没有当前阶段时用索引根动作（一章审完的「修订本章」）。
+  const action = current?.action ?? index.action ?? null
+  const secondary = current?.secondary ?? []
+  const diagnostic = selectedArtifact?.class === 'diagnostic'
 
-  if (index.work === null && newWork) {
-    return (
-      <section className="sdn-view sdn-workbench">
-        <header className="sdn-workbench-head">
-          <h2 className="sdn-title">作品工作台</h2>
-          <button type="button" onClick={() => setNewWork(false)}>返回</button>
-        </header>
-        <NewWorkForm busy={busy} notice={notice} onSubmit={props.onNewWork} />
-      </section>
-    )
-  }
+  const artifactButton = (artifact: PanelArtifact): ReactNode => (
+    <button
+      key={artifact.path}
+      type="button"
+      className={artifact.class === 'diagnostic' ? 'sdn-list-row sdn-diagnostic' : 'sdn-list-row'}
+      data-active={selectedArtifact?.path === artifact.path ? true : undefined}
+      onClick={() => props.onOpenArtifact(artifact)}
+    >
+      <span>{artifact.title}</span>
+      <span className="sdn-muted">{artifact.type} · 只读</span>
+    </button>
+  )
 
   return (
     <section className="sdn-view sdn-workbench">
       <header className="sdn-workbench-head">
-        <div>
-          <h2 className="sdn-title">{index.work?.title ?? '作品工作台'}</h2>
-          <p className="sdn-muted">
-            {index.work === null ? '还没有作品' : `${index.work.status} · 第 ${index.work.currentChapter} 章 · ${index.work.language}`}
-            {' · '}
-            当前阶段：{current?.label ?? '未知'}
-          </p>
-        </div>
-        <button type="button" disabled={busy} onClick={props.onRefresh}>刷新索引</button>
+        <h2 className="sdn-title">{index.work?.title ?? '作品工作台'}</h2>
+        <p className="sdn-muted">
+          {index.work === null ? '还没有作品' : `${index.work.status} · 第 ${index.work.currentChapter} 章 · ${index.work.language}`}
+          {' · '}
+          索引生成于 {index.generatedAt}
+        </p>
       </header>
 
-      <div className="sdn-rail" role="list" aria-label="阶段流程">
-        {index.stages.map((stage) => (
-          <div
-            key={stage.id}
-            role="listitem"
-            className={`sdn-node sdn-node-${stage.status}${selectedStage === stage.id ? ' sdn-node-selected' : ''}`}
-          >
-            <button type="button" className="sdn-node-title" onClick={() => props.onSelectStage(stage.id)}>
-              {stage.status === 'done' ? '✓ ' : stage.status === 'current' ? '● ' : '○ '}
-              {stage.label}
+      <div className="sdn-columns">
+        <nav className="sdn-stages" aria-label="阶段">
+          {index.stages.map((stage) => (
+            <button
+              key={stage.id}
+              type="button"
+              className="sdn-stage"
+              data-active={activeId === stage.id ? true : undefined}
+              data-status={stage.status}
+              title={stage.summary}
+              onClick={() => {
+                props.onSelectStage(stage.id)
+                props.onCloseArtifact()
+              }}
+            >
+              <span className="sdn-stage-mark" aria-hidden>{statusMark(stage.status)}</span>
+              <span>{stage.label}</span>
             </button>
-            <p className="sdn-muted">{stage.summary}</p>
-            {stage.action !== null
+          ))}
+        </nav>
+
+        <aside className="sdn-list" aria-label="产物">
+          <div className="sdn-list-head">{active?.label ?? '产物'}</div>
+          <div className="sdn-list-body">
+            {visible.length === 0
+              ? <p className="sdn-muted">{active?.summary ?? '这个阶段还没有产物。'}</p>
+              : visible.map(artifactButton)}
+            {diagnostics.length > 0
               ? (
-                  <button
-                    type="button"
-                    disabled={busy || !stage.action.enabled}
-                    aria-disabled={busy || !stage.action.enabled}
-                    title={stage.action.enabled ? stage.action.label : stage.action.reason}
-                    onClick={() => {
-                      if (stage.action?.id === 'new-work') setNewWork(true)
-                      else props.onAction(stage.action as PanelAction)
-                    }}
-                  >
-                    {busy ? '提交中…' : stage.action.label}
-                  </button>
-                )
-              : null}
-            {stage.action !== null && !stage.action.enabled && stage.action.reason !== ''
-              ? <p className="sdn-disabled">{stage.action.reason}</p>
-              : null}
-            {stage.id === 'foundation' && stage.status === 'current' && index.confirmation.kind === 'foundation-signoff'
-              ? (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    title="作者确认后开始下一章"
-                    onClick={() => props.onAction({ id: 'start-chapter', label: '开始下一章', enabled: true, reason: '' })}
-                  >
-                    开始下一章
-                  </button>
+                  <details className="sdn-diag">
+                    <summary>运行时诊断（{diagnostics.length}）</summary>
+                    {diagnostics.map(artifactButton)}
+                  </details>
                 )
               : null}
           </div>
-        ))}
-      </div>
-
-      <div className="sdn-workbench-body">
-        <aside className="sdn-side" aria-label="阶段与产物">
-          <h3>阶段</h3>
-          <ul className="sdn-side-list">
-            {index.stages.map((stage) => (
-              <li key={stage.id}>
-                <button
-                  type="button"
-                  className={selectedStage === stage.id ? 'sdn-side-active' : undefined}
-                  onClick={() => props.onSelectStage(stage.id)}
-                >
-                  {stage.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-          <h3>产物</h3>
-          {index.artifacts.length === 0
-            ? <p className="sdn-muted">还没有产物；生成索引后会显示。</p>
-            : (
-                <ul className="sdn-side-list">
-                  {index.artifacts.map((artifact) => (
-                    <li key={artifact.path}>
-                      <button
-                        type="button"
-                        className={selectedArtifact?.path === artifact.path ? 'sdn-side-active' : undefined}
-                        onClick={() => props.onOpenArtifact(artifact)}
-                      >
-                        {artifact.title}
-                      </button>
-                      <span className="sdn-muted"> {artifact.type} · {artifact.readonly ? '只读' : '可写'}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
         </aside>
 
         <main className="sdn-detail">
-          {index.work === null
-            ? (
-                <div>
-                  <p>还没有作品。新建作品后，阶段与产物会出现在这里。</p>
-                  <button type="button" disabled={busy} onClick={() => setNewWork(true)}>新建作品</button>
-                </div>
-              )
-            : selectedArtifact !== null
+          <div className="sdn-actionbar">
+            <span className="sdn-actionbar-stage">{currentLabel}</span>
+            {action !== null
               ? (
-                  <div>
-                    <div className="sdn-row">
-                      <button type="button" onClick={props.onCloseArtifact}>返回总览</button>
-                      <span className="sdn-muted">{selectedArtifact.path} · {selectedArtifact.revision} · {selectedArtifact.modifiedAt}</span>
-                    </div>
-                    {artifactError !== ''
-                      ? <p className="sdn-muted">{artifactError}</p>
-                      : <pre className="sdn-artifact">{artifactText}</pre>}
-                  </div>
+                  <button
+                    type="button"
+                    className="sdn-primary"
+                    disabled={disabled || !action.enabled}
+                    aria-disabled={disabled || !action.enabled}
+                    title={action.enabled ? action.label : action.reason}
+                    onClick={() => props.onAction(action)}
+                  >
+                    {busy ? '提交中…' : action.label}
+                  </button>
                 )
-              : (
-                  <div>
-                    <h3>{current?.label ?? '当前阶段'}</h3>
-                    <p>{current?.summary ?? '等待阶段判定。'}</p>
-                    <p className="sdn-muted">
-                      确认：{index.confirmation.kind} · {index.confirmation.state}
-                      {index.confirmation.reason === '' ? '' : ` · ${index.confirmation.reason}`}
-                    </p>
-                    {notice !== '' ? <p className="sdn-muted">{notice}</p> : null}
-                  </div>
-                )}
+              : null}
+            {secondary.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="sdn-secondary"
+                disabled={disabled || !item.enabled}
+                aria-disabled={disabled || !item.enabled}
+                title={item.enabled ? item.label : item.reason}
+                onClick={() => props.onAction(item)}
+              >
+                {item.label}
+              </button>
+            ))}
+            {action !== null && !action.enabled && action.reason !== ''
+              ? <span className="sdn-disabled">{action.reason}</span>
+              : null}
+            {notice !== '' ? <span className="sdn-muted">{notice}</span> : null}
+          </div>
+
+          <div className="sdn-detail-body">
+            {index.work === null
+              ? (
+                  <p>还没有作品。请在「对话」里描述作品，主编会收敛成提案；这里只显示阶段与产物。</p>
+                )
+              : selectedArtifact !== null
+                ? (
+                    <>
+                      <div className="sdn-row">
+                        <button type="button" onClick={props.onCloseArtifact}>返回阶段</button>
+                        <span className="sdn-muted">{selectedArtifact.path} · {selectedArtifact.revision} · {selectedArtifact.modifiedAt}</span>
+                      </div>
+                      {diagnostic
+                        ? (
+                            <p className="sdn-warning">
+                              运行时诊断文件：这里展示本章写作时的上下文选择与预算 trace，只用于追溯系统看了什么，不作为可编辑设定。
+                            </p>
+                          )
+                        : null}
+                      {artifactError !== ''
+                        ? <p className="sdn-muted">{artifactError}</p>
+                        : selectedArtifact.type === 'json' && !diagnostic
+                          ? <JsonView key={selectedArtifact.path} text={artifactText} />
+                          : <pre className="sdn-artifact">{artifactText}</pre>}
+                    </>
+                  )
+                : (
+                    <>
+                      <h3 className="sdn-detail-title">{active?.label ?? currentLabel}</h3>
+                      <p>{active?.summary ?? index.confirmation.reason}</p>
+                      {index.confirmation.kind !== 'none'
+                        ? (
+                            <p className="sdn-muted">
+                              确认：{index.confirmation.kind} · {index.confirmation.state}
+                              {index.confirmation.reason === '' ? '' : ` · ${index.confirmation.reason}`}
+                            </p>
+                          )
+                        : null}
+                    </>
+                  )}
+          </div>
         </main>
       </div>
     </section>
-  )
-}
-
-function NewWorkForm({ busy, notice, onSubmit }: {
-  busy: boolean
-  notice: string
-  onSubmit(input: NewWorkInput): void
-}): ReactNode {
-  const [title, setTitle] = useState('')
-  const [language, setLanguage] = useState('zh')
-  const [targetChapters, setTargetChapters] = useState('10')
-  const [chapterWordCount, setChapterWordCount] = useState('3000')
-  const [genre, setGenre] = useState('')
-  const [platform, setPlatform] = useState('')
-  const [brief, setBrief] = useState('')
-  return (
-    <form
-      className="sdn-form"
-      onSubmit={(event) => {
-        event.preventDefault()
-        onSubmit({ title, language, targetChapters, chapterWordCount, genre, platform, brief })
-      }}
-    >
-      <h3>新建作品</h3>
-      <label>标题<input value={title} onChange={(event) => setTitle(event.target.value)} required /></label>
-      <label>语言<input value={language} onChange={(event) => setLanguage(event.target.value)} /></label>
-      <label>目标章数<input value={targetChapters} onChange={(event) => setTargetChapters(event.target.value)} /></label>
-      <label>单章字数<input value={chapterWordCount} onChange={(event) => setChapterWordCount(event.target.value)} /></label>
-      <label>题材<input value={genre} onChange={(event) => setGenre(event.target.value)} /></label>
-      <label>平台<input value={platform} onChange={(event) => setPlatform(event.target.value)} /></label>
-      <label>简报<textarea value={brief} onChange={(event) => setBrief(event.target.value)} rows={4} /></label>
-      <div className="sdn-row">
-        <button type="submit" disabled={busy || title.trim() === ''}>{busy ? '提交中…' : '立项'}</button>
-      </div>
-      {notice !== '' ? <p className="sdn-muted">{notice}</p> : null}
-    </form>
   )
 }

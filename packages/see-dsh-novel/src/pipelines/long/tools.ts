@@ -29,7 +29,7 @@ import { installWriteTool } from './write-tool.js'
 import { installReviewTool } from './review-tool.js'
 import { installSearchTool } from './search-tool.js'
 import { installTruthFileTool } from './truth-tool.js'
-import { stateWritesIfMissing } from '../../core/state.js'
+import { inspectState, snapshotWrites, stateWritesIfMissing } from '../../core/state.js'
 import { projectionLanguage } from './language.js'
 import { bookRulesWrites, withVersion } from './book-rules.js'
 
@@ -204,12 +204,16 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
         const rules = withVersion(args.bookRulesData)
         const language = await projectionLanguage(root)
         const stateWrites = await stateWritesIfMissing(root, args.pendingHooks, language)
+        // 建书时的初始快照（章 0）：删除第一章要用它回滚；状态损坏时不写。
+        const seeded = await inspectState(root, args.pendingHooks, language)
+        const initialSnapshot = seeded.invalid.length === 0 ? snapshotWrites(seeded.snapshot, 0) : []
         // 第一次写真值：方向文档补默认模板。
         const controlWrites = await controlDocumentWrites(root, language)
         return commitFoundation(root, {
           writes: [
             ...bookRulesWrites(`${String(args.bookRules).trim()}\n`, rules),
             ...stateWrites,
+            ...initialSnapshot,
             ...controlWrites,
           ],
         })

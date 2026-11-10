@@ -1,9 +1,8 @@
 /**
- * 「作品」视图。
+ * 「作品」视图：对话的镜像 + 操作面。
  *
- * 只判断「确认区能不能用」，不读作品内容：目录、预设与六个锚点来自客户端
- * 已有通道，工件清单与摘要由命令结果写在会话里。作品身份的存在性在这里显示，
- * 但「当前作品是哪一个」的进入与切换不属于本能力。
+ * 阶段、产物与确认状态全部来自宿主投影的 `panel.index.json`；本视图只订阅索引
+ * 与文件 stat、读取正文、把按钮交给宿主命令/提示。它不触发索引重建，也不写文件。
  */
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { ConvViewProps } from '@deepseek-ai/dsh-client-ui-conversation/client'
@@ -13,18 +12,15 @@ import type { InjectFace } from '@deepseek-ai/dsh-client-ui-slots'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 
-import { PRESET_ID, presetSelector } from './preset.js'
-import { Workbench, newWorkCommand } from './Workbench.js'
-import type { NewWorkInput } from './Workbench.js'
+import { Workbench } from './Workbench.js'
 import type { PanelAction, PanelArtifact, PanelIndex } from './panel-types.js'
-import type { CommandOutcome, PromptOutcome, SessionId, ViewInjected } from './types.js'
+import type { CommandOutcome, SessionId, ViewInjected } from './types.js'
 
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 
 /**
- * 基础设定是否齐全：看源工程判据里的六份文件在不在（面板判其中五份，身份单独判）。
- * 角色卡是目录里的任意 `.md`，资源通道不能列目录，面板不数——`ready` 只由 `story_next` 判。
- * 身份文件 `work.json` 单独探：它回答「立没立项」，不参与「有没有设定」。
+ * 无索引时的兜底锚点：身份单独判「立没立项」，五份设定判「有没有基础设定」。
+ * 正常路径不读它们，索引缺失时才有用。
  */
 const ANCHOR_WORK = '/work.json'
 const ANCHOR_FRAME = '/source/story/outline/story_frame.md'
@@ -32,60 +28,19 @@ const ANCHOR_VOLUME_MAP = '/source/story/outline/volume_map.md'
 const ANCHOR_RULES_MD = '/source/story/book_rules.md'
 const ANCHOR_RULES_JSON = '/source/story/book_rules.json'
 const ANCHOR_PENDING_HOOKS = '/source/story/pending_hooks.md'
-const ANCHOR_WORKFLOW_START = '/source/story/runtime/workflow-start.json'
-const ANCHOR_REVIEW = '/source/story/runtime/chapter-0001.review.json'
 const ANCHOR_PANEL_INDEX = '/source/story/runtime/panel.index.json'
 
-/** 三个确认命令；按钮与命令成对写在这里，避免散落在渲染里。 */
-const COMMANDS = [
-  { label: '查看待确认', line: '/story-review' },
-  { label: '认可', line: '/story-approve' },
-  { label: '退回', line: '/story-reject' },
-] as const
+/** 面板索引相对作品根的位置；读取正文时用。 */
+const PANEL_INDEX_PATH = 'source/story/runtime/panel.index.json'
 
-/** 认可：成功后要把「继续」投回会话的那一条。 */
-const APPROVE = COMMANDS[1]
-const REJECT = COMMANDS[2]
-
-/** 开工按钮的文案；只在「已立项、还没有基础设定」这一屏出现。 */
+/** 开工按钮的文案；只在「已立项、还没有索引与基础设定」这一屏出现。 */
 const START_LABEL = '开始基础设定'
-
-/**
- * 一次点击的生命周期：空闲、提交中、已确认并继续、已确认但没继续、
- * 已开工（等这一轮开始/结束）、开工结果未知（指令可能已送达）。
- */
-type Phase = 'idle' | 'submitting' | 'resumed' | 'resume-failed' | 'started' | 'start-unknown'
-
-/** 认可已经落定的两种结局；它们的屏不再接受第二次认可。 */
-type ApproveSettled = 'resumed' | 'resume-failed'
-
-/** 认可是否已经落定。 */
-function isApproveSettled(phase: Phase): phase is ApproveSettled {
-  return phase === 'resumed' || phase === 'resume-failed'
-}
-
-/** 认可后的状态文案；两种都意味着按钮不再可用。 */
-function settledText(phase: ApproveSettled): string {
-  return phase === 'resumed'
-    ? '已确认，正在继续…'
-    : '已确认；会话没能自动继续，在「对话」里说一句「继续」即可。'
-}
-
-/** 命令成功但不需要继续时，按命令给出作者能看懂的回执。 */
-function successNotice(line: string): string {
-  if (line === REJECT.line) return '已退回；这一版不会签核，等意见后重写再确认。'
-  return '已提交，结果在「对话」里。'
-}
 
 type ResourceStatus = 'none' | 'loading' | 'live' | 'failed'
 
-/** 通道状态：读不到、在读、都能读。能读之后再分别看身份与设定在不在。 */
+/** 通道状态：读不到、在读、都能读。 */
 type ChannelState = 'unavailable' | 'loading' | 'ready'
 
-/**
- * 先把「读不到」与「在读」判掉：六个锚点里任何一个没通道或还在加载，
- * 都不能对作者断言「有没有作品」。
- */
 function channelState(statuses: ReadonlyArray<ResourceStatus>): ChannelState {
   if (statuses.includes('none')) return 'unavailable'
   if (statuses.includes('loading')) return 'loading'
@@ -98,81 +53,128 @@ function channelState(statuses: ReadonlyArray<ResourceStatus>): ChannelState {
  */
 function failureNotice(outcome: Exclude<CommandOutcome, 'ok'>): string {
   if (outcome === 'unbound') return '当前会话还没有就绪，命令没有执行。'
-  if (outcome === 'unmatched') return `这个会话没有该命令：确认预设是 ${PRESET_ID}。`
+  if (outcome === 'unmatched') return '这个会话没有该命令：确认预设是 see-dsh-novel。'
   return '提交失败，稍后再试。'
 }
 
+/** 命令成功、不需要继续时的回执。 */
+function successNotice(line: string): string {
+  if (line === '/story-reject') return '已退回；这一版不会签核，等意见后重写再确认。'
+  return '已提交，结果在「对话」里。'
+}
+
+/** 读出来的索引用前补齐次按钮、产物阶段与根动作；旧格式没有这些字段。 */
+function normalizeIndex(raw: unknown): PanelIndex {
+  const index = raw as PanelIndex
+  return {
+    ...index,
+    action: index.action ?? null,
+    stages: (Array.isArray(index.stages) ? index.stages : []).map((stage) => ({
+      ...stage,
+      secondary: Array.isArray(stage.secondary) ? stage.secondary : [],
+    })),
+    artifacts: (Array.isArray(index.artifacts) ? index.artifacts : []).map((artifact) => ({
+      ...artifact,
+      stages: Array.isArray(artifact.stages) ? artifact.stages : [],
+    })),
+  }
+}
+
+/** 把读取错误折成作者能看懂的一句；原始原因保留在后面。 */
+function indexErrorText(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error)
+  return `索引读取失败：${message}`
+}
+
 /**
- * 作品页：作者确认闸门、立项后的开工入口与提交回执。
+ * 作品页：索引驱动的阶段轨道、产物浏览与阶段动作。
  * @param props slot 的 owner 面加上注册时注入的业务面
  */
 export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): ReactNode {
-  const { sessionId, useSessions, useResource, canCommand, runCommand, resume, start, advance, readArtifact } = props
-  const [notice, setNotice] = useState('')
-  const [phase, setPhase] = useState<Phase>('idle')
-  // 双击在同一帧内连发两次 onClick，state 还没来得及更新；用 ref 抢先占位。
-  const phaseRef = useRef<Phase>('idle')
-  const moveTo = (next: Phase): void => {
-    phaseRef.current = next
-    setPhase(next)
-  }
-  // 在途的提交只对发起它的会话有效：面板实例会被复用，切换会话后旧结果必须丢弃。
-  const currentSession = useRef<SessionId>(sessionId)
-  // 开工后要见过「这一轮真的跑起来」再结束 started：否则一次瞬时 false 就会把它清掉。
-  const sawTurn = useRef(false)
+  const { sessionId, useSessions, useResource, runCommand, resume, start, advance, readArtifact } = props
   const cwd = useSessions((state: SessionListState) => state.byId[sessionId]?.cwd)
-  const preset = useSessions(presetSelector(sessionId))
   const sessionRunning = useSessions((state: SessionListState) => state.byId[sessionId]?.running === true)
+
   const frame = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_FRAME}`)
   const volumeMap = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_VOLUME_MAP}`)
   const rulesMd = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_RULES_MD}`)
   const rulesJson = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_RULES_JSON}`)
   const pendingHooks = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_PENDING_HOOKS}`)
   const identity = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORK}`)
-  const workflowStart = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_WORKFLOW_START}`)
-  const review = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_REVIEW}`)
   const panelIndexResource = useResource(`${RESOURCE_PREFIX}${sessionId}${ANCHOR_PANEL_INDEX}`)
+
   const [panelIndex, setPanelIndex] = useState<PanelIndex | null>(null)
-  const [panelBusy, setPanelBusy] = useState(false)
-  const [panelNotice, setPanelNotice] = useState('')
+  const [indexError, setIndexError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [busy, setBusy] = useState(false)
   const [selectedStage, setSelectedStage] = useState('')
   const [selectedArtifact, setSelectedArtifact] = useState<PanelArtifact | null>(null)
   const [artifactText, setArtifactText] = useState('')
   const [artifactError, setArtifactError] = useState('')
-  const panelRequested = useRef(false)
-  const channel = channelState([frame.status, volumeMap.status, rulesMd.status, rulesJson.status, pendingHooks.status, identity.status])
-  // 身份只看在不在：资源通道不带正文，面板不解析 JSON。
-  const identified = identity.status === 'live'
-  // 五份设定文件都在才算有基础设定；身份单独判，缺身份不影响「设定齐不齐」。
-  const hasFoundation = [frame, volumeMap, rulesMd, rulesJson, pendingHooks].every((resource) => resource.status === 'live')
-  const hasWorkflowStart = workflowStart.status === 'live'
-  const hasReview = review.status === 'live'
 
-  /** 读索引正文；索引 stat 只用于变更通知。 */
+  // 在途提交只对发起它的会话有效：面板实例会被复用，切换会话后旧结果必须丢弃。
+  const currentSession = useRef<SessionId>(sessionId)
+  const inFlight = useRef(false)
+
+  const channel = channelState([
+    frame.status, volumeMap.status, rulesMd.status, rulesJson.status, pendingHooks.status, identity.status,
+  ])
+  const identified = identity.status === 'live'
+  const hasFoundation = [frame, volumeMap, rulesMd, rulesJson, pendingHooks].every((resource) => resource.status === 'live')
+
+  /** 读索引正文；索引 stat 的版本变化会再次触发。 */
   async function loadPanel(): Promise<void> {
     if (typeof readArtifact !== 'function') return
-    const text = await readArtifact(sessionId, 'source/story/runtime/panel.index.json')
-    setPanelIndex(JSON.parse(text) as PanelIndex)
+    const text = await readArtifact(sessionId, PANEL_INDEX_PATH)
+    setPanelIndex(normalizeIndex(JSON.parse(text)))
+    setIndexError('')
   }
 
-  async function refreshPanel(): Promise<void> {
-    if (typeof readArtifact !== 'function') return
-    setPanelBusy(true)
-    try {
-      const outcome = await runCommand(sessionId, '/story-index')
-      if (outcome !== 'ok') {
-        setPanelNotice(failureNotice(outcome))
-        return
-      }
-      await loadPanel()
-      setPanelNotice('')
-    } catch {
-      setPanelNotice('索引刷新失败，稍后再试。')
-    } finally {
-      setPanelBusy(false)
+  // 挂载与索引版本变化时读一次正文：索引由宿主投影，面板不触发重建。
+  useEffect(() => {
+    if (typeof readArtifact !== 'function') {
+      setIndexError('文件读取通道不可用')
+      return
     }
+    let cancelled = false
+    void (async () => {
+      try {
+        const text = await readArtifact(sessionId, PANEL_INDEX_PATH)
+        if (cancelled) return
+        setPanelIndex(normalizeIndex(JSON.parse(text)))
+        setIndexError('')
+      } catch (error) {
+        if (cancelled) return
+        setPanelIndex(null)
+        setIndexError(indexErrorText(error))
+      }
+    })()
+    return () => { cancelled = true }
+  }, [sessionId, panelIndexResource.value?.version])
+
+  // 面板实例在会话之间复用：换会话要清掉上一个会话的索引、选中与回执。
+  useLayoutEffect(() => {
+    currentSession.current = sessionId
+    inFlight.current = false
+    setPanelIndex(null)
+    setIndexError('')
+    setNotice('')
+    setBusy(false)
+    setSelectedStage('')
+    setSelectedArtifact(null)
+    setArtifactText('')
+    setArtifactError('')
+  }, [sessionId])
+
+  /** 取一次点击的入口；已经在处理中时拒绝。 */
+  function begin(): (() => boolean) | undefined {
+    if (inFlight.current) return undefined
+    inFlight.current = true
+    const startedFor = sessionId
+    return () => currentSession.current === startedFor
   }
 
+  /** 读一个产物正文；失败显示具体路径。 */
   async function openArtifact(artifact: PanelArtifact): Promise<void> {
     setSelectedArtifact(artifact)
     setArtifactText('')
@@ -180,202 +182,121 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     if (typeof readArtifact !== 'function') return
     try {
       setArtifactText(await readArtifact(sessionId, artifact.path))
-    } catch {
-      setArtifactError(`读不到 ${artifact.path}`)
+    } catch (error) {
+      setArtifactError(`读不到 ${artifact.path}：${error instanceof Error ? error.message : String(error)}`)
     }
   }
 
-  async function handlePanelAction(action: PanelAction): Promise<void> {
-    if (action.id === 'start-foundation') {
-      await startFoundation()
-      await refreshPanel()
-      return
-    }
-    if (action.id === 'confirm-foundation') {
-      await submit('确认基础设定', '/story-approve')
-      await refreshPanel()
-      return
-    }
-    if (action.id === 'start-chapter') {
-      await submit('开始下一章', '/story-write')
-      await refreshPanel()
-      return
-    }
-    if (['plan-chapter', 'write-chapter', 'review-chapter'].includes(action.id)) {
-      if (panelIndex?.work === null || panelIndex?.work === undefined) return
-      const chapter = panelIndex.work.nextChapter
-      const text = action.id === 'plan-chapter'
-        ? `作者在工作台确认规划第 ${chapter} 章；按当前阶段调用规划工具，不要写正文。`
-        : action.id === 'write-chapter'
-          ? `作者在工作台确认写第 ${chapter} 章正文；按当前阶段调用写作工具，不要审阅。`
-          : `作者在工作台确认审阅第 ${chapter} 章；按当前阶段调用审阅工具，不要进入下一章。`
-      setPanelBusy(true)
-      try {
-        await advance(sessionId, text)
-        await refreshPanel()
-      } finally {
-        setPanelBusy(false)
-      }
-    }
-  }
-
-  async function createWork(input: NewWorkInput): Promise<void> {
-    setPanelBusy(true)
-    try {
-      const outcome = await runCommand(sessionId, newWorkCommand(input))
-      setPanelNotice(outcome === 'ok' ? '立项已提交。' : failureNotice(outcome))
-      if (outcome === 'ok') await refreshPanel()
-    } catch {
-      setPanelNotice('立项提交失败，稍后再试。')
-    } finally {
-      setPanelBusy(false)
-    }
-  }
-
-  // 有索引文件就读；没有索引时由面板请求宿主重建一次，不把索引当作品状态。
-  useEffect(() => {
-    if (typeof readArtifact !== 'function' || !identified || !hasFoundation || panelRequested.current) return
-    panelRequested.current = true
-    void (async () => {
-      try {
-        if (panelIndexResource.status !== 'live') await refreshPanel()
-        else await loadPanel()
-      } catch {
-        setPanelNotice('工作台索引读取失败，稍后再试。')
-      }
-    })()
-  }, [identified, hasFoundation, panelIndexResource.status, sessionId])
-
-  // 面板实例在会话之间复用，不跟 sessionId 走就会把上一个会话的「已确认」带过来。
-  // 用 layout effect 而不是 passive effect：后者要等绘制之后才跑，中间落地的旧请求
-  // 会通过 stillHere 检查，把上一个会话的状态画到新会话上。
-  useLayoutEffect(() => {
-    currentSession.current = sessionId
-    sawTurn.current = false
-    phaseRef.current = 'idle'
-    setPhase('idle')
-    setNotice('')
-  }, [sessionId])
-
-  // 开工后的收尾：见过这一轮跑起来、又结束，就回到探针判定。会话级 running 也可能是
-  // 别的轮（作者自己补的那句），所以它只用来结束 started，不用来清 start-unknown。
-  useLayoutEffect(() => {
-    if (phase !== 'started') return
-    if (sessionRunning) {
-      sawTurn.current = true
-      return
-    }
-    if (sawTurn.current) {
-      sawTurn.current = false
-      phaseRef.current = 'idle'
-      setPhase('idle')
-    }
-  }, [phase, sessionRunning])
-
-  /**
-   * 取一次点击的入口：已经在处理中、或认可已经落定时不再接受新的点击。
-   * 返回 `stillHere` 判别函数；拿不到入口时返回 `undefined`。
-   */
-  function begin(): (() => boolean) | undefined {
-    if (phaseRef.current === 'submitting' || isApproveSettled(phaseRef.current)) return undefined
-    const startedFor = sessionId
-    moveTo('submitting')
-    return () => currentSession.current === startedFor
-  }
-
-  /**
-   * 提交一条确认命令；认可成功后再把「继续」投回会话。
-   * 一次点击完成两步，失败时如实区分「确认没成功」与「确认了但没继续」；
-   * 调用方抛错时也要落到一句可见的失败，不能把「正在执行」挂着。
-   * @param label 按钮文案
-   * @param line 要提交的斜杠命令
-   */
-  async function submit(label: string, line: string): Promise<void> {
+  /** 提交一条命令；成功后读回宿主已重建的索引。 */
+  async function command(label: string, line: string, resumeAfter = false): Promise<void> {
     const stillHere = begin()
     if (stillHere === undefined) return
+    setBusy(true)
     setNotice(`正在执行「${label}」…`)
     try {
       const outcome = await runCommand(sessionId, line)
       if (!stillHere()) return
       if (outcome !== 'ok') {
         setNotice(failureNotice(outcome))
-        moveTo('idle')
         return
       }
-      if (line !== APPROVE.line) {
-        setNotice(successNotice(line))
-        moveTo('idle')
+      if (resumeAfter) {
+        let resumed = 'failed'
+        try {
+          resumed = await resume(sessionId)
+        } catch {
+          resumed = 'failed'
+        }
+        if (!stillHere()) return
+        setNotice(resumed === 'ok'
+          ? '已确认，正在继续…'
+          : '已确认；会话没能自动继续，在「对话」里说一句「继续」即可。')
         return
       }
-      // 回执已经写下，从这里开始的失败只影响「有没有自动继续」。
-      let resumed: PromptOutcome = 'failed'
+      setNotice(successNotice(line))
+      // 命令已成功：索引读取失败不能改写成提交失败，版本变化会再读一次。
       try {
-        resumed = await resume(sessionId)
+        await loadPanel()
       } catch {
-        resumed = 'failed'
+        // 保持命令回执；索引由 stat 版本变化或下次动作后重新读取。
       }
-      if (!stillHere()) return
-      moveTo(resumed === 'ok' ? 'resumed' : 'resume-failed')
-      setNotice('')
     } catch {
-      if (stillHere()) {
-        setNotice('提交失败，稍后再试。')
-        moveTo('idle')
-      }
+      if (stillHere()) setNotice('提交失败，稍后再试。')
+    } finally {
+      inFlight.current = false
+      if (currentSession.current === sessionId) setBusy(false)
     }
   }
 
-  /**
-   * 立项之后把开工指令投回会话。确定失败可以重试；抛错算结果未知，
-   * 不再给按钮——请求可能已经被宿主接受，再点一次会排出第二轮。
-   */
+  /** 立项之后把开工指令投回会话。 */
   async function startFoundation(): Promise<void> {
     const stillHere = begin()
     if (stillHere === undefined) return
+    setBusy(true)
     setNotice('正在开始基础设定…')
     try {
       const outcome = await start(sessionId, cwd)
       if (!stillHere()) return
-      if (outcome === 'ok') {
-        sawTurn.current = false
-        moveTo('started')
-        setNotice('')
-        return
-      }
-      setNotice('已立项，但没能自动开始；在「对话」里说一句「开始写基础设定」即可。')
-      moveTo('idle')
+      setNotice(outcome === 'ok'
+        ? '已开始基础设定，这一轮结束后这里会按实际文件重新判定。'
+        : '已立项，但没能自动开始；在「对话」里说一句「开始写基础设定」即可。')
     } catch {
-      if (!stillHere()) return
-      setNotice('')
-      moveTo('start-unknown')
+      if (stillHere()) setNotice('没能确认会话是否收到开工指令：先看「对话」里有没有新的一轮。')
+    } finally {
+      inFlight.current = false
+      if (currentSession.current === sessionId) setBusy(false)
     }
   }
 
-  /** 作者确认开始下一章：命令自己写 start 并 followup，不再额外 resume。 */
-  async function startNext(): Promise<void> {
-    await submit('开始下一章', '/story-write')
+  /** 规划/写作/审阅/修订：把阶段提示交给宿主，由模型继续。 */
+  async function advanceStage(action: PanelAction): Promise<void> {
+    const chapter = panelIndex?.work?.nextChapter ?? 1
+    const text = action.id === 'plan-chapter'
+      ? `作者在工作台确认规划第 ${chapter} 章；按当前阶段调用规划工具，不要写正文。`
+      : action.id === 'write-chapter'
+        ? `作者在工作台确认写第 ${chapter} 章正文；按当前阶段调用写作工具，不要审阅。`
+        : action.id === 'review-chapter'
+          ? `作者在工作台确认审阅第 ${chapter} 章；按当前阶段调用审阅工具，不要进入下一章。`
+          : '作者在工作台点了「修订本章」；先问清要改哪里、用哪种模式，再派 reviser 子代理并调用 story_revise_chapter；修订后必须重新审稿。'
+    const stillHere = begin()
+    if (stillHere === undefined) return
+    setBusy(true)
+    setNotice(`正在提交「${action.label}」…`)
+    try {
+      await advance(sessionId, text)
+      if (stillHere()) setNotice('已提交；这一轮结束后这里会按实际文件重新判定。')
+    } catch {
+      if (stillHere()) setNotice('提交失败，稍后再试。')
+    } finally {
+      inFlight.current = false
+      if (currentSession.current === sessionId) setBusy(false)
+    }
   }
 
-  /** 稍后：只清提示，不调命令、不写 start。 */
-  function later(): void {
-    setNotice('已稍后：开始下一章前不会写入 workflow start。')
-    moveTo('idle')
+  /** 阶段动作的总入口；面板只派发，不写文件。 */
+  async function handleAction(action: PanelAction): Promise<void> {
+    if (busy || sessionRunning) return
+    if (action.id === 'start-foundation') { await startFoundation(); return }
+    if (action.id === 'later') { setNotice('已稍后：开始下一章前不会写入 workflow start。'); return }
+    if (action.id === 'confirm-foundation') { await command('确认基础设定', '/story-approve', true); return }
+    if (action.id === 'reject-foundation') { await command('退回', '/story-reject'); return }
+    if (action.id === 'review-foundation') { await command('查看待确认', '/story-review'); return }
+    if (action.id === 'start-chapter') { await command('开始下一章', '/story-write'); return }
+    if (action.id === 'plan-chapter' || action.id === 'write-chapter' || action.id === 'review-chapter' || action.id === 'revise-chapter') {
+      await advanceStage(action)
+    }
   }
 
-  /** 两屏共用的状态行：会话运行中优先于「刚开工」。 */
-  const status = sessionRunning
-    ? '会话正在运行，结束后这里会按实际文件重新判定。'
-    : phase === 'started'
-      ? '已开始基础设定，这一轮结束后这里会按实际文件重新判定。'
-      : undefined
+  const running = busy || sessionRunning
+  const status = sessionRunning ? '会话正在运行，结束后这里会按实际文件重新判定。' : notice
 
-  const body: ReactNode[] = []
   if (panelIndex !== null) {
     return (
       <Workbench
         index={panelIndex}
-        busy={panelBusy}
-        notice={panelNotice}
+        busy={busy}
+        running={sessionRunning}
+        notice={status}
         selectedStage={selectedStage}
         selectedArtifact={selectedArtifact}
         artifactText={artifactText}
@@ -383,101 +304,40 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         onSelectStage={setSelectedStage}
         onOpenArtifact={(artifact) => { void openArtifact(artifact) }}
         onCloseArtifact={() => setSelectedArtifact(null)}
-        onAction={(action) => { void handlePanelAction(action) }}
-        onRefresh={() => { void refreshPanel() }}
-        onNewWork={(input) => { void createWork(input) }}
+        onAction={(action) => { void handleAction(action) }}
       />
     )
   }
+
+  const body: ReactNode[] = []
   if (channel === 'unavailable') {
     body.push(<p key="none" className="sdn-muted">读不到工作区状态（文件资源通道不可用），暂时不能确认。</p>)
   } else if (channel === 'loading') {
     body.push(<p key="loading" className="sdn-muted">正在读取工作区…</p>)
+  } else if (!identified) {
+    body.push(<p key="empty" className="sdn-muted">尚未立项：在「对话」里描述作品，主编会收敛成提案；这里只显示阶段与产物。</p>)
+    if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
   } else if (!hasFoundation) {
-    if (status !== undefined) {
-      body.push(<p key="status" className="sdn-muted">{status}</p>)
-    } else if (phase === 'start-unknown') {
+    body.push(<p key="empty" className="sdn-muted">已立项，还没有基础设定。</p>)
+    if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
+    if (!running) {
       body.push(
-        <p key="unknown" className="sdn-muted">
-          没能确认会话是否收到开工指令：先看「对话」里有没有新的一轮；没有的话直接在对话里说一句「开始写基础设定」。
-        </p>,
+        <div key="start" className="sdn-row">
+          <button type="button" onClick={() => { void startFoundation() }}>
+            {START_LABEL}
+          </button>
+        </div>,
       )
-    } else if (identified) {
-      body.push(<p key="empty" className="sdn-muted">已立项，还没有基础设定。</p>)
-      if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
-      // 认可已经落定时不再给开工入口：`begin` 会拒绝这次点击，按钮只会是死的。
-      if (!isApproveSettled(phase)) {
-        body.push(
-          <div key="start" className="sdn-row">
-            <button type="button" disabled={phase === 'submitting'} onClick={() => { void startFoundation() }}>
-              {START_LABEL}
-            </button>
-          </div>,
-        )
-      }
-      if (notice !== '') body.push(<p key="notice" className="sdn-muted">{notice}</p>)
-    } else {
-      body.push(<p key="empty" className="sdn-muted">尚未立项。当前工作区既没有 work.json，也没有 source/story/。</p>)
-      if (cwd !== undefined) body.push(<p key="cwd" className="sdn-muted">当前工作区：{cwd}</p>)
     }
-  } else if (preset === undefined) {
-    body.push(<p key="preset-loading" className="sdn-muted">正在读取会话预设…</p>)
-  } else if (preset !== PRESET_ID) {
-    body.push(<p key="preset-other" className="sdn-muted">这是一部作品，但当前会话用的是预设「{preset}」，不能在这里确认基础设定。</p>)
-  } else if (status !== undefined) {
-    body.push(<p key="status" className="sdn-muted">{status}</p>)
-  } else if (hasReview) {
-    body.push(<p key="review" className="sdn-muted">本章审稿已落盘：本章 workflow 结束。下一章要等结算/新章节能力，不会自动开始。</p>)
-  } else if (hasWorkflowStart) {
-    body.push(<p key="started" className="sdn-muted">本章 workflow 已开始。规划/写作进行中，结束后这里会按实际文件重新判定。</p>)
   } else {
-    body.push(<p key="gate" className="sdn-muted">作者确认闸门：基础设定已齐，由作者确认开始下一章；面板不会自动推进。</p>)
-    if (!identified) {
-      body.push(
-        <p key="identity" className="sdn-muted">
-          身份文件缺失：这个工作区有基础设定，但没有 work.json；让主编补一次立项，导出与备份才有元信息。
-        </p>,
-      )
-    }
-    if (canCommand(sessionId) && !isApproveSettled(phase)) {
-      body.push(
-        <div key="write" className="sdn-row">
-          <button type="button" disabled={phase === 'submitting'} onClick={() => { void startNext() }}>
-            开始下一章
-          </button>
-          <button type="button" disabled={phase === 'submitting'} onClick={later}>
-            稍后
-          </button>
-        </div>,
-      )
-      body.push(<p key="write-hint" className="sdn-muted">点击「开始下一章」会写入 workflow start 并启动规划；「稍后」不写。</p>)
-    }
-    if (isApproveSettled(phase)) {
-      body.push(<p key="settled" className="sdn-muted">{settledText(phase)}</p>)
-    } else if (canCommand(sessionId)) {
-      body.push(
-        <div key="actions" className="sdn-row">
-          {COMMANDS.map((command) => (
-            <button
-              key={command.line}
-              type="button"
-              disabled={phase === 'submitting'}
-              onClick={() => { void submit(command.label, command.line) }}
-            >
-              {command.label}
-            </button>
-          ))}
-        </div>,
-      )
-      body.push(
-        <p key="notice" className="sdn-muted">
-          {notice === '' ? '清单、摘要与确认结果会出现在「对话」页。' : notice}
-        </p>,
-      )
-    } else {
-      body.push(<p key="unbound" className="sdn-muted">当前会话还没有就绪，暂时不能提交确认。</p>)
-    }
+    body.push(
+      <p key="index-missing" className="sdn-muted">
+        索引还没生成：宿主会在下一次作品写入或重新打开会话时补建；也可以先在「对话」里继续。
+      </p>,
+    )
   }
+  if (indexError !== '') body.push(<p key="index-error" className="sdn-muted">{indexError}</p>)
+  if (status !== '') body.push(<p key="notice" className="sdn-muted">{status}</p>)
 
   return (
     <section className="sdn-view">

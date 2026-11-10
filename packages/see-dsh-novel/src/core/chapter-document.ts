@@ -1,6 +1,7 @@
 /**
  * 章节文档：`source/chapters/NNNN_<Title>.md`，文件头是「# 第N章 标题」。
  */
+import { randomUUID } from 'node:crypto'
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -107,6 +108,72 @@ export async function writeChapterDocument(
     ],
   })
   return { path: relativePath, charCount: countChapterLength(body, input.language) }
+}
+
+/** 从现有文档头取回标题；取不到就拒绝修订，避免改坏章节头。 */
+function chapterTitleFromHeading(heading: string, chapter: number): string {
+  const zh = new RegExp(`^#\\s*第\\s*${chapter}\\s*章\\s+(.+)$`, 'u').exec(heading)
+  if (zh?.[1] !== undefined && zh[1].trim() !== '') return zh[1].trim()
+  const en = new RegExp(`^#\\s*Chapter\\s+${chapter}\\s*:\\s*(.+)$`, 'iu').exec(heading)
+  if (en?.[1] !== undefined && en[1].trim() !== '') return en[1].trim()
+  throw new Error(`第 ${chapter} 章的文档头里没有标题，无法修订`)
+}
+
+export interface ReviseChapterResult {
+  path: string
+  title: string
+  charCount: number
+  /** 旧正文的归档路径（`source/chapters/.versions/...`）。 */
+  archivedPath: string
+  revisionId: string
+}
+
+/**
+ * 修订已有章节：覆盖同一章节文件、归档旧正文、追加一个 artifact revision。
+ * @param root 作品根目录
+ * @param input 章号、修订后的正文、语言与同批删除项
+ * @returns 落盘路径、标题、字数、归档路径与新 revision id
+ */
+export async function reviseChapterDocument(
+  root: string,
+  input: {
+    chapter: number
+    content: string
+    language: WorkLanguage
+    deletes?: ReadonlyArray<string>
+    /** 与该次修订同批提交的额外写入（例如重新打开的 workflow start）。 */
+    extraWrites?: ReadonlyArray<{ relativePath: string, content: string }>
+  },
+): Promise<ReviseChapterResult> {
+  const existing = await loadChapterDocument(root, input.chapter)
+  if (existing === null) throw new Error(`第 ${input.chapter} 章还没有正文，先写再修订`)
+  const body = chapterBodyForChapter(input.content, input.chapter)
+  if (body === '') throw new Error('content 不能为空')
+  const title = chapterTitleFromHeading(existing.heading, input.chapter)
+  const previous = await readFile(join(root, existing.path), 'utf8')
+  const document = renderChapterDocument({ chapter: input.chapter, title, content: body, language: input.language })
+  const archivedPath = `source/chapters/.versions/${String(input.chapter).padStart(4, '0')}/${Date.now()}_revision_${randomUUID()}.md`
+  const artifact = await chapterArtifactWrite(root, {
+    chapter: input.chapter,
+    chapterPath: existing.path,
+    content: document,
+  })
+  await commitFoundation(root, {
+    writes: [
+      { relativePath: existing.path, content: document },
+      { relativePath: archivedPath, content: previous },
+      { relativePath: artifact.relativePath, content: artifact.content },
+      ...(input.extraWrites ?? []),
+    ],
+    deletes: input.deletes ?? [],
+  })
+  return {
+    path: existing.path,
+    title,
+    charCount: countChapterLength(body, input.language),
+    archivedPath,
+    revisionId: artifact.artifact.currentRevisionId ?? '',
+  }
 }
 
 export interface ChapterDocument {

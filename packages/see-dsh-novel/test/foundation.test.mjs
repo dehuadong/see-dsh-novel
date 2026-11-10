@@ -203,3 +203,32 @@ test('role names are sanitized and empty names are rejected', () => {
   assert.throws(() => sanitizeRoleName('   '), /无法表示为安全的文件名/)
   assert.throws(() => roleCardPath('guest', '丁'), /未知角色级别/)
 })
+
+test('details seeds the chapter-0 snapshot for deletion rollback', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await tools.get('story_foundation_details').execute({
+      bookRules: '规则正文',
+      bookRulesData: { prohibitions: [], enableFullCastTracking: false, allowedDeviations: [] },
+      pendingHooks: [{ hookId: 'H1', type: '悬案', expectedPayoff: '首卷第三章', notes: '' }],
+    }, exec)
+    for (const file of [
+      'current_state.md',
+      'pending_hooks.md',
+      'chapter_summaries.md',
+      'state/manifest.json',
+      'state/current_state.json',
+      'state/hooks.json',
+      'state/chapter_summaries.json',
+    ]) {
+      assert.equal(
+        await read(root, `source/story/snapshots/0/${file}`),
+        await read(root, `source/story/${file}`),
+        file,
+      )
+    }
+  } finally {
+    dispose()
+    await rm(root, { recursive: true, force: true })
+  }
+})

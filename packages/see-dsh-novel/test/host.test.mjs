@@ -59,10 +59,21 @@ async function workspace() {
   return mkdtemp(join(tmpdir(), 'see-dsh-novel-host-'))
 }
 
-test('the root row mounts a no-op surface half', () => {
+test('the root row installs the panel warmup', () => {
   assert.equal(surface.name, 'see-dsh-novel')
   assert.equal(typeof surface.apply, 'function')
-  assert.equal(surface.apply(), undefined)
+
+  const effects = []
+  const events = []
+  const ctx = {
+    effect(execute, label) { effects.push({ label, dispose: execute() }) },
+    on(name, listener) { events.push({ name, listener }); return () => true },
+    logger: { warn() {} },
+  }
+  assert.equal(surface.apply(ctx), undefined)
+  assert.deepEqual(effects.map((entry) => entry.label), [])
+  assert.deepEqual(events.map((entry) => entry.name), ['session/created'])
+  assert.equal(typeof events[0].listener, 'function')
 })
 
 test('agent half declares loader metadata', () => {
@@ -89,10 +100,13 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
   const dispose = agentHalf.apply(ctx)
 
   assert.deepEqual([...registered.keys()].sort(), [
+    'story_chapter_versions',
     'story_context_candidates',
     'story_context_compression_task',
     'story_context_package',
     'story_context_task',
+    'story_delete_chapter',
+    'story_finalize_chapter',
     'story_foundation_cast_documents',
     'story_foundation_cast_index',
     'story_foundation_details',
@@ -104,8 +118,13 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
     'story_plan_chapter',
     'story_propose',
     'story_recover',
+    'story_reopen_chapter',
     'story_review_chapter',
+    'story_revise_chapter',
     'story_search',
+    'story_settle_chapter',
+    'story_state_check',
+    'story_summarize_chapter',
     'story_telemetry',
     'story_truth_file',
     'story_work_create',

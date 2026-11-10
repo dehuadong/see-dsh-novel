@@ -116,7 +116,14 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       }
       if (kind === 'chapter-done') {
         assert.match(stageText, /本章 workflow 结束/)
+        assert.match(stageText, /story_revise_chapter/)
+        assert.match(stageText, /story_summarize_chapter/)
+        assert.match(stageText, /story_settle_chapter/)
+        assert.match(stageText, /story_finalize_chapter/)
+        assert.match(stageText, /story_chapter_versions/)
+        assert.match(stageText, /story_reopen_chapter/)
         assert.doesNotMatch(stageText, /story_write_chapter/)
+        assert.match(craftText, /创作方法（story-review）/)
       }
       if (kind === 'plan') {
         assert.match(stageText, /story_context_candidates/)
@@ -127,6 +134,7 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       }
       if (kind === 'review') {
         assert.match(stageText, /story_review_chapter/)
+        assert.match(stageText, /修订后必须重新审稿/)
         assert.match(stageText, /## 来源 chapter-1/)
         assert.match(stageText, /## 来源 governed-context/)
         assert.match(craftText, /创作方法（story-review）/)

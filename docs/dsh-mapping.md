@@ -14,12 +14,12 @@
 | 会话／事件 | 自建会话与事件存储 | DSH session log | 对话与调用证据留在 session，作品内容另存 | 一次流水线可在 session 中追溯 |
 | 作品存储 | 作品内容为落盘文档 | 作品正文与设定落盘为文档，SQLite 只做索引（一作品一库；一个工作区即一部作品） | 正文要可读、可 diff、可直接导出；索引只加速检索，不能成为正文的唯一副本 | 删除索引后能从文档重建；两部作品互不串数据 |
 | 调度 | 队列 + worker | DSH jobs／schedule | 长任务用子代理异步执行，不建队列 | 长任务可断点续跑 |
-| 技能 | 自有技能目录与加载器 | DSH `skills` 服务：随包 `SKILL.md` 由插件在预设作用域注册（读包内文件，不经文件系统提供者） | 不自建技能加载层；本组合的宿主 provider 已关，缺什么发现根由预设自己挂 | 写作预设的 agent 看得到随包技能，其它预设看不到 |
+| 技能 | 自有技能目录与加载器 | DSH `skills` 服务：随包 `SKILL.md` 由插件在预设作用域注册（读包内文件，不经文件系统提供者），注册带 `resourceBase` 指向技能目录 | 不自建技能加载层；本组合的宿主 provider 已关，缺什么发现根由预设自己挂；参考文件靠 DSH 的资源基址按需读取 | 写作预设的 agent 看得到随包技能，其它预设看不到；`skill-references.test.mjs` 断言基址与参考文件可读 |
 | 方法注入 | 自建 prompt 拼装 | `systemPrompt.context()` | 不在实现里复制方法正文；角色档案整份注入，预算与裁剪留给 `context.brief` | 注入片段可在 trace 中定位 |
 | 工具 | 自有工具总线 | `tools.register` | `story_*` 工具按阶段注册独立 schema | 每阶段工具集不同且可校验 |
 | 作者确认 | Studio `propose_action` 只确认 workflow start（`create_book`、`write_next` 等 15 项），带 actionPayload／targetSessionKind；确认后 host 执行 | DSH `approval` 服务 + `commands` + `panel.confirm`（P1）；面板/命令/原生确认同一 decision | 原生确认留 `approval/decided` 回执，但与会话权限策略耦合；策略为 `never` 时由面板命令产生回执；plan/write 是 workflow 内部步骤，不逐工具确认 | 无有效回执时不启动 workflow；`panel.confirm` 覆盖 workflow start；`approval.test.mjs` |
 | 阶段停点 | 源无“阶段 prompt 自动推进”；workflow start 由作者/命令触发 | `systemPrompt.context()` 只描述当前阶段；阶段完成停下；下一阶段需 workflow start | DSH 阶段上下文是机制等价，不是动作授权 | `runtime.stage-context` 测试；真实回执 |
-| 面板 | 独立前端服务；文件/阶段确认/只读产物 | `client` 插件 + slots；`panel.confirm`（P1）与 `panel.workbench`（P6 只读）分开 | 从会话进入，与对话、轨迹并列；UI 用 React；DSH resource 只能按路径订阅，产物清单需要只读索引 | 面板挂载；确认面与只读面不混 |
+| 面板 | 独立前端服务；文件/阶段确认/只读产物 | `client` 插件 + slots；`panel.workbench`（P6）是唯一作品页，承载阶段栏、产物列表、详情与动作条；确认语义仍归 `panel.confirm` | 从会话进入，与对话、轨迹并列；UI 用 React；DSH resource 只能按路径订阅，阶段与产物清单由宿主投影的 `panel.index.json` 提供；面板只读、不触发投影 | 索引驱动渲染；动作经宿主命令/提示；`workbench`/`client`/`panel-projection` 测试 |
 
 ## 偏差登记
 
@@ -35,7 +35,7 @@
 ### 作者确认：原生确认条与面板命令双通道
 
 - 源工程做法：Studio `propose_action` 生成确认卡，携带 `action`／`targetSessionKind`／`instruction`／`title`／`summary`／`actionPayload`；`write_next` 是 confirmed production intent；确认后 host 用 confirmed binding 执行 workflow start。plan/write/revise 是 workflow 内部步骤，不逐工具确认。
-- 复刻做法：会话策略为 `ask` 时用 DSH 原生确认条，回执落在 `approval/asked` 与 `approval/decided`；策略为 `never` 或没有确认端时改由 `/story-approve` 命令产生回执，签核工具只读最近一次决定。`panel.confirm`（P1）承载 workflow start 确认面；`panel.workbench`（P6）只读。
+- 复刻做法：会话策略为 `ask` 时用 DSH 原生确认条，回执落在 `approval/asked` 与 `approval/decided`；策略为 `never` 或没有确认端时改由 `/story-approve` 命令产生回执，签核工具只读最近一次决定。`panel.confirm` 承载确认与回执语义；面板上的入口在 `panel.workbench` 的 `foundation-ready` 节点。
 - 原因：出树插件没有自定义 RPC 出口，自造会话事件会让持久化整份拒读；原生确认又与会话权限策略绑死，单一通道在 `danger-full-access` 下恒拒。
 - 验证：`packages/see-dsh-novel/test/approval.test.mjs` 覆盖两条通道与各类拒绝；`panel.confirm` 的 workflow start 真机回执；不得把 plan/write 改成逐工具 approval。
 
@@ -46,20 +46,48 @@
 - 原因：DSH 的阶段上下文只提供模型上下文，不是授权；把描述当命令会绕过作者确认。
 - 验证：`runtime.stage-context` 的测试与真实回执；workflow start 由 `/story-write`/`panel.confirm` 写入前，阶段停在 `foundation-ready`，不得自动 plan/write。
 
-### 面板：确认面与只读工作台分开
+### 面板：确认语义与工作台
 
-- 源工程做法：Studio 的确认卡（动作）与 `TruthFiles`／`ChapterWorkspacePanel`（只读/编辑产物）是不同面。
-- 复刻做法：`panel.confirm`（P1）只做 workflow start 确认、拒绝与回执；`panel.workbench`（P6）是只读阶段/产物浏览。DSH `useResource` 只按路径订阅，产物清单由宿主生成只读 `panel.index.json` 投影，从文件重建，不是第二套状态表。
-- 原因：确认是授权入口，产物浏览是只读视图；混在一个面板会让“看文件”和“确认动作”混淆。
-- 验证：`panel.confirm`／`panel.workbench` 各自测试；面板只读同一证据；索引不含独立状态。
+- 源工程做法：Studio 的作品页由确认卡（动作）与 `TruthFiles`／`ChapterWorkspacePanel`（产物浏览）组成，同属一个页面；立项在对话里由提案工具完成。
+- 复刻做法：`panel.confirm` 只拥有确认与拒绝的语义；`panel.workbench`（P6）是唯一作品页，承载阶段栏、本阶段产物列表与详情，当前阶段的动作在右栏顶部动作条。阶段、产物与确认状态来自宿主投影的只读 `panel.index.json`（`withWorkAction` 成功后重建、会话发布时补建缺失/过旧索引），面板只读该投影，不调用 `/story-index`，也不给新建表单。
+- 原因：确认是授权入口，产物浏览是读取面；面板若自己触发投影或重算阶段协议，就会和宿主判定分叉，失败时还会静默回退旧卡。
+- 验证：`panel-index.test.mjs`／`workbench.test.mjs`／`client.test.mjs`／`panel-projection.test.mjs`；索引不含独立状态；作者裁定不做桌面回执，以进程级测试为证据。
 
+### 面板产物：白名单、JSON 键值树与诊断折叠
+
+- 源工程做法：真值文件浏览器按显式白名单列文件（`api/server.ts:3228-3240` 的 flat／outline／运行时诊断正则，`api/server.ts:4189-4203` 加角色卡目录），诊断文件带 `readonlyReason: "runtime-diagnostic"` 与只读警示（`pages/TruthFiles.tsx:119-129`），内容统一用 `<pre>`（`pages/TruthFiles.tsx:168`）。
+- 复刻做法：面板展示集合同样走白名单（另加章节正文，源在章节页展示）；诊断文件默认收进「运行时诊断」折叠分组，展开后仍是 `<pre>` 原文与同一条警示；作者产物的 JSON（`book_rules.json`、章纲、审稿）用键值树并保留「原始 JSON」切换。`state/*.json`、`memory.db`、`workflow-start.json` 不进面板；审批摘要仍是 `source/story/` 全量。
+- 原因：白名单让面板只显示作品产物，作者不必在状态 JSON 与 trace 里找正文；键值树与折叠是作者对可读性的裁决，原文切换保证没有信息损失。
+- 验证：`panel-index.test.mjs` 断言展示集合与摘要集合分离、类别与出现阶段；`workbench.test.mjs` 断言折叠分组、JSON 键值树与原始切换、诊断警示。
+
+### chapter.revise：修订后由审稿闸门替代自动复审
+
+- 源工程做法：`pipeline/runner.ts:874-1120` 的 `reviseDraft` 在修订事务内 `collectReviewObservations` 复审修订稿，把观察写回章节 index；状态结算与校验也在同一事务。
+- 复刻做法：`story_revise_chapter` 覆盖章节文件后删除旧审稿记录，并在没有 start 时同批重开本章（`workflow-start.json`），阶段回到 `review`；审稿观察由主编派审稿子代理产出，再经 `story_review_chapter` 校验落盘；重结算由 `story_settle_chapter` 单独完成（可重入）。
+- 原因：DSH 的审稿观察与结算 delta 都是模型输出，工具内不能跑模型；阶段闸门保证修订后必须重审，再结算由作者/协议触发。
+- 验证：`test/chapter-revise.test.mjs` 断言修订后审稿文件消失、`reviewInvalidated`；`test/stage-context.test.mjs` 断言 review／chapter-done 协议写明重审。
+
+
+### 技能参考：基址按需读取替代 query 检索
+
+- 源工程做法：`agent/skill-tool.ts:55-120` 的 `use_skill` 支持 `resourcePath`（精确读一个参考文件）与 `query`（对参考文件检索），读取前校验路径、类型与大小。
+- 复刻做法：随包技能注册时带 `provider` 与 `resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }`；DSH 的 `renderSkillContent` 把绝对基址渲染进 `skill` 工具输出，模型按路径读 `references/*.md`。`resourcePath` 的行为等价；`query` 没有对应 API，模型直接列/读固定参考目录。
+- 原因：DSH 技能服务的资源只声明位置（`SkillResourceBase`），不提供检索入口；为 query 自造工具会变成第二套机制。
+- 验证：`test/skill-references.test.mjs` 断言每条技能的 provider／基址与 `review-matrix.md` 等参考文件可读；D23 由本行偿还。
+
+### chapter.reopen：恢复正文，状态指针回退
+
+- 源工程做法：恢复版本只替换章节正文、清该章运行时文件并记索引观察，不改 `current_state`／`hooks`；Studio 用 `requiresTruthRebuild` 标出后续重建。
+- 复刻做法：`story_reopen_chapter` 在恢复/重开时删审稿与章纲、写 workflow start，并把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章；facts/hooks 留待重结算。
+- 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章，审稿与重结算无法回到本章。
+- 验证：`test/chapter-reopen.test.mjs` 断言指针回退、审稿/章纲删除、start 写入、阶段回到 `plan`、版本恢复归档；facts/hooks 不回退由 D33 记录。
 
 ### 就绪判据：角色卡只能由会话路牌数
 
 - 源工程做法：状态接口用 `isBookFoundationComplete` 判断完成——六份文件（作品身份、大纲两份、book rules 两份、伏笔池）加 `story/roles/` 任一目录里的至少一张角色卡。
-- 复刻做法：`story_next` 按同一份清单判 `ready`；客户端面板订阅其中的五份设定文件判断「设定齐全」（身份单独判），但不数角色卡。
+- 复刻做法：`story_next` 按同一份清单判 `ready`；面板的阶段与产物一律来自宿主投影的 `panel.index.json`（`story_next` 的判据在宿主侧），client 不数文件；没有索引时只保留「开始基础设定」的兜底入口。
 - 原因：客户端资源通道按路径订阅，没有列目录能力，`story/roles/` 下有什么文件客户端拿不到；因此「≥1 张角色卡」只能由宿主侧判。
-- 验证：`packages/see-dsh-novel/test/ready-check.test.mjs` 覆盖七项判据与四个角色目录；`test/host.test.mjs` 覆盖四阶段与 `draft` 的两种下一步；面板测试断言六个文件锚点。
+- 验证：`packages/see-dsh-novel/test/ready-check.test.mjs` 覆盖七项判据与四个角色目录；`test/host.test.mjs` 覆盖四阶段与 `draft` 的两种下一步；`client.test.mjs` 覆盖索引驱动与无索引兜底。
 
 ### 控制文档：语言由调用方解析，写入项并入同一次提交
 

@@ -1,16 +1,20 @@
 {
   "capability": "panel.workbench",
-  "date": "2026-11-09",
+  "date": "2026-11-10",
   "sessionId": "process:panel.workbench",
   "tests": {
-    "command": "pnpm test",
+    "command": "pnpm run verify",
     "passed": true,
-    "summary": "327 passed — panel 索引/产物/阶段 2 例、workbench 轨道/导航/产物/新建表单/简报编码 3 例、client 30 例、story-index 命令注册、workflow/lock 回归"
+    "summary": "337 passed — panel-index 4 例（索引 v3、展示集合与审批摘要分离、foundation-ready 主/次动作、提案无动作）、panel-projection 7 例（写后重建、嵌套一次、project:false、失败不改动作、预热补建/旧格式/过滤、session/created 不抛错）、workbench 7 例（动作条、阶段栏导航、按阶段过滤与诊断折叠、JSON 键值树与原始切换、诊断警示、无作品引导、本章完成）、client 27 例（索引驱动、版本重读、错误可见、五个确认动作与三个阶段动作）、host/story-index/workflow/lock 回归"
   },
   "receipts": [
-    "`/story-index` 从文件构建 `panel.index.json`：stages、artifacts、work、confirmation；索引被 `readArtifacts` 排除。",
-    "Workbench 显示阶段轨道、左导航、右详情；动作只出现在轨道节点；产物内容通过宿主 read 回调；plan/write/review 已按 verified 放开为 advance 提示。",
-    "新作品表单包含简报；`newWorkCommand` 用 encodeURIComponent 传 `--brief-text`，`/story-init` 解码后进入同一次 initWork。",
-    "该回执是 process-level 组件/索引测试，不是 DSH 会话；真实 Web GUI 验收仍待记录。"
+    "`panel.index.json` 版本 3 由宿主 `buildPanelIndex` 从文件重建：stages（主 `action` + `secondary`）、artifacts（`class` + `stages`）、work、confirmation；索引被 `readArtifacts` 排除，不作为作品产物。",
+    "面板产物是白名单展示集合，与审批摘要分离：状态 JSON、`memory.db`、`workflow-start.json` 不进面板；章节正文（`source/chapters/NNNN_*.md`）归正文/审阅；运行时诊断默认收进折叠分组，展开后仍是 `<pre>` 原文并带只读警示。",
+    "列表显示中文名（作者意图/当前焦点/故事框架/分卷地图/规则正文/规则数据/待回收伏笔/当前状态/章节摘要/立项原文/外部简报），右栏详情仍显示真实路径与 revision；角色卡用角色名，章节用「第 N 章 · 标题」。",
+    "宿主投影：`withWorkAction` 最外层成功后**就地**重建索引（写 action 所在进程完成，不依赖跨进程观察者）；会话发布时 `session/created` 对缺索引/旧格式的作品补建一次；`/story-index` 只作内部兜底，面板不调用。",
+    "面板只读：`useResource` 订阅索引 stat，版本变化重读正文；读取失败显示具体原因；没有新建表单、没有「刷新索引」；无作品只显示对话引导。",
+    "作者产物的 JSON（`book_rules.json`、章纲、审稿）默认键值树，可切「原始 JSON」；诊断文件不树化。",
+    "阶段动作：当前阶段的动作只出现在右栏动作条——`foundation-ready` 主动作「确认基础设定」（`/story-approve` + resume），次动作「开始下一章 / 退回 / 查看待确认 / 稍后」；plan/write/review 走 `advance` 提示，不逐工具 approval；退回不唤醒会话。",
+    "该回执是 process-level 组件/索引/投影测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
   ]
 }

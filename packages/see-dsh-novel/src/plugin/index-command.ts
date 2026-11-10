@@ -21,7 +21,7 @@ export function installIndexCommand(ctx: PluginContext): Disposer {
           const built = await buildPanelIndex(root)
           await writePanelIndex(root, built)
           return built
-        })
+        }, { project: false })
         return { kind: 'success', text: `面板索引已重建：${index.artifacts.length} 个产物，${index.stages.length} 个阶段。` }
       } catch (error) {
         return { kind: 'error', text: error instanceof Error ? error.message : String(error) }

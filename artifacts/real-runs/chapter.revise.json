@@ -1,0 +1,19 @@
+{
+  "capability": "chapter.revise",
+  "date": "2026-11-10",
+  "sessionId": "process:chapter.revise",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "347 passed — chapter-revise 8 例（单段/多段判定、targetText 唯一与覆盖、revision r2 + 归档、审稿作废、无改动不写、四类拒绝、spot-fix 范围、归档不进章节列表）、panel-index 4 例（索引 v4、根动作、展示集合、动作）、workbench 8 例、client 27 例、stage-context 与 host 工具清单回归"
+  },
+  "receipts": [
+    "`story_revise_chapter` 支持 polish／rewrite／rework／anti-detect／spot-fix，默认 rewrite；章节必须有正文与章纲，不要求 workflow start。",
+    "spot-fix 由宿主做行级 diff：多处不连续改动拒绝 `CHAPTER_EDIT_SCOPE_CONFLICT`；`targetText` 必须唯一并完整覆盖改动区间，否则拒绝且不落盘。",
+    "修订覆盖同一章节文件、把旧正文归档到 `source/chapters/.versions/NNNN/<ts>_revision_<uuid>.md`、追加 artifact revision（r2，parent r1，旧 revision superseded），同一次 commit 完成。",
+    "修订成功后作废 `chapter-XXXX.review.json` 并重开本章（写 workflow start），阶段回到 review；工具返回 `reviewInvalidated`，源在事务内自动复审，DSH 用重新审稿的闸门替代并登记偏差。",
+    "索引版本 4：`chapter-done` 没有当前阶段，根 `action` 提供「修订本章」；面板点击走 `advance`，提示派 reviser 并调用 `story_revise_chapter`、修订后必须重审。",
+    "修订不重结算 `current_state` 与伏笔（P4 `chapter.settle` 未交付）；保真债 D32，登记在 scope 与审计。",
+    "该回执是 process-level 工具/核心/面板测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

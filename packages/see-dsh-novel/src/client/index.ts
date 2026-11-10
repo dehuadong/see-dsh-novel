@@ -18,6 +18,34 @@ import type { CommandOutcome, FileRemote, PromptOutcome, SentinelInjected, Sessi
 
 export const inject = ['slots', 'sessions', 'remote'] as const
 
+/** 一页的行数上限；与宿主 `workspaceFiles` 的默认 `maxLines` 一致。 */
+const READ_PAGE_LINES = 5000
+
+/**
+ * 分页读完一个文件：宿主按行分页，`offset` 从 1 开始，页尾的 `eof` 表示读完。
+ * @param files workspaceFiles 读面
+ * @param sessionId 会话
+ * @param path 工作区相对路径
+ * @returns 文件的完整文本
+ */
+async function readWholeFile(
+  files: FileRemote['workspaceFiles'],
+  sessionId: SessionId,
+  path: string,
+): Promise<string> {
+  const signal = new AbortController().signal
+  const chunks: string[] = []
+  let offset = 1
+  for (;;) {
+    const page = await files.read(sessionId, path, { offset, limit: READ_PAGE_LINES }, signal)
+    if (!page.ok) throw new Error(`读取 ${path} 失败：${page.error.message}`)
+    if (page.value.text !== '') chunks.push(page.value.text)
+    if (page.value.eof || page.value.lines === 0) break
+    offset += page.value.lines
+  }
+  return chunks.join('\n')
+}
+
 /**
  * 认可之后投回会话的那条消息。
  *
@@ -76,16 +104,11 @@ export function apply(ctx: Context): void {
     start: (sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome> => promptQueue(sessionId, START_TEXT(cwd)),
     advance: (sessionId: SessionId, text: string): Promise<PromptOutcome> => promptQueue(sessionId, text),
     readArtifact: async (sessionId: SessionId, path: string): Promise<string> => {
-      const remote = ctx.get('remote') as FileRemote | undefined
-      if (remote === undefined) throw new Error('workspaceFiles remote 不可用')
-      const result = await remote.workspaceFiles.read(
-        sessionId,
-        path,
-        { offset: 0, limit: 200_000 },
-        new AbortController().signal,
-      )
-      if (!result.ok) throw new Error(`读取 ${path} 失败：${result.error.message}`)
-      return result.value.text
+      // 宿主把生成的文件命名空间注册成 `remote.workspaceFiles`；按名读取，
+      // 不 import 网关的生成类型（它不是本包的依赖）。缺失时给作者一句可见原因。
+      const files = ctx.get('remote.workspaceFiles') as FileRemote['workspaceFiles'] | undefined
+      if (files === undefined) throw new Error('workspaceFiles 通道不可用')
+      return readWholeFile(files, sessionId, path)
     },
   })
 

@@ -124,6 +124,16 @@ function baseArtifact(input: { kind: string, path: string, content: Buffer, crea
   }
 }
 
+/** 下一个 revision id：已有 `rN` 时取 N+1，首个是 `r1`。 */
+export function nextRevisionId(revisions: ReadonlyArray<{ id: string }>): string {
+  let highest = 0
+  for (const revision of revisions) {
+    const match = /^r(\d+)$/u.exec(revision.id)
+    if (match !== null && match[1] !== undefined) highest = Math.max(highest, Number(match[1]))
+  }
+  return `r${highest + 1}`
+}
+
 /** 为章节写一个 current revision 的 manifest 写入；章节正文本身由调用方同批写入。 */
 export async function chapterArtifactWrite(
   root: string,
@@ -133,7 +143,7 @@ export async function chapterArtifactWrite(
   const artifactId = `chapter-${String(input.chapter).padStart(4, '0')}`
   const existing = store.artifacts.find((artifact) => artifact.id === artifactId)
   const revision = baseArtifact({
-    revisionId: 'r1',
+    revisionId: nextRevisionId(existing?.revisions ?? []),
     kind: 'chapter',
     path: input.chapterPath,
     content: Buffer.from(input.content),

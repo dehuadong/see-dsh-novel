@@ -22,7 +22,7 @@ import {
   renderHooksProjection,
 } from './state-projections.js'
 
-import { STATE_DIR, STORY_CHAPTER_SUMMARIES_MD, STORY_CURRENT_STATE_MD, STORY_PENDING_HOOKS } from './story-paths.js'
+import { STATE_DIR, STORY_CHAPTER_SUMMARIES_MD, STORY_CURRENT_STATE_MD, STORY_PENDING_HOOKS, STORY_ROOT } from './story-paths.js'
 
 /** 三份投影的位置；与 JSON 的状态目录分开。 */
 export const PROJECTION_PATHS = {
@@ -261,6 +261,19 @@ export async function inspectState(
 }
 
 /** 生成「尚不存在」的状态写入项（JSON 与投影都补），交给同一次 commit 原子落盘。 */
+/**
+ * 把整份状态复制成逐章快照（四份 JSON + 三份投影）。
+ * @param snapshot 要复制的状态
+ * @param chapter 快照章号（初始快照用 0）
+ * @returns 相对作品根的写入项
+ */
+export function snapshotWrites(snapshot: StateSnapshot, chapter: number): FileWrite[] {
+  const prefix = `${STORY_ROOT}/snapshots/${chapter}`
+  return [...stateJsonWrites(snapshot), ...stateProjectionWrites(snapshot)].map((write) => ({
+    relativePath: write.relativePath.replace(`${STORY_ROOT}/`, `${prefix}/`),
+    content: write.content,
+  }))
+}
 export async function stateWritesIfMissing(
   root: string,
   hooks: ReadonlyArray<PendingHook>,

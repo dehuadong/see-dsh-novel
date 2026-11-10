@@ -1,0 +1,17 @@
+{
+  "capability": "skill.references",
+  "date": "2026-11-10",
+  "sessionId": "process:skill.references",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "350 passed — skill-references 3 例（每条随包技能带 provider 与 resources 基址；story-review 的 references/review-matrix.md 可读；longform-writing 的参考目录同样可达）＋ host 工具/技能清单回归"
+  },
+  "receipts": [
+    "随包技能在注册时带 `provider: 'see-dsh-novel'` 与 `resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }`；DSH 的 `renderSkillContent` 会把 `Base directory for this skill: …` 渲染进 `skill` 工具输出。",
+    "模型面按基址读取参考文件：`skills/story-review/references/review-matrix.md` 与 `skills/longform-writing/references/*.md` 存在且可读；不再依赖在工作区里 glob 文件名。",
+    "技能正文仍由预设插件从包内读取并注册（已登记的机制偏差）；本行只补 DSH 的 `resourceBase`，不新增工具。",
+    "源 `use_skill.query` 的参考检索在 DSH 没有对应 API；只提供目录基址、按路径读取，偏差登记在 `docs/dsh-mapping.md`。",
+    "该回执是 process-level 注册/文件测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

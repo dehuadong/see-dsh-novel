@@ -1,0 +1,17 @@
+{
+  "capability": "chapter.move-delete",
+  "date": "2026-11-10",
+  "sessionId": "process:chapter.move-delete",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "376 passed — chapter-delete 5 例（snapshot 七文件、删除最新章回滚状态/索引/运行时/检索库、只删最新章、缺快照拒绝且不移动、trash 重名后缀）＋ foundation details 初始快照 1 例＋ host 工具清单与 stage 协议回归"
+  },
+  "receipts": [
+    "foundation details 写 `source/story/snapshots/0/` 七份文件（四份状态 JSON + 三份投影），重复调用重写同一内容。",
+    "`story_delete_chapter` 只接受最新章；先把该章 `chapters/NNNN_*.md` 移到 `chapters/.trash/`（重名加 `-2` 后缀），再从 `snapshots/<chapter-1>/` 恢复四份状态 JSON 与三份投影。",
+    "删除后 `chapters/index.json` 只保留小于被删章的记录；被删章与更晚章的快照、`story/runtime/chapter-*`、`story/drafts` 与 `memory.db*` 一并删除；提交失败把 trash 文件搬回（失败聚合为 AggregateError）。",
+    "上一章快照缺失或不可解析时在移动任何文件之前拒绝；删除后阶段回到 `foundation-ready`。",
+    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

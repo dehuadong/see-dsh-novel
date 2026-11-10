@@ -6,6 +6,8 @@ export interface PanelStage {
   status: 'done' | 'current' | 'locked'
   summary: string
   action: PanelAction | null
+  /** 主按钮之外的作者动作；只有 `foundation-ready` 节点有。 */
+  secondary: PanelAction[]
 }
 
 export interface PanelAction {
@@ -16,10 +18,15 @@ export interface PanelAction {
 }
 
 export interface PanelArtifact {
+  /** 相对作品根的路径，`/` 分隔。 */
   path: string
+  /** 列表里显示的名字；章节用「第 N 章 · 标题」。 */
   title: string
   type: 'markdown' | 'json' | 'text'
-  group: 'foundation' | 'chapter'
+  /** 展示类别：作者产物、章节正文、章纲、审稿、运行时诊断。 */
+  class: 'truth' | 'chapter' | 'plan' | 'review' | 'diagnostic'
+  /** 出现在哪些阶段；由宿主投影给出。 */
+  stages: PanelStage['id'][]
   modifiedAt: string
   bytes: number
   revision: string
@@ -27,7 +34,7 @@ export interface PanelArtifact {
 }
 
 export interface PanelIndex {
-  version: 1
+  version: 4
   generatedAt: string
   revision: string
   work: {
@@ -39,6 +46,8 @@ export interface PanelIndex {
   } | null
   stages: PanelStage[]
   artifacts: PanelArtifact[]
+  /** 没有当前阶段时给出的动作（chapter-done 的「修订本章」）；其余时候为 null。 */
+  action: PanelAction | null
   confirmation: {
     kind: 'proposal' | 'foundation-signoff' | 'workflow-start' | 'chapter' | 'none'
     state: 'pending' | 'started' | 'done'

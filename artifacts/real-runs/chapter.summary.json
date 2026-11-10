@@ -1,0 +1,17 @@
+{
+  "capability": "chapter.summary",
+  "date": "2026-11-10",
+  "sessionId": "process:chapter.summary",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "355 passed — chapter-summary 5 例（七字段写入与排序、同章替换、工具回执、缺正文/缺审稿拒绝、非法章号/空标题/字段类型/坏 JSON 拒绝且不写）＋ stage-context 与 host 工具清单回归"
+  },
+  "receipts": [
+    "`story_summarize_chapter({chapter, summary})` 把 title／characters／events／stateChanges／hookActivity／mood／chapterType 写入 `source/story/state/chapter_summaries.json`，并把同一份状态渲染成 `source/story/chapter_summaries.md` 投影；两处同一次 commit。",
+    "行按章号升序；同章再次写入替换该行（修订后重审的重结算路径），其它章节保留；文件缺失按空表创建。",
+    "前置是本章有正文与审稿记录；缺任一、章号非正整数、标题为空、字段类型错误、`chapter_summaries.json` 损坏都拒绝且不写。",
+    "摘要在 `chapter-done` 协议里由 settler 子代理产出后经工具落盘；事实与伏笔结算仍未交付（`chapter.settle`），D32 的收口在那一行完成。",
+    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

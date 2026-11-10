@@ -2,7 +2,7 @@
 
 逐行对照源工程行为与复刻行为。判定只有三种：`等价`、`机制等价`（必须带 `docs/dsh-mapping.md` 偏差行）、`保真债`（必须带 `docs/scope.md` 偿还行）。
 
-审计范围：账本中全部 `verified` 行与待验行；按 P0 → P1 → P2 → P3 分批。`###` 段必须覆盖 v1 P0–P6 的每一行；`missing` 行也写源证据与阻塞。
+审计范围：账本中全部 `verified` 行与待验行；按 P0 → P1 → P2 → P3 → P4 → P5 → P6 分批。`###` 段必须覆盖 v1 P0–P6 的每一行；`missing` 行也写源证据与阻塞。
 
 ## 跨能力不变量
 
@@ -14,57 +14,71 @@
 4. **证据同一**：会话日志、telemetry、realRun、面板展示来自同一证据；`capabilities.yaml` 状态只由 `check-capabilities` 依据证据生成。
 5. **上下文同一**：模型窗口、预算、检索候选、压缩、`ChapterTrace` 七字段、review 来源同一基准；不静默截断。
 6. **产物同一**：章节文档、artifact revision、`reviewedArtifact`、review 证据指向同一被审版本；写/审/改不跨 revision。
-7. **面板/命令一致**：面板按钮、`/story-*` 命令、原生 approval 不出现三套 decision；`panel.confirm`（P1）与只读 `panel.workbench`（P6）职责分开，面板只读同一证据。
+7. **面板/命令一致**：面板按钮、`/story-*` 命令、原生 approval 不出现三套 decision；`panel.confirm` 拥有确认语义，`panel.workbench` 是读取 + 动作面，两者读同一份索引证据。
 
 验证位置：1/2 见 `runtime.stage-context`／`foundation.approval`／`panel.confirm`；3 见 `runtime.session-binding`／`runtime.work-lock`／`runtime.commit-safety`；4 见 `runtime.telemetry`／`check-capabilities`；5 见 `plan.*`；6 见 `chapter.write`／`chapter.review`／`artifact.identity`；7 见 `panel.*` 与 `StoryView`。
 
 ---
 
-## 批次 A：P0 提案与建书
+## 批次 A：P0 运行时骨架
 
-### proposal.creative（提案确认卡）
+### runtime.load
 
-**源工程证据**
+**源工程证据**：`inkos/packages/core/src/harness/runtime.ts` 装载 profile／bundle、注册工具与 client。
 
-- `agent/agent-tools.ts` 的 `propose_action`：`instruction`（必填、自包含）、`title`（必填）、`summary`（必填），`createBook` 为嵌套对象：`title`、`genre?`、`platform?`、`language?`、`targetChapters?`、`chapterWordCount?`、`minChapterLength?`、`maxChapterLength?`；
-- `harness/tools/longform-production.ts` 的 `create_book`：`instruction` 必填；`title` 可选；`bookId`、`genre`、`platform`、`language`、`targetChapters`、`chapterWordCount`、`minChapterLength`、`maxChapterLength`；
-- 确认卡：标题、摘要、instruction，作者确认后才执行。
+**复刻现状**：`packages/see-dsh-novel` 的 bundle/preset 由 DSH 加载；`host.test.mjs` 断言工具、命令、context 与 client 注册。
 
-**可验证不变量**
+**判定：机制等价** — DSH bundle/preset 替代源自建 runtime；验证 `host.test.mjs` 与 `runtime.load.json`。
 
-1. `instruction` 必填且自包含（标题、方向、目标与输出位置）。
-2. `title`、`summary` 必填；卡片展示标题、摘要与 instruction。
-3. 书目标规模字段包含总章数、单章字数、最小/最大章长。
-4. 平台与篇幅必须进结构化字段，不能只留在 instruction 文本里。
-5. 确认前不落盘。
+### runtime.agent-tools
 
-**复刻现状**
+**源工程证据**：`inkos/packages/core/src/harness/builtin-profiles.ts` 的写作 profile 工具面；通用写工具不开放，内容写入走 `story_*`。
 
-- `core/proposal.ts`：顶层 `title`（卡片标题）／`summary`／`instruction` 与必填的 `createBook` 嵌套对象；
-- `createBook` 含 `title`、`genre`、`platform`、`language`、`targetChapters`、`chapterWordCount`、`minChapterLength`、`maxChapterLength`；卡片标题与作品标题分开；
-- 缺省规模在批准时补齐（200／语言默认章长）；`min`／`max` 只要求各自 ≥1，不校验顺序（与源一致）。
+**复刻现状**：`cordis.patch.yml` 组合 preset；`agent-tools.test.mjs` 校验 persona、只读、检索、技能、子代理、ask-user、todo、jobs、压缩；不注册通用写工具。
 
-**判定：等价（D1／D2 已偿还）** — 嵌套形状与章长区间已落地，回执见 `artifacts/real-runs/proposal.creative.json`。
+**判定：机制等价** — DSH preset plugins 与 skills 承载；无内容写入旁路。
 
-### proposal.execution-brief（执行说明与默认规模）
+### runtime.client-ui
 
-**源工程证据**
+**源工程证据**：`inkos/packages/studio/` 的页面、确认卡与文件浏览；DSH 用 client 插件 + slots。
 
-- `create_book` 的 `instruction` 是确认后要执行的原文；`runner.ts` 把 `externalContext` 写入 `story/brief.md`（原文）；
-- `book/chapter` 默认：`chapterWordCount` 缺省按语言默认（中文 3000、英文 2000），`targetChapters` 缺省 200。
+**复刻现状**：`client/index.ts` 注册 slot 与哨兵，条件注册「作品」页；`StoryView` 索引驱动、`Workbench` 承载阶段栏/产物/动作条；样式随插件安装。面板内容与桌面回执归 `panel.workbench`。
 
-**可验证不变量**
+**判定：机制等价** — DSH client 插件 + slots 替代 Studio 前端；面板的完成度见 `panel.workbench`，不在本行重复计债。
 
-1. `instruction` 原文写进 `story/brief.md`。
-2. 缺省规模在批准时补齐，不在提案卡上编造。
-3. `author_intent` 与 `current_focus` 按方向文档播种。
+### runtime.package-check
 
-**复刻现状**
+**源工程证据**：`dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs` 校验 tarball files／exports／patch。
 
-- `initWork` 一次提交写 `work.json`、`source/story/brief.md`（instruction 原文）、`author_intent`（trimEnd + 换行）、`current_focus`；
-- 批准时补 `targetChapters ?? 200`、`chapterWordCount ?? defaultChapterLength(language)`。
+**复刻现状**：`src/tools/packaging.ts` 与 `packaging.test.mjs`；`check-package` 在 verify 中执行。
 
-**判定：等价**（规模字段的 `min/max` 债记在 `proposal.creative`）。
+**判定：机制等价** — DSH 打包检查；无产品行为差异。
+
+### runtime.boundary-check
+
+**源工程证据**：项目护栏：源码不得 import 源工程，`@deepseek-ai` 只允许预设与前端 type-only 引用。
+
+**复刻现状**：`src/tools/boundary.ts`、`source-boundary.test.mjs`、`check-boundary`。
+
+**判定：机制等价** — 项目护栏，不是源产品功能。
+
+### skill.references
+
+**源工程证据**：`inkos/packages/core/src/agent/skill-tool.ts:55-120` 的 `use_skill`——`resourcePath` 精确读一个参考文件、`query` 对参考文件检索；`:40-52` 的激活结果携带 `resources`。
+
+**复刻现状**：随包技能注册带 `provider` 与 `resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }`；DSH 的 `renderSkillContent` 把绝对基址渲染进 `skill` 工具输出，主/子代理按路径读 `references/*.md`。技能正文仍由预设插件从包内读取注册（既有机制偏差），本行不改。
+
+**判定：机制等价（query 偏差）** — `resourcePath` 与按基址读文件等价；源 `use_skill.query` 的参考检索在 DSH 没有对应 API，只暴露目录、由模型直接读取，已登记 `docs/dsh-mapping.md`。D23 由本行偿还。
+
+## 批次 B：P1 创意、立项与基础设定
+
+### runtime.session-binding
+
+**源工程证据**：`inkos/packages/core/src/harness/session-binding.ts` 用 `works/<id>` 与 session 绑定；一个工作区一部作品。
+
+**复刻现状**：`work.json` 在工作区根，`workingDirectory` 绑定会话；面板从会话读取作品身份；跨作品隔离由工作区边界。
+
+**判定：机制等价** — 源多作品目录改为一个工作区；无跨作品路径。
 
 ### runtime.commands（建书命令）
 
@@ -111,7 +125,61 @@
 
 ---
 
-## 批次 B：P1 基础设定与运行时
+### runtime.telemetry
+
+**源工程证据**：源 pipeline／agent 记录 usage、耗时、失败回执。
+
+**复刻现状**：DSH session 日志记录 usage／耗时／失败；`story_*` 工具回执可追溯；没有独立遥测存储。
+
+**判定：机制等价** — DSH session 日志替代源 telemetry；面板/审计读取同一日志。
+
+### runtime.recovery
+
+**源工程证据**：源 `state` 重建索引与故障恢复。
+
+**复刻现状**：`core/recovery.ts` 自检与重建，`recovery` 测试覆盖；作品内容文档可重建索引。
+
+**判定：机制等价** — DSH 文件状态 + 恢复函数；无独立数据库。
+
+### proposal.creative（提案确认卡）
+
+**源工程证据**
+
+- `agent/agent-tools.ts` 的 `propose_action`：`instruction`（必填、自包含）、`title`（必填）、`summary`（必填），`createBook` 为嵌套对象：`title`、`genre?`、`platform?`、`language?`、`targetChapters?`、`chapterWordCount?`、`minChapterLength?`、`maxChapterLength?`；
+- `harness/tools/longform-production.ts` 的 `create_book`：`instruction` 必填；`title` 可选；`bookId`、`genre`、`platform`、`language`、`targetChapters`、`chapterWordCount`、`minChapterLength`、`maxChapterLength`；
+- 确认卡：标题、摘要、instruction，作者确认后才执行。
+
+**可验证不变量**
+
+1. `instruction` 必填且自包含（标题、方向、目标与输出位置）。
+2. `title`、`summary` 必填；卡片展示标题、摘要与 instruction。
+3. 书目标规模字段包含总章数、单章字数、最小/最大章长。
+4. 平台与篇幅必须进结构化字段，不能只留在 instruction 文本里。
+5. 确认前不落盘。
+
+**复刻现状**
+
+- `core/proposal.ts`：顶层 `title`（卡片标题）／`summary`／`instruction` 与必填的 `createBook` 嵌套对象；
+- `createBook` 含 `title`、`genre`、`platform`、`language`、`targetChapters`、`chapterWordCount`、`minChapterLength`、`maxChapterLength`；卡片标题与作品标题分开；
+- 缺省规模在批准时补齐（200／语言默认章长）；`min`／`max` 只要求各自 ≥1，不校验顺序（与源一致）。
+
+**判定：等价（D1／D2 已偿还）** — 嵌套形状与章长区间已落地，回执见 `artifacts/real-runs/proposal.creative.json`。
+
+### panel.gate-resume
+
+**源工程证据**：Studio 确认卡确认后继续；退回是停止信号。
+
+**复刻现状**：`StoryView` 的认可/退回调用 `/story-approve`／`/story-reject`，`panel.gate-resume` 把「继续」投回会话；workflow start 另由 `/story-write` + `panel.confirm` 处理。
+
+**判定：机制等价** — 确认-继续通道在；workflow start 不再是确认-继续，而是独立 start 记录。
+
+### panel.foundation-start
+
+**源工程证据**：Studio 的创作入口在立项后启动基础设定。
+
+**复刻现状**：工作台 `foundation` 节点的「开始基础设定」（无索引时是兜底卡片）投一条开工指令；`panel.foundation-start` 有回执与失败提示。
+
+**判定：机制等价** — DSH 会话消息替代 Studio 按钮；workflow start 由 `panel.confirm` 接；工作台入口在 `panel.workbench`。
 
 ### foundation.architect
 
@@ -122,6 +190,40 @@
 **复刻现状**：四段 tool schema 与源一致（`contract.ts`）；阶段协议只列四段顺序，**没有移植 architect 的 system prompt**（作品身份、外部指令、反馈块）。
 
 **判定：机制等价（D6 已偿还）** — 架构契约（元信息、外部指令、提交要求）与四步依赖已由 `stages/architect.ts` 注入 `foundation` 阶段；「已激活的专业 Skill」在 DSH 落点是阶段主动注入的 `longform-writing`，已在 `docs/dsh-mapping.md`「方法注入」行覆盖。review feedback 与 import／fanfic 变体仍属后续能力。
+
+### foundation.hooks
+
+**源工程证据**：`inkos/packages/core/src/state` 的 hooks 池与六动作；状态由 settler 回写。
+
+**复刻现状**：`core/hooks.ts`、`foundation/hook-ledger`；`hooks.test.mjs` 覆盖 id、状态、结算。
+
+**判定：机制等价** — 文件状态 + 严格校验；无独立存储服务。
+
+### foundation.approval
+
+**源工程证据**：源 Studio 的 `propose_action`／confirmed production 只确认 workflow start（`create_book`、`write_next` 等，15 个）；确认后 host 执行；plan/write 是内部步骤。
+
+**复刻现状**：`gate.ts` 提供 foundation 签核工具与面板认可/退回；`story_foundation_signoff` 读 approval；workflow start 由 `/story-write`/`panel.confirm` 独立确认，不再自动进入 plan。
+
+**判定：机制等价** — foundation 签核是 DSH 侧附加面；workflow start 确认已接；不把 plan/write 改成逐工具 approval。
+
+### cast.single-authority
+
+**源工程证据**：`inkos/packages/core/src/references/reference-context.ts` 的角色权威；major/minor 都进入 brief/context。
+
+**复刻现状**：`core/cast.ts`／role 文件；`cast.test.mjs` 断言唯一权威与主次角色。
+
+**判定：机制等价** — 角色文件为唯一权威；DSH context 读取同一文件。
+
+### foundation.rule-contract
+
+**源工程证据**：`models/book-rules.ts`：`version: "2"`、严格对象、可选 protagonist／genreLock／narrativePerson／fanficMode、必填 prohibitions／enableFullCastTracking／allowedDeviations。
+
+**可验证不变量**：写入时注入 version；读取严格校验未知字段。
+
+**复刻现状**：`pipelines/long/book-rules.ts` 的版本与字段一致；测试覆盖严格解析。
+
+**判定：等价**。
 
 ### foundation.ready-check
 
@@ -135,6 +237,16 @@
 
 **附带发现**：`stages` 的同步探针曾用 current_state／chapter_summaries 代替 book_rules.json，与 `workProbes` 不一致；本行已把两处统一为同一组文件。
 
+### foundation.truth-projections
+
+**源工程证据**：`state` 投影（current_state／pending_hooks／chapter_summaries）的列、排序与转义。
+
+**可验证不变量**：排序稳定、文本转义、末尾换行；缺数据时输出表头。
+
+**复刻现状**：`core/state-projections.ts` 有对应渲染与测试。
+
+**判定：等价**（列集以测试为准）。
+
 ### foundation.control-docs
 
 **源工程证据**：`manager.ts` 的 author_intent／current_focus 兜底；brief 原文进入外部上下文。
@@ -142,26 +254,6 @@
 **可验证不变量**：文件缺失时写默认模板；author_intent 按 instruction 播种；current_focus 是默认聚焦文本。
 
 **复刻现状**：`controlDocumentWrites` 的 author_intent 兜底与源逐字一致；current_focus 默认模板与测试覆盖。
-
-**判定：等价**。
-
-### foundation.hook-ledger
-
-**源工程证据**：`models/runtime-state.ts` 的 Hook 字段（hookId、type、startChapter、status、lastAdvancedChapter、expectedPayoff、notes、dependsOn?、paysOffInArc?）。
-
-**可验证不变量**：字段与可选性一致；未知字段拒绝；hookId/type 非空。
-
-**复刻现状**：`core/hooks.ts` 字段一致，严格校验与测试覆盖。
-
-**判定：等价**。
-
-### foundation.rule-contract
-
-**源工程证据**：`models/book-rules.ts`：`version: "2"`、严格对象、可选 protagonist／genreLock／narrativePerson／fanficMode、必填 prohibitions／enableFullCastTracking／allowedDeviations。
-
-**可验证不变量**：写入时注入 version；读取严格校验未知字段。
-
-**复刻现状**：`pipelines/long/book-rules.ts` 的版本与字段一致；测试覆盖严格解析。
 
 **判定：等价**。
 
@@ -175,15 +267,15 @@
 
 **判定：等价**。`truth-authority.ts` 的 8 项集合属于 `truth-file-edit` 事务，不是本行的写入白名单。
 
-### foundation.truth-projections
+### foundation.hook-ledger
 
-**源工程证据**：`state` 投影（current_state／pending_hooks／chapter_summaries）的列、排序与转义。
+**源工程证据**：`models/runtime-state.ts` 的 Hook 字段（hookId、type、startChapter、status、lastAdvancedChapter、expectedPayoff、notes、dependsOn?、paysOffInArc?）。
 
-**可验证不变量**：排序稳定、文本转义、末尾换行；缺数据时输出表头。
+**可验证不变量**：字段与可选性一致；未知字段拒绝；hookId/type 非空。
 
-**复刻现状**：`core/state-projections.ts` 有对应渲染与测试。
+**复刻现状**：`core/hooks.ts` 字段一致，严格校验与测试覆盖。
 
-**判定：等价**（列集以测试为准）。
+**判定：等价**。
 
 ### runtime.commit-safety
 
@@ -195,15 +287,13 @@
 
 **判定：等价**。事务格式由 `runtime.txn-format` 拥有，本行不含该债。
 
-### runtime.txn-format
+### runtime.work-lock
 
-**源工程证据**：`utils/atomic-file-set.ts`：`PREFIX = ".inkos-file-txn-"`；事务目录在 `rootDir` 用 `mkdtemp` 创建；`staged/`＋`backup/`；`JournalSchema` 为 `{version:1,pid,phase:"prepared"|"committed",entries:[{path,existed}]}`；目标 `rename` 到 backup；staged 写入 rename 到位；死 `prepared` 回滚、`committed` 清理；`recoverRoot` 扫作品根。
+**源工程证据**：`inkos/packages/core/src/state/manager.ts` 的跨进程作品锁、心跳、死锁接管。
 
-**可验证不变量**：事务目录在作品根且以前缀识别；布局是 `staged/`＋`backup/`；日志只含 `entries` 与两阶段；备份用 rename（删除项由移动生效）；`committed` 写失败回滚；死 `prepared` 一律回滚，死 `committed` 只清理；活属主与无日志不动。
+**复刻现状**：`core/work-lock.ts` 落 `source/.write.lock`，metadata/常量/stale/心跳/释放与源一致；`core/work-mutation.ts` 提供 `withWorkMutationScope`（AsyncLocalStorage reentrancy）与 `runInWorkMutationQueue`（root+action 串行），`withWorkAction` 在 init/foundation/truth/plan/write/review/recover 等 action 入口包锁；`commitFoundation`／`commitFile` 保持 lock-agnostic；跨进程 child 测试覆盖一个持锁一个 BOOK_BUSY。
 
-**复刻现状**：`core/commit.ts` 的 `TXN_PREFIX`、`CommitJournal`、`recoverDeadTransactions` 与 `core/recovery.ts` 的根目录扫描/报告/修复；`test/txn-format.test.mjs` 覆盖根事务、entries、旧 `.staging-*` 不扫描，`test/recovery.test.mjs` 覆盖两种阶段。
-
-**判定：等价**。旧 `.staging-*` 与旧日志不迁移；预发布格式不做兼容层。
+**判定：等价** — D27 已偿还；锁在 action 边界而不是 commit；`docs/dsh-mapping.md` 登记路径与 queue 语义；真实回执 `artifacts/real-runs/runtime.work-lock.json`。
 
 ### runtime.stage-context
 
@@ -214,6 +304,44 @@
 **复刻现状**：`stages/index.ts` 注册 `story:stage`／`story:craft`，按工作区阶段注入。
 
 **判定：等价** — 阶段注入机制等价；workflow start 记录、foundation-ready/chapter-done 停点、plan/write/review 工具准入已接通。`panel.confirm` 仍是 D29（写 start 的入口），不在本行。
+
+### runtime.txn-format
+
+**源工程证据**：`utils/atomic-file-set.ts`：`PREFIX = ".inkos-file-txn-"`；事务目录在 `rootDir` 用 `mkdtemp` 创建；`staged/`＋`backup/`；`JournalSchema` 为 `{version:1,pid,phase:"prepared"|"committed",entries:[{path,existed}]}`；目标 `rename` 到 backup；staged 写入 rename 到位；死 `prepared` 回滚、`committed` 清理；`recoverRoot` 扫作品根。
+
+**可验证不变量**：事务目录在作品根且以前缀识别；布局是 `staged/`＋`backup/`；日志只含 `entries` 与两阶段；备份用 rename（删除项由移动生效）；`committed` 写失败回滚；死 `prepared` 一律回滚，死 `committed` 只清理；活属主与无日志不动。
+
+**复刻现状**：`core/commit.ts` 的 `TXN_PREFIX`、`CommitJournal`、`recoverDeadTransactions` 与 `core/recovery.ts` 的根目录扫描/报告/修复；`test/txn-format.test.mjs` 覆盖根事务、entries、旧 `.staging-*` 不扫描，`test/recovery.test.mjs` 覆盖两种阶段。
+
+**判定：等价**。旧 `.staging-*` 与旧日志不迁移；预发布格式不做兼容层。
+
+### proposal.execution-brief（执行说明与默认规模）
+
+**源工程证据**
+
+- `create_book` 的 `instruction` 是确认后要执行的原文；`runner.ts` 把 `externalContext` 写入 `story/brief.md`（原文）；
+- `book/chapter` 默认：`chapterWordCount` 缺省按语言默认（中文 3000、英文 2000），`targetChapters` 缺省 200。
+
+**可验证不变量**
+
+1. `instruction` 原文写进 `story/brief.md`。
+2. 缺省规模在批准时补齐，不在提案卡上编造。
+3. `author_intent` 与 `current_focus` 按方向文档播种。
+
+**复刻现状**
+
+- `initWork` 一次提交写 `work.json`、`source/story/brief.md`（instruction 原文）、`author_intent`（trimEnd + 换行）、`current_focus`；
+- 批准时补 `targetChapters ?? 200`、`chapterWordCount ?? defaultChapterLength(language)`。
+
+**判定：等价**（规模字段的 `min/max` 债记在 `proposal.creative`）。
+
+### panel.confirm
+
+**源工程证据**：`inkos/packages/core/src/interaction/action-envelope.ts:14-32` 的 `write_next`；`:46-48` 的 `chapterCount`（默认 1）；`studio/src/shared/confirmed-production.ts:3-20,28-30` 的 confirmed production intent；button／slash／quick-action 才有执行权。
+
+**复刻现状**：`/story-write` 在 foundation-ready、无 review、无 start 时写 `workflow-start.json`；工作台 `foundation-ready` 节点的「开始下一章」/「稍后」与索引里的开始/已开始/本章完成状态已接；命令 followup 带 `story-command` source。P1 面板固定第 1 章。
+
+**判定：等价** — 确认/取消、锁竞争、followup 回执有测试；P1 面板固定第 1 章、动态章节与工作台布局由 `panel.workbench` 承接。
 
 ## 批次 C：P2 章前规划
 
@@ -253,7 +381,7 @@
 
 **判定：机制等价（D14／D15 已偿还）** — planner 契约（方法句、memo 请求骨架、上一章结尾、hook id）已注入 `plan` 阶段；`story_plan_chapter` 命中已有 plan 时返回 `reused: true` 且不覆盖，与源缓存语义一致。上一章只取末尾 2000 字（源取全文）与进度来源仍属残余。
 
-## 批次 D：P3 写作与审稿
+## 批次 D：P3 正文生产
 
 ### chapter.write
 
@@ -271,6 +399,68 @@
 
 **判定：等价（D17、D18 已偿还）** — 编号原文与章纲由 `stages/review.ts` 注入；`sourceRefs` 字符串在入参被拒绝；`reviewedArtifact` 来自 `source/artifacts/manifest.json` 的 `chapter-<NNNN>` current revision，且只在 revision bytes 与被审正文一致时写入。
 
+### chapter.revise
+
+**源工程证据**：`pipeline/runner.ts:874-1120` 的 `reviseDraft`；`agents/reviser.ts:13-15` 的五种模式与 `:167-190` 的模式协议；`harness/tools/longform-production.ts` 的 `revise_chapter`（`targetText` 绑定局部修订）；`state/chapter-workspace.ts:61-80` 的 `archiveChapterVersion`；Studio `server.ts:5571-5599,5832-5870` 的修订/重写入口。
+
+**复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 由宿主做行级 diff：多段不连续改动拒绝 `CHAPTER_EDIT_SCOPE_CONFLICT`，`targetText` 必须唯一并完整覆盖改动区间。面板 `chapter-done` 由索引根动作给出「修订本章」。
+
+**判定：机制等价（D32 已偿还）** — 源在修订事务内自动复审并重结算状态；DSH 的审稿观察与结算 delta 都由模型产出，修订后必须重新审稿、再调 `story_settle_chapter`（阶段闸门保证，已登记 `dsh-mapping.md` 的偏差）；结算能力本身已交付。
+
+## 批次 E：P4 结算与定稿
+
+### chapter.summary
+
+**源工程证据**：`agents/settler-tool.ts:21-62` 的 `chapterSummary` 七字段；`models/runtime-state.ts:39-56` 的行 schema（chapter ≥1、title 非空、strict）；`state/state-reducer.ts:195-213` 的排序与重结算替换；`agents/writer.ts:214-260` 的 `settleChapterState` 返回摘要与状态；`pipeline/runner.ts:999-1123` 结算后随章节保存。
+
+**复刻现状**：`story_summarize_chapter` 写 `chapter_summaries.json` 与 `chapter_summaries.md` 投影；七字段校验、同章替换、按章号排序；前置为本章有正文与审稿记录；坏状态拒绝覆盖。摘要由 settler 子代理在 `chapter-done` 协议里产出。
+
+**判定：等价** — 摘要七字段、按章号排序、同章替换与源 reducer 一致；独立摘要工具是 P4 的阶段入口，结算路径会把同一行与 facts/hooks 同批写入，不改变最终产物。
+
+### chapter.settle
+
+**源工程证据**：`agents/settler-tool.ts:45-82` 的 delta 形状；`state/state-reducer.ts:17-199` 的章节前进、hooks 合并与终态保护、facts 失效与同 key 替换；`utils/hook-arbiter.ts:24-90` 的候选伏笔 id 分配；`state/state-validator.ts:15-100` 的整份校验；`agents/settler-prompts.ts:5-45` 的 settler 提示；`agents/state-validator.ts:23-95` 的状态校验与 `pipeline/chapter-truth-validation.ts:39-104` 的对账重试。
+
+**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批替换；整份状态校验。
+
+**判定：保真债 D33／D34** — 结算规则按源 reducer 复刻；缺逐章结算前快照（D33），更早章节不能重结算、同章重结算按增量应用；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账。
+
+### chapter.finalize
+
+**源工程证据**：`writer.ts:364-450` 的 `saveChapter`（章节 + 三份投影 + 四份状态 JSON + `story/snapshots/<chapter>/` 七份文件 + `chapters/index.json`，一次原子提交；标题变化删除被取代文件）；`manager.ts:495-520` 的 `snapshotStateAt`；`runner.ts:1424-1434` 的 `markBookActiveIfNeeded`；`models/chapter.ts:5-16` 的 `ChapterMeta`。
+
+**复刻现状**：`story_finalize_chapter` 写 `source/story/snapshots/<chapter>/` 七个文件、更新 `source/chapters/index.json`、把 `work.status` 从 `draft` 推进到 `active`；幂等，保留已有 `createdAt`；坏索引拒绝覆盖。
+
+**判定：保真债 D35／D37** — 源在结算后一次 `saveChapter` 原子写章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引（D37，重新定稿可补齐）；章节索引缺 `lengthTelemetry`／`tokenUsage`（D35，superseded 清理当前不可观测）。
+
+## 批次 F：P5 章节运维与对账
+
+### chapter.reopen
+
+**源工程证据**：`state/chapter-workspace.ts:61-130` 的版本归档（id `<时间戳>_<来源>_<uuid>`、来源 `manual|agent|revision|regeneration|restore`、`chapters/.versions/<NNNN>/`、列表倒序）；`studio/src/api/server.ts:3132-3175` 的版本列表/读取与 restore；`interaction/edit-controller.ts:337-380` 的 `chapter-replace`（归档当前、替换正文、清 `chapter-NNNN.*` 运行时文件但保留 user-brief、索引记人工编辑观察）。
+
+**复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 只重开最后已结算的一章——删审稿与章纲、保留 user-brief、重开 workflow、把状态指针退回上一章并删摘要行；带 `versionId` 时把当前正文归档为 `restore` 再替换。
+
+**判定：机制等价（状态指针回退）+ 保真债 D36** — 源恢复只改正文与运行时文件，不动运行时状态；复刻为了阶段判定把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，facts/hooks 留待重结算（D33）；源在章节索引里记 `manual-edit-review` 观察与 `provenance: edited`，复刻未更新索引（D36）。
+
+### chapter.move-delete
+
+**源工程证据**：`state/chapter-delete.ts:33-115` 的 `deleteLatestChapter`：只允许删最新章；章节文件先移到 `chapters/.trash/`（不硬删）；删前校验上一章快照 `story/snapshots/<latest-1>/current_state.md` 与 `pending_hooks.md` 存在；回滚失败把 trash 文件搬回；返回 `rolledBackTo`／`discarded`。
+
+**复刻现状**：`story_delete_chapter` 只删最新章——章节文件移到 `chapters/.trash/`（重名加 `-2` 后缀）、从上一章快照恢复状态与投影、索引只留保留项、删更晚章的快照/运行时/草稿与 `memory.db*`；提交失败把 trash 搬回。foundation details 写 `snapshots/0/` 初始快照，删除第 1 章可用。
+
+**判定：等价（仅删最新章）** — 源没有移章/重排，只删最新章；回滚路径、trash 保留、索引重写与检索库删除与源一致；`D33` 仍只影响“重结算基线”，不影响删除。
+
+### state.check
+
+**源工程证据**：`agents/state-validator.ts:23-95` 的 `StateValidatorAgent.validate`：模型提交布尔 `reconciliationRequired` 与证据报告，报告缺失时返回 `STATE_RECONCILIATION_REASON_REQUIRED`；`pipeline/chapter-truth-validation.ts:39-104` 的校验与 reconcile 流程。
+
+**复刻现状**：`story_state_check` 接收子代理产出的 `reconciliationRequired` 与 `reportMarkdown`，校验必填报告（`STATE_RECONCILIATION_REASON_REQUIRED`）并返回只读观察；不写作品。自动“结算后校验 + 重结算”仍未接（D34）。
+
+**判定：保真债 D34** — 只读对账入口已交付；源在结算后自动校验并可能重结算，复刻仍要作者显式发起，自动路径未接。
+
+## 批次 G：P6 产物与工作台
+
 ### artifact.identity
 
 **源工程证据**：`harness/artifact-revisions.ts` 的 `createCurrentArtifact`／`stageArtifactRevision`／`promoteArtifactRevision`、`contracts.ts` 的 manifest/revision 不变量与 `WorkResourceIdSchema`／`RelativeArtifactPathSchema`；章节 revision 的 path 直接指向 `source/chapters/...`，`agents/continuity.ts` 用 current revision 生成 `reviewedArtifact`。
@@ -278,190 +468,6 @@
 **复刻现状**：`core/artifact-store.ts` 用 `source/artifacts/manifest.json` 记录 chapter artifact 的 `r1` current revision，path 指向章节文件；`writeChapterDocument` 同一次提交写章节与 manifest；`reviewChapter` 读取 current revision 并写 `reviewedArtifact`；checksum/byteLength/current/parent/superseded/ID/路径校验与源一致。
 
 **判定：等价** — 章节产物 identity 与 review 消费已接通；manifest 是独立索引而非 WorkManifest 内嵌，登记在 `dsh-mapping.md`。
-
-### runtime.load
-
-**源工程证据**：`inkos/packages/core/src/harness/runtime.ts` 装载 profile／bundle、注册工具与 client。
-
-**复刻现状**：`packages/see-dsh-novel` 的 bundle/preset 由 DSH 加载；`host.test.mjs` 断言工具、命令、context 与 client 注册。
-
-**判定：机制等价** — DSH bundle/preset 替代源自建 runtime；验证 `host.test.mjs` 与 `runtime.load.json`。
-
-### runtime.agent-tools
-
-**源工程证据**：`inkos/packages/core/src/harness/builtin-profiles.ts` 的写作 profile 工具面；通用写工具不开放，内容写入走 `story_*`。
-
-**复刻现状**：`cordis.patch.yml` 组合 preset；`agent-tools.test.mjs` 校验 persona、只读、检索、技能、子代理、ask-user、todo、jobs、压缩；不注册通用写工具。
-
-**判定：机制等价** — DSH preset plugins 与 skills 承载；无内容写入旁路。
-
-### runtime.client-ui
-
-**源工程证据**：`inkos/packages/studio/` 的页面、确认卡与文件浏览；DSH 用 client 插件 + slots。
-
-**复刻现状**：`client/index.ts` 注册 slot；`StoryView` 有 foundation 状态、`开始下一章` 与 workflow start 回执；两列阶段/产物浏览尚未实现。
-
-**判定：保真债 D31** — 确认面已接；工作台核心已接；简报/Markdown/P2 动作仍待补。
-
-### runtime.package-check
-
-**源工程证据**：`dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs` 校验 tarball files／exports／patch。
-
-**复刻现状**：`src/tools/packaging.ts` 与 `packaging.test.mjs`；`check-package` 在 verify 中执行。
-
-**判定：机制等价** — DSH 打包检查；无产品行为差异。
-
-### runtime.boundary-check
-
-**源工程证据**：项目护栏：源码不得 import 源工程，`@deepseek-ai` 只允许预设与前端 type-only 引用。
-
-**复刻现状**：`src/tools/boundary.ts`、`source-boundary.test.mjs`、`check-boundary`。
-
-**判定：机制等价** — 项目护栏，不是源产品功能。
-
-### runtime.session-binding
-
-**源工程证据**：`inkos/packages/core/src/harness/session-binding.ts` 用 `works/<id>` 与 session 绑定；一个工作区一部作品。
-
-**复刻现状**：`work.json` 在工作区根，`workingDirectory` 绑定会话；面板从会话读取作品身份；跨作品隔离由工作区边界。
-
-**判定：机制等价** — 源多作品目录改为一个工作区；无跨作品路径。
-
-### runtime.telemetry
-
-**源工程证据**：源 pipeline／agent 记录 usage、耗时、失败回执。
-
-**复刻现状**：DSH session 日志记录 usage／耗时／失败；`story_*` 工具回执可追溯；没有独立遥测存储。
-
-**判定：机制等价** — DSH session 日志替代源 telemetry；面板/审计读取同一日志。
-
-### runtime.recovery
-
-**源工程证据**：源 `state` 重建索引与故障恢复。
-
-**复刻现状**：`core/recovery.ts` 自检与重建，`recovery` 测试覆盖；作品内容文档可重建索引。
-
-**判定：机制等价** — DSH 文件状态 + 恢复函数；无独立数据库。
-
-### panel.gate-resume
-
-**源工程证据**：Studio 确认卡确认后继续；退回是停止信号。
-
-**复刻现状**：`StoryView` 的认可/退回调用 `/story-approve`／`/story-reject`，`panel.gate-resume` 把「继续」投回会话；workflow start 另由 `/story-write` + `panel.confirm` 处理。
-
-**判定：机制等价** — 确认-继续通道在；workflow start 不再是确认-继续，而是独立 start 记录。
-
-### panel.foundation-start
-
-**源工程证据**：Studio 的创作入口在立项后启动基础设定。
-
-**复刻现状**：`StoryView` 的「开始基础设定」投一条开工指令；`panel.foundation-start` 有回执与失败提示。
-
-**判定：机制等价** — DSH 会话消息替代 Studio 按钮；workflow start 由 `panel.confirm` 接；工作台 D30。
-
-### foundation.hooks
-
-**源工程证据**：`inkos/packages/core/src/state` 的 hooks 池与六动作；状态由 settler 回写。
-
-**复刻现状**：`core/hooks.ts`、`foundation/hook-ledger`；`hooks.test.mjs` 覆盖 id、状态、结算。
-
-**判定：机制等价** — 文件状态 + 严格校验；无独立存储服务。
-
-### foundation.approval
-
-**源工程证据**：源 Studio 的 `propose_action`／confirmed production 只确认 workflow start（`create_book`、`write_next` 等，15 个）；确认后 host 执行；plan/write 是内部步骤。
-
-**复刻现状**：`gate.ts` 提供 foundation 签核工具与面板认可/退回；`story_foundation_signoff` 读 approval；workflow start 由 `/story-write`/`panel.confirm` 独立确认，不再自动进入 plan。
-
-**判定：机制等价** — foundation 签核是 DSH 侧附加面；workflow start 确认已接；不把 plan/write 改成逐工具 approval。
-
-### cast.single-authority
-
-**源工程证据**：`inkos/packages/core/src/references/reference-context.ts` 的角色权威；major/minor 都进入 brief/context。
-
-**复刻现状**：`core/cast.ts`／role 文件；`cast.test.mjs` 断言唯一权威与主次角色。
-
-**判定：机制等价** — 角色文件为唯一权威；DSH context 读取同一文件。
-
-### runtime.work-lock
-
-**源工程证据**：`inkos/packages/core/src/state/manager.ts` 的跨进程作品锁、心跳、死锁接管。
-
-**复刻现状**：`core/work-lock.ts` 落 `source/.write.lock`，metadata/常量/stale/心跳/释放与源一致；`core/work-mutation.ts` 提供 `withWorkMutationScope`（AsyncLocalStorage reentrancy）与 `runInWorkMutationQueue`（root+action 串行），`withWorkAction` 在 init/foundation/truth/plan/write/review/recover 等 action 入口包锁；`commitFoundation`／`commitFile` 保持 lock-agnostic；跨进程 child 测试覆盖一个持锁一个 BOOK_BUSY。
-
-**判定：等价** — D27 已偿还；锁在 action 边界而不是 commit；`docs/dsh-mapping.md` 登记路径与 queue 语义；真实回执 `artifacts/real-runs/runtime.work-lock.json`。
-
-### panel.confirm
-
-**源工程证据**：`inkos/packages/core/src/interaction/action-envelope.ts:14-32` 的 `write_next`；`:46-48` 的 `chapterCount`（默认 1）；`studio/src/shared/confirmed-production.ts:3-20,28-30` 的 confirmed production intent；button／slash／quick-action 才有执行权。
-
-**复刻现状**：`/story-write` 在 foundation-ready、无 review、无 start 时写 `workflow-start.json`；`StoryView` 的「开始下一章」/「稍后」与 start/已开始/本章完成状态已接；命令 followup 带 `story-command` source。P1 面板固定第 1 章。
-
-**判定：等价** — 确认/取消、锁竞争、followup 回执有测试；P1 面板固定第 1 章、动态章节与两列工作台是 D30（P6 `panel.workbench`）。
-
-### skill.references
-
-**源工程证据**：源 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份技能。
-
-**复刻现状**：无 `use_skill.query`；技能整份注入。
-
-**判定：保真债 D23** — P0 新行；偿还需技能参考检索工具或声明不可观测；不得把整份注入当等价。
-
-### chapter.revise
-
-**源工程证据**：源 revision pipeline 的 spot-fix／polish／rewrite 等；修订后重新审阅。
-
-**复刻现状**：`chapter.revise` 未实现；`chapter.review` 只能审一次。
-
-**判定：保真债（未立债号）** — P3 行仍 missing；P3 出口前必须先立行/实现，不能以 review 代替 revise。
-
-### chapter.summary
-
-**源工程证据**：源 summary agent 写章节摘要并回写 `chapter_summaries`。
-
-**复刻现状**：未实现；`chapter_summary` 文件由 foundation 播种。
-
-**判定：保真债（未立债号）** — P4 行 missing；P3 出口后才做。
-
-### chapter.settle
-
-**源工程证据**：源 settler 的伏笔六动作、状态真值回写与快照。
-
-**复刻现状**：未实现；`chapter.settle` 行 missing。
-
-**判定：保真债（未立债号）** — P4 行 missing；需要 settler prompt 与合并规则。
-
-### chapter.finalize
-
-**源工程证据**：源定稿与快照。
-
-**复刻现状**：未实现；`chapter.finalize` 行 missing。
-
-**判定：保真债（未立债号）** — P4 行 missing。
-
-### chapter.reopen
-
-**源工程证据**：源章节重开/回滚。
-
-**复刻现状**：未实现；`chapter.reopen` 行 missing。
-
-**判定：保真债（未立债号）** — P5 行 missing。
-
-### chapter.move-delete
-
-**源工程证据**：源章节移动/删除与索引回滚。
-
-**复刻现状**：未实现；行 missing。
-
-**判定：保真债（未立债号）** — P5 行 missing。
-
-### state.check
-
-**源工程证据**：源状态核对/修复。
-
-**复刻现状**：未实现；行 missing。
-
-**判定：保真债（未立债号）** — P5 行 missing。
 
 ### export.work
 
@@ -497,11 +503,11 @@
 
 ### panel.workbench
 
-**源工程证据**：Studio `pages/` 的工作台、阶段按钮、只读产物浏览。
+**源工程证据**：Studio `pages/` 的工作台、阶段按钮、只读产物浏览；`BookDetail` 的写下一章；立项提案在对话里完成。
 
-**复刻现状**：`StoryView` 读 `/story-index` 投影，渲染阶段轨道、左导航、右详情和产物正文；动作走宿主命令；无作品时右栏新建表单。简报/Markdown/P2 动作仍是 D31。
+**复刻现状**：作品页是工作台：阶段栏、本阶段产物列表、详情/`<pre>` 正文，当前阶段的动作集中在右栏顶部动作条；索引 `panel.index.json` 由宿主投影（写 action 成功后重建、会话发布时补建缺失/旧索引），面板只读不触发；产物按白名单显示（状态 JSON、`memory.db`、流程记账不出现；章节正文归正文/审阅；运行时诊断默认折叠），作者产物的 JSON 用键值树并可切原始；动作经宿主命令/提示（确认、下一章、退回、查看待确认、稍后、规划/写作/审阅）；无作品只给对话引导，没有新建表单；没有「刷新索引」。
 
-**判定：保真债 D31** — 核心工作台、简报 `--brief-text`、plan/write/review 阶段动作已接；真实 Web GUI 回执仍待验证。
+**判定：机制等价** — DSH client 插件 + slots + remote workspace-files 替代 Studio 前端；工作台、对话立项、宿主投影与阶段动作由进程级测试覆盖。作者裁定不做桌面回执（D31 关闭），`artifacts/real-runs/panel.workbench.json` 为交付证据。
 
 ### panel.logs
 
@@ -519,17 +525,20 @@
 
 **判定：保真债（未立债号）** — P6 行 missing。
 
-### v1 之外
+## 批次进度
+
+| 批次 | 阶段 | 能力行 | 状态 |
+| --- | --- | --- | --- |
+| A | P0 运行时骨架 | 6 | 完成 |
+| B | P1 创意、立项与基础设定 | 23 | 完成 |
+| C | P2 章前规划 | 4 | 完成 |
+| D | P3 正文生产 | 3 | 完成 |
+| E | P4 结算与定稿 | 3 | 完成 |
+| F | P5 章节运维与对账 | 3 | 进行中（1/3） |
+| G | P6 产物与工作台 | 8 | 进行中（2/8） |
+
+阶段合同与出口见 [`scope.md`](scope.md)；能力状态只由 `check-capabilities` 生成。
+
+## v1 之外
 
 `short.*`、`script.*`、`radar.topic`、`forecast.plot` 不在 v1 P0–P6 出口；账本保留 `missing`，对应源模块另行规划。它们不要求 `###` 审计段；不得借“补齐”混进当前阶段。
-
-## 后续批次
-
-
-- ~~批次 B（P1）~~：已完成。
-- ~~批次 C（P2）~~：已完成。
-- ~~批次 D（P3）~~：已完成。
-- 批次 C（P2）：`plan.*`；
-- 批次 D（P3）：`chapter.write`、`chapter.review`。
-
-每批完成后补齐本节并将债写入 `docs/scope.md`。

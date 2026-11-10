@@ -128,7 +128,7 @@ export function renderStageProtocol(facts: StageFacts): string {
         '2. 每条观察给出 code、summary、assessment（issue／resolved／observation／unavailable）与 sourceRefs。',
         '3. 引文只能引用注入的编号来源（sourceId 加行号或逐字 quote）；没有证据的条目不提交。',
         `4. 调 \`story_review_chapter\` 落盘第 ${next} 章的审稿记录。`,
-        '同一章只审一次；重审留给修订能力。',
+        '同一章只审一次；审稿不通过可转修订，修订后必须重新审稿。',
         '审稿落盘后即停；不自动修订、结算或开下一章。',
         common,
       ].join('\n')
@@ -148,10 +148,16 @@ export function renderStageProtocol(facts: StageFacts): string {
     case 'chapter-done':
       return [
         header,
-        `目标：第 ${next - 1} 章审稿已落盘，本章 workflow 结束；停下。`,
+        `目标：第 ${next - 1} 章审稿已落盘，本章 workflow 结束；不要自动结算或开下一章。`,
         '1. 如果作者只是问候/讨论，正常回答，不改作品。',
-        '2. 不要自动修订、结算、定稿或开下一章；这些是后续能力/作者动作。',
-        '3. 下一章若要开始，需要作者对下一章重新发起 workflow start。',
+        '2. 作者要求结算本章时：派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要，再调 `story_settle_chapter`；结算会推进状态章号，写完即停。',
+        '3. 作者只要摘要不要结算时：派 settler 产出七字段，调 `story_summarize_chapter`。',
+        '4. 作者要修订本章时：先问清要改哪里与模式（polish／rewrite／rework／anti-detect／spot-fix），派 reviser 子代理按注入的方法修订，再调 `story_revise_chapter` 落盘；修订会作废旧审稿，必须重新审稿后才能再停。',
+        '5. 作者要求定稿时：调 `story_finalize_chapter` 写快照、章节索引并把作品推进到 active；定稿后本章闭环。',
+        '6. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档，再调 `story_reopen_chapter`（带 versionId 恢复）；重开后回到章前规划。',
+        '7. 作者要删掉最新章时：调 `story_delete_chapter`；原文进 `chapters/.trash/`，状态回滚到上一章。',
+        '8. 作者要求核对状态时：派 state-check 子代理读本章正文、当前状态与投影、上一章快照与权威文档，提交 `reconciliationRequired` 与证据报告，再调 `story_state_check`；findings 只回作者，不自动重结算。',
+        '9. 下一章是后续能力/作者动作；不要自行开始。',
         common,
       ].join('\n')
   }
@@ -160,7 +166,7 @@ export function renderStageProtocol(facts: StageFacts): string {
 /** 本阶段主动加载的创作技能；空数组表示不注入。 */
 export function craftSkillsFor(stage: Stage): string[] {
   if (stage === 'proposal') return ['story-proposal']
-  if (stage === 'review') return ['story-review']
+  if (stage === 'review' || stage === 'chapter-done') return ['story-review']
   if (stage === 'foundation' || stage === 'write') return ['longform-writing']
   return []
 }

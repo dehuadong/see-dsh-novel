@@ -74,8 +74,8 @@ function twoSessionState(other, running = false) {
 /** 渲染时给组件用的 useSessions 选择器钩子。 */
 const selectorOf = (state) => (selector) => selector(state)
 
-/** 假 ctx：只实现 apply 用到的四个面。 */
-function fakeContext(binding) {
+/** 假 ctx：只实现 apply 用到的面；`files` 模拟宿主 workspaceFiles。 */
+function fakeContext(binding, files) {
   const registrations = []
   const injected = new Map()
   const effects = []
@@ -94,6 +94,7 @@ function fakeContext(binding) {
       },
     },
     sessions: { binding: (id) => (binding === undefined ? undefined : binding(id)) },
+    get(name) { return name === 'remote.workspaceFiles' ? files : undefined },
     effect(callback) {
       const dispose = callback()
       effects.push(dispose)
@@ -145,8 +146,8 @@ const entryFor = (registrations, slot) => registrations.find((entry) => entry.sp
  * 把视图挂到「预设匹配 + 槽位已声明」的状态，返回它的注入面。
  * @param binding 会话绑定工厂；省略表示没有绑定
  */
-async function mountEligible(binding) {
-  const { ctx, registrations, injected } = fakeContext(binding)
+async function mountEligible(binding, files) {
+  const { ctx, registrations, injected } = fakeContext(binding, files)
   apply(ctx)
   const releaseSentinel = injected.get(SENTINEL_SLOT)()
   const releaseSlot = injected.get(SLOT)()
@@ -163,6 +164,124 @@ async function mountEligible(binding) {
       releaseSlot()
       releaseSentinel()
     },
+  }
+}
+
+/** 一份 foundation-ready 的索引；动作与宿主投影的形状一致。 */
+function panelIndex(overrides = {}) {
+  return {
+    version: 4,
+    generatedAt: '2026-11-10T00:00:00.000Z',
+    revision: 'r1',
+    work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, nextChapter: 1 },
+    stages: [
+      { id: 'proposal', label: '提案', status: 'done', summary: '已完成', action: null, secondary: [] },
+      {
+        id: 'foundation',
+        label: '基础设定',
+        status: 'current',
+        summary: '当前阶段',
+        action: { id: 'confirm-foundation', label: '确认基础设定', enabled: true, reason: '' },
+        secondary: [
+          { id: 'start-chapter', label: '开始下一章', enabled: true, reason: '' },
+          { id: 'reject-foundation', label: '退回', enabled: true, reason: '' },
+          { id: 'review-foundation', label: '查看待确认', enabled: true, reason: '' },
+          { id: 'later', label: '稍后', enabled: true, reason: '' },
+        ],
+      },
+      { id: 'plan', label: '章前规划', status: 'locked', summary: '等待前一阶段', action: null, secondary: [] },
+      { id: 'write', label: '正文', status: 'locked', summary: '等待前一阶段', action: null, secondary: [] },
+      { id: 'review', label: '审阅', status: 'locked', summary: '等待前一阶段', action: null, secondary: [] },
+      { id: 'settle', label: '结算', status: 'locked', summary: '结算/定稿尚未交付', action: null, secondary: [] },
+    ],
+    artifacts: [],
+    action: null,
+    confirmation: { kind: 'foundation-signoff', state: 'pending', reason: '等待作者确认' },
+    ...overrides,
+  }
+}
+
+/**
+ * 直接渲染 StoryView，绕过条件注册：组件行为单独测。
+ * @param options 状态、索引正文与动作钩子
+ */
+async function renderView({
+  state = sessionState('see-dsh-novel'),
+  workStatus = 'live',
+  foundationStatus = 'live',
+  indexStatus = 'live',
+  indexVersion = 'v1',
+  indexText = JSON.stringify(panelIndex()),
+  readArtifact,
+  outcome = 'ok',
+  runCommand,
+  resumeOutcome = 'ok',
+  resume,
+  startOutcome = 'ok',
+  start,
+  advance,
+  sessionId = SESSION,
+} = {}) {
+  const foundationSuffixes = ['story_frame.md', 'volume_map.md', 'book_rules.md', 'book_rules.json', 'pending_hooks.md']
+  const reads = []
+  const calls = []
+  const resumes = []
+  const starts = []
+  const advances = []
+  let currentIndexText = indexText
+  const resourceStatus = (address) => {
+    if (address.endsWith('/panel.index.json')) return indexStatus
+    if (address.endsWith('/work.json')) return workStatus
+    return foundationSuffixes.some((file) => address.endsWith(`/${file}`)) ? foundationStatus : 'none'
+  }
+  const base = {
+    sessionId,
+    useSessions: selectorOf(state),
+    useResource: (address) => {
+      if (address.endsWith('/panel.index.json')) {
+        return {
+          status: resourceStatus(address),
+          value: indexVersion === undefined ? undefined : { version: indexVersion, absolutePath: '/w/source/story/runtime/panel.index.json' },
+          failure: undefined,
+        }
+      }
+      return { status: resourceStatus(address), value: undefined, failure: undefined }
+    },
+    runCommand: async (id, line) => {
+      calls.push({ sessionId: id, line })
+      return runCommand === undefined ? outcome : runCommand()
+    },
+    resume: async (id) => {
+      resumes.push(id)
+      return resume === undefined ? resumeOutcome : resume()
+    },
+    start: async (id, cwd) => {
+      starts.push({ sessionId: id, cwd })
+      return start === undefined ? startOutcome : start()
+    },
+    advance: async (id, text) => {
+      advances.push({ sessionId: id, text })
+      return advance === undefined ? 'ok' : advance()
+    },
+  }
+  const props = {
+    ...base,
+    readArtifact: async (id, path) => {
+      reads.push({ sessionId: id, path })
+      if (readArtifact !== undefined) return readArtifact({ sessionId: id, path })
+      return currentIndexText
+    },
+  }
+  const tree = await render(React.createElement(StoryView, props))
+  return {
+    tree,
+    props,
+    calls,
+    resumes,
+    starts,
+    advances,
+    reads,
+    setIndexText(text) { currentIndexText = text },
   }
 }
 
@@ -214,418 +333,277 @@ test('the preset reader tolerates both projection channels', () => {
   }
   assert.equal(presetOf(legacy, SESSION), 'legacy')
   assert.equal(presetOf(sessionState(undefined), SESSION), undefined)
-
-  // 宿主把「还没决定预设」投影成 null：应当落到保留行，而不是把 null 当成预设名。
-  const pending = {
-    ids: [SESSION],
-    byId: { [SESSION]: { sessionId: SESSION, cwd: '/work', projectionValues: { agentPreset: 'legacy' } } },
-    projectionsBySession: { [SESSION]: { values: { agentPreset: null } } },
-  }
-  assert.equal(presetOf(pending, SESSION), 'legacy')
-  const nothing = {
-    ids: [SESSION],
-    byId: { [SESSION]: { sessionId: SESSION, cwd: '/work' } },
-    projectionsBySession: { [SESSION]: { values: { agentPreset: null } } },
-  }
-  assert.equal(presetOf(nothing, SESSION), undefined)
 })
 
-/** 直接渲染 StoryView，绕过条件注册：组件行为单独测。 */
-async function renderView({
-  state = sessionState('see-dsh-novel'),
-  statuses = ['live', 'live', 'live', 'live', 'live', 'live'],
-  workflowStatus = 'none',
-  reviewStatus = 'none',
-  canCommand = true,
-  outcome = 'ok',
-  runCommand,
-  resumeOutcome = 'ok',
-  resume,
-  startOutcome = 'ok',
-  start,
-  sessionId = SESSION,
-} = {}) {
-  // 六个状态按 `[大纲, 卷图, 规则 md, 规则 json, 伏笔池, 身份]` 逐项给。
-  const six = statuses
-  const foundationPaths = ['story_frame.md', 'volume_map.md', 'book_rules.md', 'book_rules.json', 'pending_hooks.md']
-  const requests = []
-  const foundationIndex = (address) => {
-    const index = foundationPaths.findIndex((file) => address.endsWith(`/${file}`))
-    if (index < 0 && !address.endsWith('/work.json')) throw new Error(`unexpected anchor: ${address}`)
-    return index
-  }
-  const calls = []
-  const resumes = []
-  const starts = []
-  const props = {
-    sessionId,
-    useSessions: selectorOf(state),
-    useResource: (address) => {
-      requests.push(address)
-      let status
-      if (address.endsWith('/work.json')) status = six[5]
-      else if (address.endsWith('/workflow-start.json')) status = workflowStatus
-      else if (address.endsWith('/chapter-0001.review.json')) status = reviewStatus
-      else if (address.endsWith('/panel.index.json')) status = 'none'
-      else status = six[foundationIndex(address)]
-      return {
-        status,
-        value: undefined,
-        failure: undefined,
-      }
-    },
-    canCommand: () => canCommand,
-    runCommand: async (id, line) => {
-      calls.push({ sessionId: id, line })
-      return runCommand === undefined ? outcome : runCommand()
-    },
-    resume: async (id) => {
-      resumes.push(id)
-      return resume === undefined ? resumeOutcome : resume()
-    },
-    start: async (id, cwd) => {
-      starts.push({ sessionId: id, cwd })
-      return start === undefined ? startOutcome : start()
-    },
-  }
-  const tree = await render(React.createElement(StoryView, props))
-  return { tree, props, calls, resumes, starts, requests }
-}
+test('the index drives the panel: rail, artifacts and the generated timestamp', async () => {
+  installDocumentStub()
+  const { tree, reads } = await renderView()
+  assert.deepEqual(reads, [{ sessionId: SESSION, path: 'source/story/runtime/panel.index.json' }])
 
-test('the view shows the gate and dispatches the three commands', async () => {
+  const text = textOf(tree)
+  assert.match(text, /索引生成于 2026-11-10T00:00:00.000Z/)
+  assert.equal(tree.root.findAllByType('form').length, 0, '面板没有新建表单')
+  assert.equal(
+    tree.root.findAllByType('button').some((node) => node.children.join('') === '刷新索引'),
+    false,
+    '面板没有刷新索引按钮',
+  )
+  // 阶段动作只挂在轨道节点上：每个动作只出现一次。
+  for (const label of ['确认基础设定', '开始下一章', '退回', '查看待确认', '稍后']) {
+    assert.equal(
+      tree.root.findAllByType('button').filter((node) => node.children.join('') === label).length,
+      1,
+      `${label} 应只出现一次`,
+    )
+  }
+})
+
+test('the panel reloads when the index stat version changes', async () => {
+  installDocumentStub()
+  const { tree, props, reads } = await renderView()
+  assert.equal(reads.length, 1)
+
+  await act(async () => {
+    tree.update(React.createElement(StoryView, {
+      ...props,
+      useResource: (address) => address.endsWith('/panel.index.json')
+        ? { status: 'live', value: { version: 'v2', absolutePath: '/w/source/story/runtime/panel.index.json' }, failure: undefined }
+        : { status: 'live', value: undefined, failure: undefined },
+    }))
+  })
+  assert.equal(reads.length, 2, '版本变化应重新读取索引正文')
+})
+
+test('an index read failure is visible and does not fall back to an old card', async () => {
+  installDocumentStub()
+  const { tree } = await renderView({
+    indexStatus: 'failed',
+    readArtifact: () => { throw new Error('workspaceFiles 通道不可用') },
+  })
+  const text = textOf(tree)
+  assert.match(text, /索引读取失败：workspaceFiles 通道不可用/)
+  assert.equal(tree.root.findAllByType('form').length, 0)
+})
+
+test('no work shows the dialogue guidance instead of a form', async () => {
+  installDocumentStub()
+  const { tree } = await renderView({
+    workStatus: 'failed',
+    indexStatus: 'failed',
+    readArtifact: () => { throw new Error('not found') },
+  })
+  const text = textOf(tree)
+  assert.match(text, /尚未立项/)
+  assert.match(text, /在「对话」里描述作品/)
+  assert.doesNotMatch(text, /新建作品/)
+  assert.equal(tree.root.findAllByType('button').length, 0)
+})
+
+test('a work without an index still offers the foundation start', async () => {
+  installDocumentStub()
+  const { tree, starts } = await renderView({
+    workStatus: 'live',
+    foundationStatus: 'failed',
+    indexStatus: 'failed',
+    readArtifact: () => { throw new Error('not found') },
+  })
+  assert.match(textOf(tree), /已立项，还没有基础设定/)
+  const button = buttonByLabel(tree, '开始基础设定')
+  await act(async () => { button.props.onClick() })
+  assert.deepEqual(starts, [{ sessionId: SESSION, cwd: '/work' }])
+  assert.match(textOf(tree), /已开始基础设定/)
+})
+
+test('a complete work without an index says the projection is pending', async () => {
+  installDocumentStub()
+  const { tree } = await renderView({
+    workStatus: 'live',
+    foundationStatus: 'live',
+    indexStatus: 'failed',
+    readArtifact: () => { throw new Error('not found') },
+  })
+  const text = textOf(tree)
+  assert.match(text, /索引还没生成/)
+  assert.match(text, /索引读取失败：not found/)
+  assert.equal(tree.root.findAllByType('button').length, 0)
+})
+
+test('the unreadable channel is reported before guessing about work', async () => {
+  installDocumentStub()
+  const { tree } = await renderView({
+    workStatus: 'none',
+    foundationStatus: 'none',
+    indexStatus: 'none',
+    readArtifact: () => { throw new Error('nope') },
+  })
+  assert.match(textOf(tree), /读不到工作区状态/)
+})
+
+test('approve writes the receipt and resumes the session', async () => {
   installDocumentStub()
   const { tree, calls, resumes } = await renderView()
-  const buttons = tree.root.findAllByType('button')
-  assert.deepEqual(buttons.map((node) => node.children.join('')), ['开始下一章', '稍后', '查看待确认', '认可', '退回'])
-
-  // 认可：先写回执，再把「继续」投回会话。
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
+  await act(async () => { buttonByLabel(tree, '确认基础设定').props.onClick() })
   assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-approve' }])
   assert.deepEqual(resumes, [SESSION])
   assert.match(textOf(tree), /已确认，正在继续…/)
-  assert.equal(tree.root.findAllByType('button').length, 0, '认可成功后按钮应消失')
 })
 
 test('a failed resume says the confirmation stands but the session did not continue', async () => {
   installDocumentStub()
   const { tree, resumes } = await renderView({ resumeOutcome: 'failed' })
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
+  await act(async () => { buttonByLabel(tree, '确认基础设定').props.onClick() })
   assert.deepEqual(resumes, [SESSION])
   assert.match(textOf(tree), /已确认；会话没能自动继续/)
-  assert.equal(tree.root.findAllByType('button').length, 0)
 })
 
-test('reject and review never wake the session', async () => {
+test('reject and review never wake the session and do not write the index', async () => {
   installDocumentStub()
   const reject = await renderView()
   await act(async () => { buttonByLabel(reject.tree, '退回').props.onClick() })
   assert.deepEqual(reject.calls, [{ sessionId: SESSION, line: '/story-reject' }])
   assert.deepEqual(reject.resumes, [])
-  assert.match(textOf(reject.tree), /已退回；这一版不会签核，等意见后重写再确认/)
-  assert.equal(reject.tree.root.findAllByType('button').length, 5, '退回后按钮仍在')
+  assert.match(textOf(reject.tree), /已退回；这一版不会签核/)
 
   const review = await renderView()
   await act(async () => { buttonByLabel(review.tree, '查看待确认').props.onClick() })
   assert.deepEqual(review.calls, [{ sessionId: SESSION, line: '/story-review' }])
   assert.deepEqual(review.resumes, [])
-  assert.match(textOf(review.tree), /已提交，结果在「对话」里/)
 })
 
-test('a failed command does not wake the session and keeps the buttons', async () => {
+test('later writes nothing and start-chapter only writes the workflow start', async () => {
   installDocumentStub()
-  const { tree, resumes } = await renderView({ outcome: 'error' })
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
-  assert.deepEqual(resumes, [])
-  assert.match(textOf(tree), /提交失败，稍后再试/)
-  assert.equal(tree.root.findAllByType('button').length, 5)
+  const later = await renderView()
+  await act(async () => { buttonByLabel(later.tree, '稍后').props.onClick() })
+  assert.deepEqual(later.calls, [])
+  assert.match(textOf(later.tree), /已稍后/)
+
+  const start = await renderView()
+  await act(async () => { buttonByLabel(start.tree, '开始下一章').props.onClick() })
+  assert.deepEqual(start.calls, [{ sessionId: SESSION, line: '/story-write' }])
+  assert.deepEqual(start.resumes, [])
 })
 
-test('a throwing command is reported instead of leaving the panel stuck', async () => {
+test('the stage prompts go through advance instead of tool approvals', async () => {
   installDocumentStub()
-  const { tree, resumes } = await renderView({
-    runCommand: () => { throw new Error('rpc down') },
+  const index = panelIndex({
+    stages: [
+      { id: 'proposal', label: '提案', status: 'done', summary: '已完成', action: null, secondary: [] },
+      { id: 'foundation', label: '基础设定', status: 'done', summary: '已完成', action: null, secondary: [] },
+      { id: 'plan', label: '章前规划', status: 'current', summary: '当前阶段', action: { id: 'plan-chapter', label: '规划下一章', enabled: true, reason: '' }, secondary: [] },
+      { id: 'write', label: '正文', status: 'locked', summary: '等待前一阶段', action: null, secondary: [] },
+      { id: 'review', label: '审阅', status: 'locked', summary: '等待前一阶段', action: null, secondary: [] },
+      { id: 'settle', label: '结算', status: 'locked', summary: '结算/定稿尚未交付', action: null, secondary: [] },
+    ],
+    work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, nextChapter: 1 },
   })
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
-  assert.deepEqual(resumes, [])
-  assert.match(textOf(tree), /提交失败，稍后再试/)
-  assert.equal(tree.root.findAllByType('button').length, 5, '失败后按钮应恢复可用')
+  const { tree, advances } = await renderView({ indexText: JSON.stringify(index) })
+  await act(async () => { buttonByLabel(tree, '规划下一章').props.onClick() })
+  assert.equal(advances.length, 1)
+  assert.match(advances[0].text, /规划第 1 章/)
 })
 
-test('a resume that rejects is reported as a failed continuation, not a failed confirmation', async () => {
+test('the root revise action asks the host to run the revision flow', async () => {
   installDocumentStub()
-  const { tree, resumes } = await renderView({ resume: () => { throw new Error('rpc down') } })
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
-  assert.deepEqual(resumes, [SESSION])
-  assert.match(textOf(tree), /已确认；会话没能自动继续/)
-  assert.doesNotMatch(textOf(tree), /提交失败/)
-  assert.equal(tree.root.findAllByType('button').length, 0)
+  const revisionIndex = panelIndex({
+    stages: panelIndex().stages.map((stage) => (stage.id === 'foundation'
+      ? { ...stage, status: 'done', action: null, secondary: [] }
+      : stage.id === 'review'
+        ? { ...stage, status: 'done' }
+        : stage)),
+    action: { id: 'revise-chapter', label: '修订本章', enabled: true, reason: '' },
+  })
+  const { tree, advances } = await renderView({ indexText: JSON.stringify(revisionIndex) })
+  await act(async () => { buttonByLabel(tree, '修订本章').props.onClick() })
+  assert.equal(advances.length, 1)
+  assert.match(advances[0].text, /story_revise_chapter/)
+  assert.match(advances[0].text, /重新审稿/)
 })
 
-test('a stale submission does not paint the previous session state', async () => {
+test('a failed command keeps the panel and explains itself', async () => {
   installDocumentStub()
-  const other = 'session-2'
-  let release
-  const pending = new Promise((resolve) => { release = resolve })
-  const { tree, props } = await renderView({ state: twoSessionState(other), runCommand: () => pending })
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
+  const failed = await renderView({ outcome: 'error' })
+  await act(async () => { buttonByLabel(failed.tree, '确认基础设定').props.onClick() })
+  assert.match(textOf(failed.tree), /提交失败，稍后再试/)
 
-  // 切换会话，然后旧请求才完成：结果必须被丢弃。
-  await act(async () => { tree.update(React.createElement(StoryView, { ...props, sessionId: other })) })
-  await act(async () => { release('ok') })
+  const unmatched = await renderView({ outcome: 'unmatched' })
+  await act(async () => { buttonByLabel(unmatched.tree, '查看待确认').props.onClick() })
+  assert.match(textOf(unmatched.tree), /这个会话没有该命令/)
 
-  assert.doesNotMatch(textOf(tree), /已确认/)
-  assert.equal(tree.root.findAllByType('button').length, 5, '新会话的按钮应可用')
+  const unbound = await renderView({ outcome: 'unbound' })
+  await act(async () => { buttonByLabel(unbound.tree, '退回').props.onClick() })
+  assert.match(textOf(unbound.tree), /当前会话还没有就绪/)
 })
 
-test('switching sessions resets the panel state', async () => {
+test('a running session suppresses the actions and says so', async () => {
+  installDocumentStub()
+  const { tree, calls } = await renderView({ state: sessionState('see-dsh-novel', '/work', true) })
+  assert.match(textOf(tree), /会话正在运行/)
+  const primary = buttonByLabel(tree, '确认基础设定')
+  assert.equal(primary.props.disabled, true)
+  for (const label of ['开始下一章', '退回', '查看待确认', '稍后']) {
+    assert.equal(buttonByLabel(tree, label).props.disabled, true)
+  }
+  await act(async () => { primary.props.onClick() })
+  assert.deepEqual(calls, [])
+})
+
+test('opening an artifact reads its text and reports a read failure', async () => {
+  installDocumentStub()
+  const index = panelIndex({
+    artifacts: [{
+      path: 'source/story/outline/story_frame.md', title: 'story_frame.md', type: 'markdown', class: 'truth', stages: ['foundation'],
+      modifiedAt: '2026-11-10T00:00:00.000Z', bytes: 1, revision: 'a1', readonly: true,
+    }],
+  })
+  const rowOf = (tree, title) => tree.root.findAllByType('button')
+    .find((button) => button.props.className === 'sdn-list-row' && button.children[0].children.join('') === title)
+
+  const ok = await renderView({
+    indexText: JSON.stringify(index),
+    readArtifact: ({ path }) => (path.endsWith('panel.index.json') ? JSON.stringify(index) : '# 正文'),
+  })
+  await act(async () => { rowOf(ok.tree, 'story_frame.md').props.onClick() })
+  assert.match(textOf(ok.tree), /# 正文/)
+
+  const failing = await renderView({
+    indexText: JSON.stringify(index),
+    readArtifact: ({ path }) => {
+      if (path.endsWith('panel.index.json')) return JSON.stringify(index)
+      throw new Error('boom')
+    },
+  })
+  await act(async () => { rowOf(failing.tree, 'story_frame.md').props.onClick() })
+  assert.match(textOf(failing.tree), /读不到 source\/story\/outline\/story_frame.md：boom/)
+})
+
+test('switching sessions drops the previous index and selection', async () => {
   installDocumentStub()
   const other = 'session-2'
   const { tree, props } = await renderView({ state: twoSessionState(other) })
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
-  assert.match(textOf(tree), /已确认，正在继续…/)
+  const buttons = tree.root.findAllByType('button')
+  assert.ok(buttons.some((button) => button.children.join('') === '确认基础设定'))
 
   await act(async () => {
-    tree.update(React.createElement(StoryView, { ...props, sessionId: other }))
+    tree.update(React.createElement(StoryView, {
+      ...props,
+      sessionId: other,
+      readArtifact: async () => { throw new Error('not found') },
+    }))
   })
-  assert.doesNotMatch(textOf(tree), /已确认，正在继续…/)
-  assert.equal(tree.root.findAllByType('button').length, 5, '换会话后按钮应回来')
+  assert.doesNotMatch(textOf(tree), /确认基础设定/)
+  assert.match(textOf(tree), /索引读取失败：not found/)
 })
 
 test('a double click dispatches one command and one resume', async () => {
   installDocumentStub()
   const { tree, calls, resumes } = await renderView()
-  const button = buttonByLabel(tree, '认可')
+  const button = buttonByLabel(tree, '确认基础设定')
   await act(async () => {
     button.props.onClick()
     button.props.onClick()
   })
   assert.equal(calls.length, 1)
   assert.equal(resumes.length, 1)
-})
-
-test('the panel starts next only before a start or review and later writes nothing', async () => {
-  installDocumentStub()
-  const ready = await renderView()
-  await act(async () => { buttonByLabel(ready.tree, '稍后').props.onClick() })
-  assert.deepEqual(ready.calls, [])
-  assert.match(textOf(ready.tree), /已稍后/)
-
-  await act(async () => { buttonByLabel(ready.tree, '开始下一章').props.onClick() })
-  assert.deepEqual(ready.calls, [{ sessionId: SESSION, line: '/story-write' }])
-  assert.deepEqual(ready.resumes, [])
-
-  const started = await renderView({ workflowStatus: 'live' })
-  assert.match(textOf(started.tree), /本章 workflow 已开始/)
-  assert.equal(started.tree.root.findAllByType('button').length, 0)
-
-  const done = await renderView({ reviewStatus: 'live' })
-  assert.match(textOf(done.tree), /本章审稿已落盘/)
-  assert.equal(done.tree.root.findAllByType('button').length, 0)
-})
-
-test('the view reports failure and unmatched results in words', async () => {
-  installDocumentStub()
-  const failed = await renderView({ outcome: 'error' })
-  await act(async () => { buttonByLabel(failed.tree, '查看待确认').props.onClick() })
-  assert.match(textOf(failed.tree), /提交失败，稍后再试/)
-
-  const unmatched = await renderView({ outcome: 'unmatched' })
-  await act(async () => { buttonByLabel(unmatched.tree, '查看待确认').props.onClick() })
-  assert.match(textOf(unmatched.tree), /这个会话没有该命令/)
-})
-
-test('the view degrades without workspace state, preset, or a session binding', async () => {
-  installDocumentStub()
-  const unreadable = await renderView({ statuses: ['none', 'none', 'none', 'none', 'none', 'none'] })
-  assert.match(textOf(unreadable.tree), /读不到工作区状态/)
-
-  const loading = await renderView({ statuses: ['loading', 'loading', 'loading', 'loading', 'loading', 'loading'] })
-  assert.match(textOf(loading.tree), /正在读取工作区/)
-
-  const empty = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'failed'] })
-  assert.match(textOf(empty.tree), /尚未立项/)
-  assert.match(textOf(empty.tree), /当前工作区：\/work/)
-
-  const waitPreset = await renderView({ state: sessionState(undefined) })
-  assert.match(textOf(waitPreset.tree), /正在读取会话预设/)
-
-  const other = await renderView({ state: sessionState('standard') })
-  assert.match(textOf(other.tree), /预设「standard」/)
-
-  const unbound = await renderView({ canCommand: false })
-  assert.match(textOf(unbound.tree), /暂时不能提交确认/)
-  assert.equal(unbound.tree.root.findAllByType('button').length, 0)
-})
-
-test('the identity file decides between 未立项 and 已立项 without touching the gate', async () => {
-  installDocumentStub()
-
-  // 已立项、还没有基础设定：五份设定文件都缺，身份在。
-  const created = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
-  assert.match(textOf(created.tree), /已立项，还没有基础设定/)
-  assert.doesNotMatch(textOf(created.tree), /尚未立项/)
-
-  // 有基础设定、身份缺：闸门照旧，只加一行提示。
-  const missing = await renderView({ statuses: ['live', 'live', 'live', 'live', 'live', 'failed'] })
-  assert.match(textOf(missing.tree), /身份文件缺失/)
-  assert.match(textOf(missing.tree), /作者确认闸门/)
-  assert.equal(missing.tree.root.findAllByType('button').length, 5)
-
-  // 身份与设定都在：闸门 + 按钮，没有提示。
-  const complete = await renderView()
-  assert.deepEqual([...new Set(complete.requests.map((address) => address.split(SESSION)[1]))].sort(), [
-    '/source/story/book_rules.json',
-    '/source/story/book_rules.md',
-    '/source/story/outline/story_frame.md',
-    '/source/story/outline/volume_map.md',
-    '/source/story/pending_hooks.md',
-    '/source/story/runtime/chapter-0001.review.json',
-    '/source/story/runtime/panel.index.json',
-    '/source/story/runtime/workflow-start.json',
-    '/work.json',
-  ])
-  assert.doesNotMatch(textOf(complete.tree), /身份文件缺失/)
-  assert.equal(complete.tree.root.findAllByType('button').length, 5)
-
-  // 六份文件缺一份就不算有设定：仍显示开工按钮，而不是闸门。
-  const mixed = await renderView({ statuses: ['live', 'live', 'live', 'live', 'failed', 'live'] })
-  assert.match(textOf(mixed.tree), /已立项，还没有基础设定/)
-  assert.equal(mixed.tree.root.findAllByType('button').length, 1)
-
-  // 身份通道读不到：不能说成「缺失」，整块按通道不可用处理。
-  const unreadableIdentity = await renderView({ statuses: ['live', 'live', 'live', 'live', 'live', 'none'] })
-  assert.match(textOf(unreadableIdentity.tree), /读不到工作区状态/)
-  assert.doesNotMatch(textOf(unreadableIdentity.tree), /身份文件缺失/)
-})
-
-test('the empty state offers one click to start the foundation', async () => {
-  installDocumentStub()
-  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
-  assert.match(textOf(tree), /已立项，还没有基础设定/)
-
-  const buttons = tree.root.findAllByType('button')
-  assert.deepEqual(buttons.map((node) => node.children.join('')), ['开始基础设定'])
-
-  await act(async () => { buttons[0].props.onClick() })
-  assert.deepEqual(starts, [{ sessionId: SESSION, cwd: '/work' }])
-  assert.match(textOf(tree), /已开始基础设定/)
-  assert.equal(tree.root.findAllByType('button').length, 0)
-})
-
-test('start failures split into a retryable failure and an unknown outcome', async () => {
-  installDocumentStub()
-
-  const failed = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'], startOutcome: 'failed' })
-  await act(async () => { failed.tree.root.findAllByType('button')[0].props.onClick() })
-  assert.match(textOf(failed.tree), /已立项，但没能自动开始/)
-  assert.equal(failed.tree.root.findAllByType('button').length, 1, '确定失败后按钮恢复')
-
-  const unknown = await renderView({
-    statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
-    start: () => { throw new Error('rpc down') },
-  })
-  await act(async () => { unknown.tree.root.findAllByType('button')[0].props.onClick() })
-  assert.match(textOf(unknown.tree), /没能确认会话是否收到开工指令/)
-  assert.equal(unknown.tree.root.findAllByType('button').length, 0, '结果未知时不给按钮')
-})
-
-test('a running session suppresses both the start button and the approval buttons', async () => {
-  installDocumentStub()
-
-  const empty = await renderView({
-    statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
-    state: sessionState('see-dsh-novel', '/work', true),
-  })
-  assert.match(textOf(empty.tree), /会话正在运行/)
-  assert.doesNotMatch(textOf(empty.tree), /让本会话跑一遍/)
-  assert.equal(empty.tree.root.findAllByType('button').length, 0)
-
-  const gate = await renderView({ state: sessionState('see-dsh-novel', '/work', true) })
-  assert.match(textOf(gate.tree), /会话正在运行/)
-  assert.equal(gate.tree.root.findAllByType('button').length, 0)
-})
-
-test('started clears when the observed turn ends', async () => {
-  installDocumentStub()
-  const { tree, props } = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
-  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
-  assert.match(textOf(tree), /已开始基础设定/)
-
-  await act(async () => {
-    tree.update(React.createElement(StoryView, {
-      ...props,
-      useSessions: selectorOf(sessionState('see-dsh-novel', '/work', true)),
-    }))
-  })
-  assert.match(textOf(tree), /会话正在运行/)
-
-  await act(async () => {
-    tree.update(React.createElement(StoryView, {
-      ...props,
-      useSessions: selectorOf(sessionState('see-dsh-novel', '/work', false)),
-    }))
-  })
-  assert.match(textOf(tree), /已立项，还没有基础设定/)
-  assert.equal(tree.root.findAllByType('button').length, 1, '这一轮结束后回到开工按钮')
-})
-
-test('a double click starts the foundation once', async () => {
-  installDocumentStub()
-  const { tree, starts } = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
-  const button = tree.root.findAllByType('button')[0]
-  await act(async () => {
-    button.props.onClick()
-    button.props.onClick()
-  })
-  assert.equal(starts.length, 1)
-})
-
-test('switching sessions clears the start state', async () => {
-  installDocumentStub()
-  const other = 'session-2'
-  const { tree, props } = await renderView({ state: twoSessionState(other), statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'] })
-  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
-  assert.match(textOf(tree), /已开始基础设定/)
-
-  await act(async () => {
-    tree.update(React.createElement(StoryView, { ...props, sessionId: other }))
-  })
-  assert.doesNotMatch(textOf(tree), /已开始基础设定/)
-  assert.deepEqual(tree.root.findAllByType('button').map((node) => node.children.join('')), ['开始基础设定'])
-})
-
-test('a start-unknown panel still lets the author approve once the foundation lands', async () => {
-  installDocumentStub()
-  const { tree, props, calls } = await renderView({
-    statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'live'],
-    start: () => { throw new Error('rpc down') },
-  })
-  await act(async () => { buttonByLabel(tree, '开始基础设定').props.onClick() })
-  assert.match(textOf(tree), /没能确认会话是否收到开工指令/)
-
-  // 指令其实送达了、基础设定写了出来：闸门要恢复可用，不能因为一个开工状态卡死。
-  await act(async () => {
-    tree.update(React.createElement(StoryView, {
-      ...props,
-      useResource: (address) => ({
-        status: address.endsWith('/workflow-start.json') || address.endsWith('/chapter-0001.review.json') ? 'none' : 'live',
-        value: undefined,
-        failure: undefined,
-      }),
-    }))
-  })
-  const buttons = tree.root.findAllByType('button')
-  assert.deepEqual(buttons.map((node) => node.children.join('')), ['开始下一章', '稍后', '查看待确认', '认可', '退回'])
-
-  await act(async () => { buttonByLabel(tree, '认可').props.onClick() })
-  assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-approve' }])
-})
-
-test('the start button never appears without an identity file', async () => {
-  installDocumentStub()
-  const none = await renderView({ statuses: ['failed', 'failed', 'failed', 'failed', 'failed', 'failed'] })
-  assert.match(textOf(none.tree), /尚未立项/)
-  assert.equal(none.tree.root.findAllByType('button').length, 0)
 })
 
 test('START_TEXT names the checks the agent must run before writing', () => {
@@ -690,13 +668,6 @@ test('command outcomes map to the four visible states', async () => {
   await dispose()
 })
 
-test('the unbound notice is visible to the author', async () => {
-  installDocumentStub()
-  const { tree } = await renderView({ outcome: 'unbound' })
-  await act(async () => { tree.root.findAllByType('button')[0].props.onClick() })
-  assert.match(textOf(tree), /当前会话还没有就绪，命令没有执行/)
-})
-
 test('the resume inject face sends one queue-mode continuation prompt', async () => {
   installDocumentStub()
   const prompts = []
@@ -733,6 +704,33 @@ test('resume reports failure for a rejected prompt or a missing binding', async 
   await second.dispose()
 })
 
+test('readArtifact reports a missing workspaceFiles namespace instead of throwing raw', async () => {
+  installDocumentStub()
+  const { face, dispose } = await mountEligible()
+  await assert.rejects(face.readArtifact(SESSION, 'work.json'), /workspaceFiles 通道不可用/)
+  await dispose()
+})
+
+test('readArtifact pages from offset 1 and joins the pages', async () => {
+  installDocumentStub()
+  const pages = [
+    { text: 'a\nb', lines: 2, eof: false },
+    { text: 'c', lines: 1, eof: true },
+  ]
+  const seen = []
+  const files = {
+    async read(sessionId, path, range) {
+      seen.push({ sessionId, path, range })
+      return { ok: true, value: pages[seen.length - 1] }
+    },
+  }
+  const { face, dispose } = await mountEligible(undefined, files)
+  assert.equal(await face.readArtifact(SESSION, 'panel.index.json'), 'a\nb\nc')
+  assert.deepEqual(seen[0], { sessionId: SESSION, path: 'panel.index.json', range: { offset: 1, limit: 5000 } })
+  assert.deepEqual(seen[1].range, { offset: 3, limit: 5000 })
+  await dispose()
+})
+
 test('the built client artifact keeps the module-loader handoff', () => {
   const source = readFileSync(join(packageRoot, 'lib', 'client.js'), 'utf8')
   assert.equal(/require\(["']\.\//.test(source), false, '产物里不应有相对 require')
@@ -763,4 +761,3 @@ test('the built client artifact keeps the module-loader handoff', () => {
   assert.equal(head.children.length, 1)
   assert.deepEqual([...injected.keys()].sort(), [SLOT, SENTINEL_SLOT].sort())
 })
-

@@ -24,7 +24,7 @@
 - **用户可见面**：DSH 会话加载插件、agent 工具面、client slot 基线、包/边界检查。
 - **入口**：仓库与 DSH 运行时可用。
 - **出口**：六行 `verified` + 行审计 + 真实回执；`verify-audit-coverage` 通过。
-- **非目标/债务**：D23 `skill.references` 的 `use_skill.query` 由本阶段新行偿还；不实现短篇/剧本。
+- **非目标/债务**：D23 的参考读取已由 `skill.references` 偿还（`query` 检索按偏差登记）；不实现短篇/剧本。
 
 ### P1 创意、立项与基础设定
 
@@ -33,8 +33,8 @@
 - **横向不变量**：1（workflow start 确认）、2（阶段停点）、3（作品边界）、4（证据同一）、7（面板/命令一致）。
 - **用户可见面**：`/story-init`、面板「开始基础设定」、workflow start 确认、`/story-approve`／`/story-reject`、失败回执。
 - **入口**：P0 出口。
-- **出口**：本阶段行 `verified` + 不变量 1/2/3/4/7 + `runtime.work-lock` + `runtime.commands` D19–D21 真机 + `panel.confirm`；`panel.workbench` 只读工作台仍留 P6。
-- **非目标/债务**：D27/D28/D29 已偿还；D30 `panel.workbench` 已交付核心；D31 工作台 brief/Markdown/P2 动作留 P6；D19–D21 由 `runtime.commands` 偿还；不实现 plan/write。
+- **出口**：本阶段行 `verified` + 不变量 1/2/3/4/7 + `runtime.work-lock` + `runtime.commands` D19–D21 真机 + `panel.confirm`；`panel.workbench` 在 P6 交付。
+- **非目标/债务**：D27/D28/D29 已偿还；D30 `panel.workbench` 已交付；D31 由作者裁定关闭（不做桌面回执，以进程级测试为交付证据）；D19–D21 由 `runtime.commands` 偿还。
 
 ### P2 章前规划
 
@@ -53,8 +53,8 @@
 - **横向不变量**：1（workflow start 确认，不逐工具确认）、6（产物同一）、2（阶段停点）。
 - **用户可见面**：写作/审阅阶段、章节正文与审阅记录、artifact revision；面板只读展示。
 - **入口**：P2 出口。
-- **出口**：三行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致；真实回执。
-- **非目标/债务**：不在每个 write 工具上加 approval；不实现 summary/settle。
+- **出口**：三行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致；真实回执；D32 由 P4 `chapter.settle` 偿还。
+- **非目标/债务**：不在每个 write 工具上加 approval；summary/settle 归 P4（已交付）；D32 由 P4 `chapter.settle` 偿还。
 
 ### P4 结算与定稿
 
@@ -64,7 +64,7 @@
 - **用户可见面**：结算记录、伏笔状态、定稿/快照。
 - **入口**：P3 出口。
 - **出口**：三行 `verified` + 不变量 2/6 + 回执。
-- **非目标/债务**：不做重开/移动/导出。
+- **非目标/债务**：不做重开/移动/导出；更早章节重结算需要基线重算（D33）；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）；章节保存仍是分步提交（D37）。
 
 ### P5 章节运维与对账
 
@@ -74,14 +74,14 @@
 - **用户可见面**：章节重开/移动/删除、状态核对。
 - **入口**：P4 出口。
 - **出口**：三行 `verified` + 不变量 + 回执。
-- **非目标/债务**：不导出。
+- **非目标/债务**：不导出；不提供移章/重排（源也没有）；重开不更新章节索引观察（D36）；结算后自动校验与重结算未接（D34）。
 
 ### P6 产物与工作台
 
 - **源模块**：artifact revisions、export、backup、materials、搜索、Studio workbench/logs/analysis；见 `inkos/packages/core/src/harness/`、`interaction/export-artifact.ts`、`studio/src/pages/`。
-- **能力行**：`artifact.identity`、`export.work`、`backup.restore`、`materials.import`、`search.unified`、`panel.workbench`（只读）、`panel.logs`、`panel.analysis`。
+- **能力行**：`artifact.identity`、`export.work`、`backup.restore`、`materials.import`、`search.unified`、`panel.workbench`、`panel.logs`、`panel.analysis`。
 - **横向不变量**：3（跨作品隔离）、4（证据同一）、6（产物同一）、7（面板只读同一证据）。
-- **用户可见面**：产物 revision、导出、备份/恢复、素材与检索、只读工作台/日志/分析。
+- **用户可见面**：产物 revision、导出、备份/恢复、素材与检索、作品工作台/日志/分析。
 - **入口**：P5 出口。
 - **出口**：八行 `verified` + 不变量 3/4/6/7 + 真实回执。
 - **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认。
@@ -125,10 +125,13 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | 编号 | 行 | 欠什么 | 偿还位置 |
 |---|---|---|---|
 | D22 | `plan.retrieval` | 素材仍由 FTS 过渡候选供给作者搜索；源是 P6 素材 scope | `materials.import`／`search.unified` |
-| D23 | `skill.references`（新行） | 缺 `use_skill.query` 的技能参考检索；DSH `skill` 只加载整份 | 新行/工具 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D31 | `panel.workbench` 真机收尾 | 工作台核心、`--brief-text`、P2/P3 阶段动作已接；真实 Web GUI 回执与索引热更新仍待验证 | P6 |
+| D33 | 逐章快照与基线重结算 | 逐章快照已由 `chapter.finalize` 写出；结算与重开仍不按快照做基线重算：更早章节的重开/重结算被拒绝，同章重结算按增量应用、旧 delta 不再适用的 facts 可能残留 | `state.check`／后续阶段接基线重算 |
+| D34 | `chapter.settle` 状态校验 | 源在结算后用状态校验 agent 检查投影一致性，必要时带 `validationFeedback` 重结算（`state-validator.ts`／`chapter-truth-validation.ts`）；复刻交付了只读 `story_state_check` 入口，但结算不自动校验、也不会带反馈重结算 | 后续把校验接进结算流程 |
+| D35 | `chapter.finalize` 索引字段 | 源 `ChapterMeta` 可带 `lengthTelemetry`／`tokenUsage`，并在标题变化时删 superseded 章节文件；复刻索引只写基础字段，标题变化当前不可达 | P6 或后续 |
+| D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | P5 `chapter.move-delete`／`state.check` 同批 |
+| D37 | 章节保存的非原子拆分 | 源 `saveChapter` 一次提交章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引，崩溃后要再定稿补齐 | 后续把快照/索引并入结算，或恢复检测后自动补定稿 |
 
 ## 边界
 

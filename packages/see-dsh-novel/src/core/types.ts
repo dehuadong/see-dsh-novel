@@ -129,6 +129,10 @@ export interface SkillRegistrationLike {
   content: string
   whenToUse?: string
   source?: string
+  /** 技能提供方标签；随包技能统一用插件名。 */
+  provider?: string
+  /** 资源基址：模型面据此解析技能正文里的相对参考路径。 */
+  resourceBase?: { kind: 'directory', path: string }
   invocation?: { modelInvocable: boolean; userInvocable: boolean }
 }
 
