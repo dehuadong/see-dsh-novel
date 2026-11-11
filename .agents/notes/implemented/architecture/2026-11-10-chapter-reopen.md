@@ -11,8 +11,8 @@ P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回�
 ## 源工程证据
 
 - `inkos/packages/core/src/state/chapter-workspace.ts:61-130`：版本 id 形如 `<13 位时间戳>_<来源>_<uuid>`，来源是 `manual|agent|revision|regeneration|restore`；目录 `chapters/.versions/<NNNN>/`；`listChapterVersions` 按时间倒序，`readChapterVersion` 只认合法 id。
-- `inkos/packages/studio/src/api/server.ts:3132-3175`：版本列表/读取 API 与 `POST …/versions/:versionId/restore`，恢复走 `chapter-replace`、版本来源 `restore`。
-- `inkos/packages/core/src/interaction/edit-controller.ts:337-380`（`chapter-replace`）：正文去空白后不能为空、不能与当前完全相同；先把当前正文归档为指定来源，再写回替换文本；`clearChapterRuntimeFiles` 删除 `story/runtime/chapter-NNNN.*`，但保留 `chapter-NNNN.user-brief.md`；章节索引追加一条人工编辑观察并更新字数。
+- `inkos/packages/studio/src/api/server.ts:3026-3051`：版本列表（`:3034-3037` 的 `GET …/workspace` 返回 versions）；`:3132-3145` 读取版本；`:3147-3178` 的 `POST …/versions/:versionId/restore` 走 `chapter-replace`、版本来源 `restore`。
+- `inkos/packages/core/src/interaction/edit-controller.ts:335-378`（`chapter-replace`）：正文去空白后不能为空、不能与当前完全相同；先把当前正文归档为指定来源，再写回替换文本；`clearChapterRuntimeFiles`（`:288-291`）删除 `story/runtime/chapter-NNNN.*`，但保留 `chapter-NNNN.user-brief.md`；章节索引追加一条人工编辑观察并更新字数。该入口对任意章可用，不改运行时状态。
 
 ## Decision
 
@@ -28,12 +28,12 @@ P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回�
 
 `src/core/reopen.ts` 的 `reopenChapter(root, chapter, options)`：
 
-- 前置：本章是**最后已结算的一章**（`manifest.lastAppliedChapter === chapter`）；更早章节的重开需要基线快照，拒绝并指向 D33。
+- 前置：本章是**最后已结算的一章**（`manifest.lastAppliedChapter === chapter`）。源 `chapter-replace` 对任意章可用且不动运行时状态；复刻把「重开回退」限制为最后一章（D33），恢复旧版也继承该限制（D44，作者裁决解耦）。
 - 有 `versionId`：读该版本；正文与当前相同则拒绝（源的“already has the supplied content”）；把当前正文归档为 `restore`；替换章节文件。
 - 无 `versionId`：只重开，不改正文（作者接着用修订/重写）。
-- 清运行时：删除该章审稿记录与章纲（源清 `chapter-NNNN.*`、保留 user-brief；DSH 的 plan 在 `story/runtime/chapter-NNNN.intent.md`，同批删除），保留 user-brief。
+- 清运行时：删除该章审稿记录与章纲 `chapter-NNNN.plan.json`；源清 `chapter-NNNN.*`、只保留 user-brief，当前仍残留 intent/planner-context/context/trace，记 D43。
 - 重开授权：没有 start 时写 `workflow-start.json`（`instruction: 重开第 N 章`）；已有本章 start 就沿用。
-- 状态回退：`manifest.lastAppliedChapter` 与 `current_state.chapter` 回到 `chapter-1`；删除该章摘要行；**facts/hooks 不回退**（没有逐章基线快照，D33），重开后的再次结算按增量应用。
+- 状态回退：`manifest.lastAppliedChapter` 与 `current_state.chapter` 回到 `chapter-1`；删除该章摘要行（源不删，记 D43）；**facts/hooks 不回退**（没有按快照重算，D33），重开后的再次结算按增量应用。
 - 一次 `commitFoundation` 写章节、归档、删除与状态文件。
 - 返回 `{ chapter, versionId, archived, removed, stage }`。
 
@@ -47,13 +47,17 @@ P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回�
 
 ### 阶段与面板
 
-- 重开后阶段回到 `plan`（start 有、章纲删了、正文还在）；作者重新规划本章，再写/审/结算/定稿。
+- 重开后阶段回到 `plan`（start 有、章纲删了、正文还在）；作者重新规划本章。正文仍在，重规划后 `detectStage` 会判 `review`、`story_write_chapter` 拒绝覆盖，因此「退回重写」要走修订路径（D55）；只想恢复旧版则不应回退状态指针（D44）。
 - 面板不新增动作：`chapter-done` 的根动作仍是修订，重开走对话；版本列表不进面板。
 
 ### 偏差与债务
 
 - 源恢复只改正文并清运行时，不改运行时状态；复刻为了阶段判定，把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回 `chapter-1`，facts/hooks 留待重结算。登记在 `docs/dsh-mapping.md`。
-- D33 继续：更早章节重开被拒绝；同章重开后的重结算按增量，旧 facts 可能残留。
+- D33：更早章节重开被拒绝；同章重开后的重结算按增量，旧 facts 可能残留。
+- D36：不写索引 `provenance: edited` 与 `manual-edit-review` 观察。
+- D43：清运行时不全、删摘要行未登记。
+- D44：恢复旧版继承最后一章限制；作者裁决解耦（恢复只换正文、重开回退仍限最新章）。
+- D55：重开后「退回重写」会落到审旧稿（重规划后阶段判 `review`，write 拒覆盖），协议未接修订路径。
 
 ## Alternatives considered
 
@@ -73,7 +77,7 @@ P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回�
 ## Consequences
 
 - facts/hooks 不回退：重开后的当前状态可能仍带旧章事实，直到重结算按增量替换；D33 的基线重算是根治。
-- 删除章纲后必须重新规划才能审稿；作者如果只想改几个字，修订路径仍更合适。
+- 删除章纲后必须重新规划才能审稿；作者如果只想改几个字，修订路径仍更合适。重开后的「整章重写」当前不可达（D55）。
 - 版本 id 解析与修订归档共用一套命名；新增来源时必须同步 `CHAPTER_VERSION_SOURCES`，否则列表会漏。
-- 重开只对最后一章有效；多章后必须补逐章快照（D33）才能重开历史章。
+- 重开只对最后一章有效；逐章快照已由 `chapter.finalize` 写出，仍未接按快照的基线重算（D33）；恢复旧版应按作者裁决与重开回退解耦（D44）。
 - 恢复/重开不更新 `chapters/index.json` 的 `provenance: edited` 与 `manual-edit-review` 观察（D36）。

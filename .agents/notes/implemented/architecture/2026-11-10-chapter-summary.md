@@ -13,7 +13,7 @@ Status: implemented
 - `inkos/packages/core/src/agents/settler-tool.ts:21-62`：结算工具 schema 的 `chapterSummary` 字段就是七个维度（title、characters、events、stateChanges、hookActivity、mood、chapterType）。
 - `inkos/packages/core/src/models/runtime-state.ts:39-56`：`ChapterSummaryRowSchema` 要求 `chapter` 为 ≥1 整数、`title` 非空，其余为字符串，且 `.strict()`；`ChapterSummariesStateSchema` 是 `{ rows }`。
 - `inkos/packages/core/src/state/state-reducer.ts:195-213`：`applySummaryDelta` 按 chapter 排序；重复章节只在 `allowReapply`（重结算）时替换，否则校验错误；`:41-50` 校验章节号匹配与重复行。
-- `inkos/packages/core/src/pipeline/runner.ts:1438-1450`：结算输出（含摘要）随章节一起持久化；摘要不是单独的可见步骤。
+- `inkos/packages/core/src/pipeline/runner.ts:999-1123`：结算输出（含摘要）随章节一起持久化；摘要不是单独的可见步骤。摘要行实际由 `agents/writer.ts:214-260` 的 `settleChapterState` 产出，并在 `writer.ts:364-437` 的 `saveChapter` 里与章节同批落盘（`:390,404-407,424-426,433,437`）。
 
 ## Decision
 
@@ -25,7 +25,7 @@ Status: implemented
 - 校验：`chapter` 为 ≥1 的整数；`title` 去空白后非空；其余字段必须是字符串（允许空串）；行内章号必须与参数一致。
 - 前置：该章必须有正文与审稿记录（摘要发生在审稿之后）；缺任一都拒绝。
 - 既有 `chapter_summaries.json`：文件缺失按空表；**内容非法时拒绝**，不用默认值覆盖损坏的状态。
-- 写入：同一章的行存在时替换（修订后重审再写摘要就是重结算），按章号升序；一次 `commitFoundation` 写 `state/chapter_summaries.json` 与该表的 Markdown 投影。投影语言取 `readManifestLanguage(root) ?? 'zh'`（与其它状态投影一致）。
+- 写入：同一章的行存在时替换（修订后重审再写摘要就是重结算），按章号升序；一次 `commitFoundation` 写 `state/chapter_summaries.json` 与该表的 Markdown 投影。源只在 `allowReapply` 时替换/拒绝重复，复刻无条件替换，记 D48。投影语言取 `readManifestLanguage(root) ?? 'zh'`（与其它状态投影一致）。
 - 返回 `{ chapter, title, total, path }`。
 
 ### 工具：`story_summarize_chapter`
@@ -35,6 +35,7 @@ Status: implemented
 - 参数：`chapter` 与嵌套的 `summary`（七个字段，schema 严格，不允许额外键）。
 - 执行：`withWorkAction` 内调用 `writeChapterSummary`；输出 `{ chapter, title, total, path }`，渲染成一句回执。
 - 摘要内容由主编派 settler 子代理按本章正文与审稿产出（源也是 settler 的产物），宿主只校验结构与写入。
+- 作者裁决：摘要收敛为结算内唯一路径；当前独立入口在收敛前仍存在，记 D48。
 
 ### 阶段与面板
 
@@ -43,9 +44,9 @@ Status: implemented
 
 ### 行与债务
 
-- `capabilities.yaml` 的 `chapter.summary`：implementation 指向 `src/pipelines/long/summary-tool.ts`，consumer 指向 `test/chapter-summary.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.summary.json`；状态由 `check-capabilities` 依据证据生成。
-- `docs/fidelity-audit.md` 的 `chapter.summary` 段改为「机制等价（拆分登记）」；`docs/scope.md` 的 P4 描述同步。
-- 源把摘要与 facts/hooks 放在同一个结算提交里；本行先写摘要，`chapter.settle` 已把三者收进同一提交（D32 收口）。
+- `capabilities.yaml` 的 `chapter.summary`：implementation 指向 `src/pipelines/long/summary-tool.ts`，consumer 指向 `test/chapter-summary.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.summary.json`；`source:` 已改指 `agents/settler-tool.ts`，状态由 `check-capabilities` 依据证据生成。
+- `docs/fidelity-audit.md` 的 `chapter.summary` 段改为保真债 D48；`docs/scope.md` 的 P4 描述同步。
+- 源把摘要与 facts/hooks 放在同一个结算提交里；本行先写摘要，独立入口可早于结算落盘，收敛前记 D48。
 
 ## Alternatives considered
 
@@ -65,6 +66,6 @@ Status: implemented
 ## Consequences
 
 - 摘要质量取决于 settler 子代理；宿主只保证结构、章节匹配与不覆盖坏状态。
-- 摘要在事实/伏笔结算之前写入；如果后续结算失败，摘要仍会存在，需要 `chapter.settle` 的重结算路径允许替换（本行已允许同章替换）。
+- 摘要在事实/伏笔结算之前写入；如果后续结算失败，摘要仍会存在。源只在重结算时允许替换/拒绝重复，复刻无条件替换，记 D48。
 - 源在结算事务里同时写 facts/hooks；本行单独写摘要是阶段性拆分，结算行落地后已把摘要并入同一提交。
 - 不新增面板动作：摘要是对话/协议动作，面板只读地展示 `chapter_summaries.md` 与其他产物。

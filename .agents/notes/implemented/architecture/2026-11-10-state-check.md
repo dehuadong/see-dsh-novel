@@ -6,12 +6,13 @@ Status: implemented
 
 P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在结算后核对“投影是否忠实于本章”：`current_state`／`pending_hooks` 与上一章快照、章纲、权威文档之间是否存在矛盾、漏写或时间线错位，目前只能靠人读文件。
 
-源工程的 `StateValidatorAgent` 是一个模型侧校验器：把上一份与新的状态／伏笔卡片、本章正文、权威上下文交给模型，模型提交 `reconciliationRequired` 布尔值与证据报告；布尔值与报告构成 findings，用于决定是否重结算。DSH 不能在宿主工具里跑模型，所以对账由子代理产出、宿主只做结果校验与回执。
+源工程的 `StateValidatorAgent` 是一个模型侧校验器：把上一份与新的状态／伏笔卡片、本章正文、权威上下文交给模型，模型提交 `reconciliationRequired` 布尔值与证据报告；布尔值与报告构成 findings，用于决定是否重结算。DSH 宿主工具不能直接跑模型，对账由子代理产出、宿主只做结果校验与回执；这不构成自动校验的机制障碍，自动路径仍记 D34。
 
 ## 源工程证据
 
 - `inkos/packages/core/src/agents/state-validator.ts:23-95`：`validate(chapterContent, chapterNumber, oldState, newState, oldHooks, newHooks, language, authorityContext)`；旧新一致时直接返回 `consistent`；否则模型提交 `state-validation-tool` 的布尔值与 Markdown 报告；`reconciliationRequired && !report.trim()` 返回 `STATE_RECONCILIATION_REASON_REQUIRED`；报告非空时产出一条观察，code 为 `state-reconciliation` 或 `state-projection-review`。
 - `inkos/packages/core/src/agents/state-validation-tool.ts`：`reconciliationRequired` 布尔与 `reportMarkdown` 的参数 schema。
+- `inkos/packages/core/src/agents/state-validator.ts:47`：布尔判据——只有换一份 truth projection 能消解不一致时才置 `true`；章节内部或权威文档之间的矛盾只作观察，不授权再次结算。
 - `inkos/packages/core/src/pipeline/chapter-truth-validation.ts:39-104`：校验发生在结算之后；`!consistent || reconciliationRequired` 时进入 `reconcileChapterStateAfterReview`，带 `validationFeedback` 重结算。
 - `inkos/packages/core/src/pipeline/chapter-state-recovery.ts`：重结算路径消费这批 findings。
 
@@ -37,13 +38,15 @@ P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在�
 ### 范围与非目标
 
 - 只读：不写状态、不写观察文件、不触发重结算。
-- 不把对账接进 `chapter.settle` 的自动流程；那是 D34 的偿还（新增校验步骤与 reconciliation 重试），本行只交付“可随时核对的只读入口”。
+- 不把对账接进 `chapter.settle` 的自动流程；那是 D34 的偿还（在 `chapter.settle` 增加校验步骤与 reconciliation 重试），本行只交付“可随时核对的只读入口”。
+- 源 `validate` 的布尔判据（仅换投影可消解才置 `true`）未写入阶段协议，`state-reconciliation`／`state-projection-review` 的选码因此缺依据，记 D51。
 - 不做静态 schema 校验（损坏由 `inspectState`／各写入工具拒绝，已有机制），本行只做语义对账结果。
 
 ### 偏差与债务
 
 - 无新的机制偏差：对账的模型部分由 DSH 子代理产出，宿主只校验结果。
-- D34 保持：`chapter.settle` 的写入没有接状态校验与 reconciliation；本行不改变结算路径，scope 里 D34 的偿还改为“把校验接进结算流程”。
+- D34 保持：`chapter.settle` 的写入没有接状态校验与 reconciliation；本行不改变结算路径，D34 的偿还位置是 `chapter.settle`。
+- D51：源布尔判据未进协议；账本 `source:` 已改指 `agents/state-validator.ts`。
 
 ## Alternatives considered
 
@@ -57,7 +60,7 @@ P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在�
 
 - `test/state-check.test.mjs`：报告必填错误码、`state-projection-review`／`state-reconciliation` 两种 code、`consistent` 与布尔相反、只读（调用前后文件集合与状态内容不变）、未结算与缺快照拒绝。
 - `test/host.test.mjs`：工具清单包含 `story_state_check`。
-- `test/stage-context.test.mjs`：`chapter-done` 协议包含 `story_state_check`。
+- `test/stage-context.test.mjs`：现有文件没有「`chapter-done` 协议含 `story_state_check`」的断言（D51 同批补）。
 - `pnpm run verify` 全绿；回执记录一次对账。
 
 ## Consequences

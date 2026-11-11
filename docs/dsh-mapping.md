@@ -56,7 +56,7 @@
 ### 面板产物：白名单、JSON 键值树与诊断折叠
 
 - 源工程做法：真值文件浏览器按显式白名单列文件（`api/server.ts:3228-3240` 的 flat／outline／运行时诊断正则，`api/server.ts:4189-4203` 加角色卡目录），诊断文件带 `readonlyReason: "runtime-diagnostic"` 与只读警示（`pages/TruthFiles.tsx:119-129`），内容统一用 `<pre>`（`pages/TruthFiles.tsx:168`）。
-- 复刻做法：面板展示集合同样走白名单（另加章节正文，源在章节页展示）；诊断文件默认收进「运行时诊断」折叠分组，展开后仍是 `<pre>` 原文与同一条警示；作者产物的 JSON（`book_rules.json`、章纲、审稿）用键值树并保留「原始 JSON」切换。`state/*.json`、`memory.db`、`workflow-start.json` 不进面板；审批摘要仍是 `source/story/` 全量。
+- 复刻做法：面板展示集合同样走白名单（另加章节正文，源在章节页展示）；诊断文件默认收进「运行时诊断」折叠分组，展开后仍是 `<pre>` 原文与同一条警示；作者产物的 JSON（`book_rules.json`、章纲、审稿）用键值树并保留「原始 JSON」切换。`state/*.json`、`memory.db`、`workflow-start.json` 不进面板；审批摘要仍是 `source/story/` 全量。面板另列 `book_rules.json`、`source/brief.md`、`source/story/brief.md` 与 `.planner-context.json`，源白名单没有这四项，记 D41。
 - 原因：白名单让面板只显示作品产物，作者不必在状态 JSON 与 trace 里找正文；键值树与折叠是作者对可读性的裁决，原文切换保证没有信息损失。
 - 验证：`panel-index.test.mjs` 断言展示集合与摘要集合分离、类别与出现阶段；`workbench.test.mjs` 断言折叠分组、JSON 键值树与原始切换、诊断警示。
 
@@ -68,19 +68,19 @@
 - 验证：`test/chapter-revise.test.mjs` 断言修订后审稿文件消失、`reviewInvalidated`；`test/stage-context.test.mjs` 断言 review／chapter-done 协议写明重审。
 
 
-### 技能参考：基址按需读取替代 query 检索
-
-- 源工程做法：`agent/skill-tool.ts:55-120` 的 `use_skill` 支持 `resourcePath`（精确读一个参考文件）与 `query`（对参考文件检索），读取前校验路径、类型与大小。
-- 复刻做法：随包技能注册时带 `provider` 与 `resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }`；DSH 的 `renderSkillContent` 把绝对基址渲染进 `skill` 工具输出，模型按路径读 `references/*.md`。`resourcePath` 的行为等价；`query` 没有对应 API，模型直接列/读固定参考目录。
-- 原因：DSH 技能服务的资源只声明位置（`SkillResourceBase`），不提供检索入口；为 query 自造工具会变成第二套机制。
-- 验证：`test/skill-references.test.mjs` 断言每条技能的 provider／基址与 `review-matrix.md` 等参考文件可读；D23 由本行偿还。
-
 ### chapter.reopen：恢复正文，状态指针回退
 
 - 源工程做法：恢复版本只替换章节正文、清该章运行时文件并记索引观察，不改 `current_state`／`hooks`；Studio 用 `requiresTruthRebuild` 标出后续重建。
 - 复刻做法：`story_reopen_chapter` 在恢复/重开时删审稿与章纲、写 workflow start，并把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章；facts/hooks 留待重结算。
 - 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章，审稿与重结算无法回到本章。
 - 验证：`test/chapter-reopen.test.mjs` 断言指针回退、审稿/章纲删除、start 写入、阶段回到 `plan`、版本恢复归档；facts/hooks 不回退由 D33 记录。
+
+### backup.restore：工作区内的备份与恢复
+
+- 源工程做法：整本作品目录 `cp` 到 `<projectRoot>/.inkos/backups/<bookId>/<stamp>/`；恢复先做 `pre-restore` 备份，再 `rm(bookDir)` + `cp` 整目录；作品身份文件坏掉也能备份/恢复。
+- 复刻做法：备份 `work.json` 与 `source/`（作品拥有项）到 `<workspace>/.backups/<backupId>/`，不读 `work.json`；恢复只替换这两项，保留工作区根的 `.git`、作者文件、导出文件、`.backups/` 与活动锁；恢复前先回收死事务，回收失败把 `.inkos-file-txn-*` 隔离为 `.dead-txn-*` 后继续。
+- 原因：DSH 没有“项目根 + `works/`”层级，工作区是命令唯一稳定根，且工作区根可能同时是仓库根（`/story-init` 已同因裁定不删根）；复刻的提交事务目录在作品根，恢复是裸 fs 写入，不先回收会让下一次 commit 用旧事务备份覆盖恢复内容。
+- 验证：`test/backup.test.mjs` 的拥有项复制/排除、id 与列表、恢复替换与根文件保留、坏 `work.json`、空工作区 `preRestoreBackupId: null`、死事务隔离、命令参数边界；根上导出文件不回滚是 D38。
 
 ### 就绪判据：角色卡只能由会话路牌数
 

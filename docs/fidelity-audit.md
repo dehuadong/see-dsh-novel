@@ -14,9 +14,9 @@
 4. **证据同一**：会话日志、telemetry、realRun、面板展示来自同一证据；`capabilities.yaml` 状态只由 `check-capabilities` 依据证据生成。
 5. **上下文同一**：模型窗口、预算、检索候选、压缩、`ChapterTrace` 七字段、review 来源同一基准；不静默截断。
 6. **产物同一**：章节文档、artifact revision、`reviewedArtifact`、review 证据指向同一被审版本；写/审/改不跨 revision。
-7. **面板/命令一致**：面板按钮、`/story-*` 命令、原生 approval 不出现三套 decision；`panel.confirm` 拥有确认语义，`panel.workbench` 是读取 + 动作面，两者读同一份索引证据。
+7. **面板/命令一致**：面板按钮、`/story-*` 命令、原生 approval 不出现三套 decision；`panel.confirm` 拥有确认语义，`panel.workbench` 是读取 + 动作面；确认状态由宿主的 `detectStage` 与 approval 回执产生，面板动作与命令走同一宿主入口。
 
-验证位置：1/2 见 `runtime.stage-context`／`foundation.approval`／`panel.confirm`；3 见 `runtime.session-binding`／`runtime.work-lock`／`runtime.commit-safety`；4 见 `runtime.telemetry`／`check-capabilities`；5 见 `plan.*`；6 见 `chapter.write`／`chapter.review`／`artifact.identity`；7 见 `panel.*` 与 `StoryView`。
+验证位置：1/2 见 `runtime.stage-context`／`foundation.approval`／`panel.confirm`；3 见 `runtime.session-binding`／`runtime.work-lock`／`runtime.commit-safety`；4 见 `runtime.telemetry`／`check-capabilities`；5 见 `plan.*`；6 见 `chapter.write`／`chapter.review`／`artifact.identity`；7 见 `workbench.test.mjs`／`client.test.mjs` 的动作派发断言与 `panel.confirm` 测试。
 
 ---
 
@@ -66,9 +66,9 @@
 
 **源工程证据**：`inkos/packages/core/src/agent/skill-tool.ts:55-120` 的 `use_skill`——`resourcePath` 精确读一个参考文件、`query` 对参考文件检索；`:40-52` 的激活结果携带 `resources`。
 
-**复刻现状**：随包技能注册带 `provider` 与 `resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }`；DSH 的 `renderSkillContent` 把绝对基址渲染进 `skill` 工具输出，主/子代理按路径读 `references/*.md`。技能正文仍由预设插件从包内读取注册（既有机制偏差），本行不改。
+**复刻现状**：随包技能注册带 `provider` 与 `resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }`；DSH 的 `renderSkillContent` 把绝对基址渲染进 `skill` 工具输出，主/子代理按路径读 `references/*.md`；阶段注入 `renderCraft` 会把 `SKILL.md` 与 `references/*.md` 整份拼进上下文。`resourcePath` 行为等价；`query` 未实现；源对越界、符号链接、非文件、512KB、UTF-8 的校验与失败回执也未复刻。
 
-**判定：机制等价（query 偏差）** — `resourcePath` 与按基址读文件等价；源 `use_skill.query` 的参考检索在 DSH 没有对应 API，只暴露目录、由模型直接读取，已登记 `docs/dsh-mapping.md`。D23 由本行偿还。
+**判定：保真债 D23／D54** — DSH 技能服务只声明资源位置，但项目可以注册工具提供参考检索，`query` 不是机制强制：D23 仍欠参考检索入口，D54 欠边界校验与失败回执；`docs/dsh-mapping.md` 不再把「基址读取」登记为替代 `query` 的偏差。
 
 ## 批次 B：P1 创意、立项与基础设定
 
@@ -405,7 +405,7 @@
 
 **复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 由宿主做行级 diff：多段不连续改动拒绝 `CHAPTER_EDIT_SCOPE_CONFLICT`，`targetText` 必须唯一并完整覆盖改动区间。面板 `chapter-done` 由索引根动作给出「修订本章」。
 
-**判定：机制等价（D32 已偿还）** — 源在修订事务内自动复审并重结算状态；DSH 的审稿观察与结算 delta 都由模型产出，修订后必须重新审稿、再调 `story_settle_chapter`（阶段闸门保证，已登记 `dsh-mapping.md` 的偏差）；结算能力本身已交付。
+**判定：机制等价（重审闸门）+ 保真债 D42／D45／D53** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。单段范围限制（D53）、revision 缺 `snapshotPath`（D42）、索引与后代标记未写（D45）是债。`artifacts/real-runs/chapter.revise.json` 的 D32 描述需按当前行为重录。
 
 ## 批次 E：P4 结算与定稿
 
@@ -415,7 +415,7 @@
 
 **复刻现状**：`story_summarize_chapter` 写 `chapter_summaries.json` 与 `chapter_summaries.md` 投影；七字段校验、同章替换、按章号排序；前置为本章有正文与审稿记录；坏状态拒绝覆盖。摘要由 settler 子代理在 `chapter-done` 协议里产出。
 
-**判定：等价** — 摘要七字段、按章号排序、同章替换与源 reducer 一致；独立摘要工具是 P4 的阶段入口，结算路径会把同一行与 facts/hooks 同批写入，不改变最终产物。
+**判定：保真债 D48** — 七字段、排序与同章过滤一致；但源没有独立摘要入口，摘要只在结算 schema 内产生、随 `saveChapter` 同批写，且仅 `allowReapply` 时替换/拒绝重复；复刻新增可先于结算的 `story_summarize_chapter` 且无条件替换。账本 `source:` 同时改指 `agents/settler-tool.ts`。
 
 ### chapter.settle
 
@@ -423,7 +423,7 @@
 
 **复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批替换；整份状态校验。
 
-**判定：保真债 D33／D34** — 结算规则按源 reducer 复刻；缺逐章结算前快照（D33），更早章节不能重结算、同章重结算按增量应用；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账。
+**判定：保真债 D33／D34／D46／D47** — 结算规则按源 reducer 复刻；逐章快照已由 `chapter.finalize` 写出，缺口是不按快照做基线重算（D33）；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账；状态文件缺失按默认继续（D46）；强制 `last+1` 跳章（D47）。
 
 ### chapter.finalize
 
@@ -431,7 +431,7 @@
 
 **复刻现状**：`story_finalize_chapter` 写 `source/story/snapshots/<chapter>/` 七个文件、更新 `source/chapters/index.json`、把 `work.status` 从 `draft` 推进到 `active`；幂等，保留已有 `createdAt`；坏索引拒绝覆盖。
 
-**判定：保真债 D35／D37** — 源在结算后一次 `saveChapter` 原子写章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引（D37，重新定稿可补齐）；章节索引缺 `lengthTelemetry`／`tokenUsage`（D35，superseded 清理当前不可观测）。
+**判定：保真债 D35／D37／D49** — 源在结算后一次 `saveChapter` 原子写章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引（D37，重新定稿可补齐）；章节索引缺 `lengthTelemetry`／`tokenUsage`（D35，superseded 清理当前不可观测）；索引重建会改写他章 `updatedAt`、缺索引静默重建（D49）。
 
 ## 批次 F：P5 章节运维与对账
 
@@ -441,7 +441,7 @@
 
 **复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 只重开最后已结算的一章——删审稿与章纲、保留 user-brief、重开 workflow、把状态指针退回上一章并删摘要行；带 `versionId` 时把当前正文归档为 `restore` 再替换。
 
-**判定：机制等价（状态指针回退）+ 保真债 D36** — 源恢复只改正文与运行时文件，不动运行时状态；复刻为了阶段判定把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，facts/hooks 留待重结算（D33）；源在章节索引里记 `manual-edit-review` 观察与 `provenance: edited`，复刻未更新索引（D36）。
+**判定：机制等价（状态指针回退）+ 保真债 D36／D43／D44／D55** — 源恢复只改正文与运行时文件，不动运行时状态；复刻为了阶段判定把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，facts/hooks 留待重结算（D33）；源在章节索引里记 `manual-edit-review` 观察与 `provenance: edited`，复刻未更新索引（D36）；清运行时文件不全、删摘要行未登记（D43）；恢复旧版被 `lastAppliedChapter` 限制（D44）；重开后「退回重写」会落到审旧稿（D55）。
 
 ### chapter.move-delete
 
@@ -449,7 +449,7 @@
 
 **复刻现状**：`story_delete_chapter` 只删最新章——章节文件移到 `chapters/.trash/`（重名加 `-2` 后缀）、从上一章快照恢复状态与投影、索引只留保留项、删更晚章的快照/运行时/草稿与 `memory.db*`；提交失败把 trash 搬回。foundation details 写 `snapshots/0/` 初始快照，删除第 1 章可用。
 
-**判定：等价（仅删最新章）** — 源没有移章/重排，只删最新章；回滚路径、trash 保留、索引重写与检索库删除与源一致；`D33` 仍只影响“重结算基线”，不影响删除。
+**判定：保真债 D52** — 源没有移章/重排，只删最新章；回滚路径、trash 保留、检索库删除与源一致；但前置校验要求上一章七份快照（源只 stat `current_state.md`／`pending_hooks.md`），最新章按章节文件而非索引判定。
 
 ### state.check
 
@@ -457,7 +457,7 @@
 
 **复刻现状**：`story_state_check` 接收子代理产出的 `reconciliationRequired` 与 `reportMarkdown`，校验必填报告（`STATE_RECONCILIATION_REASON_REQUIRED`）并返回只读观察；不写作品。自动“结算后校验 + 重结算”仍未接（D34）。
 
-**判定：保真债 D34** — 只读对账入口已交付；源在结算后自动校验并可能重结算，复刻仍要作者显式发起，自动路径未接。
+**判定：保真债 D34／D51** — 只读对账入口已交付；源在结算后自动校验并可能重结算，复刻仍要作者显式发起，自动路径未接（D34）；源 `validate` 的布尔判据未进协议（D51）。账本 `source:` 已改指 `agents/state-validator.ts`。
 
 ## 批次 G：P6 产物与工作台
 
@@ -471,19 +471,19 @@
 
 ### export.work
 
-**源工程证据**：`inkos/packages/core/src/interaction/export-artifact.ts` 的原子导出。
+**源工程证据**：`interaction/export-artifact.ts:12-36` 的 `ChapterExportSourceError`（`CHAPTER_EXPORT_SOURCE_MISMATCH`，details 含缺失/重复/未入索引）；`:100-160` 的 `buildExportArtifact`（txt／md／epub、章节索引顺序、书名开头、`renderChapterDocument` 重渲染）；`:162-182` 的 `writeExportArtifact`；`studio/src/api/server.ts:5606-5675` 的下载与 `export-save`（落 `bookDir/<id>.<fmt>`）。
 
-**复刻现状**：未实现；`export.work` missing。
+**复刻现状**：`/story-export [txt|md|epub]` 命令（宿主执行）＋面板页头格式选择与「导出」按钮（`runCommand`，不经过 agent）；索引与章节文件四种不一致都拒绝且不写目标文件；导出到工作区根 `<workId>.<format>`，临时文件 + rename 原子替换；EPUB 用最小 ZIP store 实现（`mimetype` 第一项不压缩、container／content.opf／nav／章节 XHTML）。
 
-**判定：保真债（未立债号）** — P6 行 missing。
+**判定：保真债 D50** — 三种格式、索引一致性校验、章节渲染与落点与源一致；EPUB 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」，与源取渲染标题、按 `work.language` 不一致；temp+rename 是源没有的写入方式。
 
 ### backup.restore
 
-**源工程证据**：源 book backup/restore。
+**源工程证据**：`cli/src/book-backup.ts:34-37` 的备份目录（works 之外、不含备份）；`:39-84` 的 `createBookBackup`（只要求作品目录、id 时间戳+后缀+冲突号、整本 cp）；`:86-107` 的 `listBookBackups`（mtime ISO、id 倒序）；`:109-150` 的 `restoreBookBackup`（id 安全校验、pre-restore、`rm`+`cp`）；`cli/src/commands/book.ts:301-374` 的 CLI 接线与“坏 book.json 也要能备份”的注释；`cli/src/__tests__/book-backup.test.ts`。
 
-**复刻现状**：未实现；行 missing。
+**复刻现状**：`/story-backup [create|list|restore <id>]` 命令，create/restore 在 `withWorkAction` 锁内；备份集合为作品拥有项 `work.json` + `source/`（排除活动锁与 `panel.index.json`），恢复只替换这两项、保留根上 `.git`/作者文件/导出/`.backups` 与锁；不读 `work.json`；回收死事务失败时隔离为 `.dead-txn-*`；pre-restore 与 id 规则同源。
 
-**判定：保真债（未立债号）** — P6 行 missing。
+**判定：机制等价（备份位置、恢复范围、死事务隔离三条偏差）+ 保真债 D38** — 位置与范围由 DSH“工作区是唯一稳定根、根可能是仓库根”决定，死事务隔离由复刻的事务目录在作品根决定，三条都登记在 `dsh-mapping.md`；导出文件不回滚记 D38。
 
 ### materials.import
 
@@ -507,7 +507,7 @@
 
 **复刻现状**：作品页是工作台：阶段栏、本阶段产物列表、详情/`<pre>` 正文，当前阶段的动作集中在右栏顶部动作条；索引 `panel.index.json` 由宿主投影（写 action 成功后重建、会话发布时补建缺失/旧索引），面板只读不触发；产物按白名单显示（状态 JSON、`memory.db`、流程记账不出现；章节正文归正文/审阅；运行时诊断默认折叠），作者产物的 JSON 用键值树并可切原始；动作经宿主命令/提示（确认、下一章、退回、查看待确认、稍后、规划/写作/审阅）；无作品只给对话引导，没有新建表单；没有「刷新索引」。
 
-**判定：机制等价** — DSH client 插件 + slots + remote workspace-files 替代 Studio 前端；工作台、对话立项、宿主投影与阶段动作由进程级测试覆盖。作者裁定不做桌面回执（D31 关闭），`artifacts/real-runs/panel.workbench.json` 为交付证据。
+**判定：机制等价 + 保真债 D39／D40／D41** — DSH client 插件 + slots + remote workspace-files 替代 Studio 前端；工作台、对话立项、宿主投影与阶段动作由进程级测试覆盖。作者裁定不做桌面回执（D31 关闭），`artifacts/real-runs/panel.workbench.json` 为交付证据。源真值文件可编辑、Studio 有删除按钮、白名单不含额外 4 项，复刻分别为只读、无动作、多列，记债。
 
 ### panel.logs
 
@@ -534,8 +534,8 @@
 | C | P2 章前规划 | 4 | 完成 |
 | D | P3 正文生产 | 3 | 完成 |
 | E | P4 结算与定稿 | 3 | 完成 |
-| F | P5 章节运维与对账 | 3 | 进行中（1/3） |
-| G | P6 产物与工作台 | 8 | 进行中（2/8） |
+| F | P5 章节运维与对账 | 3 | 完成 |
+| G | P6 产物与工作台 | 8 | 进行中（4/8） |
 
 阶段合同与出口见 [`scope.md`](scope.md)；能力状态只由 `check-capabilities` 生成。
 

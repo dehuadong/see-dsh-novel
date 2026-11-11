@@ -10,8 +10,8 @@ Status: implemented
 
 ## 源工程证据
 
-- `inkos/packages/core/src/state/chapter-delete.ts:33-120` 的 `deleteLatestChapter`：只允许删最新章；删前校验上一章快照 `story/snapshots/<latest-1>/current_state.md` 与 `pending_hooks.md` 存在；章节文件 `rename` 到 `chapters/.trash/`（重名时挑可用名 `-2`）；回滚失败把 trash 文件搬回；返回 `trashedFiles`／`rolledBackTo`／`discarded`。
-- `inkos/packages/core/src/state/manager.ts:612-690` 的 `rollbackToChapter`：从 `story/snapshots/<target>/` 恢复状态与投影，删掉章节号大于 target 的章节文件、快照、`story/runtime/chapter-*`、`story/drafts`，删 `memory.db*`，并把 `chapters/index.json` 重写成保留项。
+- `inkos/packages/core/src/state/chapter-delete.ts:33-115` 的 `deleteLatestChapter`：只允许删最新章；删前校验上一章快照 `story/snapshots/<latest-1>/current_state.md` 与 `pending_hooks.md` 存在（`:60-71`）；章节文件 `rename` 到 `chapters/.trash/`（重名时挑可用名 `-2`）；回滚失败把 trash 文件搬回；返回 `trashedFiles`／`rolledBackTo`／`discarded`。
+- `inkos/packages/core/src/state/manager.ts:612-675` 的 `rollbackToChapter`：从 `story/snapshots/<target>/` 恢复状态与投影，删掉章节号大于 target 的章节文件、快照、`story/runtime/chapter-*`、`story/drafts`，删 `memory.db*`，并把 `chapters/index.json` 重写成保留项。
 - `inkos/packages/core/src/agent/agent-tools.ts:2937-2950`：删除工具的描述与回执。
 - `inkos/packages/core/src/pipeline/runner.ts:514`：建书阶段写 `story/snapshots/0/` 初始快照。
 
@@ -26,10 +26,10 @@ Status: implemented
 `src/core/delete-chapter.ts` 的 `deleteLatestChapter(root, chapter)`：
 
 - 章号必须是当前最新章；否则拒绝（删中间章需要重编号并重放后续状态）。
-- 上一章快照必须齐全（七份文件）且 `manifest.lastAppliedChapter === chapter-1`，hooks／summaries 可解析；缺失时在移动任何文件之前拒绝。
+- 上一章快照必须齐全（七份文件）且 `manifest.lastAppliedChapter === chapter-1`，hooks／summaries 可解析；缺失时在移动任何文件之前拒绝。源只 stat `current_state.md` 与 `pending_hooks.md`（`chapter-delete.ts:60-71`），复刻更严，记 D52。
 - 该章所有 `chapters/NNNN_*.md` 移到 `chapters/.trash/`，重名挑 `name-2.ext`；记录 `trashedFiles`。
 - 快照写回：四份状态 JSON 与三份投影。
-- 索引：`buildChapterIndex` 重建后只保留章号小于被删章的记录；索引缺失时也按剩余章节重建。
+- 索引：`buildChapterIndex` 重建后只保留章号小于被删章的记录；索引缺失时也按剩余章节重建。源以 `loadChapterIndex` 为准，索引缺失而章节文件存在时直接报错（`manager.ts:450-463`），记 D52。
 - 删除：更晚章的章节文件、快照目录、`story/runtime/chapter-*`、`story/drafts`、`memory.db`／`-shm`／`-wal`。
 - 一次 `commitFoundation`；提交失败把 trash 搬回，搬回也失败时抛 `AggregateError`。
 - 返回 `{ deletedChapter, title, trashedFiles, rolledBackTo, discarded }`。
@@ -38,13 +38,13 @@ Status: implemented
 ### 工具与阶段
 
 - `src/pipelines/long/delete-tool.ts` 的 `story_delete_chapter({chapter})`，`withWorkAction` 内执行。
-- `chapter-done` 协议增加删除一步；面板不加动作，删除走对话。
+- `chapter-done` 协议增加删除一步；面板当前不加动作（源 Studio 有删除按钮与确认，`ChapterWorkspacePanel.tsx:132-163`）；作者裁决补面板动作，记 D40。
 - 共享的章节索引构建抽到 `src/core/chapter-index.ts`，`chapter.finalize` 与删除同用一份。
 
 ### 范围与非目标
 
 - 只删最新章；**不做移章/重排**（源没有该能力）。
-- 不做状态校验与 reconciliation（D34）；不重算历史章（D33 仍影响重结算，不影响删除）。
+- 不做状态校验与 reconciliation（D34）；不重算历史章（D33 仍影响重结算，不影响删除）；前置校验与最新章判据比源更严，记 D52。
 - 检索同步只做源行为：删 `memory.db*`，下一次搜索重建索引。
 
 ## Alternatives considered
@@ -66,6 +66,6 @@ Status: implemented
 ## Consequences
 
 - 旧作品若没有 `snapshots/0/`，删除第 1 章会被“快照缺失”拒绝；这是源行为，不是缺陷。
-- 删除以章节文件为最新章判据，`chapters/index.json` 只作为回滚后的保留项来源；索引缺失时按文件重建。
+- 删除以章节文件为最新章判据，`chapters/index.json` 只作为回滚后的保留项来源；索引缺失时按文件重建。源以索引为准并拒绝索引缺失（D52）。
 - trash 不参与阶段判定与检索；重复删除不会覆盖旧稿，只会加后缀。
 - 删除不改变作品状态（`active` 保持），下一章仍需重新开始。

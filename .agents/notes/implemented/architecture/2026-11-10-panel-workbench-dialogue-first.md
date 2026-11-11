@@ -27,7 +27,7 @@ Status: implemented
 
 ### 数据：宿主投影，面板只读
 
-- `source/story/runtime/panel.index.json` 由 `buildPanelIndex` 从作品文件重建，格式版本 `2`；它不是状态表，不含能力状态（`version`／`generatedAt`／`revision`／`work`／`stages`／`artifacts`／`confirmation`）。
+- `source/story/runtime/panel.index.json` 由 `buildPanelIndex` 从作品文件重建，格式版本 `4`；它不是状态表，不含能力状态（`version`／`generatedAt`／`revision`／`work`／`stages`／`artifacts`／`confirmation`／根级 `action`）。
 - 投影时机有三处，只有第一处进作者流程：
   1. **作品写 action 成功后**：`withWorkAction` 在最外层成功返回前**就地**构建并原子写索引（动态 import `panel-index`，避开 `work-mutation → panel-index → stages → workflow-start → work-mutation` 的静态环）。投影跟着写 action 所在的进程走，不依赖跨进程观察者。
   2. **会话发布时**：根插件监听宿主 `session/created`；当 `delegationDepth` 为 0、`header.cwd` 下 `work.json` 存在，且索引缺失/读不通/格式版本过旧时，在 `withWorkAction` 锁内补建一次（同 root 去重）。判据只看工作区文件，不看会话头的 `agentPreset`——它是创建时的组成，会话后来换过预设时可能落后于界面上生效的预设（真机里 `work-real` 会话头写着 `standard`，面板却按 `see-dsh-novel` 注册）。新建与恢复都会触发，所以旧作品首次打开也有索引。
@@ -64,7 +64,8 @@ Status: implemented
 
 - 面板产物集合与审批摘要的工件集合**分开**：摘要仍是 `source/story/` 下全量文件（`readArtifacts`，签核语义依赖它），面板另有展示集合；不是「目录里有什么就显示什么」。
 - 不进面板的理由分三类：状态 JSON 是宿主投影的源、不是作者要读的文档；`memory.db` 是二进制、文本读面读不了；`workflow-start.json` 是流程记账，不是作品产物。
-- `PanelArtifact` 用 `class`（truth／chapter／plan／review／diagnostic）与 `stages: PanelStage['id'][]`（可出现阶段）取代 `group`；归属由宿主投影给出，client 不重算阶段协议。索引版本升到 `3`，旧索引在会话发布时补建。
+- 源白名单没有 `book_rules.json`、`source/brief.md`、`source/story/brief.md` 与 `.planner-context.json`；本节把它们列入是复刻差异，记 D41。
+- `PanelArtifact` 用 `class`（truth／chapter／plan／review／diagnostic）与 `stages: PanelStage['id'][]`（可出现阶段）取代 `group`；归属由宿主投影给出，client 不重算阶段协议。索引版本升到 `4`，旧索引在会话发布时补建。
 - 列表顺序：truth 按固定顺序（方向 → 大纲 → 规则 → 伏笔/摘要 → brief → 角色卡），chapter 按章号，plan／review／diagnostic 按章号；诊断始终是最后一组。
 - 显示名用中文，不直接显示文件名：`story_frame.md` → 故事框架、`volume_map.md` → 分卷地图、`book_rules.md`／`.json` → 规则正文／规则数据、`pending_hooks.md` → 待回收伏笔、`current_state.md` → 当前状态、`chapter_summaries.md` → 章节摘要、`author_intent.md` → 作者意图、`current_focus.md` → 当前焦点；角色卡用角色名；章节用「第 N 章 · 标题」。真实路径仍显示在右栏详情顶部。
 - 客户端兼容：读到旧索引（缺 `class`／`stages`）时按空阶段处理，不崩溃，等宿主补建到 v3 再显示。
@@ -73,6 +74,7 @@ Status: implemented
   - 源行为：白名单内所有文件统一 `<pre>`（`TruthFiles.tsx:168`）。复刻：作者产物的 JSON 给键值树并保留原始切换。原因：作者裁决——嵌套 JSON 的 `\n` 转义不可读。验证：workbench 测试断言键值树与原始切换。
   - 源行为：运行时诊断与其它文件同列，仅加警示。复刻：诊断文件默认收进折叠分组，选中后仍给同样的警示。原因：作者要求列表只显示作品产物，同时保留追溯能力。验证：测试断言默认折叠与警示文案。
 - 章节正文加入面板：源在章节页／`ChapterWorkspacePanel` 展示正文，不在真值文件列表里；面板把它归到 write／review 阶段，不改动 `readArtifacts` 的摘要集合。
+- 源真值文件浏览器可编辑（Edit/Save 与 PUT 落盘）；复刻所有产物只读，作者裁决 v1 保留只读，记 D39。
 
 ### 阶段动作
 
@@ -84,12 +86,12 @@ Status: implemented
 | plan | 规划第 N 章 | 无 | `advance` 提示，模型调 `story_plan_chapter` |
 | write | 写第 N 章 | 无 | `advance` 提示，模型调 `story_write_chapter` |
 | review | 审阅第 N 章 | 无 | `advance` 提示，模型调 `story_review_chapter` |
-| chapter-done | 无（等 P4 结算） | 无 | — |
+| chapter-done | 修订本章 | 无 | `advance` 提示，模型调 `story_revise_chapter`；结算入口归 P4 协议 |
 
 - `foundation-ready` 同时保留五个动作：索引是文件投影，看不到会话里的签核回执，因此不做「签核后自动切换」的顺序化；主动作按既有决定仍是签核，前进入口作为次动作常驻。
 - 面板是 `panel.confirm`、`foundation.approval`、`panel.gate-resume`、`panel.foundation-start` 的唯一 UI 入口；旧卡删除时这些动作原样搬进动作条，consumer 断言保留。
-- 动作条只呈现当前阶段的动作，与当前选中的产物无关。
-- 索引形状：`PanelStage.action` 是主按钮（`PanelAction | null`），`secondary` 是次按钮（`PanelAction[]`，0–4）；host 与 client 两份类型定义同批维护。
+- 动作条只呈现当前阶段的动作，与当前选中的产物无关。源 Studio 有删除本章按钮；复刻当前只有对话入口，作者裁决补面板动作，记 D40。
+- 索引形状：`PanelStage.action` 是主按钮（`PanelAction | null`），`secondary` 是次按钮（`PanelAction[]`，0–4）；索引根级 `action` 承载 `chapter-done` 的「修订本章」，阶段动作仍只在 `PanelStage.action`；host 与 client 两份类型定义同批维护。
 - 禁用原因至少包括：需先完成基础设定、正在运行、已锁定、P4 未结算；`aria-disabled` + 可见原因，点击不派发。
 
 ### 无作品
@@ -105,10 +107,11 @@ Status: implemented
 
 ### 行与债务
 
-- `capabilities.yaml` 的 `panel.workbench` 描述不含「新建入口」；`implementation` 指向 `client/StoryView.tsx`，`consumer` 指向 `test/workbench.test.mjs`，投影与客户端覆盖另见审计段；行为变了，`realRun` 待真机重录。
+- `capabilities.yaml` 的 `panel.workbench` 描述不含「新建入口」；`implementation` 指向 `client/StoryView.tsx`，`consumer` 指向 `test/workbench.test.mjs`，投影与客户端覆盖另见审计段；`realRun` 为 `artifacts/real-runs/panel.workbench.json` 的进程级证据。
 - `panel.confirm`、`foundation.approval`、`panel.gate-resume`、`panel.foundation-start` 行为不变，只换面板落点；它们的 consumer 测试保留原断言。
 - `docs/dsh-mapping.md` 的面板段改为「确认语义在 `panel.confirm`；工作台是读取 + 动作面；动作经宿主命令/提示」，并新增两条展示偏差行（JSON 键值树、诊断折叠）。
 - `docs/fidelity-audit.md` 的 `panel.workbench` 判定改为机制等价；`docs/scope.md` 的 D31 由作者裁定关闭（不做桌面回执，以进程级测试为交付证据）。
+- 与源 Studio 的差距记 D39（真值文件只读）、D40（缺删除动作）、D41（白名单多 4 项）；D40 已裁决补动作。
 - 索引版本 4（chapter-done 根动作随 `chapter.revise` 加入）：`PANEL_INDEX_VERSION`、`panel-types.ts` ×2 与投影的格式检查同批更新。
 
 ## Alternatives considered
@@ -148,12 +151,12 @@ Status: implemented
 - 动作条只跟随当前阶段，不跟随选中的产物；作者查看旧产物时仍能直接执行当前阶段动作。
 - 面板产物是白名单，不是目录镜像：`state/*.json`、`memory.db`、`workflow-start.json` 不出现；新增作品文件要显式加进展示集合才会出现。
 - 面板展示集合与审批摘要集合分开，摘要仍是 `source/story/` 全量；给面板增删文件不影响签核有效性。
-- 索引版本 3（原 2）；旧索引在会话发布时补建，客户端的 `normalizeIndex` 仍兼容缺 `secondary`／`stages` 的旧形状。
+- 索引版本 4（原 2）；旧索引在会话发布时补建，客户端的 `normalizeIndex` 仍兼容缺 `secondary`／`stages` 的旧形状。
 - 章节正文进入面板后，`source/chapters/` 变成只读展示路径；面板仍不写文件。
 - 键值树只渲染当前选中的文件；大 JSON 用折叠块控制首屏长度，展开与「原始 JSON」都不丢信息。
 - 运行时诊断默认折叠不删除能力：展开后仍是 `<pre>` 原文与同一条只读警示。
 - 无作品没有表单；立项只发生在对话；`/story-init` 只是命令级兜底。
 - `session/created` 监听器必须保持同步非阻塞：同步抛错会回滚会话创建，补建一律异步并自行捕获。
 - 文件监视不可用时（`notices.ready === false`）索引缺失不会自动出现；面板显示索引未生成，`/story-index` 仍是兜底。
-- P4 `chapter.settle` 仍未实现；`chapter-done` 的下一章入口在 P4 前不可用。
+- `chapter-done` 的「修订本章」入口由 `chapter.revise` 提供；结算与定稿由 P4 工具承接。
 - 2026-11-09 的 `panel.workbench` 与 `panel-workbench-d31` 两篇 Note 被本 Note 完全取代并删除，避免第二份设计权威。

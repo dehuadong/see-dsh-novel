@@ -10,9 +10,9 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 
 ## 源工程证据
 
-- `inkos/packages/core/src/pipeline/runner.ts:874-1120` `reviseDraft`：读章节与审稿观察（有显式指令时跳过观察）→ `ReviserAgent.reviseChapter` → `settleChapterState` 与 `StateValidator.validate` → 复审 `collectReviewObservations` → `archiveChapterVersion` → 写章节与 index，后代章节标 `upstream-revision`。
-- `inkos/packages/core/src/agents/reviser.ts:13-15`：`ReviseMode = polish | rewrite | rework | anti-detect | spot-fix`，默认 `rewrite`；`:167-190` 每种模式一句协议（polish 只改文字、rewrite 重写受影响段落、rework 可重构场景、anti-detect 只调文字、spot-fix 先选行范围再替换）。
-- `inkos/packages/core/src/agents/reviser.ts:110-160`：spot-fix 用范围编辑契约，`CHAPTER_EDIT_SCOPE_CONFLICT` 拒绝超范围的替换。
+- `inkos/packages/core/src/pipeline/runner.ts:874-1164` `reviseDraft`：读章节与审稿观察（有显式指令时跳过观察）→ `ReviserAgent.reviseChapter` → `settleChapterState` 与 `StateValidator.validate` → 复审 `collectReviewObservations` → `archiveChapterVersion` → 写章节与 index，后代章节标 `upstream-revision`（`:1092-1118`）；`:1140-1160` 重写快照并返回。
+- `inkos/packages/core/src/agents/reviser.ts:13-15`：`ReviseMode = polish | rewrite | rework | anti-detect | spot-fix`，默认 `rewrite`；`:167-178` 每种模式一句协议（polish 只改文字、rewrite 重写受影响段落、rework 可重构场景、anti-detect 只调文字、spot-fix 先选行范围再替换）。
+- `inkos/packages/core/src/agents/reviser.ts:86-139`：spot-fix 用范围编辑契约，支持多段不重叠 range（`:96-105`、`text-range-edits.ts:40-59`），`CHAPTER_EDIT_SCOPE_CONFLICT` 拒绝超范围的替换；`targetText` 对任意 mode 都触发范围替换（`:77-78`）。
 - `inkos/packages/core/src/harness/tools/longform-production.ts` 的 `revise_chapter`：参数 `chapterNumber`／`mode`／`instruction`／`targetText`；局部修订要求绑定 `targetText`，宿主保留周围正文；返回 `changedRegion`。
 - `inkos/packages/core/src/state/chapter-workspace.ts:61-80` `archiveChapterVersion`：旧正文写到 `chapters/.versions/NNNN/<13 位时间戳>_revision_<uuid>.md`。
 - `inkos/packages/studio/src/api/server.ts:5571-5599` 的 `POST /revise/:chapter` 与 `:5832-5870` 的 `POST /rewrite/:chapter`（`mode=rework`）：都是 `revise_chapter` 动作，绑 `recoverable-write`。
@@ -26,8 +26,8 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 - 参数：`chapter`、`mode`（五种，默认 `rewrite`）、`content`（修订后的正文，不含标题行）、`targetText?`。
 - 修订要求（源工具的 `instruction`）由主编交给 reviser 子代理，工具只做落盘与范围校验，不重复解释。
 - 守卫：章节必须有正文与章纲；`content` 非空；标题沿用现有文档头，不接受改标题；不要求 workflow start（修订发生在 review／chapter-done，不是新一章）。
-- **spot-fix 的范围保证**：`core/revise.ts` 用行级 diff 数改动块，出现第二段不连续改动时拒绝 `CHAPTER_EDIT_SCOPE_CONFLICT`；给了 `targetText` 时要求它在原文中唯一出现并完整覆盖改动区间，否则 `ARTIFACT_EDIT_TARGET_AMBIGUOUS`／`CHAPTER_EDIT_SCOPE_CONFLICT`。行数超过 diff 预算时只做 `targetText` 校验。
-- 其他四种模式不做范围限制。
+- **spot-fix 的范围保证**：`core/revise.ts` 用行级 diff 数改动块，出现第二段不连续改动时拒绝 `CHAPTER_EDIT_SCOPE_CONFLICT`；给了 `targetText` 时要求它在原文中唯一出现并完整覆盖改动区间，否则 `ARTIFACT_EDIT_TARGET_AMBIGUOUS`／`CHAPTER_EDIT_SCOPE_CONFLICT`。行数超过 diff 预算时只做 `targetText` 校验。源支持多段不重叠 range，当前单段限制记 D53。
+- 其他四种模式不做范围限制；源 `targetText` 对任意 mode 生效，复刻只在 spot-fix 校验，记 D53。
 - 返回 `{ chapter, path, mode, changed, charCount, target, revisionId, reviewInvalidated }`；`changed=false` 时不写文件、不作废审稿。
 
 ### 持久化：新 revision + 旧版本归档
@@ -43,7 +43,7 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 
 ### 状态结算延后
 
-- 源修订后重结算 `current_state` 与伏笔并做状态校验。本行只改章节与产物版本；修订后必须重新审稿，再由作者/协议调 `story_settle_chapter` 重结算（D32 已由 P4 结算偿还；重结算按增量，基线快照缺口见 D33）。
+- 源修订后重结算 `current_state` 与伏笔并做状态校验。本行只改章节与产物版本；修订后必须重新审稿，再由作者/协议调 `story_settle_chapter` 重结算。自动重结算未复刻（D34），重结算按增量、基线快照缺口见 D33。
 
 ### 阶段与面板
 
@@ -56,7 +56,8 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 ### 行与债务
 
 - `capabilities.yaml` 的 `chapter.revise` 从 missing 到实现；implementation 指向 `src/pipelines/long/revise-tool.ts`，consumer 指向 `test/chapter-revise.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.revise.json`；索引版本 4 与 `panel.workbench` 的面板动作同批更新。
-- `docs/fidelity-audit.md` 的 `chapter.revise` 段改为机制等价 + D32；`docs/scope.md` P3 债务同步；`docs/dsh-mapping.md` 加一条偏差（不自动复审）。
+- `docs/fidelity-audit.md` 的 `chapter.revise` 段改为机制等价（重审闸门）+ D42／D45／D53；`docs/scope.md` P3 债务同步；`docs/dsh-mapping.md` 保留「不自动复审」偏差。
+- revision 缺不可变快照（D42）；修订不更新索引 `wordCount`/`observations`/`provenance`、后代无 `upstream-revision` 标记（D45）。
 
 ## Alternatives considered
 
@@ -85,5 +86,5 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 - 旧正文归档在 `source/chapters/.versions`（不进 artifact digest；`source/chapters` 不在 digest 内），只用于回看。
 - 修订不自动重结算：修订后重新审稿，再调 `story_settle_chapter`；重结算按增量应用，旧 delta 不再适用的 facts 可能残留（D33）。
 - 单段替换校验用行级 diff，两个相同段落同时出现时依赖 `targetText` 的唯一性检查；没有 targetText 时退化为单段判断。
-- 章节 artifact 的旧 revision 与章节文件同路径，内容被覆盖后旧 revision 的 checksum 不再匹配文件；与源一致（旧正文以 `.versions` 快照为准）。
+- 章节 artifact 的旧 revision 与章节文件同路径，内容被覆盖后旧 revision 的 checksum 不再匹配文件；源为每个 revision 写不可变 `snapshotPath`（`source-sync.ts:111`、`artifact-reader.ts:27,35`），复刻不写、旧 revision 读不到，记 D42。
 - 索引版本 4：客户端读到旧索引（没有根 `action`）时按 `null` 处理，宿主补建后动作出现；`normalizeIndex` 补默认值，不崩。
