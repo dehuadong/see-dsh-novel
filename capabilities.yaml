@@ -298,7 +298,7 @@ capabilities:
     status: verified
   - id: chapter.summary
     title: 结构化摘要
-    source: inkos:packages/core/src/pipeline/chapter-persistence.ts
+    source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: storage
     implementation: packages/see-dsh-novel/src/pipelines/long/summary-tool.ts
     consumer: packages/see-dsh-novel/test/chapter-summary.test.mjs
@@ -338,7 +338,7 @@ capabilities:
     status: verified
   - id: state.check
     title: 语义对账，只读 findings
-    source: inkos:packages/core/src/state/state-validator.ts
+    source: inkos:packages/core/src/agents/state-validator.ts
     dsh: tools.register
     implementation: packages/see-dsh-novel/src/pipelines/long/state-check-tool.ts
     consumer: packages/see-dsh-novel/test/state-check.test.mjs
