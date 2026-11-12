@@ -22,6 +22,7 @@
 | 工作状态、评审与批准证据 | 已启用；工作项推进 | 当前任务/对话 |
 | 产品范围与非目标 | 已启用；项目级边界 | [`scope.md`](scope.md) |
 | 机制映射与偏差 | 已启用；参考机制 → DSH 落点对照 | [`dsh-mapping.md`](dsh-mapping.md) |
+| 本地插件安装与验证 | 已启用；工作区 bundle 装进本机 profile 的操作、验证与已知限制 | [`plugin-local-install.md`](plugin-local-install.md) |
 | 能力账本 | 已启用；全量能力与证据驱动的状态 | 根目录 `capabilities.yaml`；状态只由 `npm run check-capabilities -- --write` 生成 |
 | Agent Note | 已启用；长期技术提案、设计、决定、备选与理由 | 记录根 `.agents/notes/`（`proposed/`、`implemented/`、`rejected/`、`archived/`）；格式与生命周期遵循 `write-agent-notes` Skill；工作项链接到 Note |
 | 领域术语表 | 已启用；单上下文 | 根目录 `GLOSSARY.md`；术语需要收敛时由 `domain-modeling` Skill 建立，当前不存在 |

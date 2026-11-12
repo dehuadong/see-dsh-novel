@@ -62,6 +62,7 @@
 DSH UI设计判断参考`deepseek-harness/docs/ui-design-review-cases.zh.md`
 Web UI 样式参考`deepseek-harness/docs/web-styling.zh.md`
 DSH  UI统一圆角规范`deepseek-harness/docs/ui-radius.zh.md`
+本地装包、验证与已知限制见 [`docs/plugin-local-install.md`](docs/plugin-local-install.md)
 
 ## 工程工作流 
 
