@@ -447,9 +447,9 @@
 
 **源工程证据**：`state/chapter-delete.ts:33-115` 的 `deleteLatestChapter`：只允许删最新章；章节文件先移到 `chapters/.trash/`（不硬删）；删前校验上一章快照 `story/snapshots/<latest-1>/current_state.md` 与 `pending_hooks.md` 存在；回滚失败把 trash 文件搬回；返回 `rolledBackTo`／`discarded`。
 
-**复刻现状**：`story_delete_chapter` 只删最新章——章节文件移到 `chapters/.trash/`（重名加 `-2` 后缀）、从上一章快照恢复状态与投影、索引只留保留项、删更晚章的快照/运行时/草稿与 `memory.db*`；提交失败把 trash 搬回。foundation details 写 `snapshots/0/` 初始快照，删除第 1 章可用。
+**复刻现状**：`story_delete_chapter` 只删最新章——前置只 stat 上一章 `current_state.md` 与 `pending_hooks.md`；`state/*` 按快照实际文件恢复，缺 `chapter_summaries.md` 时删投影，活状态里多出的 `state/*` 一并删除；最新章与保留项来自严格读取的 `chapters/index.json`，保留项原样写回；章节文件移到 `chapters/.trash/`（重名加 `-2` 后缀），删更晚章的快照/运行时/草稿与 `memory.db*`；提交失败把 trash 搬回。删除不读 `work.json`。foundation details 写 `snapshots/0/` 初始快照，删除第 1 章可用。
 
-**判定：保真债 D52** — 源没有移章/重排，只删最新章；回滚路径、trash 保留、检索库删除与源一致；但前置校验要求上一章七份快照（源只 stat `current_state.md`／`pending_hooks.md`），最新章按章节文件而非索引判定。
+**判定：等价** — 源没有移章/重排，只删最新章；前置、最新章判据、索引回写、trash 与失败搬回、检索库删除均与源一致。
 
 ### state.check
 

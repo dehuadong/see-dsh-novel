@@ -1,17 +1,14 @@
 /**
  * 删除最新章：章节文件进 `chapters/.trash/`，状态、索引、快照与检索回滚到上一章。
  *
- * 源工程只允许删最新章；删中间章要重编号并重放后续状态，本实现同样拒绝。
+ * 只要求上一章快照的两份投影；最新章与保留项取自章节索引。
  */
-import { access, mkdir, readFile, readdir, rename } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rename, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { buildChapterIndex, CHAPTER_INDEX_PATH, listChapterFiles } from './chapter-index.js'
+import { CHAPTER_INDEX_PATH, readChapterIndexStrict } from './chapter-index.js'
 import { commitFoundation } from './commit.js'
-import { validateHooks } from './hooks.js'
 import { STORY_ROOT } from './story-paths.js'
-import { validateChapterSummaries } from './state.js'
-import { readWork } from './work.js'
 
 export interface DeleteChapterResult {
   deletedChapter: number
@@ -21,19 +18,18 @@ export interface DeleteChapterResult {
   discarded: number[]
 }
 
-const SNAPSHOT_FILES = [
-  'current_state.md',
-  'pending_hooks.md',
-  'chapter_summaries.md',
-  'state/manifest.json',
-  'state/current_state.json',
-  'state/hooks.json',
-  'state/chapter_summaries.json',
-] as const
+const REQUIRED_SNAPSHOT_FILES = ['current_state.md', 'pending_hooks.md'] as const
+const STALE_CHAPTER_FILE = /^(\d+)_.*\.md$/u
+const TRASH_CHAPTER_FILE = /^(\d+)[_-]?.*\.md$/u
+
+interface SnapshotRestore {
+  writes: Array<{ relativePath: string, content: string }>
+  deletes: string[]
+}
 
 async function exists(path: string): Promise<boolean> {
   try {
-    await access(path)
+    await stat(path)
     return true
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
@@ -53,13 +49,19 @@ async function availableName(dir: string, fileName: string): Promise<string> {
   return candidate
 }
 
-/** 读上一章快照；七份文件必须齐全且状态可解析。 */
-async function readSnapshot(root: string, target: number): Promise<Map<string, string>> {
+/**
+ * 读上一章快照并给出恢复写入与删除集。
+ *
+ * 只有 `current_state.md` 与 `pending_hooks.md` 是必需的；`state/` 里有几份就恢复几份，
+ * `chapter_summaries.md` 缺失时删除投影。活状态里多出的 `state/*` 文件一并删除。
+ */
+async function snapshotRestore(root: string, target: number): Promise<SnapshotRestore> {
   const dir = join(root, STORY_ROOT, 'snapshots', String(target))
-  const files = new Map<string, string>()
-  for (const file of SNAPSHOT_FILES) {
+  const writes: Array<{ relativePath: string, content: string }> = []
+  const deletes: string[] = []
+  for (const file of REQUIRED_SNAPSHOT_FILES) {
     try {
-      files.set(file, await readFile(join(dir, file), 'utf8'))
+      writes.push({ relativePath: `${STORY_ROOT}/${file}`, content: await readFile(join(dir, file), 'utf8') })
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
         throw new Error(`不能删除：第 ${target} 章的状态快照缺失（story/snapshots/${target}/${file}）；未改动任何文件`)
@@ -67,16 +69,42 @@ async function readSnapshot(root: string, target: number): Promise<Map<string, s
       throw error
     }
   }
-  const manifest = JSON.parse(files.get('state/manifest.json') as string) as { lastAppliedChapter?: unknown }
-  if (manifest.lastAppliedChapter !== target) {
-    throw new Error(`不能删除：快照 ${target} 的 lastAppliedChapter 不是 ${target}`)
+  let stateNames: string[]
+  try {
+    stateNames = await readdir(join(dir, 'state'))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw new Error(`不能删除：第 ${target} 章的快照没有 state 文件；未改动任何文件`)
+    }
+    throw error
   }
-  validateHooks(JSON.parse(files.get('state/hooks.json') as string))
-  validateChapterSummaries(JSON.parse(files.get('state/chapter_summaries.json') as string))
-  return files
+  if (stateNames.length === 0) {
+    throw new Error(`不能删除：第 ${target} 章的快照没有 state 文件；未改动任何文件`)
+  }
+  for (const name of stateNames) {
+    writes.push({ relativePath: `${STORY_ROOT}/state/${name}`, content: await readFile(join(dir, 'state', name), 'utf8') })
+  }
+  try {
+    writes.push({
+      relativePath: `${STORY_ROOT}/chapter_summaries.md`,
+      content: await readFile(join(dir, 'chapter_summaries.md'), 'utf8'),
+    })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    deletes.push(`${STORY_ROOT}/chapter_summaries.md`)
+  }
+  const snapshotState = new Set(stateNames)
+  try {
+    for (const name of await readdir(join(root, STORY_ROOT, 'state'))) {
+      if (!snapshotState.has(name)) deletes.push(`${STORY_ROOT}/state/${name}`)
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  return { writes, deletes }
 }
 
-/** 删除章号大于 target 的快照、运行时与草稿文件。 */
+/** 删除章号大于 target 的快照、运行时与草稿文件，以及检索库。 */
 async function staleDeletes(root: string, target: number): Promise<string[]> {
   const deletes: string[] = []
   const collect = async (relativeDir: string, numberOf: (name: string) => number | undefined): Promise<void> => {
@@ -92,6 +120,10 @@ async function staleDeletes(root: string, target: number): Promise<string[]> {
       if (number !== undefined && number > target) deletes.push(`${relativeDir}/${name}`)
     }
   }
+  await collect('source/chapters', (name) => {
+    const match = STALE_CHAPTER_FILE.exec(name)
+    return match === null ? undefined : Number.parseInt(match[1] as string, 10)
+  })
   await collect(join(STORY_ROOT, 'snapshots'), (name) => {
     const value = Number.parseInt(name, 10)
     return Number.isFinite(value) ? value : undefined
@@ -101,7 +133,7 @@ async function staleDeletes(root: string, target: number): Promise<string[]> {
     return match === null ? undefined : Number.parseInt(match[1] as string, 10)
   })
   await collect(join(STORY_ROOT, 'drafts'), (name) => {
-    const match = /^(\d{4})_.*\.md$/u.exec(name)
+    const match = /^(\d+)_.*\.md$/u.exec(name)
     return match === null ? undefined : Number.parseInt(match[1] as string, 10)
   })
   for (const file of ['memory.db', 'memory.db-shm', 'memory.db-wal']) {
@@ -113,49 +145,48 @@ async function staleDeletes(root: string, target: number): Promise<string[]> {
 /**
  * 删除最新章并回滚到上一章。
  * @param root 作品根目录
- * @param chapter 要删除的章号；必须是当前最新章
+ * @param chapter 要删除的章号；必须是索引里的最新章
  */
 export async function deleteLatestChapter(root: string, chapter: number): Promise<DeleteChapterResult> {
-  const files = await listChapterFiles(root)
-  if (files.length === 0) throw new Error('作品没有可删除的章节')
-  const latest = files[files.length - 1] as { chapter: number }
-  if (chapter !== latest.chapter) {
-    throw new Error(`只能删除最新章（第 ${latest.chapter} 章）；删第 ${chapter} 章需要重编号并重放后续状态`)
+  const index = await readChapterIndexStrict(root)
+  if (index.length === 0) throw new Error('作品没有可删除的章节；未改动任何文件')
+  const latest = index.reduce((max, entry) => Math.max(max, entry.number), 0)
+  if (chapter !== latest) {
+    throw new Error(`只能删除最新章（第 ${latest} 章）；删第 ${chapter} 章需要重编号并重放后续状态；未改动任何文件`)
   }
-  const work = await readWork(root)
-  if (work === null) throw new Error('工作区没有 work.json')
   const target = chapter - 1
-  const snapshot = await readSnapshot(root, target)
+  const restore = await snapshotRestore(root, target)
 
-  const index = await buildChapterIndex(root, work.language)
-  const discarded = index.filter((entry) => entry.number > target).map((entry) => entry.number)
   const kept = index.filter((entry) => entry.number <= target)
+  const discarded = index.filter((entry) => entry.number > target).map((entry) => entry.number)
 
   const chaptersDir = join(root, 'source/chapters')
   const trashDir = join(chaptersDir, '.trash')
-  await mkdir(trashDir, { recursive: true })
+  let entries: string[]
+  try {
+    entries = await readdir(chaptersDir)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') entries = []
+    else throw error
+  }
+  const chapterFiles = entries.filter((name) => {
+    const match = TRASH_CHAPTER_FILE.exec(name)
+    return match !== null && Number.parseInt(match[1] as string, 10) === chapter
+  })
   const trashed: Array<{ from: string, to: string }> = []
-  for (const file of files.filter((entry) => entry.chapter === chapter)) {
-    const name = file.path.split('/').pop() as string
-    const to = await availableName(trashDir, name)
-    await rename(join(chaptersDir, name), join(trashDir, to))
-    trashed.push({ from: join(chaptersDir, name), to: join(trashDir, to) })
+  if (chapterFiles.length > 0) {
+    await mkdir(trashDir, { recursive: true })
+    for (const name of chapterFiles) {
+      const to = await availableName(trashDir, name)
+      await rename(join(chaptersDir, name), join(trashDir, to))
+      trashed.push({ from: join(chaptersDir, name), to: join(trashDir, to) })
+    }
   }
 
-  const writes = [
-    { relativePath: 'source/story/state/manifest.json', content: snapshot.get('state/manifest.json') as string },
-    { relativePath: 'source/story/state/current_state.json', content: snapshot.get('state/current_state.json') as string },
-    { relativePath: 'source/story/state/hooks.json', content: snapshot.get('state/hooks.json') as string },
-    { relativePath: 'source/story/state/chapter_summaries.json', content: snapshot.get('state/chapter_summaries.json') as string },
-    { relativePath: 'source/story/current_state.md', content: snapshot.get('current_state.md') as string },
-    { relativePath: 'source/story/pending_hooks.md', content: snapshot.get('pending_hooks.md') as string },
-    { relativePath: 'source/story/chapter_summaries.md', content: snapshot.get('chapter_summaries.md') as string },
-    { relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(kept, null, 2)}\n` },
-  ]
   try {
     await commitFoundation(root, {
-      writes,
-      deletes: [...files.filter((entry) => entry.chapter > chapter).map((entry) => entry.path), ...await staleDeletes(root, target)],
+      writes: [...restore.writes, { relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(kept, null, 2)}\n` }],
+      deletes: [...restore.deletes, ...await staleDeletes(root, target)],
     })
   } catch (error) {
     const restoreErrors: unknown[] = []
@@ -181,4 +212,3 @@ export async function deleteLatestChapter(root: string, chapter: number): Promis
     discarded,
   }
 }
-

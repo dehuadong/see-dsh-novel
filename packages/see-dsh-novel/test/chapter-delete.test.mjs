@@ -1,10 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { deleteLatestChapter } from '../src/core/delete-chapter.ts'
+import { readChapterIndexStrict } from '../src/core/chapter-index.ts'
 import { detectStage } from '../src/pipelines/long/stages/index.ts'
 import { writeChapterDocument } from '../src/core/chapter-document.ts'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
@@ -67,7 +68,7 @@ async function workspace() {
   await reviewChapter(root, {
     chapter: 1,
     summary: '初审',
-    observations: [{ code: 'C1', summary: '观察', assessment: 'unavailable' }],
+    observations: [{ code: 'C1', summary: '观察', assessment: 'unavailable', category: 'quality' }],
   })
   await tool(root, installSettleTool).execute({
     chapter: 1,
@@ -170,6 +171,213 @@ test('trash keeps older files and picks a suffix', async () => {
     const result = await deleteTool(root).execute({ chapter: 1 }, { agent: { session: 's' } })
     assert.deepEqual(result.trashedFiles, ['chapters/.trash/0001_雨夜-2.md'])
     assert.equal(await readFile(join(root, 'source/chapters/.trash/0001_雨夜.md'), 'utf8'), '旧稿')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a minimal snapshot with two projections and one state file is enough', async () => {
+  const root = await workspace()
+  try {
+    for (const file of ['chapter_summaries.md', 'state/current_state.json', 'state/hooks.json', 'state/chapter_summaries.json']) {
+      await rm(join(root, 'source/story/snapshots/0', file), { force: true })
+    }
+    const result = await deleteTool(root).execute({ chapter: 1 }, { agent: { session: 's' } })
+    assert.equal(result.deletedChapter, 1)
+    assert.equal(result.rolledBackTo, 0)
+    // 快照缺 summaries 投影：回滚后删除投影。
+    await assert.rejects(stat(join(root, 'source/story/chapter_summaries.md')), { code: 'ENOENT' })
+    // 活状态里多出的文件被删除。
+    await assert.rejects(stat(join(root, 'source/story/state/hooks.json')), { code: 'ENOENT' })
+    const stateFiles = (await readdir(join(root, 'source/story/state'))).sort()
+    assert.deepEqual(stateFiles, ['manifest.json'])
+    const manifest = JSON.parse(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'))
+    assert.equal(manifest.lastAppliedChapter, 0)
+    assert.deepEqual(JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8')), [])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an empty snapshot state directory rejects before moving files', async () => {
+  const root = await workspace()
+  try {
+    await rm(join(root, 'source/story/snapshots/0/state'), { recursive: true, force: true })
+    await mkdir(join(root, 'source/story/snapshots/0/state'), { recursive: true })
+    await assert.rejects(deleteLatestChapter(root, 1), /没有 state 文件/)
+    assert.match(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), /正文/)
+    await assert.rejects(stat(join(root, 'source/chapters/.trash')), { code: 'ENOENT' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a missing or invalid chapter index rejects before moving files', async () => {
+  const root = await workspace()
+  try {
+    const indexPath = join(root, 'source/chapters/index.json')
+    await rm(indexPath, { force: true })
+    await assert.rejects(deleteLatestChapter(root, 1), /index\.json 缺失.*未改动任何文件/)
+    await assert.rejects(stat(join(root, 'source/chapters/.trash')), { code: 'ENOENT' })
+
+    await writeFile(indexPath, '[{"number":1}]')
+    await assert.rejects(deleteLatestChapter(root, 1), /第 1 条记录/)
+    await assert.match(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), /正文/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an unknown key in the index is rejected strictly', async () => {
+  const root = await workspace()
+  try {
+    const indexPath = join(root, 'source/chapters/index.json')
+    const index = JSON.parse(await readFile(indexPath, 'utf8'))
+    index[0].extra = true
+    await writeFile(indexPath, JSON.stringify(index))
+    await assert.rejects(deleteLatestChapter(root, 1), /未知字段 extra/)
+
+    const invalidDate = JSON.parse(await readFile(indexPath, 'utf8'))
+    delete invalidDate[0].extra
+    invalidDate[0].createdAt = '2026-02-31T00:00:00.000Z'
+    await writeFile(indexPath, JSON.stringify(invalidDate))
+    await assert.rejects(deleteLatestChapter(root, 1), /createdAt 必须是 ISO 时间/)
+
+    invalidDate[0].createdAt = '2028-02-29T00:00:00.000Z'
+    await writeFile(indexPath, JSON.stringify(invalidDate))
+    assert.equal((await readChapterIndexStrict(root))[0].createdAt, '2028-02-29T00:00:00.000Z')
+
+    const nested = JSON.parse(await readFile(indexPath, 'utf8'))
+    nested[0].createdAt = '2026-11-10T00:00:00.000Z'
+    nested[0].observations[0].target = { workId: 'w', artifactId: 'a', revisionId: 'r', extra: true }
+    await writeFile(indexPath, JSON.stringify(nested))
+    await assert.rejects(deleteLatestChapter(root, 1), /target 含未知字段 extra/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an empty chapter directory reports no chapters', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-delete-empty-'))
+  try {
+    await assert.rejects(deleteLatestChapter(root, 1), /没有可删除的章节/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('deleting does not require work.json', async () => {
+  const root = await workspace()
+  try {
+    await rm(join(root, WORK_FILE), { force: true })
+    const result = await deleteTool(root).execute({ chapter: 1 }, { agent: { session: 's' } })
+    assert.equal(result.deletedChapter, 1)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a missing single required projection rejects before moving files', async () => {
+  const root = await workspace()
+  try {
+    await rm(join(root, 'source/story/snapshots/0/pending_hooks.md'), { force: true })
+    await assert.rejects(deleteLatestChapter(root, 1), /pending_hooks\.md/)
+    await assert.rejects(stat(join(root, 'source/chapters/.trash')), { code: 'ENOENT' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a non-array index and empty sourceRefs are rejected strictly', async () => {
+  const root = await workspace()
+  try {
+    const indexPath = join(root, 'source/chapters/index.json')
+    await writeFile(indexPath, '{}')
+    await assert.rejects(deleteLatestChapter(root, 1), /必须是数组/)
+
+    // 重新构造合法索引，再插入空 sourceRefs。
+    const entry = {
+      number: 1,
+      title: '雨夜',
+      wordCount: 2,
+      createdAt: '2026-11-10T00:00:00.000Z',
+      updatedAt: '2026-11-10T00:00:00.000Z',
+      observations: [{
+        code: 'C1', summary: '观察', assessment: 'observation', evidence: [], sourceRefs: [{ sourceId: '', quote: '' }],
+      }],
+      provenance: 'generated',
+    }
+    await writeFile(indexPath, JSON.stringify([entry]))
+    await assert.rejects(deleteLatestChapter(root, 1), /sourceId 不能为空/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a middle chapter in a multi-entry index is rejected', async () => {
+  const root = await workspace()
+  try {
+    const indexPath = join(root, 'source/chapters/index.json')
+    const [first] = JSON.parse(await readFile(indexPath, 'utf8'))
+    const second = { ...first, number: 2, title: '第二' }
+    const third = { ...first, number: 3, title: '第三' }
+    await writeFile(indexPath, JSON.stringify([first, second, third]))
+    await writeFile(join(root, 'source/chapters/0002_二.md'), '# 第2章 二\n\n二。\n')
+    await writeFile(join(root, 'source/chapters/0003_三.md'), '# 第3章 三\n\n三。\n')
+    await assert.rejects(deleteLatestChapter(root, 2), /只能删除最新章/)
+    await assert.match(await readFile(join(root, 'source/chapters/0002_二.md'), 'utf8'), /二。/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a corrupt work.json does not block deletion', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, WORK_FILE), '{broken')
+    const result = await deleteTool(root).execute({ chapter: 1 }, { agent: { session: 's' } })
+    assert.equal(result.deletedChapter, 1)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the latest chapter comes from the index and kept entries are written back verbatim', async () => {
+  const root = await workspace()
+  try {
+    const indexPath = join(root, 'source/chapters/index.json')
+    const [first] = JSON.parse(await readFile(indexPath, 'utf8'))
+    const second = { ...first, number: 2, title: '第二' }
+    const third = {
+      ...first,
+      number: 3,
+      title: '第三',
+      wordCount: 12,
+      observations: [{
+        code: 'C1', summary: '观察', assessment: 'observation', category: 'quality', evidence: [], sourceRefs: [],
+      }],
+    }
+    await writeFile(indexPath, JSON.stringify([second, third, first]))
+    await cp(join(root, 'source/story/snapshots/0'), join(root, 'source/story/snapshots/2'), { recursive: true })
+    await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+    await writeFile(join(root, 'source/story/runtime/chapter-0003.plan.json'), '{}')
+    await writeFile(join(root, 'source/chapters/0002_二.md'), '# 第2章 二\n\n二。\n')
+    await writeFile(join(root, 'source/chapters/0003_三.md'), '# 第3章 三\n\n三。\n')
+    await writeFile(join(root, 'source/chapters/0004_四.md'), '# 第4章 四\n\n四。\n')
+    await mkdir(join(root, 'source/story/drafts'), { recursive: true })
+    await writeFile(join(root, 'source/story/drafts/0004_草稿.md'), '草稿')
+    await writeFile(join(root, 'source/story/drafts/4_旧稿.md'), '旧稿')
+
+    const result = await deleteTool(root).execute({ chapter: 3 }, { agent: { session: 's' } })
+    assert.equal(result.deletedChapter, 3)
+    assert.equal(result.title, '第三')
+    assert.equal(result.rolledBackTo, 2)
+    assert.deepEqual(result.discarded, [3])
+    const kept = JSON.parse(await readFile(indexPath, 'utf8'))
+    assert.deepEqual(kept, [second, first])
+    await assert.rejects(stat(join(root, 'source/chapters/0004_四.md')), { code: 'ENOENT' })
+    await assert.rejects(stat(join(root, 'source/story/drafts/0004_草稿.md')), { code: 'ENOENT' })
+    await assert.rejects(stat(join(root, 'source/story/drafts/4_旧稿.md')), { code: 'ENOENT' })
   } finally {
     await rm(root, { recursive: true, force: true })
   }

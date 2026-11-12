@@ -1,17 +1,19 @@
 {
   "capability": "chapter.move-delete",
-  "date": "2026-11-10",
+  "date": "2026-11-12",
   "sessionId": "process:chapter.move-delete",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "376 passed — chapter-delete 5 例（snapshot 七文件、删除最新章回滚状态/索引/运行时/检索库、只删最新章、缺快照拒绝且不移动、trash 重名后缀）＋ foundation details 初始快照 1 例＋ host 工具清单与 stage 协议回归"
+    "summary": "413 passed — chapter-delete 16 例（七份初始快照、最新章删除与状态回滚、只删最新章、缺快照/缺单份必需投影/state 空拒绝、trash 后缀、最小快照、索引缺失/非法/非数组/未知键/嵌套未知键/非法日期/空 sourceRefs 拒绝、严格读取接受 finalize 条目、无章节、坏 work.json 不阻止、乱序索引取最大章与保留项原样写回、章节号>target 与 drafts 删除）"
   },
   "receipts": [
-    "foundation details 写 `source/story/snapshots/0/` 七份文件（四份状态 JSON + 三份投影），重复调用重写同一内容。",
-    "`story_delete_chapter` 只接受最新章；先把该章 `chapters/NNNN_*.md` 移到 `chapters/.trash/`（重名加 `-2` 后缀），再从 `snapshots/<chapter-1>/` 恢复四份状态 JSON 与三份投影。",
-    "删除后 `chapters/index.json` 只保留小于被删章的记录；被删章与更晚章的快照、`story/runtime/chapter-*`、`story/drafts` 与 `memory.db*` 一并删除；提交失败把 trash 文件搬回（失败聚合为 AggregateError）。",
-    "上一章快照缺失或不可解析时在移动任何文件之前拒绝；删除后阶段回到 `foundation-ready`。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+    "删除前置只要求上一章快照的 `current_state.md` 与 `pending_hooks.md`；`state/*` 按快照实际文件恢复，`chapter_summaries.md` 缺失时删除投影，活状态里多出的 `state/*` 文件一并删除。",
+    "最新章取严格读取的 `chapters/index.json` 的最大章号；索引缺失而章节文件存在、JSON 非法、非数组、条目缺字段/未知键/非法日期/空 `sourceRefs` 时，在移动任何文件之前拒绝并说明未改动任何文件。",
+    "保留项（`number <= target`）原样写回，`observations` 与 `createdAt` 不被重算；`discarded` 来自索引。",
+    "删除不读 `work.json`；身份文件缺失或损坏不阻止删除。",
+    "章节文件按 `^(\\d+)[_-]?.*\\.md$` 移到 `chapters/.trash/`（重名加 `-2`）；提交失败把 trash 搬回，搬回失败抛 `AggregateError`。",
+    "删除章号大于 target 的章节文件、快照、`runtime`、`drafts` 与 `memory.db*`；D52 已注销，审计改为等价。",
+    "该回执是 process-level 核心/工具/阶段测试，不是 DSH 会话。"
   ]
 }

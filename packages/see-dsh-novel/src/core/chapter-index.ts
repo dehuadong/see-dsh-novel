@@ -25,7 +25,154 @@ export interface ChapterIndexEntry {
 }
 
 const CHAPTER_FILE = /^(\d{4})_.*\.md$/u
+const SOURCE_CHAPTER_FILE = /^(\d+)_.*\.md$/u
 const HEADING = /^#\s*(?:第\s*(\d+)\s*章|Chapter\s+(\d+)\b)[:：]?\s*(.*)$/u
+const DAY = '(?:0[1-9]|[12]\\d|3[01])'
+const DATE = `(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-${DAY}|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|02-(?:0[1-9]|1\\d|2[0-8])))`
+const ISO_DATETIME = new RegExp(`^${DATE}T(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?Z$`, 'u')
+const PROVENANCE = new Set(['generated', 'imported', 'edited'])
+const ASSESSMENTS = new Set(['issue', 'resolved', 'unavailable', 'observation'])
+const CATEGORIES = new Set(['execution', 'quality', 'scope'])
+const OBSERVATION_KEYS = new Set(['code', 'summary', 'evidence', 'category', 'assessment', 'scope', 'targetHash', 'target', 'sourceRefs'])
+const CHAPTER_KEYS = new Set(['number', 'title', 'wordCount', 'createdAt', 'updatedAt', 'observations', 'provenance', 'lengthTelemetry', 'tokenUsage'])
+
+function fail(message: string): never {
+  throw new Error(`${CHAPTER_INDEX_PATH} ${message}；未改动任何文件`)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value)
+}
+
+function unknownKeys(value: Record<string, unknown>, allowed: Set<string>, where: string): void {
+  for (const key of Object.keys(value)) {
+    if (!allowed.has(key)) fail(`${where} 含未知字段 ${key}`)
+  }
+}
+
+function requireString(value: unknown, where: string): string {
+  if (typeof value !== 'string') fail(`${where} 必须是字符串`)
+  return value
+}
+
+function optionalString(value: unknown, where: string): void {
+  if (value !== undefined) requireString(value, where)
+}
+
+function requireInteger(value: unknown, where: string, minimum?: number): number {
+  if (!Number.isInteger(value) || (minimum !== undefined && (value as number) < minimum)) fail(`${where} 必须是整数`)
+  return value as number
+}
+
+function validateObservation(value: unknown, where: string): void {
+  if (!isRecord(value)) fail(`${where} 必须是对象`)
+  unknownKeys(value, OBSERVATION_KEYS, where)
+  requireString(value.code, `${where}.code`)
+  if ((value.code as string) === '') fail(`${where}.code 不能为空`)
+  requireString(value.summary, `${where}.summary`)
+  if ((value.summary as string) === '') fail(`${where}.summary 不能为空`)
+  if (value.evidence !== undefined) {
+    if (!Array.isArray(value.evidence) || value.evidence.some((item) => typeof item !== 'string')) {
+      fail(`${where}.evidence 必须是字符串数组`)
+    }
+  } else {
+    value.evidence = []
+  }
+  if (value.category !== undefined && !CATEGORIES.has(value.category as string)) fail(`${where}.category 不合法`)
+  if (value.assessment !== undefined && !ASSESSMENTS.has(value.assessment as string)) fail(`${where}.assessment 不合法`)
+  optionalString(value.scope, `${where}.scope`)
+  optionalString(value.targetHash, `${where}.targetHash`)
+  if (value.target !== undefined) {
+    if (!isRecord(value.target)) fail(`${where}.target 必须是对象`)
+    unknownKeys(value.target, new Set(['workId', 'artifactId', 'revisionId']), `${where}.target`)
+    requireString(value.target.workId, `${where}.target.workId`)
+    requireString(value.target.artifactId, `${where}.target.artifactId`)
+    requireString(value.target.revisionId, `${where}.target.revisionId`)
+  }
+  if (value.sourceRefs !== undefined) {
+    if (!Array.isArray(value.sourceRefs)) fail(`${where}.sourceRefs 必须是数组`)
+    value.sourceRefs.forEach((reference, index) => {
+      const at = `${where}.sourceRefs[${index}]`
+      if (!isRecord(reference)) fail(`${at} 必须是对象`)
+      unknownKeys(reference, new Set(['sourceId', 'quote']), at)
+      requireString(reference.sourceId, `${at}.sourceId`)
+      if ((reference.sourceId as string) === '') fail(`${at}.sourceId 不能为空`)
+      requireString(reference.quote, `${at}.quote`)
+      if ((reference.quote as string) === '') fail(`${at}.quote 不能为空`)
+    })
+  }
+}
+
+function validateChapterEntry(value: unknown, index: number): ChapterIndexEntry {
+  const where = `第 ${index + 1} 条记录`
+  if (!isRecord(value)) fail(`${where} 必须是对象`)
+  unknownKeys(value, CHAPTER_KEYS, where)
+  requireInteger(value.number, `${where}.number`, 1)
+  requireString(value.title, `${where}.title`)
+  requireInteger(value.wordCount, `${where}.wordCount`)
+  requireString(value.createdAt, `${where}.createdAt`)
+  if (!ISO_DATETIME.test(value.createdAt as string)) fail(`${where}.createdAt 必须是 ISO 时间`)
+  requireString(value.updatedAt, `${where}.updatedAt`)
+  if (!ISO_DATETIME.test(value.updatedAt as string)) fail(`${where}.updatedAt 必须是 ISO 时间`)
+  if (!PROVENANCE.has(value.provenance as string)) fail(`${where}.provenance 不合法`)
+  if (!Array.isArray(value.observations)) fail(`${where}.observations 必须是数组`)
+  value.observations.forEach((observation, observationIndex) => {
+    validateObservation(observation, `${where}.observations[${observationIndex}]`)
+  })
+  if (value.lengthTelemetry !== undefined) {
+    const at = `${where}.lengthTelemetry`
+    if (!isRecord(value.lengthTelemetry)) fail(`${at} 必须是对象`)
+    unknownKeys(value.lengthTelemetry, new Set(['target', 'countingMode', 'writerCount', 'postReviseCount', 'finalCount', 'repairApplied']), at)
+    requireInteger(value.lengthTelemetry.target, `${at}.target`, 1)
+    if (value.lengthTelemetry.countingMode !== 'zh_chars' && value.lengthTelemetry.countingMode !== 'en_words') fail(`${at}.countingMode 不合法`)
+    requireInteger(value.lengthTelemetry.writerCount, `${at}.writerCount`, 0)
+    requireInteger(value.lengthTelemetry.postReviseCount, `${at}.postReviseCount`, 0)
+    requireInteger(value.lengthTelemetry.finalCount, `${at}.finalCount`, 0)
+    if (typeof value.lengthTelemetry.repairApplied !== 'boolean') fail(`${at}.repairApplied 必须是布尔`)
+  }
+  if (value.tokenUsage !== undefined) {
+    const at = `${where}.tokenUsage`
+    if (!isRecord(value.tokenUsage)) fail(`${at} 必须是对象`)
+    unknownKeys(value.tokenUsage, new Set(['promptTokens', 'completionTokens', 'totalTokens']), at)
+    requireInteger(value.tokenUsage.promptTokens, `${at}.promptTokens`)
+    requireInteger(value.tokenUsage.completionTokens, `${at}.completionTokens`)
+    requireInteger(value.tokenUsage.totalTokens, `${at}.totalTokens`)
+  }
+  return value as unknown as ChapterIndexEntry
+}
+
+/**
+ * 严格读取章节索引。
+ *
+ * 索引缺失时：章节文件存在则拒绝，没有章节文件返回空数组。
+ */
+export async function readChapterIndexStrict(root: string): Promise<ChapterIndexEntry[]> {
+  let raw: string
+  try {
+    raw = await readFile(join(root, CHAPTER_INDEX_PATH), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    let entries: string[]
+    try {
+      entries = await readdir(join(root, 'source/chapters'))
+    } catch (readError) {
+      if ((readError as NodeJS.ErrnoException).code === 'ENOENT') return []
+      throw readError
+    }
+    if (entries.some((entry) => SOURCE_CHAPTER_FILE.test(entry))) {
+      throw new Error(`${CHAPTER_INDEX_PATH} 缺失，但章节文件仍存在；先修复索引再继续；未改动任何文件`)
+    }
+    return []
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error(`${CHAPTER_INDEX_PATH} 不是合法 JSON，先修复再继续；未改动任何文件`)
+  }
+  if (!Array.isArray(parsed)) throw new Error(`${CHAPTER_INDEX_PATH} 必须是数组；未改动任何文件`)
+  return parsed.map((entry, index) => validateChapterEntry(entry, index))
+}
 
 /** 从章节文件头取标题；取不到就用文件名主体。 */
 function titleOf(raw: string, file: string): string {
