@@ -356,18 +356,18 @@ capabilities:
     title: 导出（原子替换）
     source: inkos:packages/core/src/interaction/export-artifact.ts
     dsh: commands
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
+    implementation: packages/see-dsh-novel/src/plugin/export-command.ts
+    consumer: packages/see-dsh-novel/test/export.test.mjs
+    realRun: artifacts/real-runs/export.work.json
+    status: verified
   - id: backup.restore
     title: 备份／恢复含素材 sidecar
     source: inkos:packages/cli/src/book-backup.ts
     dsh: commands
-    implementation: null
-    consumer: null
-    realRun: null
-    status: missing
+    implementation: packages/see-dsh-novel/src/plugin/backup-command.ts
+    consumer: packages/see-dsh-novel/test/backup.test.mjs
+    realRun: artifacts/real-runs/backup.restore.json
+    status: verified
   - id: materials.import
     title: EPUB/PDF/文本导入、去重、用途
     source: inkos:packages/core/src/materials/ingest.ts

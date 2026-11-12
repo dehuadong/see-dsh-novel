@@ -1,0 +1,18 @@
+{
+  "capability": "export.work",
+  "date": "2026-11-10",
+  "sessionId": "process:export.work",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "387 passed — export 6 例（txt/md 书名与章节、四种索引不一致拒绝、原子替换、EPUB ZIP 结构与 mimetype、空作品拒绝、命令格式解析）＋ host 命令清单与 client 类型检查"
+  },
+  "receipts": [
+    "`/story-export [txt|md|epub]` 由宿主执行；面板页头的格式选择与「导出」按钮走同一个 `runCommand`，不经过 agent，任意阶段可用。",
+    "章节顺序以 `chapters/index.json` 为准；索引与文件不一致时返回 `/story-export` 错误，details 含 missingChapterNumbers／duplicateChapterNumbers／duplicateIndexNumbers／unindexedFiles，且不写目标文件。",
+    "txt 以书名开头、md 以 `# 书名` 开头，章节正文按 `renderChapterDocument` 重新渲染；总字数为索引 `wordCount` 之和。",
+    "导出到工作区根 `<workId>.<format>`：先写同目录临时文件再 rename，替换不留下半文件。",
+    "EPUB 是 store 模式 ZIP：第一项 `mimetype` 不压缩，含 `META-INF/container.xml`、`OEBPS/content.opf`、`OEBPS/nav.xhtml` 与每章 XHTML，书名与语言来自 `work.json`。",
+    "该回执是 process-level 命令/文件测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

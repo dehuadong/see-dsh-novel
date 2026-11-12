@@ -151,6 +151,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D53 | `chapter.revise` 范围 | 只允许单段 spot-fix，`targetText` 只在 spot-fix 校验；源支持多段不重叠 range，且 `targetText` 对任意 mode 生效 | 补多段与任意 mode |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D55 | `chapter.reopen` 重写路径 | 重开保留正文、重规划后阶段判 review，`story_write_chapter` 拒绝覆盖已有正文；「退回重写」会落到审旧稿，未接修订协议 | `chapter.reopen` 与阶段协议接修订路径 |
+| D56 | `chapter.revise` 回执 | 源 `revise_chapter` 回执带 `changedRegion`（`longform-production.ts:307`、`runner.ts:1156`）；复刻回执没有该字段 | `chapter.revise` 补 `changedRegion` |
 
 ## 边界
 

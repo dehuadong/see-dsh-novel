@@ -67,6 +67,13 @@
 - 原因：DSH 的审稿观察与结算 delta 都是模型输出，工具内不能跑模型；阶段闸门保证修订后必须重审，再结算由作者/协议触发。
 - 验证：`test/chapter-revise.test.mjs` 断言修订后审稿文件消失、`reviewInvalidated`；`test/stage-context.test.mjs` 断言 review／chapter-done 协议写明重审。
 
+### chapter.revise：局部修订范围由主编随正文提交
+
+- 源工程做法：`revise_chapter` 只收 `targetText`；未给时 reviser 在内部提交 `ranges`（`agents/reviser.ts:96-105`），`utils/text-range-edits.ts:40-59` 逐段替换并保留其余字节。
+- 复刻做法：主编把 reviser 子代理选出的 `ranges` 与每段 `replacements` 一起提交 `story_revise_chapter`；宿主逐段替换正文构造结果，并与 `chapterBodyForChapter` 归一后的整段 `content` 逐字节比对，范围外必须逐字节不变。
+- 原因：DSH 的修订正文由子代理整段返回，宿主拿不到内部替换字段；不声明范围就无法区分多段局部修订与范围外改动。
+- 验证：`test/chapter-revise.test.mjs` 的多段成功、范围外拒绝、范围非法与 `targetText` 任意 mode 用例；参数形状错误复用 `ARTIFACT_EDIT_RANGE_INVALID` 也由这些用例覆盖。
+
 
 ### chapter.reopen：恢复正文，状态指针回退
 

@@ -5,6 +5,7 @@
  * 默认折叠的分组里；当前阶段的动作集中在右栏顶部的动作条。组件只接收索引和
  * 回调，动作由 StoryView 交给宿主命令/提示，组件不写文件。
  */
+import { useState } from 'react'
 import type { ReactNode } from 'react'
 
 import { JsonView } from './JsonView.js'
@@ -24,6 +25,8 @@ export interface WorkbenchProps {
   onOpenArtifact(artifact: PanelArtifact): void
   onCloseArtifact(): void
   onAction(action: PanelAction): void
+  /** 页头导出控件：直接执行宿主命令，不经过 agent。 */
+  onExport(format: 'txt' | 'md' | 'epub'): void
 }
 
 function statusMark(status: PanelStage['status']): string {
@@ -52,6 +55,7 @@ export function Workbench(props: WorkbenchProps): ReactNode {
   const action = current?.action ?? index.action ?? null
   const secondary = current?.secondary ?? []
   const diagnostic = selectedArtifact?.class === 'diagnostic'
+  const [exportFormat, setExportFormat] = useState<'txt' | 'md' | 'epub'>('txt')
 
   const artifactButton = (artifact: PanelArtifact): ReactNode => (
     <button
@@ -75,6 +79,31 @@ export function Workbench(props: WorkbenchProps): ReactNode {
           {' · '}
           索引生成于 {index.generatedAt}
         </p>
+        {index.work === null
+          ? null
+          : (
+              <div className="sdn-export">
+                <select
+                  aria-label="导出格式"
+                  value={exportFormat}
+                  disabled={disabled}
+                  onChange={(event) => { setExportFormat(event.target.value as 'txt' | 'md' | 'epub') }}
+                >
+                  <option value="txt">TXT</option>
+                  <option value="md">Markdown</option>
+                  <option value="epub">EPUB</option>
+                </select>
+                <button
+                  type="button"
+                  className="sdn-secondary"
+                  disabled={disabled}
+                  aria-disabled={disabled}
+                  onClick={() => { props.onExport(exportFormat) }}
+                >
+                  导出
+                </button>
+              </div>
+            )}
       </header>
 
       <div className="sdn-columns">

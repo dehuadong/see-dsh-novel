@@ -305,6 +305,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         onOpenArtifact={(artifact) => { void openArtifact(artifact) }}
         onCloseArtifact={() => setSelectedArtifact(null)}
         onAction={(action) => { void handleAction(action) }}
+        onExport={(format) => { void command('导出', `/story-export ${format}`) }}
       />
     )
   }

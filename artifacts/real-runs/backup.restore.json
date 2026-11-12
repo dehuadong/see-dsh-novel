@@ -1,0 +1,18 @@
+{
+  "capability": "backup.restore",
+  "date": "2026-11-10",
+  "sessionId": "process:backup.restore",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "396 passed — backup 9 例（拥有项复制与排除、id/冲突/list 倒序、恢复替换与根文件保留、坏 work.json 仍可用、空工作区 pre-restore null、死事务隔离、非法 id、命令 create/list/restore 与参数边界）"
+  },
+  "receipts": [
+    "`/story-backup [create|list|restore <id>]` 由宿主执行；create/restore 在 `withWorkAction` 锁内，备份与恢复都不读 `work.json`。",
+    "备份集合是作品拥有项 `work.json` + `source/`：排除 `source/.write.lock` 与 `source/story/runtime/panel.index.json`；不含根上 `.git`、作者文件、导出文件与 `.backups/`。",
+    "id 为 UTC `YYYYMMDD-HHMMSS`，`suffix` 拼在其后，冲突追加 `-2`；list 按 id 倒序、createdAt 为 mtime ISO；空目录返回空数组。",
+    "restore 先做 pre-restore 备份（空工作区为 null），再回收死事务；回收失败时把 `.inkos-file-txn-*` 隔离为 `.dead-txn-*` 并在回执报告数量，恢复仍成功。",
+    "恢复只替换 `work.json` 与 `source/`：根上 `.git`、作者文件、导出文件、`.backups/` 与活动锁保留；恢复后下一次写 action 成功。",
+    "该回执是 process-level 命令/文件测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+  ]
+}

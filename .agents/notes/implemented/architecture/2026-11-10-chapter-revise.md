@@ -58,6 +58,7 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 - `capabilities.yaml` 的 `chapter.revise` 从 missing 到实现；implementation 指向 `src/pipelines/long/revise-tool.ts`，consumer 指向 `test/chapter-revise.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.revise.json`；索引版本 4 与 `panel.workbench` 的面板动作同批更新。
 - `docs/fidelity-audit.md` 的 `chapter.revise` 段改为机制等价（重审闸门）+ D42／D45／D53；`docs/scope.md` P3 债务同步；`docs/dsh-mapping.md` 保留「不自动复审」偏差。
 - revision 缺不可变快照（D42）；修订不更新索引 `wordCount`/`observations`/`provenance`、后代无 `upstream-revision` 标记（D45）。
+- 单段范围限制与 `targetText` 只在 spot-fix 生效是 D53；多段范围与任意 mode 的 `targetText` 由 [chapter.revise 多段局部修订](../../proposed/architecture/2026-11-11-chapter-revise-multirange.md) 承接。
 
 ## Alternatives considered
 

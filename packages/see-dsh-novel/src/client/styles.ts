@@ -11,6 +11,8 @@ const STYLE_TEXT = `
 .sdn-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .sdn-workbench { min-height: 0; }
 .sdn-workbench-head { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sdn-export { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
+.sdn-export select { padding: 2px 6px; border: 1px solid rgba(127, 127, 127, 0.3); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 12px; }
 .sdn-columns { display: grid; grid-template-columns: 148px 216px minmax(0, 1fr); gap: 0; flex: 1; min-height: 0; border-top: 1px solid rgba(127, 127, 127, 0.25); }
 .sdn-stages { display: flex; flex-direction: column; gap: 2px; padding: 8px 8px 8px 0; overflow: auto; border-right: 1px solid rgba(127, 127, 127, 0.25); }
 .sdn-stage { appearance: none; display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }

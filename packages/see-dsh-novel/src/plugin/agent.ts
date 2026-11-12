@@ -25,6 +25,8 @@ import { installProposalTool } from './proposal-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
 import { installInitCommand } from './work-command.js'
 import { installIndexCommand } from './index-command.js'
+import { installExportCommand } from './export-command.js'
+import { installBackupCommand } from './backup-command.js'
 import { PRESET_ID } from './preset.js'
 import { installReviseTool } from '../pipelines/long/revise-tool.js'
 import { installSummaryTool } from '../pipelines/long/summary-tool.js'
@@ -118,6 +120,8 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeCommands = installApprovalCommands(ctx)
   const disposeInit = installInitCommand(ctx)
   const disposeIndex = installIndexCommand(ctx)
+  const disposeExport = installExportCommand(ctx)
+  const disposeBackup = installBackupCommand(ctx)
   const disposeRevise = installReviseTool(ctx)
   const disposeSummary = installSummaryTool(ctx)
   const disposeSettle = installSettleTool(ctx)
@@ -144,6 +148,8 @@ export function apply(ctx: PluginContext): Disposer {
     disposeWork()
     disposeInit()
     disposeIndex()
+    disposeExport()
+    disposeBackup()
     disposeRevise()
     disposeSummary()
     disposeSettle()
