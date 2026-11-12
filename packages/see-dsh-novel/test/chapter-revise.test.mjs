@@ -9,7 +9,7 @@ import { loadChapterDocument, reviseChapterDocument, writeChapterDocument } from
 import { loadArtifactStore } from '../src/core/artifact-store.ts'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
-import { assertSpotFix, changeHunks, singleEdit } from '../src/core/revise.ts'
+import { applyRangeEdits, assertTargetText, normalizeRangeEdits } from '../src/core/revise.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
 import { readWorkflowStart } from '../src/core/workflow-start.ts'
 
@@ -48,32 +48,51 @@ async function reviewOnce(root) {
   })
 }
 
-test('singleEdit finds one contiguous change and changeHunks counts the blocks', () => {
-  assert.deepEqual(singleEdit('abc', 'axc'), { prefix: 'a', removed: 'b', inserted: 'x', suffix: 'c' })
-  assert.equal(singleEdit('same', 'same'), null)
-  assert.equal(changeHunks(['a', 'b', 'c', 'd'], ['a', 'B', 'c', 'D']), 2)
-  assert.equal(changeHunks(['a', 'b', 'c'], ['a', 'X', 'Y', 'c']), 1)
+test('range edits pair, sort, validate and construct the body', () => {
+  const edits = normalizeRangeEdits(
+    [{ startLine: 3, endLine: 3 }, { startLine: 1, endLine: 1 }],
+    ['C', 'A'],
+    3,
+  )
+  assert.deepEqual(edits, [
+    { range: { startLine: 1, endLine: 1 }, replacement: 'A' },
+    { range: { startLine: 3, endLine: 3 }, replacement: 'C' },
+  ])
+  assert.equal(applyRangeEdits('a\nb\nc', edits), 'A\nb\nC')
+  assert.equal(
+    applyRangeEdits('a\nb\nc', normalizeRangeEdits([{ startLine: 2, endLine: 2 }], [''], 3)),
+    'a\nc',
+  )
+  assert.equal(
+    applyRangeEdits('a\nb\nc', normalizeRangeEdits([{ startLine: 2, endLine: 2 }], ['B1\nB2'], 3)),
+    'a\nB1\nB2\nc',
+  )
 })
 
-test('assertSpotFix only accepts one unchanged-surroundings edit and a unique target', () => {
-  assert.doesNotThrow(() => assertSpotFix(ORIGINAL, '第一段。\n第二段改。\n第三段。'))
+test('range edits reject bad shapes, bounds and overlaps', () => {
+  assert.throws(() => normalizeRangeEdits([{ startLine: 1, endLine: 1 }], [], 3), /ARTIFACT_EDIT_RANGE_INVALID/u)
+  assert.throws(() => normalizeRangeEdits([], [''], 3), /ARTIFACT_EDIT_RANGE_INVALID/u)
   assert.throws(
-    () => assertSpotFix(ORIGINAL, '第一段改。\n第二段。\n第三段改。'),
-    /CHAPTER_EDIT_SCOPE_CONFLICT/,
+    () => normalizeRangeEdits([{ startLine: 1, endLine: 1 }, { startLine: 1, endLine: 2 }], ['A', 'B'], 3),
+    /ARTIFACT_EDIT_RANGE_INVALID/u,
   )
   assert.throws(
-    () => assertSpotFix(ORIGINAL, '第一段改。\n第二段。\n第三段。', '第二段。'),
-    /CHAPTER_EDIT_SCOPE_CONFLICT/,
-  )
-  assert.doesNotThrow(() => assertSpotFix(ORIGINAL, '第一段。\n第二段改。\n第三段。', '第一段。\n第二段。'))
-  assert.throws(
-    () => assertSpotFix('同一段。\n同一段。', '同一段改。\n同一段。', '同一段。'),
-    /ARTIFACT_EDIT_TARGET_AMBIGUOUS/,
+    () => normalizeRangeEdits([{ startLine: 2, endLine: 4 }], ['A'], 3),
+    /ARTIFACT_EDIT_RANGE_INVALID/u,
   )
   assert.throws(
-    () => assertSpotFix(ORIGINAL, '第一段改。\n第二段。\n第三段。', '不存在的片段'),
-    /ARTIFACT_EDIT_TARGET_NOT_FOUND/,
+    () => normalizeRangeEdits([{ startLine: 1.5, endLine: 2 }], ['A'], 3),
+    /ARTIFACT_EDIT_RANGE_INVALID/u,
   )
+})
+
+test('targetText binds a unique fragment and keeps the rest byte-identical', () => {
+  assert.doesNotThrow(() => assertTargetText('abc\ndef', 'aXbc\ndef', 'ab'))
+  assert.throws(() => assertTargetText('abc\ndef', 'Xbc\ndef', 'bc'), /CHAPTER_EDIT_SCOPE_CONFLICT/u)
+  assert.throws(() => assertTargetText('abc\ndef', 'aXbc\ndef', 'zz'), /ARTIFACT_EDIT_TARGET_NOT_FOUND/u)
+  assert.throws(() => assertTargetText('ab\nab', 'X\nab', 'ab'), /ARTIFACT_EDIT_TARGET_AMBIGUOUS/u)
+  assert.throws(() => assertTargetText('abc', 'abc', ''), /ARTIFACT_EDIT_TARGET_NOT_FOUND/u)
+  assert.throws(() => assertTargetText('AB。CD', 'AB。XD', 'AB'), /CHAPTER_EDIT_SCOPE_CONFLICT/u)
 })
 
 test('reviseChapterDocument rewrites the chapter, archives the old prose and appends a revision', async () => {
@@ -115,7 +134,7 @@ test('the revise tool invalidates the review and the stage can be reviewed again
     await assert.rejects(stat(join(root, chapterReviewPath(1))), { code: 'ENOENT' })
     // 复审要过 workflow start 闸门：修订随带重开一章。
     assert.equal((await readWorkflowStart(root))?.chapter, 1)
-    assert.match((await readWorkflowStart(root)).instruction, /重审第 1 章/) 
+    assert.match((await readWorkflowStart(root)).instruction, /重审第 1 章/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -137,6 +156,26 @@ test('an unchanged revise writes nothing and keeps the review', async () => {
   }
 })
 
+test('spot-fix with no change returns changed=false and keeps the review', async () => {
+  const root = await workspace()
+  try {
+    await reviewOnce(root)
+    const result = await tool(root).execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      content: ORIGINAL,
+      ranges: [{ startLine: 2, endLine: 2 }],
+      replacements: ['第二段。'],
+    }, exec)
+    assert.equal(result.changed, false)
+    assert.equal(result.reviewInvalidated, false)
+    assert.ok((await stat(join(root, chapterReviewPath(1)))).isFile())
+    assert.equal((await loadChapterDocument(root, 1)).content, ORIGINAL)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('the revise tool rejects missing chapter, missing plan, empty content and unknown mode', async () => {
   const empty = await workspace(false)
   const root = await workspace()
@@ -153,29 +192,123 @@ test('the revise tool rejects missing chapter, missing plan, empty content and u
   }
 })
 
-test('spot-fix keeps surrounding prose and rejects a second changed block', async () => {
+test('spot-fix applies multiple ranges and rejects content that disagrees with them', async () => {
   const root = await workspace()
   try {
     const revise = tool(root)
-
-    await assert.rejects(
-      revise.execute({
-        chapter: 1,
-        mode: 'spot-fix',
-        content: '第一段改。\n第二段。\n第三段改。',
-      }, exec),
-      /CHAPTER_EDIT_SCOPE_CONFLICT/,
-    )
-    assert.equal((await loadChapterDocument(root, 1)).content, ORIGINAL)
-
     const accepted = await revise.execute({
       chapter: 1,
       mode: 'spot-fix',
-      content: '第一段。\n第二段改。\n第三段。',
-      targetText: '第二段。',
+      ranges: [{ startLine: 1, endLine: 1 }, { startLine: 3, endLine: 3 }],
+      replacements: ['第一段改。', '第三段改。'],
+      content: '第一段改。\n第二段。\n第三段改。',
     }, exec)
     assert.equal(accepted.changed, true)
-    assert.equal((await loadChapterDocument(root, 1)).content, '第一段。\n第二段改。\n第三段。')
+    assert.equal((await loadChapterDocument(root, 1)).content, '第一段改。\n第二段。\n第三段改。')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('spot-fix rejects a content mismatch, missing ranges and mixed targetText', async () => {
+  const root = await workspace()
+  try {
+    const revise = tool(root)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      ranges: [{ startLine: 2, endLine: 2 }],
+      replacements: ['第二段改。'],
+      content: '第一段改。\n第二段改。\n第三段。',
+    }, exec), /CHAPTER_EDIT_SCOPE_CONFLICT/u)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      content: '第一段。\n第二段改。\n第三段。',
+    }, exec), /ARTIFACT_EDIT_RANGE_INVALID/u)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      ranges: [{ startLine: 2, endLine: 2 }],
+      replacements: ['第二段改。'],
+      targetText: '第二段。',
+      content: '第一段。\n第二段改。\n第三段。',
+    }, exec), /ARTIFACT_EDIT_RANGE_INVALID/u)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      content: '第一段。\n第二段改。\n第三段。',
+      ranges: [{ startLine: 2, endLine: 2 }],
+      replacements: ['第二段改。'],
+    }, exec), /ARTIFACT_EDIT_RANGE_INVALID/u)
+    assert.equal((await loadChapterDocument(root, 1)).content, ORIGINAL)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('targetText works outside spot-fix and keeps the fragment surroundings', async () => {
+  const root = await workspace()
+  try {
+    const revised = await tool(root).execute({
+      chapter: 1,
+      mode: 'rewrite',
+      targetText: '第二段。',
+      content: '第一段。\n第二段重写。\n第三段。',
+    }, exec)
+    assert.equal(revised.changed, true)
+    assert.equal((await loadChapterDocument(root, 1)).content, '第一段。\n第二段重写。\n第三段。')
+    await assert.rejects(tool(root).execute({
+      chapter: 1,
+      mode: 'rewrite',
+      targetText: '第二段重写。',
+      content: '第一段改。\n第二段重写。\n第三段。',
+    }, exec), /CHAPTER_EDIT_SCOPE_CONFLICT/u)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('constructed body is normalized before comparing content', async () => {
+  const root = await workspace()
+  try {
+    const result = await tool(root).execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      ranges: [{ startLine: 1, endLine: 1 }],
+      replacements: ['\n第一段改。'],
+      content: '第一段改。\n第二段。\n第三段。',
+    }, exec)
+    assert.equal(result.changed, true)
+    assert.equal((await loadChapterDocument(root, 1)).content, '第一段改。\n第二段。\n第三段。')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('spot-fix rejects empty ranges, missing replacements and empty construction', async () => {
+  const root = await workspace()
+  try {
+    const revise = tool(root)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      ranges: [],
+      replacements: [],
+      content: '第一段。\n第二段。\n第三段。',
+    }, exec), /ARTIFACT_EDIT_RANGE_INVALID/u)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      ranges: [{ startLine: 2, endLine: 2 }],
+      content: '第一段。\n第二段改。\n第三段。',
+    }, exec), /ARTIFACT_EDIT_RANGE_INVALID/u)
+    await assert.rejects(revise.execute({
+      chapter: 1,
+      mode: 'spot-fix',
+      ranges: [{ startLine: 1, endLine: 3 }],
+      replacements: [''],
+      content: '',
+    }, exec), /content 不能为空/u)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

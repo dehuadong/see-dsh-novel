@@ -148,7 +148,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |
 | D51 | `state.check` 判据 | 源 `validate` 的布尔判据（仅换投影可消解才 true）未进 Note 与阶段协议 | 协议补判据与选码 |
 | D52 | `chapter.move-delete` 前置 | 要求上一章七份快照；源只 stat `current_state.md`/`pending_hooks.md`；且按章节文件定最新章、缺索引重建 | 按源放宽前置与最新章判据 |
-| D53 | `chapter.revise` 范围 | 只允许单段 spot-fix，`targetText` 只在 spot-fix 校验；源支持多段不重叠 range，且 `targetText` 对任意 mode 生效 | 补多段与任意 mode |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D55 | `chapter.reopen` 重写路径 | 重开保留正文、重规划后阶段判 review，`story_write_chapter` 拒绝覆盖已有正文；「退回重写」会落到审旧稿，未接修订协议 | `chapter.reopen` 与阶段协议接修订路径 |
 | D56 | `chapter.revise` 回执 | 源 `revise_chapter` 回执带 `changedRegion`（`longform-production.ts:307`、`runner.ts:1156`）；复刻回执没有该字段 | `chapter.revise` 补 `changedRegion` |

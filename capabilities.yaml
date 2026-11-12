@@ -289,7 +289,7 @@ capabilities:
     realRun: artifacts/real-runs/chapter.review.json
     status: verified
   - id: chapter.revise
-    title: patch/polish/rewrite/deslop；reviser 方法 prompt
+    title: spot-fix/polish/rewrite/rework/anti-detect；reviser 方法 prompt
     source: inkos:packages/core/src/agents/reviser.ts
     dsh: subagents
     implementation: packages/see-dsh-novel/src/pipelines/long/revise-tool.ts

@@ -1,7 +1,8 @@
 /**
- * 审稿契约：审稿要求 + 编号原文（章节正文与章纲）。
+ * 审稿契约与编号来源：审稿要求 + 章节正文与章纲；
+ * chapter-done 只复用编号来源，不带审稿要求。
  */
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { chapterBodyForChapter } from '../../../core/chapter-document.js'
@@ -14,6 +15,14 @@ function readText(path: string): string | undefined {
     return readFileSync(path, 'utf8')
   } catch {
     return undefined
+  }
+}
+
+function workLanguage(root: string): WorkLanguage {
+  try {
+    return (JSON.parse(readFileSync(join(root, 'work.json'), 'utf8')) as { language?: WorkLanguage }).language === 'en' ? 'en' : 'zh'
+  } catch {
+    return 'zh'
   }
 }
 
@@ -40,16 +49,9 @@ export function readCurrentChapterBody(root: string, chapter: number): string | 
   return raw === undefined ? undefined : chapterBodyForChapter(raw, chapter)
 }
 
-/** 审稿要求 + 两块编号来源；缺正文或章纲时返回空串。 */
-export function renderReviewContract(root: string): string {
-  const language: WorkLanguage = (() => {
-    try {
-      return (JSON.parse(readFileSync(join(root, 'work.json'), 'utf8')) as { language?: WorkLanguage }).language === 'en' ? 'en' : 'zh'
-    } catch {
-      return 'zh'
-    }
-  })()
-  const chapter = currentChapter(root) + 1
+/** 章节正文与章纲的编号来源；缺正文或章纲时返回空串。 */
+export function renderNumberedSources(root: string, chapter: number): string {
+  const language = workLanguage(root)
   const body = readCurrentChapterBody(root, chapter)
   if (body === undefined) return ''
   let memo: string | undefined
@@ -59,6 +61,17 @@ export function renderReviewContract(root: string): string {
     return ''
   }
   if (memo === undefined || memo.trim() === '') return ''
+  const chapterLabel = language === 'en' ? `## Source chapter-${chapter}` : `## 来源 chapter-${chapter}`
+  const contextLabel = language === 'en' ? '## Source governed-context' : '## 来源 governed-context'
+  return [chapterLabel, numberSourceLines(body), '', contextLabel, numberSourceLines(memo)].join('\n')
+}
+
+/** 审稿要求 + 编号来源；缺正文或章纲时返回空串。 */
+export function renderReviewContract(root: string): string {
+  const language = workLanguage(root)
+  const chapter = currentChapter(root) + 1
+  const sources = renderNumberedSources(root, chapter)
+  if (sources === '') return ''
   const requirement = language === 'en'
     ? [
         '## Review request',
@@ -68,7 +81,5 @@ export function renderReviewContract(root: string): string {
         '## 审稿要求',
         '按随阶段提供的审稿方法和权威上下文审查本章。每条观察给出 code、assessment（issue／resolved／observation／unavailable）、summary 与 sourceRefs；证据只能来自下面的编号来源，用 sourceId 加 startLine／endLine 或逐字 quote 引用。不估算字数，字数由宿主计算。observations 可以为空；缺少对照证据时用 unavailable，不要写成正文缺陷。',
       ].join('\n')
-  const chapterLabel = language === 'en' ? `## Source chapter-${chapter}` : `## 来源 chapter-${chapter}`
-  const contextLabel = language === 'en' ? '## Source governed-context' : '## 来源 governed-context'
-  return [requirement, '', chapterLabel, numberSourceLines(body), '', contextLabel, numberSourceLines(memo)].join('\n')
+  return [requirement, '', sources].join('\n')
 }
