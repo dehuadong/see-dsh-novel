@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { dirname } from 'node:path'
 
-import { installStageContext, detectStage } from '../src/pipelines/long/stages/index.ts'
+import { installStageContext, detectStage, renderStageProtocol } from '../src/pipelines/long/stages/index.ts'
 import { writeWorkflowStart } from '../src/core/workflow-start.ts'
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
@@ -87,6 +87,63 @@ test('detectStage follows the workspace files', async () => {
   }
 })
 
+test('the repair block is injected once a chapter exists, including when state is corrupt', async () => {
+  const byIndex = await workspace('chapter-done')
+  try {
+    await writeFile(join(byIndex, 'source/chapters/index.json'), JSON.stringify([{ number: 1, title: '雨夜', wordCount: 1 }]))
+    const { ctx, entries } = fakeContext(byIndex)
+    installStageContext(ctx, packageRoot, PRESET)
+    assert.match(textOf(entries.get('story:stage')), /## 重新结算（重算）/)
+    assert.match(textOf(entries.get('story:stage')), /story_resettle_chapter/)
+    assert.match(textOf(entries.get('story:stage')), /只支持最新章/)
+    assert.match(textOf(entries.get('story:stage')), /基线原文/)
+    assert.match(textOf(entries.get('story:stage')), /不消费 workflow-start/)
+  } finally {
+    await rm(byIndex, { recursive: true, force: true })
+  }
+
+  const byChapter = await workspace('chapter-done')
+  try {
+    await writeFile(join(byChapter, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1, facts: [] }))
+    const { ctx, entries } = fakeContext(byChapter)
+    installStageContext(ctx, packageRoot, PRESET)
+    assert.match(textOf(entries.get('story:stage')), /story_resettle_chapter/)
+  } finally {
+    await rm(byChapter, { recursive: true, force: true })
+  }
+
+  const corrupt = await workspace('chapter-done')
+  try {
+    await writeFile(join(corrupt, 'source/story/state/current_state.json'), '{ bad')
+    await writeFile(join(corrupt, 'source/chapters/index.json'), JSON.stringify([{ number: 1, title: '雨夜', wordCount: 1 }]))
+    assert.equal(detectStage(corrupt).currentChapter, 0)
+    assert.equal(detectStage(corrupt).hasChapters, true)
+    const { ctx, entries } = fakeContext(corrupt)
+    installStageContext(ctx, packageRoot, PRESET)
+    assert.match(textOf(entries.get('story:stage')), /story_resettle_chapter/)
+  } finally {
+    await rm(corrupt, { recursive: true, force: true })
+  }
+})
+
+test('the repair block follows chapter existence, not the stage name', () => {
+  const facts = (stage, currentChapter = 1, hasChapters = false) => ({ stage, title: '', currentChapter, hasChapters })
+  for (const stage of ['foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    assert.match(renderStageProtocol(facts(stage)), /## 重新结算（重算）/)
+  }
+  for (const stage of ['proposal', 'foundation']) {
+    assert.doesNotMatch(renderStageProtocol(facts(stage)), /## 重新结算（重算）/)
+  }
+  // 没有章时也不注入。
+  for (const stage of ['foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    assert.doesNotMatch(renderStageProtocol(facts(stage, 0, false)), /## 重新结算（重算）/)
+  }
+  // 有索引章、currentChapter 仍为 0 时也注入。
+  for (const stage of ['foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    assert.match(renderStageProtocol(facts(stage, 0, true)), /## 重新结算（重算）/)
+  }
+})
+
 test('the stage protocol switches with the phase and the craft follows it', async () => {
   for (const kind of ['proposal', 'foundation', 'foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
     const root = await workspace(kind)
@@ -114,6 +171,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /不要自行调用 `story_plan_chapter`/)
         assert.doesNotMatch(stageText, /story_context_candidates/)
       }
+      // 本夹具没有已定稿/已结算的章，重算块不应出现；注入条件由下面的专门用例覆盖。
+      assert.doesNotMatch(stageText, /## 重新结算（重算）/)
       if (kind === 'chapter-done') {
         assert.match(stageText, /第 1 章审稿已落盘/)
         assert.match(stageText, /## 来源 chapter-1/)

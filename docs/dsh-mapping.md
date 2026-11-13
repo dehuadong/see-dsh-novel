@@ -94,7 +94,7 @@
 - 源工程做法：`chapter-replace` 对任意章可用，只替换正文、归档旧稿、清该章 `chapter-NNNN.*` 运行时文件（保留 user-brief）并记索引观察，不动运行时状态；源用 `requiresTruthRebuild` 标出后续重建。
 - 复刻做法：`story_reopen_chapter` 按 `versionId` 分流。恢复分支对任意章可用：替换正文、归档当前为 `restore`、清运行时，不改指针/摘要/facts/hooks、不写索引；重开分支只对最后已结算章：保留正文、清运行时、写或沿用 workflow start，把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，并删除该章摘要行。
 - 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章。摘要行删除属于重开回退，不是源恢复；源恢复没有对应动作。
-- 验证：`test/chapter-reopen.test.mjs` 断言恢复任意章不动状态、重开清运行时/保留 user-brief/指针回退/摘要删除/start 写入或沿用；`test/stage-context.test.mjs` 断言 plan 段的条件修订指令。D36（恢复写索引观察）与 D33（恢复后的状态重建）仍保留。
+- 验证：`test/chapter-reopen.test.mjs` 断言恢复任意章不动状态、重开清运行时/保留 user-brief/指针回退/摘要删除/start 写入或沿用；`test/stage-context.test.mjs` 断言 plan 段的条件修订指令。D36（恢复写索引观察）与 D58（重开回退不恢复 facts/hooks、恢复后重审不可达等）仍保留；D33 已由 [chapter.settle 基线重算](../.agents/notes/implemented/architecture/2026-11-13-chapter-settle-baseline.md) 注销。
 
 ### backup.restore：工作区内的备份与恢复
 

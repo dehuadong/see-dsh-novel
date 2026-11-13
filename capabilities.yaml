@@ -305,10 +305,10 @@ capabilities:
     realRun: artifacts/real-runs/chapter.summary.json
     status: verified
   - id: chapter.settle
-    title: fact/hook 抽取、状态草案、conflict 校验；settler 方法 prompt；伏笔六动作合并（提及与延后不推进）
+    title: 结算增量、伏笔六动作合并与按第 N-1 章快照基线重算
     source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: tools.register + storage
-    implementation: packages/see-dsh-novel/src/pipelines/long/settle-tool.ts
+    implementation: packages/see-dsh-novel/src/pipelines/long/resettle-tool.ts
     consumer: packages/see-dsh-novel/test/chapter-settle.test.mjs
     realRun: artifacts/real-runs/chapter.settle.json
     status: verified

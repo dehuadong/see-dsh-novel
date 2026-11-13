@@ -30,6 +30,7 @@ import { installBackupCommand } from './backup-command.js'
 import { PRESET_ID } from './preset.js'
 import { installReviseTool } from '../pipelines/long/revise-tool.js'
 import { installSettleTool } from '../pipelines/long/settle-tool.js'
+import { installResettleTool } from '../pipelines/long/resettle-tool.js'
 import { installStateCheckTool } from '../pipelines/long/state-check-tool.js'
 import { installFinalizeTool } from '../pipelines/long/finalize-tool.js'
 import { installReopenTools } from '../pipelines/long/reopen-tool.js'
@@ -124,6 +125,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeBackup = installBackupCommand(ctx)
   const disposeRevise = installReviseTool(ctx)
   const disposeSettle = installSettleTool(ctx)
+  const disposeResettle = installResettleTool(ctx)
   const disposeStateCheck = installStateCheckTool(ctx)
   const disposeFinalize = installFinalizeTool(ctx)
   const disposeReopen = installReopenTools(ctx)
@@ -151,6 +153,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeExport()
     disposeBackup()
     disposeRevise()
+    disposeResettle()
     disposeSettle()
     disposeStateCheck()
     disposeFinalize()

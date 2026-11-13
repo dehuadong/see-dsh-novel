@@ -101,7 +101,7 @@ export async function reopenChapter(root: string, chapter: number): Promise<Reop
   if (read.invalid.length > 0) throw new Error(`状态文件损坏，先修复再重开：${read.invalid.join('、')}`)
   const snapshot: StateSnapshot = read.snapshot
   if (snapshot.manifest.lastAppliedChapter !== chapter) {
-    throw new Error(`只能重开最后已结算的一章：当前已结算到第 ${snapshot.manifest.lastAppliedChapter} 章；更早章节的重开需要基线快照（D33）`)
+    throw new Error(`只能重开最后已结算的一章：当前已结算到第 ${snapshot.manifest.lastAppliedChapter} 章；更早章节的重开不在支持范围`)
   }
 
   const removed = await chapterRuntimePaths(root, chapter)

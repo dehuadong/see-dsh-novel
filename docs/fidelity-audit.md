@@ -421,9 +421,9 @@
 
 **源工程证据**：`agents/settler-tool.ts:45-82` 的 delta 形状；`state/state-reducer.ts:17-199` 的章节前进、hooks 合并与终态保护、facts 失效与同 key 替换；`utils/hook-arbiter.ts:24-90` 的候选伏笔 id 分配；`state/state-validator.ts:15-100` 的整份校验；`agents/settler-prompts.ts:5-45` 的 settler 提示；`agents/state-validator.ts:23-95` 的状态校验与 `pipeline/chapter-truth-validation.ts:39-104` 的对账重试。
 
-**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批写入并按章号排序，非重结算遇同章摘要行拒绝、同章重结算替换；整份状态校验。结算前要求四份状态文件都存在，缺失时在写盘前拒绝；章号只拒倒退，允许大于 `lastAppliedChapter` 的跳章。
+**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批写入并按章号排序，非重结算遇同章摘要行拒绝；整份状态校验。结算前要求四份状态文件都存在，缺失时在写盘前拒绝；章号只拒倒退，允许大于 `lastAppliedChapter` 的跳章；已结算章与已有 `snapshots/<N>` 的章在写盘前拒绝并指向重算。`story_resettle_chapter` 只接受最新章（`max(章节索引最大章号, lastAppliedChapter, 已有快照最大章号)`），从第 N-1 章快照（`readStateSnapshot` 严格读四份 JSON 与跨文件不变量）重新应用 delta，一次提交刷新状态、投影与 `snapshots/<N>`；不改正文/索引/`workflow-start.json`，索引缺失按空处理。chapter-done 等已开章的阶段注入重算协议。
 
-**判定：保真债 D33／D34** — 结算规则按源 reducer 复刻；逐章快照已由 `chapter.finalize` 写出，缺口是不按快照做基线重算（D33）；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账。状态缺失前置与跳章已按源对齐（D46／D47 注销）。
+**判定：保真债 D34** — 结算规则按源 reducer 复刻；基线重算已交付（D33 注销）：最新章从第 N-1 章快照重来、旧结算不残留、快照随重算刷新。仍缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账；状态缺失前置与跳章已按源对齐（D46／D47 注销）。
 
 ### chapter.finalize
 
@@ -441,7 +441,7 @@
 
 **复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 按 `versionId` 分流。恢复对任意章可用：替换正文、归档当前为 `restore`、清该章全部运行时文件（保留 user-brief），不动状态指针/摘要/facts/hooks；重开只对最后已结算章：保留正文、清运行时、写或沿用 workflow start、指针退回上一章并删除本章摘要行。工具返回提交后的真实阶段。
 
-**判定：机制等价（重开指针回退）+ 保真债 D33／D36** — 源恢复分支已按源对齐：任意章、只换正文与运行时、不动状态；重开分支的指针回退与摘要删除是 DSH 阶段判定的机制等价，已登记 `dsh-mapping.md`。源在索引里记 `manual-edit-review` 与 `provenance: edited`，复刻未更新索引（D36）；恢复更早章后的状态重建（源 `requiresTruthRebuild`）没有等价流程（并入 D33）。D43／D44／D55 已注销。
+**判定：机制等价（重开指针回退）+ 保真债 D36／D58** — 源恢复分支已按源对齐：任意章、只换正文与运行时、不动状态；重开分支的指针回退与摘要删除是 DSH 阶段判定的机制等价，已登记 `dsh-mapping.md`。源在索引里记 `manual-edit-review` 与 `provenance: edited`，复刻未更新索引（D36）；重开回退不恢复 facts/hooks、恢复后重审不可达、已结算未定稿章重开后的重算间隙、多重重开后的中间章记 D58（owner reopen）。D33 已由 implemented Note「chapter.settle —— 按基线快照重算（D33）」注销；D43／D44／D55 已注销。
 
 ### chapter.move-delete
 
@@ -455,7 +455,7 @@
 
 **源工程证据**：`agents/state-validator.ts:23-95` 的 `StateValidatorAgent.validate`：模型提交布尔 `reconciliationRequired` 与证据报告，报告缺失时返回 `STATE_RECONCILIATION_REASON_REQUIRED`；`pipeline/chapter-truth-validation.ts:39-104` 的校验与 reconcile 流程。
 
-**复刻现状**：`story_state_check` 接收子代理产出的 `reconciliationRequired` 与 `reportMarkdown`，校验必填报告（`STATE_RECONCILIATION_REASON_REQUIRED`）并返回只读观察；不写作品。工具 description、参数说明与 `chapter-done` 协议写明源判据：仅当换一份 truth projection 能消解时为 true，正文/权威矛盾只作观察、不授权重结算。自动“结算后校验 + 重结算”仍未接（D34）。
+**复刻现状**：`story_state_check` 接收子代理产出的 `reconciliationRequired` 与 `reportMarkdown`，校验必填报告（`STATE_RECONCILIATION_REASON_REQUIRED`）并返回只读观察；不写作品。工具 description、参数说明与 `chapter-done` 协议写明源判据：仅当换一份 truth projection 能消解时为 true，正文/权威矛盾只作观察、不授权重结算。自动“结算后校验 + 重结算”仍未接（D34）；基线只 stat `snapshots/<chapter-1>/state/manifest.json`，四份 JSON 的严格读取未接（随 D34）。
 
 **判定：保真债 D34** — 只读对账入口已交付，布尔判据已进入模型可见的工具说明与阶段协议（D51 注销）；源在结算后自动校验并可能重结算，复刻仍要作者显式发起，自动路径未接（D34）。账本 `source:` 已改指 `agents/state-validator.ts`。
 
@@ -533,8 +533,8 @@
 | B | P1 创意、立项与基础设定 | 23 | 完成 |
 | C | P2 章前规划 | 4 | 完成 |
 | D | P3 正文生产 | 3 | 完成 |
-| E | P4 结算与定稿 | 3 | 行 verified；出口待债（D33／D34／D35／D37／D45） |
-| F | P5 章节运维与对账 | 3 | 行 verified；出口待债（D34／D36） |
+| E | P4 结算与定稿 | 3 | 行 verified；出口待债（D34／D35／D37／D45） |
+| F | P5 章节运维与对账 | 3 | 行 verified；出口待债（D34／D36／D58） |
 | G | P6 产物与工作台 | 8 | 进行中（4/8）；另有 D57 |
 
 阶段合同与出口见 [`scope.md`](scope.md)；能力状态只由 `check-capabilities` 生成。P4／P5 的债未偿还前出口不成立，详见 scope 的「已知的次序偏差」。

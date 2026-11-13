@@ -64,7 +64,7 @@
 - **用户可见面**：结算记录、伏笔状态、定稿/快照。
 - **入口**：P3 出口。
 - **出口**：三行 `verified` + 不变量 2/6 + 回执。
-- **非目标/债务**：不做重开/移动/导出；更早章节重结算需要基线重算（D33）；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）；章节保存仍是分步提交（D37）。
+- **非目标/债务**：不做重开/移动/导出；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）；章节保存仍是分步提交（D37）。基线重算已随 `chapter.settle` 交付（D33 注销）。
 
 ### P5 章节运维与对账
 
@@ -74,7 +74,7 @@
 - **用户可见面**：章节重开/删除、状态核对。
 - **入口**：P4 出口。
 - **出口**：三行 `verified` + 不变量 + 回执。
-- **非目标/债务**：不导出；不提供移章/重排（源也没有）；重开不更新章节索引观察（D36）；结算后自动校验与重结算未接（D34）。
+- **非目标/债务**：不导出；不提供移章/重排（源也没有）；重开不更新章节索引观察（D36）；结算后自动校验与重结算未接（D34）；重开回退不恢复 facts/hooks、恢复后重审不可达、已结算未定稿章重开后的重算间隙与多重重开后的中间章（D58）。
 
 ### P6 产物与工作台
 
@@ -98,9 +98,9 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 - **P1 前置行晚于 `foundation.*` 与 `cast.single-authority`**：这两组在 P1 前置行之前就已交付并 `verified`。账本行序仍是推进顺序——`runtime.*` 组剩余行补齐后才进 P2；这条历史事实不改写已验证的状态。
 - **`artifact.identity`（P6）晚于 `chapter.revise`（P3）**：源在基础设定结束时就建初始快照；复刻的 `chapter.revise` 先交付了 r2／parent／superseded 修订历史，而不可变 `snapshotPath` 到 `artifact.identity`（`235d9c6`）才补上，期间旧 revision 覆盖后不可读，记 D42 并已注销。这与本段原先「v1 只有第 1 章、不做历史修订，因此可以接受」的前提冲突：修订能力已经交付，前提不成立。后续任何写 revision 的能力必须先有 `artifact.identity`。
-- **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work` 已 `verified`，但 P4／P5 的 D33／D34／D35／D37／D45（章节写读链）与 D36（reopen 索引观察）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 其余四行（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）与 D57 也未完成。在这批债偿还、或作者把其中某几项明确改挂到 P6 之后以前，P4／P5 出口不能标记完成。
+- **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work` 已 `verified`，但 P4／P5 的 D34／D35／D37／D45（章节写读链）、D36 与 D58（reopen）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 其余四行（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）与 D57 也未完成。在这批债偿还、或作者把其中某几项明确改挂到 P6 之后以前，P4／P5 出口不能标记完成。
 
-债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链 D37（写入路径）→ D33（基线重算）→ D34（自动校验与 reconciliation），D36／D45／D35 与索引观察相邻，宜同批；D38、D23／D54、D57 独立。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
+债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链 D37（写入路径）→ D34（自动校验与 reconciliation），D36／D45／D35／D58 与索引观察和重开相邻，宜同批；D38、D23／D54、D57 独立。基线重算已交付（D33 注销）。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
 
 源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
 
@@ -131,8 +131,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D23 | `skill.references` | 源 `use_skill.query` 对参考文件检索；复刻只给资源基址与目录读取，`query` 未实现，阶段注入是整份读取 | `skill.references` 补参考检索入口 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D33 | 基线重结算 | 逐章快照已由 `chapter.finalize` 写出（`story/snapshots/0..N`）；缺口是结算与重开不按快照做基线重算：更早章节的重结算被拒绝，同章重结算按增量应用、旧 delta 不再适用的 facts 可能残留；恢复旧版后的状态重建（源 `requiresTruthRebuild`）也没有等价流程 | `chapter.settle`／`state.check` 接基线重算 |
-| D34 | `chapter.settle` 状态校验 | 源在结算后用状态校验 agent 检查投影一致性，必要时带 `validationFeedback` 重结算（`state-validator.ts`／`chapter-truth-validation.ts`）；复刻交付了只读 `story_state_check` 入口，但结算不自动校验、也不会带反馈重结算 | P5 `state.check` 把校验与 reconcile 接进 `chapter.settle` |
+| D34 | `chapter.settle` 状态校验 | 源在结算后用状态校验 agent 检查投影一致性，必要时带 `validationFeedback` 重结算（`state-validator.ts`／`chapter-truth-validation.ts`）；复刻交付了只读 `story_state_check` 入口，但结算不自动校验、也不会带反馈重结算；基线只 stat `manifest.json`，四份严格读取未接 | P5 `state.check` 把校验与 reconcile 接进 `chapter.settle` |
 | D35 | `chapter.finalize` 索引字段 | 源 `ChapterMeta` 可带 `lengthTelemetry`／`tokenUsage`，并在标题变化时删 superseded 章节文件；复刻索引只写基础字段，标题变化当前不可达 | P6 或后续 |
 | D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | `chapter.reopen` 的恢复索引观察（后续工作项） |
 | D37 | 章节保存的非原子拆分 | 源 `saveChapter` 一次提交章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引，崩溃后要再定稿补齐 | 后续把快照/索引并入结算，或恢复检测后自动补定稿 |
@@ -141,6 +140,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D45 | 章节索引观察 | 修订落盘时已更新当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 与后代 `upstream-revision`；残余是重审→结算→定稿后 `chapter.finalize` 用审稿观察与 `generated` 覆盖该行，`edited` 不跨定稿 | `chapter.finalize` 保留 `edited` 与既有观察（后续工作项） |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D57 | `export.work` EPUB 包结构 | 源 `epub-gen-memory` 产出 `style.css`、`toc.ncx`／`toc.xhtml`、完整 `content.opf` 元数据（identifier／creator／publisher／date／rights／description／guide）、章文件名 `N_slug.xhtml`、DEFLATE 压缩、`container.xml` 序列化与包级 `xml:lang`；复刻是最小 EPUB3（无 CSS、无 ncx、全 store） | 另立工作项逐模板复刻（是否引入打包库届时裁决） |
+| D58 | `chapter.reopen` 重开回退与恢复后复审 | 重开回退只退指针、不恢复 facts/hooks；恢复清 review 且不写 workflow start，已结算章恢复后无法重审；「已结算未定稿」章重开后重算不可达；多重重开留下中间章既不能 settle 也不能 resettle | `chapter.reopen`（状态恢复 + 重审入口）；恢复后的重算恢复步骤见审计 |
 
 ## 边界
 

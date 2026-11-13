@@ -1,117 +1,25 @@
 /**
- * `story_settle_chapter`：一次结算写入 facts／hooks／摘要并推进状态章号。
+ * `story_settle_chapter`：把章节增量应用到当前状态并推进章号。
+ *
+ * 只负责「推进到下一章」；已结算章的重来走 `story_resettle_chapter`（从第 N-1 章快照重算）。
  */
-import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
-import type { HookRecord } from '../../core/hooks.js'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { applySettlement } from '../../core/settle.js'
-import type { FactInput, FactSelector, HookCandidateInput, SettlementDelta } from '../../core/settle.js'
 import { validateChapterSummaries, inspectState, stateJsonWrites, stateProjectionWrites } from '../../core/state.js'
 import type { StateSnapshot } from '../../core/state.js'
 import { commitFoundation } from '../../core/commit.js'
 import { loadChapterDocument } from '../../core/chapter-document.js'
 import { loadChapterReview } from '../../core/chapter-review.js'
+import { STORY_ROOT } from '../../core/story-paths.js'
 import { readWork } from '../../core/work.js'
 import { withWorkAction } from '../../core/work-mutation.js'
+import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
+import { settleDeltaParameters, settlementDeltaOf } from './settle-delta.js'
+import type { SettleArgs } from './settle-delta.js'
 
 export const SETTLE_NAME = 'story_settle_chapter'
-
-const hookRecord: JsonSchema = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    hookId: { type: 'string' },
-    startChapter: { type: 'integer' },
-    type: { type: 'string' },
-    status: { type: 'string', enum: ['open', 'progressing', 'deferred', 'resolved', 'superseded'] },
-    lastAdvancedChapter: { type: 'integer' },
-    expectedPayoff: { type: 'string' },
-    notes: { type: 'string' },
-    dependsOn: { type: 'array', items: { type: 'string' } },
-    paysOffInArc: { type: 'string' },
-  },
-  required: ['hookId', 'startChapter', 'type', 'status', 'lastAdvancedChapter', 'expectedPayoff', 'notes'],
-}
-
-const parameters: JsonSchema = {
-  type: 'object',
-  additionalProperties: false,
-  properties: {
-    chapter: { type: 'integer', description: '要结算的章号；必须已有正文与审稿记录' },
-    postSettlement: { type: 'string', description: '本章状态变化的简要说明' },
-    factOps: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        upsert: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              subject: { type: 'string' },
-              predicate: { type: 'string' },
-              object: { type: 'string' },
-            },
-            required: ['subject', 'predicate', 'object'],
-          },
-        },
-        expire: {
-          type: 'array',
-          items: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              subject: { type: 'string' },
-              predicate: { type: 'string' },
-              object: { type: 'string' },
-            },
-            required: ['subject', 'predicate'],
-          },
-        },
-      },
-      required: ['upsert', 'expire'],
-    },
-    hookOps: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        upsert: { type: 'array', items: hookRecord },
-        mention: { type: 'array', items: { type: 'string' } },
-        resolve: { type: 'array', items: { type: 'string' } },
-        defer: { type: 'array', items: { type: 'string' } },
-      },
-      required: ['upsert', 'mention', 'resolve', 'defer'],
-    },
-    newHookCandidates: {
-      type: 'array',
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        properties: {
-          type: { type: 'string' },
-          expectedPayoff: { type: 'string' },
-          notes: { type: 'string' },
-        },
-        required: ['type', 'expectedPayoff', 'notes'],
-      },
-    },
-    chapterSummary: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        title: { type: 'string' },
-        characters: { type: 'string' },
-        events: { type: 'string' },
-        stateChanges: { type: 'string' },
-        hookActivity: { type: 'string' },
-        mood: { type: 'string' },
-        chapterType: { type: 'string' },
-      },
-      required: ['title', 'characters', 'events', 'stateChanges', 'hookActivity', 'mood', 'chapterType'],
-    },
-  },
-  required: ['chapter', 'postSettlement', 'factOps', 'hookOps', 'newHookCandidates', 'chapterSummary'],
-}
 
 const output: JsonSchema = {
   type: 'object',
@@ -126,15 +34,6 @@ const output: JsonSchema = {
   required: ['chapter', 'facts', 'hooks', 'summaryTitle', 'postSettlement'],
 }
 
-interface SettleArgs {
-  chapter: number
-  postSettlement: string
-  factOps: { upsert: FactInput[], expire: FactSelector[] }
-  hookOps: { upsert: HookRecord[], mention: string[], resolve: string[], defer: string[] }
-  newHookCandidates: HookCandidateInput[]
-  chapterSummary: SettlementDelta['chapterSummary']
-}
-
 interface SettleOutput {
   chapter: number
   facts: number
@@ -146,8 +45,8 @@ interface SettleOutput {
 export function installSettleTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: SETTLE_NAME,
-    description: 'Settle one reviewed chapter: apply fact and hook deltas plus the chapter summary to runtime state, advance manifest.lastAppliedChapter, and write the JSON state and Markdown projections in one commit. Re-settling the same chapter applies the delta incrementally.',
-    parameters,
+    description: 'Settle the next reviewed chapter: apply fact and hook deltas plus the chapter summary to runtime state, advance manifest.lastAppliedChapter, and write the JSON state and Markdown projections in one commit. Only advances forward; to re-settle an already settled chapter use story_resettle_chapter, which rebuilds from the previous chapter snapshot.',
+    parameters: settleDeltaParameters,
     output: {
       schema: output,
       render: (_args: unknown, value: SettleOutput) => [{
@@ -158,20 +57,10 @@ export function installSettleTool(ctx: PluginContext): Disposer {
     async execute(args: SettleArgs, exec: ExecuteContext): Promise<SettleOutput> {
       if (!exec?.agent) throw new Error('story_settle_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
-      const delta: SettlementDelta = {
-        chapter: args.chapter,
-        postSettlement: args.postSettlement,
-        factOps: args.factOps,
-        hookOps: args.hookOps,
-        newHookCandidates: args.newHookCandidates,
-        chapterSummary: args.chapterSummary,
-      }
+      const delta = settlementDeltaOf(args)
       const next: StateSnapshot = await withWorkAction(root, async () => {
         if (await loadChapterDocument(root, args.chapter) === null) {
           throw new Error(`第 ${args.chapter} 章还没有正文，先写再结算`)
-        }
-        if (await loadChapterReview(root, args.chapter) === null) {
-          throw new Error(`第 ${args.chapter} 章还没有审稿记录，先审再结算`)
         }
         const work = await readWork(root)
         const read = await inspectState(root, [], work?.language ?? 'zh')
@@ -182,7 +71,20 @@ export function installSettleTool(ctx: PluginContext): Disposer {
           throw new Error(`状态文件损坏，先修复再结算：${read.invalid.join('、')}`)
         }
         const snapshot = read.snapshot
-        const settled = applySettlement(snapshot, delta, { allowReapply: args.chapter === snapshot.manifest.lastAppliedChapter }).snapshot
+        const last = snapshot.manifest.lastAppliedChapter
+        if (args.chapter === last) {
+          throw new Error(`第 ${args.chapter} 章已结算；重算请用 story_resettle_chapter（以第 ${args.chapter - 1} 章快照为基线）`)
+        }
+        if (args.chapter < last) {
+          throw new Error(`第 ${args.chapter} 章早于已结算的第 ${last} 章；不支持更早章节重算`)
+        }
+        if (existsSync(join(root, STORY_ROOT, 'snapshots', String(args.chapter)))) {
+          throw new Error(`第 ${args.chapter} 章已有状态快照（重算或定稿写过）；重开回退后的重算请用 story_resettle_chapter`)
+        }
+        if (await loadChapterReview(root, args.chapter) === null) {
+          throw new Error(`第 ${args.chapter} 章还没有审稿记录，先审再结算`)
+        }
+        const settled = applySettlement(snapshot, delta).snapshot
         validateChapterSummaries(settled.chapterSummaries)
         await commitFoundation(root, {
           writes: [...stateJsonWrites(settled), ...stateProjectionWrites(settled)],

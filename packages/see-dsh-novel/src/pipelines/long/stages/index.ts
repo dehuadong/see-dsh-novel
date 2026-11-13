@@ -40,11 +40,23 @@ export interface StageFacts {
   stage: Stage
   title: string
   currentChapter: number
+  /** 章节索引里已有章；状态损坏、currentChapter 回落 0 时仍可据此注入。 */
+  hasChapters: boolean
+}
+
+/** 章节索引里是否已有章（索引缺失、坏掉或为空都算没有）。 */
+function hasIndexedChapter(root: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(readFileSync(join(root, 'source/chapters/index.json'), 'utf8'))
+    return Array.isArray(parsed) && parsed.length > 0
+  } catch {
+    return false
+  }
 }
 
 /** 同步判定阶段：`systemPrompt.context` 的文本提供函数是同步的。 */
 export function detectStage(root: string): StageFacts {
-  if (!existsSync(join(root, 'work.json'))) return { stage: 'proposal', title: '', currentChapter: 0 }
+  if (!existsSync(join(root, 'work.json'))) return { stage: 'proposal', title: '', currentChapter: 0, hasChapters: false }
   let title = ''
   try {
     title = (JSON.parse(readFileSync(join(root, 'work.json'), 'utf8')) as { title?: string }).title ?? ''
@@ -57,24 +69,25 @@ export function detectStage(root: string): StageFacts {
   } catch {
     currentChapter = 0
   }
+  const hasChapters = hasIndexedChapter(root)
   if (!FOUNDATION_FILES.every((file) => existsSync(join(root, file)))) {
-    return { stage: 'foundation', title, currentChapter }
+    return { stage: 'foundation', title, currentChapter, hasChapters }
   }
   const nextChapter = currentChapter + 1
   const review = chapterReviewPath(nextChapter)
-  if (existsSync(join(root, review))) return { stage: 'chapter-done', title, currentChapter }
-  if (!workflowStartedSync(root, nextChapter)) return { stage: 'foundation-ready', title, currentChapter }
+  if (existsSync(join(root, review))) return { stage: 'chapter-done', title, currentChapter, hasChapters }
+  if (!workflowStartedSync(root, nextChapter)) return { stage: 'foundation-ready', title, currentChapter, hasChapters }
   const nextPlan = chapterPlanPath(nextChapter)
-  if (!existsSync(join(root, nextPlan))) return { stage: 'plan', title, currentChapter }
+  if (!existsSync(join(root, nextPlan))) return { stage: 'plan', title, currentChapter, hasChapters }
   const prefix = `${String(nextChapter).padStart(4, '0')}_`
   const chaptersDir = join(root, 'source/chapters')
   const hasChapter = existsSync(chaptersDir) && readdirSync(chaptersDir).some((file) => file.startsWith(prefix) && file.endsWith('.md'))
-  if (!hasChapter) return { stage: 'write', title, currentChapter }
-  return { stage: 'review', title, currentChapter }
+  if (!hasChapter) return { stage: 'write', title, currentChapter, hasChapters }
+  return { stage: 'review', title, currentChapter, hasChapters }
 }
 
 /** 阶段协议：只写做什么、按什么顺序调什么、产出什么。 */
-export function renderStageProtocol(facts: StageFacts): string {
+function renderStageBase(facts: StageFacts): string {
   const next = facts.currentChapter + 1
   const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', 'foundation-ready': '等待开工', plan: '章前规划', write: '正文写作', review: '章后审阅', 'chapter-done': '本章完成' }[facts.stage]}`
   const common = '本阶段的创作方法已随上下文提供；不需要再调用技能工具加载。'
@@ -152,7 +165,7 @@ export function renderStageProtocol(facts: StageFacts): string {
         header,
         `目标：第 ${next} 章审稿已落盘，本章 workflow 结束；不要自动结算或开下一章。`,
         '1. 如果作者只是问候/讨论，正常回答，不改作品。',
-        '2. 作者要求结算本章时：派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要，再调 `story_settle_chapter`；结算会推进状态章号，写完即停。',
+        '2. 作者要求结算本章时：派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要，再调 `story_settle_chapter`；结算会推进状态章号，写完即停。已结算章的重算用 `story_resettle_chapter`（见重算条目）。',
         '3. 作者要修订本章时：先问清要改哪里与模式（polish／rewrite／rework／anti-detect／spot-fix）。spot-fix 按下方编号正文选范围，派 reviser 子代理产出每段替换文本（空串删段，非空按换行分行），调 `story_revise_chapter`（ranges／replacements 与整段 content）；其它模式交整段 content，可选用唯一 targetText。修订会作废旧审稿，必须重新审稿后才能再停。',
         '4. 作者要求定稿时：调 `story_finalize_chapter` 写快照、章节索引并把作品推进到 active；定稿后本章闭环。',
         '5. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档；恢复旧版用 `story_reopen_chapter` 带 versionId，任意章可用、只换正文并清运行时、不动状态；重开回退不带 versionId，仅限最后已结算章；重开后回到章前规划。',
@@ -162,6 +175,24 @@ export function renderStageProtocol(facts: StageFacts): string {
         common,
       ].join('\n')
   }
+}
+
+/** 重算入口：只在已开过章的工作区注入。 */
+const CHAPTER_REPAIR = [
+  '## 重新结算（重算）',
+  '作者在修订、恢复正文或重开回退后要求「重新结算／同步状态」时：',
+  '1. 先按需复审（修订会写本章 workflow start）。',
+  '2. 派 settler 前把第 N-1 章基线原文（`source/story/snapshots/<N-1>/state/` 的四份 JSON 与三份快照投影）贴进 settler 提示并声明为唯一基线；`source/story/state/` 的当前投影只作参考。',
+  '3. 调 `story_resettle_chapter`（delta 形状同 `story_settle_chapter`）；只支持最新章；重算会刷新第 N 章快照，不改正文与章节索引，也不消费 workflow-start。',
+  '4. 已结算章不要调 `story_settle_chapter`。',
+].join('\n')
+
+/** 阶段协议：基础协议 + 已开过章时的重算入口。 */
+export function renderStageProtocol(facts: StageFacts): string {
+  const base = renderStageBase(facts)
+  const hasChapterWork = facts.stage !== 'proposal' && facts.stage !== 'foundation'
+    && (facts.currentChapter >= 1 || facts.hasChapters)
+  return hasChapterWork ? `${base}\n${CHAPTER_REPAIR}` : base
 }
 
 /** 本阶段主动加载的创作技能；空数组表示不注入。 */

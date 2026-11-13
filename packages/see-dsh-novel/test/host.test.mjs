@@ -119,6 +119,7 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
     'story_propose',
     'story_recover',
     'story_reopen_chapter',
+    'story_resettle_chapter',
     'story_review_chapter',
     'story_revise_chapter',
     'story_search',

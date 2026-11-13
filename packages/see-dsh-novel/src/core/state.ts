@@ -4,7 +4,7 @@
  * 只在文件不存在时写入：后续能力会往这些文件里推进章节与事实，重跑 foundation
  * 不得覆盖它们。投影由生效快照渲染，因此「删掉投影、JSON 还在」可以补回。
  */
-import { readFile } from 'node:fs/promises'
+import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import type { FileWrite } from './commit.js'
@@ -269,6 +269,82 @@ export async function inspectState(
     missing,
     invalid,
   }
+}
+
+/**
+ * 按章严格读快照：四份 JSON 齐全合法、跨文件不变量成立才返回。
+ *
+ * 与 `inspectState` 不同，这里不对当前状态回落，也不把问题降级成 missing/invalid。
+ * @param root 作品根
+ * @param chapter 快照章号
+ * @returns 该章快照
+ */
+export async function readStateSnapshot(root: string, chapter: number): Promise<StateSnapshot> {
+  const at = (name: string): string => `${STORY_ROOT}/snapshots/${chapter}/state/${name}`
+  const [manifest, currentState, hooksState, chapterSummaries] = await Promise.all([
+    readJsonStatus<StateManifest>(join(root, at('manifest.json'))),
+    readJsonStatus<CurrentStateState>(join(root, at('current_state.json'))),
+    readJsonStatus<HooksState>(join(root, at('hooks.json'))),
+    readJsonStatus<ChapterSummariesState>(join(root, at('chapter_summaries.json'))),
+  ])
+  const manifestValue = shapeOk(manifest.status, manifest.value, isManifest) ? manifest.value : undefined
+  const currentValue = shapeOk(currentState.status, currentState.value, isCurrentState) ? currentState.value : undefined
+  const hooksValue = shapeOk(hooksState.status, hooksState.value, isHooksState) ? hooksState.value : undefined
+  const summariesValue = shapeOk(chapterSummaries.status, chapterSummaries.value, isChapterSummaries) ? chapterSummaries.value : undefined
+  const problems: string[] = []
+  const entries: ReadonlyArray<[string, 'ok' | 'missing' | 'invalid', unknown]> = [
+    [at('manifest.json'), manifest.status, manifestValue],
+    [at('current_state.json'), currentState.status, currentValue],
+    [at('hooks.json'), hooksState.status, hooksValue],
+    [at('chapter_summaries.json'), chapterSummaries.status, summariesValue],
+  ]
+  for (const [path, status, value] of entries) {
+    if (status === 'missing') problems.push(`${path} 缺失`)
+    else if (status === 'invalid' || value === undefined) problems.push(`${path} 不合法`)
+  }
+  if (problems.length > 0) throw new Error(`第 ${chapter} 章快照不可用：${problems.join('；')}`)
+  const snapshot: StateSnapshot = {
+    manifest: manifestValue!,
+    currentState: currentValue!,
+    hooks: hooksValue!,
+    chapterSummaries: summariesValue!,
+  }
+  if (snapshot.currentState.chapter > snapshot.manifest.lastAppliedChapter) {
+    problems.push(
+      `${at('current_state.json')} 的 chapter ${snapshot.currentState.chapter} 大于 ${at('manifest.json')} 的 lastAppliedChapter ${snapshot.manifest.lastAppliedChapter}`,
+    )
+  }
+  const chapters = new Set<number>()
+  for (const row of snapshot.chapterSummaries.rows) {
+    if (chapters.has(row.chapter)) problems.push(`${at('chapter_summaries.json')} 的章节摘要重复：第 ${row.chapter} 章`)
+    chapters.add(row.chapter)
+  }
+  if (problems.length > 0) throw new Error(`第 ${chapter} 章快照不一致：${problems.join('；')}`)
+  return snapshot
+}
+
+/**
+ * 已有状态快照的最大章号；没有快照时为 0。
+ * @param root 作品根
+ * @returns 最大快照章号
+ */
+export async function latestSnapshotChapter(root: string): Promise<number> {
+  let entries: string[]
+  try {
+    entries = await readdir(join(root, STORY_ROOT, 'snapshots'))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return 0
+    throw error
+  }
+  let latest = 0
+  for (const name of entries) {
+    if (!/^\d+$/u.test(name)) continue
+    const chapter = Number(name)
+    if (!Number.isSafeInteger(chapter) || chapter <= latest) continue
+    if (await missing(join(root, STORY_ROOT, 'snapshots', name, 'state', 'manifest.json'))) continue
+    latest = chapter
+  }
+  return latest
 }
 
 /** 生成「尚不存在」的状态写入项（JSON 与投影都补），交给同一次 commit 原子落盘。 */

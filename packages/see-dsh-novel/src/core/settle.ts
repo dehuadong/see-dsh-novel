@@ -2,7 +2,8 @@
  * 章节结算：应用 facts／hooks／摘要增量并校验整份运行时状态。
  *
  * 规则对齐源工程的 state reducer：章节前进、hooks 合并与终态保护、facts 的
- * 失效与同 key 替换、摘要按章号排序；重结算只做同章增量（章节基线快照是 D33）。
+ * 失效与同 key 替换、摘要按章号排序；本函数只在当前快照上推进，已结算章的
+ * 重来从第 N-1 章快照重新应用。
  */
 import type { HookRecord, HooksState } from './hooks.js'
 import { validateHooks } from './hooks.js'
@@ -224,7 +225,7 @@ function applyFactOps(state: CurrentStateState, delta: SettlementDelta): Current
  * 应用一次结算增量。
  * @param snapshot 当前快照
  * @param delta 结算增量
- * @param options `allowReapply` 允许同章增量重结算（v1 没有章节基线快照，D33）
+ * @param options `allowReapply` 允许同章增量（生产工具不再使用，测试保留）
  * @returns 新快照与 `postSettlement`
  */
 export function applySettlement(
@@ -238,7 +239,7 @@ export function applySettlement(
   const reapply = delta.chapter === last
   if (reapply && options.allowReapply !== true) throw new Error(`第 ${delta.chapter} 章已经结算过；重结算需要显式允许`)
   if (!reapply && delta.chapter < last) {
-    throw new Error(`第 ${delta.chapter} 章早于已结算的第 ${last} 章；更早章节重结算需要章节快照（D33）`)
+    throw new Error(`第 ${delta.chapter} 章早于已结算的第 ${last} 章；不支持更早章节重算`)
   }
 
   const hooks = applyHookOps(snapshot.hooks, delta)
