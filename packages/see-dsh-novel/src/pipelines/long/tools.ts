@@ -20,8 +20,9 @@ import {
 } from './contract.js'
 import type { BookRulesData, IndexedRole, PendingHook, RoleTier } from './contract.js'
 import { withWorkAction } from '../../core/work-mutation.js'
-import { commitFoundation } from '../../core/commit.js'
+import { commitFoundation, pathExists } from '../../core/commit.js'
 import type { CommitResult } from '../../core/commit.js'
+import { CHAPTER_INDEX_PATH, hasChapterFiles } from '../../core/chapter-index.js'
 import { controlDocumentWrites } from '../../core/control-docs.js'
 import { installContextTools } from './context-tool.js'
 import { installPlanTool } from './plan-tool.js'
@@ -207,6 +208,12 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
         // 建书时的初始快照（章 0）：删除第一章要用它回滚；状态损坏时不写。
         const seeded = await inspectState(root, args.pendingHooks, language)
         const initialSnapshot = seeded.invalid.length === 0 ? snapshotWrites(seeded.snapshot, 0) : []
+        // 建书写初始索引：与初始快照同条件，且只在该章节文件与索引都还不存在时写。
+        const initialIndex = initialSnapshot.length > 0
+          && !(await hasChapterFiles(root))
+          && !(await pathExists(join(root, CHAPTER_INDEX_PATH)))
+          ? [{ relativePath: CHAPTER_INDEX_PATH, content: '[]' }]
+          : []
         // 第一次写真值：方向文档补默认模板。
         const controlWrites = await controlDocumentWrites(root, language)
         return commitFoundation(root, {
@@ -214,6 +221,7 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
             ...bookRulesWrites(`${String(args.bookRules).trim()}\n`, rules),
             ...stateWrites,
             ...initialSnapshot,
+            ...initialIndex,
             ...controlWrites,
           ],
         })

@@ -141,6 +141,18 @@ function validateChapterEntry(value: unknown, index: number): ChapterIndexEntry 
   return value as unknown as ChapterIndexEntry
 }
 
+/** `chapters/` 下是否有任意位数前缀的章节正文文件；口径同严格读取，与只认 4 位的 `listChapterFiles` 不同。 */
+export async function hasChapterFiles(root: string): Promise<boolean> {
+  let entries: string[]
+  try {
+    entries = await readdir(join(root, 'source/chapters'))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false
+    throw error
+  }
+  return entries.some((entry) => SOURCE_CHAPTER_FILE.test(entry))
+}
+
 /**
  * 严格读取章节索引。
  *
@@ -152,14 +164,7 @@ export async function readChapterIndexStrict(root: string): Promise<ChapterIndex
     raw = await readFile(join(root, CHAPTER_INDEX_PATH), 'utf8')
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    let entries: string[]
-    try {
-      entries = await readdir(join(root, 'source/chapters'))
-    } catch (readError) {
-      if ((readError as NodeJS.ErrnoException).code === 'ENOENT') return []
-      throw readError
-    }
-    if (entries.some((entry) => SOURCE_CHAPTER_FILE.test(entry))) {
+    if (await hasChapterFiles(root)) {
       throw new Error(`${CHAPTER_INDEX_PATH} 缺失，但章节文件仍存在；先修复索引再继续；未改动任何文件`)
     }
     return []

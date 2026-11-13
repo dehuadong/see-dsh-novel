@@ -1,16 +1,17 @@
 {
   "capability": "foundation.architect",
-  "date": "2026-11-06",
-  "sessionId": "session-eca3b568-4aa7-45a9-ba0b-4f6f2a0d609b",
+  "date": "2026-11-13",
+  "sessionId": "process:foundation.architect-index",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "266 passed — 四段 tool schema、init/revise 写盘与删除、角色卡命名安全、阶段上下文（foundation 的元信息、外部指令、四步依赖、英文版）"
+    "summary": "418 passed — 四段 tool schema、init/revise 写盘与删除、角色卡命名安全、初始章节索引（新工作区写 `[]`、重跑不覆盖、有章节文件跳过、状态损坏跳过、同批回滚）、阶段上下文（foundation 的元信息、外部指令、四步依赖、英文版）"
   },
   "receipts": [
     "架构契约（`.artifacts/work-proposal`，session `session-eca3b568-4aa7-45a9-ba0b-4f6f2a0d609b`）：未调用工具，首轮回答元信息「平台：番茄小说／题材：都市悬疑／目标章数：120／每章字数：2500／标题：夜行长街」，与 `work.json` 一致",
     "同一轮回答四步依赖：「outline 产出 storyFrame／volumeMap → details 入参带这两项 → cast_index 入参带 outline＋bookRules → cast_documents 按索引逐人写卡（150–250 字）→ story_gate 查看签核」，并指出有「外部指令」块，开头为「写《夜行长街》的基础设定与第一卷大纲，都市悬疑，中文，目标 120 章」",
-    "四段工具的真实调用（`.artifacts/work-demo`，session `session-974fa00e-310f-4224-adcf-e752e8b513f6`）：outline／details／cast_index／cast_documents 均成功，写入 outline 两份、book_rules.md/.json、六张角色卡与四个 state 文件；hooks 为 2 条 deferred",
+    "四段工具的真实调用（`.artifacts/work-demo`，session `session-974fa00e-310f-4224-adcf-e752e8b513f6`，2026-11-06）：outline／details／cast_index／cast_documents 均成功，写入 outline 两份、book_rules.md/.json、六张角色卡与四个 state 文件；hooks 为 2 条 deferred。该次会话早于初始索引，产物里没有 `chapters/index.json`。",
+    "初始章节索引（process-level，2026-11-13）：`story_foundation_details` 在初始快照同批写 `source/chapters/index.json`，内容 `[]`（无末尾换行）；一次 details 后文件存在，重跑不覆盖已有条目；`chapters/` 已有章节文件时跳过且 details 不失败；状态损坏跳过快照时索引也跳过；索引随同批提交失败回滚。",
     "无 brief 分支（`.artifacts/work-control`，session `session-dd0dd9c1-9b44-491a-880c-25dac12db2b8`）：元信息随该工作区 `metadata` 为空而为空，但四步协议与「无外部指令块」的分支成立"
   ]
 }

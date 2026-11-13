@@ -89,6 +89,9 @@ test('details writes book rules and seeds the four state files plus three projec
     assert.match(await read(root, 'source/story/pending_hooks.md'), /\| H1 \| 0 \| 悬案 \|/)
     assert.match(await read(root, 'source/story/current_state.md'), /^# 当前状态\n/)
     assert.match(await read(root, 'source/story/chapter_summaries.md'), /^# 章节摘要\n/)
+    // 字节为 []，无末尾换行。
+    assert.equal(await read(root, 'source/chapters/index.json'), '[]')
+    assert.ok((await readdir(join(root, 'source/chapters'))).includes('index.json'))
   } finally {
     dispose()
   }
@@ -122,10 +125,63 @@ test('a second details run does not overwrite existing state', async () => {
 
     const advanced = { hooks: [{ hookId: 'H1', startChapter: 0, type: '悬案', status: 'resolved', lastAdvancedChapter: 9, expectedPayoff: '首卷', notes: '' }] }
     await writeFile(join(root, 'source/story/state/hooks.json'), JSON.stringify(advanced), 'utf8')
+    const index = '[{"number":1,"title":"旧章","wordCount":10,"createdAt":"2026-11-10T00:00:00.000Z","updatedAt":"2026-11-10T00:00:00.000Z","observations":[],"provenance":"generated"}]'
+    await writeFile(join(root, 'source/chapters/index.json'), index, 'utf8')
 
     await details.execute({ ...args, pendingHooks: [{ hookId: 'H2', type: '新钩子', expectedPayoff: '二卷', notes: '' }] }, exec)
 
     assert.deepEqual(JSON.parse(await read(root, 'source/story/state/hooks.json')), advanced)
+    assert.equal(await read(root, 'source/chapters/index.json'), index)
+  } finally {
+    dispose()
+  }
+})
+
+test('details skips the initial index when chapter files already exist', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await mkdir(join(root, 'source/chapters'), { recursive: true })
+    await writeFile(join(root, 'source/chapters/0001_旧章.md'), '# 第1章 旧章\n\n旧。\n')
+    await tools.get('story_foundation_details').execute({
+      bookRules: '规则',
+      bookRulesData: { prohibitions: [], enableFullCastTracking: false, allowedDeviations: [] },
+      pendingHooks: [],
+    }, exec)
+    await assert.rejects(read(root, 'source/chapters/index.json'), { code: 'ENOENT' })
+  } finally {
+    dispose()
+  }
+})
+
+test('the initial index rolls back with the commit batch', async () => {
+  const { root, dispose } = await harness()
+  try {
+    await mkdir(join(root, 'source/chapters'), { recursive: true })
+    await writeFile(join(root, 'source/chapters/blocker'), 'x', 'utf8')
+    await assert.rejects(commitFoundation(root, {
+      writes: [
+        { relativePath: 'source/chapters/index.json', content: '[]' },
+        { relativePath: 'source/chapters/blocker/child.md', content: 'y' },
+      ],
+    }))
+    await assert.rejects(read(root, 'source/chapters/index.json'), { code: 'ENOENT' })
+  } finally {
+    dispose()
+  }
+})
+
+test('details skips the initial index when the state is corrupt', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await mkdir(join(root, 'source/story/state'), { recursive: true })
+    await writeFile(join(root, 'source/story/state/hooks.json'), '{ bad')
+    await tools.get('story_foundation_details').execute({
+      bookRules: '规则',
+      bookRulesData: { prohibitions: [], enableFullCastTracking: false, allowedDeviations: [] },
+      pendingHooks: [],
+    }, exec)
+    await assert.rejects(read(root, 'source/chapters/index.json'), { code: 'ENOENT' })
+    await assert.rejects(read(root, 'source/story/snapshots/0/current_state.md'), { code: 'ENOENT' })
   } finally {
     dispose()
   }

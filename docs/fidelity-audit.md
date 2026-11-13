@@ -187,7 +187,7 @@
 
 **可验证不变量**：四段字段（storyFrame／volumeMap；bookRules＋bookRulesData＋pendingHooks；cast index 至少一人；每卡一段文本）；architect 的 system prompt 含作品身份、外部指令、反馈与「不写正文」约束；基础设定缺任一段不算完成。
 
-**复刻现状**：四段 tool schema 与源一致（`contract.ts`）；阶段协议只列四段顺序，**没有移植 architect 的 system prompt**（作品身份、外部指令、反馈块）。
+**复刻现状**：四段 tool schema 与源一致（`contract.ts`）；阶段协议只列四段顺序，**没有移植 architect 的 system prompt**（作品身份、外部指令、反馈块）。`story_foundation_details` 在初始快照同批写 `source/chapters/index.json = []`，仅在无章节文件且索引不存在时写；有章节文件、索引已存在或状态损坏时跳过。
 
 **判定：机制等价（D6 已偿还）** — 架构契约（元信息、外部指令、提交要求）与四步依赖已由 `stages/architect.ts` 注入 `foundation` 阶段；「已激活的专业 Skill」在 DSH 落点是阶段主动注入的 `longform-writing`，已在 `docs/dsh-mapping.md`「方法注入」行覆盖。review feedback 与 import／fanfic 变体仍属后续能力。
 
