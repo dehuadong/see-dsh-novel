@@ -94,10 +94,13 @@ P7 短篇、P8 剧本、P9 雷达/预演不进入 v1 阶段合同；对应账本
 
 P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：源工程先 `init` 建项目、再 `book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代源工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
 
-两处已知的次序偏差：
+已知的次序偏差（按交付事实记录；不改写已验证的状态）：
 
-- `foundation.*` 与 `cast.single-authority` 在 P1 前置行之前就已交付并 `verified`。账本行序仍是推进顺序——`runtime.*` 组剩余行补齐后才进 P2；这条历史事实不改写已验证的状态。
-- 源工程在基础设定结束时就建初始快照，`artifact.identity` 属于早期能力；本项目把它排在 P6，意味着 P6 之前没有 revision 身份。v1 只有第 1 章、不做历史修订，因此可以接受；一旦要支持历史章节修订，`artifact.identity` 必须先于 P2 交付。
+- **P1 前置行晚于 `foundation.*` 与 `cast.single-authority`**：这两组在 P1 前置行之前就已交付并 `verified`。账本行序仍是推进顺序——`runtime.*` 组剩余行补齐后才进 P2；这条历史事实不改写已验证的状态。
+- **`artifact.identity`（P6）晚于 `chapter.revise`（P3）**：源在基础设定结束时就建初始快照；复刻的 `chapter.revise` 先交付了 r2／parent／superseded 修订历史，而不可变 `snapshotPath` 到 `artifact.identity`（`235d9c6`）才补上，期间旧 revision 覆盖后不可读，记 D42 并已注销。这与本段原先「v1 只有第 1 章、不做历史修订，因此可以接受」的前提冲突：修订能力已经交付，前提不成立。后续任何写 revision 的能力必须先有 `artifact.identity`。
+- **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work` 已 `verified`，但 P4／P5 的 D33／D34／D35／D37／D45（章节写读链）与 D36（reopen 索引观察）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 其余四行（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）与 D57 也未完成。在这批债偿还、或作者把其中某几项明确改挂到 P6 之后以前，P4／P5 出口不能标记完成。
+
+债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链 D37（写入路径）→ D33（基线重算）→ D34（自动校验与 reconciliation），D36／D45／D35 与索引观察相邻，宜同批；D38、D23／D54、D57 独立。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
 
 源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
 

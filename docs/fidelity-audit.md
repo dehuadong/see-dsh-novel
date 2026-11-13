@@ -467,7 +467,7 @@
 
 **复刻现状**：`core/artifact-store.ts` 用 `source/artifacts/manifest.json` 记录 chapter artifact 的 revision、`snapshotPath`、checksum、byteLength；`writeChapterDocument` 与 `reviseChapterDocument` 同一次提交写章节、manifest 与该 revision 快照；修订覆盖旧 current 前用 `previousContent` 回填旧快照；恢复旧版追加 revision；`readArtifactRevision` 按 `snapshotPath ?? path` 读取、`realpath` 限界并校验 checksum/byteLength；`reviewChapter` 用 current revision 写 `reviewedArtifact`。
 
-**判定：等价（D42 注销）** — 章节 revision 有不可变快照、旧 revision 在章节覆盖/删除后仍可读、回填与读取错误码与源对齐；manifest 独立于作品身份文件与快照布局差异登记在 `dsh-mapping.md`。
+**判定：等价（D42 注销）** — 章节 revision 有不可变快照、旧 revision 在章节覆盖/删除后仍可读、回填与读取错误码与源对齐；manifest 独立于作品身份文件与快照布局差异登记在 `dsh-mapping.md`。本行在 P6 才交付，晚于 P3 的 `chapter.revise`（D42 的成因）；次序偏差与阶段出口影响见 [`scope.md`](scope.md) 的「已知的次序偏差」。
 
 ### export.work
 
@@ -533,11 +533,11 @@
 | B | P1 创意、立项与基础设定 | 23 | 完成 |
 | C | P2 章前规划 | 4 | 完成 |
 | D | P3 正文生产 | 3 | 完成 |
-| E | P4 结算与定稿 | 3 | 完成 |
-| F | P5 章节运维与对账 | 3 | 完成 |
-| G | P6 产物与工作台 | 8 | 进行中（4/8） |
+| E | P4 结算与定稿 | 3 | 行 verified；出口待债（D33／D34／D35／D37／D45） |
+| F | P5 章节运维与对账 | 3 | 行 verified；出口待债（D34／D36） |
+| G | P6 产物与工作台 | 8 | 进行中（4/8）；另有 D57 |
 
-阶段合同与出口见 [`scope.md`](scope.md)；能力状态只由 `check-capabilities` 生成。
+阶段合同与出口见 [`scope.md`](scope.md)；能力状态只由 `check-capabilities` 生成。P4／P5 的债未偿还前出口不成立，详见 scope 的「已知的次序偏差」。
 
 ## v1 之外
 
