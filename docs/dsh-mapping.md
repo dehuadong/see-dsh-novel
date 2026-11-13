@@ -81,11 +81,18 @@
 - 原因：DSH 的修订正文由子代理整段返回，宿主拿不到内部替换字段；不声明范围就无法区分多段局部修订与范围外改动。
 - 验证：`test/chapter-revise.test.mjs` 的多段成功、范围外拒绝、范围非法与 `targetText` 任意 mode 用例；参数形状错误复用 `ARTIFACT_EDIT_RANGE_INVALID` 也由这些用例覆盖。
 
+### chapter.publish：草稿先写、结算发布
+
+- 源工程做法：正文在内存中完成审稿与结算，saveChapter 一次写章节、状态、快照与索引。
+- 复刻做法：正文先写 `.drafts/chapter-NNNN.md`，不进入 `source/chapters/`；结算一次提交写章节/状态/快照/索引/artifact。
+- 原因：DSH 工具跨调用无内存，审稿子代理需要可读正文。
+- 验证：`test/chapter-settle.test.mjs` 断言写后 chapters 无文件、结算后同批出现；`test/write-tool.test.mjs` 覆盖草稿审稿/修订。
+
 ### chapter.revise：缺索引行时追加修订条目
 
 - 源工程做法：写章节时已有章节索引行，`reviseDraft` 直接 `index.map` 更新当前章与后代；缺行不会发生。
-- 复刻做法：索引在定稿才写；修订时若缺当前章行，`revisedChapterIndex` 追加一条 `edited` 行（`createdAt = updatedAt`），已有行保留 `createdAt`。
-- 原因：DSH 把章节索引写入放在 `chapter.finalize`，修订早于定稿；追加让修订后的索引反映当前正文。
+- 复刻做法：正文先写 `.drafts/chapter-NNNN.md`，结算发布时才进入 `source/chapters/`；索引在结算发布时写；修订时若缺当前章行，`revisedChapterIndex` 追加一条 `edited` 行（`createdAt = updatedAt`），已有行保留 `createdAt`。
+- 原因：DSH 的修订早于结算发布；追加让修订后的索引反映当前正文。
 - 验证：`test/chapter-revise.test.mjs` 的「无索引行时追加」与「已有行保留 createdAt」用例。
 
 
@@ -141,7 +148,7 @@
 ### artifact.identity：产物 manifest 独立于作品身份文件
 
 - 源工程做法：`WorkManifest.artifacts` 嵌在作品 manifest 里，`stageArtifactRevision` 同时写 revision 文件与 manifest；章节 revision 的 `path` 由调用方给，指向 `source/chapters/...`，不复制正文。
-- 复刻做法：`source/artifacts/manifest.json` 独立记录 `workId`、artifact、revision、current、checksum、byteLength 与 `snapshotPath`；`writeChapterDocument` 同一次提交写章节文件、manifest 与该 revision 快照；章节 revision 的 `path` 仍指向章节文件，`snapshotPath` 指向 `source/artifacts/<artifactId>/revisions/<rid>.md`。
+- 复刻做法：`source/artifacts/manifest.json` 独立记录 `workId`、artifact、revision、current、checksum、byteLength 与 `snapshotPath`；结算发布同一次提交写章节文件、manifest 与该 revision 快照；章节 revision 的 `path` 仍指向章节文件，`snapshotPath` 指向 `source/artifacts/<artifactId>/revisions/<rid>.md`。
 - 原因：复刻的 `work.json` 是作品身份文件，产物索引可重建；把 artifacts 混进身份会耦合身份校验与产物状态。DSH 单工作区一作品，跨作品隔离由工作区边界保证。
 - 验证：`test/artifact-store.test.mjs` 覆盖 stage/promote/current、checksum、parent、ID/路径、快照回填；`artifacts/real-runs/artifact.identity.json` 记录 r1/r2 的 `snapshotPath` 与 `reviewedArtifact`。
 

@@ -5,6 +5,7 @@
  * 供 DSH 的阶段判定回到本章（重开回退是机制等价）。
  */
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
@@ -43,13 +44,14 @@ async function chapterRuntimePaths(root: string, chapter: number): Promise<strin
   try {
     names = await readdir(join(root, RUNTIME_DIR))
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    throw error
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+    names = []
   }
   return names
     .filter((name) => name.startsWith(prefix) && name !== keep)
     .sort()
     .map((name) => `${RUNTIME_DIR}/${name}`)
+    .concat(existsSync(join(root, '.drafts', `chapter-${padded}.md`)) ? [`.drafts/chapter-${padded}.md`] : [])
 }
 
 /**

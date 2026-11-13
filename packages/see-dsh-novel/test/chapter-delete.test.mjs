@@ -7,12 +7,11 @@ import { join } from 'node:path'
 import { deleteLatestChapter } from '../src/core/delete-chapter.ts'
 import { readChapterIndexStrict } from '../src/core/chapter-index.ts'
 import { detectStage } from '../src/pipelines/long/stages/index.ts'
-import { writeChapterDocument } from '../src/core/chapter-document.ts'
+import { writeChapterDraft } from '../src/core/chapter-draft.ts'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
 import { chapterPlanPath, saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { defaultStateSnapshot, snapshotWrites, stateJsonWrites, stateProjectionWrites } from '../src/core/state.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
-import { installFinalizeTool } from '../src/pipelines/long/finalize-tool.ts'
 import { installDeleteTool } from '../src/pipelines/long/delete-tool.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
 
@@ -66,7 +65,7 @@ async function workspace() {
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
   await mkdir(join(root, 'source/chapters'), { recursive: true })
   await writeFile(join(root, 'source/chapters/index.json'), '[]')
-  await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
+  await writeChapterDraft(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
     chapter: 1,
     summary: '初审',
@@ -80,7 +79,6 @@ async function workspace() {
     newHookCandidates: [],
     chapterSummary: SUMMARY,
   }, { agent: { session: 's' } })
-  await tool(root, installFinalizeTool).execute({ chapter: 1 }, { agent: { session: 's' } })
   return root
 }
 

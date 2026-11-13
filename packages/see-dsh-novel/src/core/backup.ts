@@ -200,6 +200,8 @@ export async function restoreBackup(
   if (await exists(backupSource)) {
     await cp(backupSource, join(root, 'source'), { recursive: true })
   }
+  // 未发布草稿不属于备份拥有项；恢复后清掉，避免旧备份状态与更新草稿混用。
+  await rm(join(root, '.drafts'), { recursive: true, force: true })
 
   return {
     restoredFrom: backupId,

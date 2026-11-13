@@ -32,7 +32,6 @@ import { installReviseTool } from '../pipelines/long/revise-tool.js'
 import { installSettleTool } from '../pipelines/long/settle-tool.js'
 import { installResettleTool } from '../pipelines/long/resettle-tool.js'
 import { installStateCheckTool } from '../pipelines/long/state-check-tool.js'
-import { installFinalizeTool } from '../pipelines/long/finalize-tool.js'
 import { installReopenTools } from '../pipelines/long/reopen-tool.js'
 import { installDeleteTool } from '../pipelines/long/delete-tool.js'
 import { installWriteCommand } from './write-command.js'
@@ -127,7 +126,6 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeSettle = installSettleTool(ctx)
   const disposeResettle = installResettleTool(ctx)
   const disposeStateCheck = installStateCheckTool(ctx)
-  const disposeFinalize = installFinalizeTool(ctx)
   const disposeReopen = installReopenTools(ctx)
   const disposeDelete = installDeleteTool(ctx)
   const disposeWrite = installWriteCommand(ctx)
@@ -156,7 +154,6 @@ export function apply(ctx: PluginContext): Disposer {
     disposeResettle()
     disposeSettle()
     disposeStateCheck()
-    disposeFinalize()
     disposeReopen()
     disposeDelete()
     disposeWrite()

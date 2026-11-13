@@ -6,9 +6,8 @@ import { join } from 'node:path'
 
 import { installDeleteCommand } from '../src/plugin/delete-command.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
-import { installFinalizeTool } from '../src/pipelines/long/finalize-tool.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
-import { writeChapterDocument } from '../src/core/chapter-document.ts'
+import { writeChapterDraft } from '../src/core/chapter-draft.ts'
 import { reviewChapter } from '../src/core/chapter-review.ts'
 import { defaultStateSnapshot, snapshotWrites, stateJsonWrites, stateProjectionWrites } from '../src/core/state.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
@@ -52,7 +51,7 @@ async function workspace() {
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
   await mkdir(join(root, 'source/chapters'), { recursive: true })
   await writeFile(join(root, 'source/chapters/index.json'), '[]')
-  await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
+  await writeChapterDraft(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
     chapter: 1,
     summary: '初审',
@@ -65,7 +64,6 @@ async function workspace() {
     workingDirectory: { ensure: async () => root },
   }
   installSettleTool(ctx)
-  installFinalizeTool(ctx)
   await tools.get('story_settle_chapter').execute({
     chapter: 1,
     postSettlement: '甲上山。',
@@ -74,7 +72,6 @@ async function workspace() {
     newHookCandidates: [],
     chapterSummary: SUMMARY,
   }, { agent: { session: 's' } })
-  await tools.get('story_finalize_chapter').execute({ chapter: 1 }, { agent: { session: 's' } })
   return root
 }
 

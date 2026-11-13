@@ -185,7 +185,6 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /story_revise_chapter/)
         assert.doesNotMatch(stageText, /story_summarize_chapter/)
         assert.match(stageText, /story_settle_chapter/)
-        assert.match(stageText, /story_finalize_chapter/)
         assert.match(stageText, /story_chapter_versions/)
         assert.match(stageText, /story_reopen_chapter/)
         assert.match(stageText, /story_state_check/)

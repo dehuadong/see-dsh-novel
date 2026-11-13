@@ -82,7 +82,8 @@ export function detectStage(root: string): StageFacts {
   const prefix = `${String(nextChapter).padStart(4, '0')}_`
   const chaptersDir = join(root, 'source/chapters')
   const hasChapter = existsSync(chaptersDir) && readdirSync(chaptersDir).some((file) => file.startsWith(prefix) && file.endsWith('.md'))
-  if (!hasChapter) return { stage: 'write', title, currentChapter, hasChapters }
+  const hasDraft = existsSync(join(root, '.drafts', `${String(nextChapter).padStart(4, '0')}.md`))
+  if (!hasChapter && !hasDraft) return { stage: 'write', title, currentChapter, hasChapters }
   return { stage: 'review', title, currentChapter, hasChapters }
 }
 
@@ -156,8 +157,8 @@ function renderStageBase(facts: StageFacts): string {
         '3. 调 `story_context_package`（purpose=writer，selection=上一步的 id 集合）。若返回 compressionTask：对每个 chunk 派 subagent 压缩，合并后超预算重压一次；把最终文本作为 compressedText 重调 package；package 与 trace 会落盘。',
         `4. 读 \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`、plan 与 context 作为章纲与上下文，派 writer 写正文。`,
         '5. 调 `story_write_chapter`（chapter、title、content）落盘；字数偏差只报告，不据此拒稿。',
-        '不覆盖已存在的章节首版；修订走后续能力。',
-        '正文落盘后即停，不自动审稿或进入下一章。',
+        '已发布章拒绝写草稿；草稿已有审稿记录时走 story_revise_chapter。',
+        '草稿写完后即停，不自动审稿或进入下一章。',
         common,
       ].join('\n')
     case 'chapter-done':
@@ -165,13 +166,12 @@ function renderStageBase(facts: StageFacts): string {
         header,
         `目标：第 ${next} 章审稿已落盘，本章 workflow 结束；不要自动结算或开下一章。`,
         '1. 如果作者只是问候/讨论，正常回答，不改作品。',
-        '2. 作者要求结算本章时：派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要，再调 `story_settle_chapter`；结算会推进状态章号，写完即停。已结算章的重算用 `story_resettle_chapter`（见重算条目）。',
+        '2. 作者要求结算本章时：派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要，再调 `story_settle_chapter`；结算即发布（章节、状态、快照与索引一次提交），写完即闭环。已结算章的重算用 `story_resettle_chapter`（见重算条目）。',
         '3. 作者要修订本章时：先问清要改哪里与模式（polish／rewrite／rework／anti-detect／spot-fix）。spot-fix 按下方编号正文选范围，派 reviser 子代理产出每段替换文本（空串删段，非空按换行分行），调 `story_revise_chapter`（ranges／replacements 与整段 content）；其它模式交整段 content，可选用唯一 targetText。修订会作废旧审稿，必须重新审稿后才能再停。',
-        '4. 作者要求定稿时：调 `story_finalize_chapter` 写快照、章节索引并把作品推进到 active；定稿后本章闭环。',
-        '5. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档；恢复旧版用 `story_reopen_chapter` 带 versionId，任意章可用、只换正文并清运行时、不动状态；重开回退不带 versionId，仅限最后已结算章；重开后回到章前规划。',
-        '6. 作者要删掉最新章时：调 `story_delete_chapter`；原文进 `chapters/.trash/`，状态回滚到上一章。',
-        '7. 作者要求核对状态时：派 state-check 子代理读本章正文、当前状态与投影、上一章快照与权威文档，提交 `reconciliationRequired` 与证据报告，再调 `story_state_check`；只有换一份真值投影（truth projection）能消解不一致时才把 `reconciliationRequired` 置 true，正文或权威之间的矛盾只作观察、不授权重结算；findings 只回作者，不自动重结算。',
-        '8. 下一章是后续能力/作者动作；不要自行开始。',
+        '4. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档；恢复旧版用 `story_reopen_chapter` 带 versionId，任意章可用、只换正文并清运行时、不动状态；重开回退不带 versionId，仅限最后已结算章；重开后回到章前规划。',
+        '5. 作者要删掉最新章时：调 `story_delete_chapter`；原文进 `chapters/.trash/`，状态回滚到上一章。',
+        '6. 作者要求核对状态时：派 state-check 子代理读本章正文、当前状态与投影、上一章快照与权威文档，提交 `reconciliationRequired` 与证据报告，再调 `story_state_check`；只有换一份真值投影（truth projection）能消解不一致时才把 `reconciliationRequired` 置 true，正文或权威之间的矛盾只作观察、不授权重结算；findings 只回作者，不自动重结算。',
+        '7. 下一章是后续能力/作者动作；不要自行开始。',
         common,
       ].join('\n')
   }

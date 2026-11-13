@@ -9,7 +9,7 @@ import { listChapterVersions, readChapterVersion } from '../src/core/chapter-ver
 import { readArtifactRevision } from '../src/core/artifact-store.ts'
 import { reopenChapter } from '../src/core/reopen.ts'
 import { detectStage } from '../src/pipelines/long/stages/index.ts'
-import { writeChapterDocument } from '../src/core/chapter-document.ts'
+import { writeChapterDraft } from '../src/core/chapter-draft.ts'
 import { reviewChapter } from '../src/core/chapter-review.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
@@ -48,7 +48,7 @@ async function workspace() {
     await writeFile(join(root, file), `${body}\n`)
   }
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
-  await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
+  await writeChapterDraft(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
     chapter: 1,
     summary: '初审',
@@ -191,7 +191,7 @@ test('restoring an earlier chapter works without rolling the state back', async 
   const root = await workspace()
   try {
     await settle(root)
-    await writeChapterDocument(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
+    await writeChapterDraft(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
     await saveChapterPlan(root, { chapter: 2, goal: '目标', body: '计划', threadRefs: [] })
     await reviewChapter(root, {
       chapter: 2,

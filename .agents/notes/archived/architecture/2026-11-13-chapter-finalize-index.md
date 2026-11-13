@@ -1,6 +1,7 @@
 # Agent Note: 定稿只更新本章索引行
 
 Status: implemented
+Archived: 2026-11-13
 
 ## Problem
 

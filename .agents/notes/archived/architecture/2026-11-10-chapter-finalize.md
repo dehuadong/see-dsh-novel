@@ -1,6 +1,7 @@
 # Agent Note: chapter.finalize —— 定稿：快照、章节索引与阶段推进
 
 Status: implemented
+Archived: 2026-11-13
 
 ## Problem
 

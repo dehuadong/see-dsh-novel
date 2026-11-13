@@ -86,17 +86,14 @@ export async function recoverWorkspace(
   const root = await ctx.workingDirectory.ensure(exec.agent)
   if (!root) throw new Error('无法解析当前工作区目录')
 
-  const scan = async () => withCommitQueue(root, async () => {
-    const scanned: RecoveryScan = await scanWorkspace(root)
-    let repaired: string[] = []
-    let rescanned = scanned
-    if (args.apply === true) {
-      repaired = await repairWorkspace(root, scanned.findings)
-      rescanned = await scanWorkspace(root)
-    }
-    return { before: scanned, applied: repaired, after: rescanned }
-  })
-  const { before, applied, after } = args.apply === true ? await withWorkAction(root, scan) : await scan()
+  const scanned: RecoveryScan = await withCommitQueue(root, () => scanWorkspace(root))
+  let repaired: string[] = []
+  let after = scanned
+  if (args.apply === true) {
+    repaired = await withWorkAction(root, () => repairWorkspace(root, scanned.findings))
+    after = await withCommitQueue(root, () => scanWorkspace(root))
+  }
+  const before = scanned
 
   const decision = latestDecision(exec.agent.session.snapshotEvents(), DECISION_SOURCES)
   const approvedDigest = decision?.kind === 'approve' ? decision.digest : undefined
@@ -104,7 +101,7 @@ export async function recoverWorkspace(
     root: after.root,
     // 报告修复前发现的问题：修完之后再看一遍会「什么都没发现」，丢掉了要讲的事。
     findings: before.findings,
-    applied,
+    applied: repaired,
     digestBefore: before.digest,
     digestAfter: after.digest,
     approvedDigest: approvedDigest ?? null,

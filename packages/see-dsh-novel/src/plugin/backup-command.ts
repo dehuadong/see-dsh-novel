@@ -45,6 +45,7 @@ export function installBackupCommand(ctx: PluginContext): Disposer {
           if (result.isolatedTransactions > 0) {
             lines.push(`已隔离不可回放的事务目录 ${result.isolatedTransactions} 个（.dead-txn-*）。`)
           }
+          lines.push('未发布草稿 .drafts/ 已丢弃，不可找回。')
           return { kind: 'success', text: lines.join('\n') }
         }
         return { kind: 'error', text: `未知子命令「${tokens[0] ?? ''}」；用法：/story-backup [create|list|restore <id>]` }

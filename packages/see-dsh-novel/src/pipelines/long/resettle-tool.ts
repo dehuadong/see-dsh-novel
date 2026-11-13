@@ -85,9 +85,6 @@ export function installResettleTool(ctx: PluginContext): Disposer {
       const root = await ctx.workingDirectory.ensure(exec.agent)
       const delta = settlementDeltaOf(args)
       const next: StateSnapshot = await withWorkAction(root, async () => {
-        if (await loadChapterDocument(root, args.chapter) === null) {
-          throw new Error(`第 ${args.chapter} 章还没有正文，无法重算`)
-        }
         const work = await readWork(root)
         const read = await inspectState(root, [], work?.language ?? 'zh')
         const readable = read.missing.length === 0 && read.invalid.length === 0
@@ -97,6 +94,9 @@ export function installResettleTool(ctx: PluginContext): Disposer {
         if (args.chapter !== target) {
           const mode = readable ? '只支持最新章重算' : '状态不可读，只支持最新章重算'
           throw new Error(`${mode}：当前最新是第 ${target} 章；若状态已回退，先重算第 ${target} 章，否则先重开回退到目标章再试`)
+        }
+        if (await loadChapterDocument(root, args.chapter) === null) {
+          throw new Error(`第 ${args.chapter} 章还没有正文，无法重算`)
         }
         const baseline = await readStateSnapshot(root, args.chapter - 1)
         const settled = applySettlement(baseline, delta).snapshot

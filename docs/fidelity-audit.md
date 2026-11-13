@@ -405,7 +405,7 @@
 
 **复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 用 `ranges`＋`replacements` 逐段构造正文，空串删段、多行按换行分行；`targetText` 对任意模式生效，字符级校验片段外不变。修订同时更新 `chapters/index.json`：当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 清空，后代替换 `upstream-revision` 提醒（中英文按作品语言）；缺当前行时追加。回执带 `changedRegion`（scope 与前后 `startLine`／`lineCount`／`content`／`truncated`），`changed=false` 也刷新索引并返回空区域。
 
-**判定：机制等价（重审闸门）+ 保真债 D45** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。多段范围与 `targetText` 任意模式已交付（D53 注销）；索引更新已交付，但重审→结算→定稿后 `finalizeChapter` 会把该行写成 `generated`，`edited` 不跨定稿（D45 残余）；revision 快照已交付（D42 注销）。
+**判定：机制等价（重审闸门）+ 保真债 D45** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。多段范围与 `targetText` 任意模式已交付（D53 注销）；索引更新已交付；残余是已发布章重审后没有写回索引观察的入口（D45 收窄）；revision 快照已交付（D42 注销）。
 
 ## 批次 E：P4 结算与定稿
 
@@ -427,11 +427,7 @@
 
 ### chapter.finalize
 
-**源工程证据**：`writer.ts:364-450` 的 `saveChapter`（章节 + 三份投影 + 四份状态 JSON + `story/snapshots/<chapter>/` 七份文件 + `chapters/index.json`，一次原子提交；标题变化删除被取代文件）；`manager.ts:495-520` 的 `snapshotStateAt`；`runner.ts:1424-1434` 的 `markBookActiveIfNeeded`；`models/chapter.ts:5-16` 的 `ChapterMeta`。
-
-**复刻现状**：`story_finalize_chapter` 写 `source/story/snapshots/<chapter>/` 七个文件；严格读取 `source/chapters/index.json`，只替换本章条目、保留其余条目（已有条目保留 `createdAt`，`updatedAt` 取当前时间，新条目追加），标题经文档头（含 `：` 形式）并经文件名兜底、字数取自正文；把 `work.status` 从 `draft` 推进到 `active`。索引缺失/非法/条目不合 schema 时在写盘前拒绝。
-
-**判定：保真债 D35／D37** — 源在结算后一次 `saveChapter` 原子写章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引（D37，重新定稿可补齐）；章节索引缺 `lengthTelemetry`／`tokenUsage`（D35，superseded 清理当前不可观测）。索引的单行更新与严格校验已交付（D49 注销）。
+**已并入 `chapter.settle`**：结算即发布，一次提交写章节、三份投影、四份状态 JSON、`snapshots/<chapter>` 七份、`chapters/index.json` 与 active；不再有独立定稿工具。章节索引缺 `lengthTelemetry`／`tokenUsage` 仍归 D35。
 
 ## 批次 F：P5 章节运维与对账
 
@@ -533,7 +529,7 @@
 | B | P1 创意、立项与基础设定 | 23 | 完成 |
 | C | P2 章前规划 | 4 | 完成 |
 | D | P3 正文生产 | 3 | 完成 |
-| E | P4 结算与定稿 | 3 | 行 verified；出口待债（D34／D35／D37／D45） |
+| E | P4 结算与定稿 | 3 | 行 verified；出口待债（D34／D35／D45） |
 | F | P5 章节运维与对账 | 3 | 行 verified；出口待债（D34／D36／D58） |
 | G | P6 产物与工作台 | 8 | 进行中（4/8）；另有 D57 |
 

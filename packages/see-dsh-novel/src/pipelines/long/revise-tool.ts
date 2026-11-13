@@ -5,7 +5,9 @@
  * 其余模式交整段 `content`，都可选用唯一 `targetText` 绑定局部改动。
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
-import { chapterBodyForChapter, loadChapterDocument, reviseChapterDocument } from '../../core/chapter-document.js'
+import { chapterBodyForChapter, countChapterLength, loadChapterDocument, renderChapterDocument, reviseChapterDocument } from '../../core/chapter-document.js'
+import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
+import { commitFoundation } from '../../core/commit.js'
 import { chapterReviewPath, loadChapterReview } from '../../core/chapter-review.js'
 import { loadChapterPlan } from '../../core/chapter-plan.js'
 import { defaultChapterLength } from '../../core/length.js'
@@ -14,6 +16,7 @@ import {
   REVISE_MODES,
   applyRangeEdits,
   assertTargetText,
+  changedRegion,
   normalizeRangeEdits,
   rangeEditError,
   splitBodyLines,
@@ -153,7 +156,9 @@ export function installReviseTool(ctx: PluginContext): Disposer {
         const work = await readWork(root)
         if (work === null) throw new Error('工作区没有 work.json')
         const document = await loadChapterDocument(root, args.chapter)
-        if (document === null) throw new Error(`第 ${args.chapter} 章还没有正文，先写再修订`)
+        const draft = document === null ? await loadChapterDraft(root, args.chapter) : null
+        if (document === null && draft === null) throw new Error(`第 ${args.chapter} 章还没有正文，先写再修订`)
+        const base = document?.content ?? draft!.content
         if (await loadChapterPlan(root, args.chapter) === null) {
           throw new Error(`第 ${args.chapter} 章还没有章纲，先规划再修订`)
         }
@@ -172,8 +177,8 @@ export function installReviseTool(ctx: PluginContext): Disposer {
 
         let body: string
         if (hasRanges) {
-          const edits = normalizeRangeEdits(args.ranges, args.replacements, splitBodyLines(document.content).length)
-          const constructed = chapterBodyForChapter(applyRangeEdits(document.content, edits), args.chapter)
+          const edits = normalizeRangeEdits(args.ranges, args.replacements, splitBodyLines(base).length)
+          const constructed = chapterBodyForChapter(applyRangeEdits(base, edits), args.chapter)
           if (constructed === '') throw new Error('content 不能为空')
           const normalized = chapterBodyForChapter(args.content, args.chapter)
           if (normalized !== constructed) {
@@ -185,10 +190,10 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           if (body === '') throw new Error('content 不能为空')
         }
 
-        if (args.targetText !== undefined) assertTargetText(document.content, body, args.targetText)
+        if (args.targetText !== undefined) assertTargetText(base, body, args.targetText)
 
         const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
-        const changed = body !== document.content
+        const changed = body !== base
         const review = changed ? await loadChapterReview(root, args.chapter) : null
         // 复审要过 workflow start 闸门：已有 start 就沿用，没有就随本次修订重开一章。
         const start = changed ? await readWorkflowStart(root) : null
@@ -204,6 +209,24 @@ export function installReviseTool(ctx: PluginContext): Disposer {
               }, null, 2)}\n`,
             }]
           : []
+        if (document === null) {
+          const draftDocument = renderChapterDocument({ chapter: args.chapter, title: draft!.title, content: body, language: work.language })
+          await commitFoundation(root, {
+            writes: [{ relativePath: draftPath(args.chapter), content: draftDocument }, ...startWrite],
+            deletes: changed && review !== null ? [chapterReviewPath(args.chapter)] : [],
+          })
+          return {
+            chapter: args.chapter,
+            path: draftPath(args.chapter),
+            mode,
+            changed,
+            charCount: countChapterLength(body, work.language),
+            target,
+            revisionId: '',
+            reviewInvalidated: changed && review !== null,
+            changedRegion: changedRegion(base, body),
+          }
+        }
         const revised = await reviseChapterDocument(root, {
           chapter: args.chapter,
           content: body,

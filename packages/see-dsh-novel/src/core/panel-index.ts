@@ -248,7 +248,7 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
 
   const stages: PanelStage[] = STAGES.map(({ id, label }) => {
     if (id === 'settle') {
-      return { id, label, status: 'locked', summary: '结算/定稿尚未交付', action: null, secondary: [] }
+      return { id, label, status: 'locked', summary: '本章结算/发布尚未完成', action: null, secondary: [] }
     }
     let status: PanelStage['status'] = 'locked'
     if (id === 'proposal') status = work === null ? 'current' : 'done'

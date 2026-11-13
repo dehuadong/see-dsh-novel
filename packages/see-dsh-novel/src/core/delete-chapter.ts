@@ -186,7 +186,7 @@ export async function deleteLatestChapter(root: string, chapter: number): Promis
   try {
     await commitFoundation(root, {
       writes: [...restore.writes, { relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(kept, null, 2)}\n` }],
-      deletes: [...restore.deletes, ...await staleDeletes(root, target)],
+      deletes: [...restore.deletes, ...await staleDeletes(root, target), `.drafts/chapter-${String(chapter).padStart(4, '0')}.md`],
     })
   } catch (error) {
     const restoreErrors: unknown[] = []

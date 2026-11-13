@@ -308,17 +308,9 @@ capabilities:
     title: 结算增量、伏笔六动作合并与按第 N-1 章快照基线重算
     source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: tools.register + storage
-    implementation: packages/see-dsh-novel/src/pipelines/long/resettle-tool.ts
+    implementation: packages/see-dsh-novel/src/pipelines/long/settle-tool.ts
     consumer: packages/see-dsh-novel/test/chapter-settle.test.mjs
     realRun: artifacts/real-runs/chapter.settle.json
-    status: verified
-  - id: chapter.finalize
-    title: 定稿与阶段推进
-    source: inkos:packages/core/src/pipeline/runner.ts
-    dsh: tools.register
-    implementation: packages/see-dsh-novel/src/pipelines/long/finalize-tool.ts
-    consumer: packages/see-dsh-novel/test/chapter-finalize.test.mjs
-    realRun: artifacts/real-runs/chapter.finalize.json
     status: verified
   - id: chapter.reopen
     title: 重开与回滚

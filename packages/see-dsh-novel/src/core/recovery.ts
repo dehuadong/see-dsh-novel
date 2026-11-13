@@ -12,6 +12,10 @@ import { TXN_PREFIX, commitFile, JOURNAL_FILE, parseJournal, pathExists, pidAliv
 import type { CommitJournal } from './commit.js'
 import { PROJECTION_SOURCES, inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import { readWork } from './work.js'
+import { finalizeChapter } from './finalize.js'
+import { readChapterIndexStrict } from './chapter-index.js'
+import { currentChapterArtifact } from './artifact-store.js'
+import { loadChapterReview } from './chapter-review.js'
 
 /** 发现项的严重程度。 */
 export type Severity = 'info' | 'warning' | 'error'
@@ -31,6 +35,8 @@ export const FINDING_CODES = [
   'staging-cleanup',
   'staging-unknown',
   'tmp-residue',
+  'chapter-publish-incomplete',
+  'chapter-unsettled-published',
 ] as const
 
 /** 发现项的分类。 */
@@ -307,6 +313,43 @@ export async function scanWorkspace(root: string): Promise<RecoveryScan> {
   findings.push(...contentFindings(workExists, workValid, artifacts.files, stateRead.invalid))
   findings.push(...await stagingFindings(base))
   findings.push(...await tmpFindings(base, artifacts.files))
+  try {
+    const manifestRaw = await readFile(join(base, 'source/story/state/manifest.json'), 'utf8')
+    const lastApplied = (JSON.parse(manifestRaw) as { lastAppliedChapter: number }).lastAppliedChapter
+    const chapterFiles = await readdir(join(base, 'source/chapters')).catch(() => [] as string[])
+    for (const name of chapterFiles) {
+      if (!/^\d{4}_.*\.md$/u.test(name)) continue
+      const chapter = Number(name.slice(0, 4))
+      const snapshot = await pathExists(join(base, 'source/story/snapshots', String(chapter), 'state/manifest.json'))
+      let indexOk = true
+      let indexHas = false
+      try { indexHas = (await readChapterIndexStrict(base)).some((entry) => entry.number === chapter) } catch { indexOk = false; indexHas = false }
+      let artifactMissing = false
+      let artifactOk = true
+      try { artifactMissing = (await currentChapterArtifact(base, chapter)) === null } catch { artifactMissing = true; artifactOk = false }
+      const reviewIn = (await loadChapterReview(base, chapter)) !== null
+      const missing = !snapshot || !indexHas || artifactMissing
+      if (chapter > lastApplied && !snapshot) {
+        findings.push({
+          code: 'chapter-unsettled-published',
+          severity: 'warning',
+          path: `source/chapters/${name}`,
+          detail: `第 ${chapter} 章已发布但状态未推进；需人工移回 .drafts、删旧审稿、重新开始 workflow 后重审结算。`,
+          fixable: false,
+        })
+      } else if (chapter <= lastApplied && missing) {
+        findings.push({
+          code: 'chapter-publish-incomplete',
+          severity: 'warning',
+          path: `source/story/snapshots/${chapter}`,
+          detail: `第 ${chapter} 章缺快照/索引条目/artifact；最新章可由 apply 补齐，历史章需人工处理。`,
+          fixable: chapter === lastApplied && reviewIn && indexOk && artifactOk,
+        })
+      }
+    }
+  } catch {
+    // 状态或章节目录不可读时，其它 finding 已覆盖。
+  }
   return { root: base, findings, digest: artifacts.digest, files: artifacts.files.length }
 }
 
@@ -342,6 +385,12 @@ export async function repairWorkspace(root: string, findings: ReadonlyArray<Find
       }
       await commitFile(base, finding.path, content)
       applied.push(finding.path)
+      continue
+    }
+    if (finding.code === 'chapter-publish-incomplete') {
+      const match = /snapshots\/(\d+)/u.exec(finding.path)
+      if (match === null) continue
+      try { await finalizeChapter(base, Number(match[1])); applied.push(finding.path) } catch { /* 前置不满足时只报告，不中止整次 apply */ }
       continue
     }
     if (finding.code === 'staging-cleanup') {

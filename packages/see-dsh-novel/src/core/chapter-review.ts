@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import { commitFoundation } from './commit.js'
 import { loadChapterDocument } from './chapter-document.js'
+import { loadChapterDraft } from './chapter-draft.js'
 import { chapterBodyForChapter } from './chapter-document.js'
 import { loadChapterPlan } from './chapter-plan.js'
 import { currentChapterArtifact, readArtifactRevision } from './artifact-store.js'
@@ -42,13 +43,18 @@ function assertReviewedArtifact(value: ReviewedArtifact | undefined): ReviewedAr
   return value
 }
 
-/** 读取章纲与正文，作为审稿可引用的来源。 */
+/** 读取章纲与正文（已发布章优先、草稿兜底），作为审稿可引用的来源。 */
 export async function reviewSources(root: string, chapter: number): Promise<Map<string, string>> {
-  const [document, plan] = await Promise.all([loadChapterDocument(root, chapter), loadChapterPlan(root, chapter)])
-  if (document === null) throw new Error(`第 ${chapter} 章还没有正文，先写再审`)
+  const [document, draft, plan] = await Promise.all([
+    loadChapterDocument(root, chapter),
+    loadChapterDraft(root, chapter),
+    loadChapterPlan(root, chapter),
+  ])
+  const body = document?.content ?? draft?.content ?? null
+  if (body === null) throw new Error(`第 ${chapter} 章还没有正文，先写再审`)
   if (plan === null) throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
   return new Map([
-    [`chapter-${chapter}`, document.content],
+    [`chapter-${chapter}`, body],
     ['governed-context', plan.memo.body],
   ])
 }

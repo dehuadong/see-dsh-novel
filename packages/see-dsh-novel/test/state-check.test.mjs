@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { installStateCheckTool } from '../src/pipelines/long/state-check-tool.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
-import { writeChapterDocument } from '../src/core/chapter-document.ts'
+import { writeChapterDraft } from '../src/core/chapter-draft.ts'
 import { reviewChapter } from '../src/core/chapter-review.ts'
 import { defaultStateSnapshot, snapshotWrites, stateJsonWrites, stateProjectionWrites } from '../src/core/state.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
@@ -49,7 +49,7 @@ async function workspace() {
   await writeWrites(root, [...stateJsonWrites(seeded), ...stateProjectionWrites(seeded)])
   await writeWrites(root, snapshotWrites(seeded, 0))
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
-  await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
+  await writeChapterDraft(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
     chapter: 1,
     summary: '初审',

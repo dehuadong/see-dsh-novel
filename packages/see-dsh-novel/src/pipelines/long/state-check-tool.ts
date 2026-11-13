@@ -7,7 +7,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
-import { loadChapterDocument } from '../../core/chapter-document.js'
+import { readChapterText } from '../../core/chapter-draft.js'
 import { inspectState } from '../../core/state.js'
 import { STORY_ROOT } from '../../core/story-paths.js'
 
@@ -83,7 +83,7 @@ export function installStateCheckTool(ctx: PluginContext): Disposer {
       if (!Number.isInteger(args.chapter) || args.chapter < 1) throw new Error('chapter 必须是 ≥1 的整数')
       if (typeof args.reconciliationRequired !== 'boolean') throw new Error('reconciliationRequired 必须是布尔值')
       if (typeof args.reportMarkdown !== 'string') throw new Error('reportMarkdown 必须是字符串')
-      if (await loadChapterDocument(root, args.chapter) === null) {
+      if (await readChapterText(root, args.chapter) === null) {
         throw new Error(`第 ${args.chapter} 章还没有正文，无法对账`)
       }
       const read = await inspectState(root)

@@ -6,7 +6,7 @@
 
 只做一条纵向链路，端到端打通：
 
-创意提案 → 立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle / finalize → 导出与备份
+创意提案 → 立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle → 导出与备份
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
@@ -43,7 +43,7 @@
 - **横向不变量**：5（上下文同一）；1/2 的 workflow start 不越过 P1 确认。
 - **用户可见面**：规划阶段的候选/包/trace、章纲预览；面板显示规划产物。
 - **入口**：P1 出口。
-- **出口**：四行 `verified` + 不变量 5；D22／D24／D26 偿还或有阻塞证据。
+- **出口**：能力行 `verified` + 不变量 5；D22／D24／D26 偿还或有阻塞证据。
 - **非目标/债务**：D22、D24、D26 在本阶段处理；不写正文。
 
 ### P3 正文生产
@@ -53,18 +53,18 @@
 - **横向不变量**：1（workflow start 确认，不逐工具确认）、6（产物同一）、2（阶段停点）。
 - **用户可见面**：写作/审阅阶段、章节正文与审阅记录、artifact revision；面板只读展示。
 - **入口**：P2 出口。
-- **出口**：三行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致；真实回执；D32 的自动复审已由审稿闸门承接，自动重结算随 D34 未接。
+- **出口**：能力行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致；真实回执；D32 的自动复审已由审稿闸门承接，自动重结算随 D34 未接。
 - **非目标/债务**：不在每个 write 工具上加 approval；summary/settle 归 P4；修订后的自动重结算归 D34。
 
-### P4 结算与定稿
+### P4 结算与发布
 
 - **源模块**：summary、settler、finalize；见 `inkos/packages/core/src/pipeline/`。
-- **能力行**：`chapter.summary`、`chapter.settle`、`chapter.finalize`。
+- **能力行**：`chapter.summary`、`chapter.settle`（结算发布）。
 - **横向不变量**：2、6；真值回写与快照。
-- **用户可见面**：结算记录、伏笔状态、定稿/快照。
+- **用户可见面**：结算记录、伏笔状态、结算发布/快照。
 - **入口**：P3 出口。
-- **出口**：三行 `verified` + 不变量 2/6 + 回执。
-- **非目标/债务**：不做重开/移动/导出；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）；章节保存仍是分步提交（D37）。基线重算已随 `chapter.settle` 交付（D33 注销）。
+- **出口**：能力行 `verified` + 不变量 2/6 + 回执。
+- **非目标/债务**：不做重开/移动/导出；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）。基线重算已随 `chapter.settle` 交付（D33 注销）。
 
 ### P5 章节运维与对账
 
@@ -73,7 +73,7 @@
 - **横向不变量**：2、3、4、6；回滚与对账。
 - **用户可见面**：章节重开/删除、状态核对。
 - **入口**：P4 出口。
-- **出口**：三行 `verified` + 不变量 + 回执。
+- **出口**：能力行 `verified` + 不变量 + 回执。
 - **非目标/债务**：不导出；不提供移章/重排（源也没有）；重开不更新章节索引观察（D36）；结算后自动校验与重结算未接（D34）；重开回退不恢复 facts/hooks、恢复后重审不可达、已结算未定稿章重开后的重算间隙与多重重开后的中间章（D58）。
 
 ### P6 产物与工作台
@@ -132,12 +132,11 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
 | D34 | `chapter.settle` 状态校验 | 源在结算后用状态校验 agent 检查投影一致性，必要时带 `validationFeedback` 重结算（`state-validator.ts`／`chapter-truth-validation.ts`）；复刻交付了只读 `story_state_check` 入口，但结算不自动校验、也不会带反馈重结算；基线只 stat `manifest.json`，四份严格读取未接 | P5 `state.check` 把校验与 reconcile 接进 `chapter.settle` |
-| D35 | `chapter.finalize` 索引字段 | 源 `ChapterMeta` 可带 `lengthTelemetry`／`tokenUsage`，并在标题变化时删 superseded 章节文件；复刻索引只写基础字段，标题变化当前不可达 | P6 或后续 |
+| D35 | `chapter.settle`（发布） 索引字段 | 源 `ChapterMeta` 可带 `lengthTelemetry`／`tokenUsage`，并在标题变化时删 superseded 章节文件；复刻索引只写基础字段，标题变化当前不可达 | P6 或后续 |
 | D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | `chapter.reopen` 的恢复索引观察（后续工作项） |
-| D37 | 章节保存的非原子拆分 | 源 `saveChapter` 一次提交章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引，崩溃后要再定稿补齐 | 后续把快照/索引并入结算，或恢复检测后自动补定稿 |
 | D38 | `backup.restore` 导出不回滚 | 源恢复整目录会连 `exports/` 一起回滚；复刻导出在根上且不在作品拥有项内，恢复后导出仍是旧内容 | 恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出 |
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
-| D45 | 章节索引观察 | 修订落盘时已更新当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 与后代 `upstream-revision`；残余是重审→结算→定稿后 `chapter.finalize` 用审稿观察与 `generated` 覆盖该行，`edited` 不跨定稿 | `chapter.finalize` 保留 `edited` 与既有观察（后续工作项） |
+| D45 | 章节索引观察 | 修订落盘时已更新当前章 wordCount／updatedAt／provenance: edited／observations 与后代 upstream-revision；残余是已发布章重审后没有写回索引观察的入口（重审入口见 D58） | 后续工作项（与 D58 相邻） |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D57 | `export.work` EPUB 包结构 | 源 `epub-gen-memory` 产出 `style.css`、`toc.ncx`／`toc.xhtml`、完整 `content.opf` 元数据（identifier／creator／publisher／date／rights／description／guide）、章文件名 `N_slug.xhtml`、DEFLATE 压缩、`container.xml` 序列化与包级 `xml:lang`；复刻是最小 EPUB3（无 CSS、无 ncx、全 store） | 另立工作项逐模板复刻（是否引入打包库届时裁决） |
 | D58 | `chapter.reopen` 重开回退与恢复后复审 | 重开回退只退指针、不恢复 facts/hooks；恢复清 review 且不写 workflow start，已结算章恢复后无法重审；「已结算未定稿」章重开后重算不可达；多重重开留下中间章既不能 settle 也不能 resettle | `chapter.reopen`（状态恢复 + 重审入口）；恢复后的重算恢复步骤见审计 |

@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 /**
  * 章节定稿：写逐章快照与章节索引，并把作品推进到 active。
  *
@@ -7,6 +8,7 @@
 import { CHAPTER_INDEX_PATH, chapterTitleOf, readChapterIndexStrict } from './chapter-index.js'
 import type { ChapterIndexEntry } from './chapter-index.js'
 import { commitFoundation } from './commit.js'
+import { chapterArtifactWrite, currentChapterArtifact } from './artifact-store.js'
 import { countChapterLength, loadChapterDocument } from './chapter-document.js'
 import { loadChapterReview } from './chapter-review.js'
 import { inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
@@ -67,13 +69,16 @@ export async function finalizeChapter(root: string, chapter: number): Promise<Fi
     observations: [...review.observations],
     provenance: 'generated',
   }
-  const nextEntries = existingIndex >= 0
-    ? entries.map((current, index) => index === existingIndex ? entry : current)
-    : [...entries, entry]
+  // 只补缺失：已有本章条目时不覆盖。
+  const nextEntries = existingIndex >= 0 ? entries : [...entries, entry]
   const status: Work['status'] = work.status === 'draft' ? 'active' : work.status
   const nextWork: Work = { ...work, status, updatedAt: status === work.status ? work.updatedAt : now }
+  const artifact = (await currentChapterArtifact(root, chapter)) === null
+    ? await chapterArtifactWrite(root, { chapter, chapterPath: document.path, content: await (await import('node:fs/promises')).readFile(join(root, document.path), 'utf8') })
+    : null
   await commitFoundation(root, {
     writes: [
+      ...(artifact === null ? [] : [{ relativePath: artifact.relativePath, content: artifact.content }, artifact.snapshot]),
       ...snapshotWrites,
       { relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(nextEntries, null, 2)}\n` },
       { relativePath: 'work.json', content: `${JSON.stringify(nextWork, null, 2)}\n` },

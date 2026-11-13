@@ -5,13 +5,15 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { applySettlement } from '../src/core/settle.ts'
-import { writeChapterDocument } from '../src/core/chapter-document.ts'
+import { writeChapterDraft } from '../src/core/chapter-draft.ts'
+import { existsSync } from 'node:fs'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { inspectState, readStateSnapshot, snapshotWrites } from '../src/core/state.ts'
 import { reopenChapter } from '../src/core/reopen.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
 import { installResettleTool } from '../src/pipelines/long/resettle-tool.ts'
+import { repairWorkspace, scanWorkspace } from '../src/core/recovery.ts'
 import { STORY_CHAPTER_SUMMARIES_MD, STORY_CURRENT_STATE_MD, STORY_PENDING_HOOKS, WORK_FILE } from '../src/core/story-paths.ts'
 import { clearWorkflowStart, WORKFLOW_START_PATH, writeWorkflowStart } from '../src/core/workflow-start.ts'
 
@@ -54,7 +56,7 @@ async function workspace(options = {}) {
   await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: options.rows ?? [] }))
   await writeFile(join(root, STORY_CHAPTER_SUMMARIES_MD), '# 章节摘要\n')
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
-  await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
+  await writeChapterDraft(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
     chapter: 1,
     summary: '初审',
@@ -147,6 +149,17 @@ test('settle writes facts, hooks, summary, manifest and projections', async () =
     assert.match(projections, /甲/)
     assert.match(await readFile(join(root, STORY_CHAPTER_SUMMARIES_MD), 'utf8'), /雨夜/)
     assert.match(await readFile(join(root, STORY_PENDING_HOOKS), 'utf8'), /hook/)
+    // 结算即发布：章节、索引、快照、artifact、active 同批出现，草稿删除。
+    assert.match(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), /正文/)
+    await assert.rejects(readFile(join(root, '.drafts/chapter-0001.md'), 'utf8'), /ENOENT/u)
+    const index = await readJson(root, 'source/chapters/index.json')
+    assert.equal(index[0].number, 1)
+    assert.equal(index[0].provenance, 'generated')
+    assert.equal(index[0].observations.length, 1)
+    const review = await readJson(root, 'source/story/runtime/chapter-0001.review.json')
+    assert.equal(review.reviewedArtifact.artifactId, 'chapter-0001')
+    assert.equal((await readJson(root, 'work.json')).status, 'active')
+    assert.equal((await readJson(root, 'source/story/snapshots/1/state/manifest.json')).lastAppliedChapter, 1)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -208,7 +221,7 @@ test('resettling from the baseline drops the previous settlement and refreshes t
     // 快照随重算刷新，正文、索引与 workflow start 不动。
     assert.equal((await readJson(root, 'source/story/snapshots/1/state/manifest.json')).lastAppliedChapter, 1)
     assert.equal(await readFile(chapterPath, 'utf8'), chapterBefore)
-    await assert.rejects(readFile(join(root, 'source/chapters/index.json'), 'utf8'), /ENOENT/u)
+    assert.equal(JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))[0].number, 1)
     await assert.rejects(readFile(join(root, WORKFLOW_START_PATH), 'utf8'), /ENOENT/u)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -258,13 +271,14 @@ test('resettle rejects non-latest targets and missing baselines', async () => {
   const noBaseline = await workspace()
   try {
     await seedIndex(noBaseline, [1])
+    await tool(noBaseline).execute(delta(), exec)
     await assert.rejects(
       resettleTool(noBaseline).execute(delta(), exec),
       /快照不可用.*manifest\.json 缺失/u,
     )
     const manifest = await readJson(noBaseline, 'source/story/state/manifest.json')
-    assert.equal(manifest.lastAppliedChapter, 0)
-    await assert.rejects(readFile(join(noBaseline, 'source/story/snapshots/1/state/manifest.json'), 'utf8'), /ENOENT/u)
+    assert.equal(manifest.lastAppliedChapter, 1)
+    assert.equal((await readJson(noBaseline, 'source/story/snapshots/1/state/manifest.json')).lastAppliedChapter, 1)
   } finally {
     await rm(noBaseline, { recursive: true, force: true })
   }
@@ -273,10 +287,10 @@ test('resettle rejects non-latest targets and missing baselines', async () => {
   try {
     await seedSnapshot(badBaseline, 0)
     await seedIndex(badBaseline, [1])
+    await tool(badBaseline).execute(delta(), exec)
     await writeFile(join(badBaseline, 'source/story/snapshots/0/state/hooks.json'), '{ bad')
     await assert.rejects(resettleTool(badBaseline).execute(delta(), exec), /快照不可用.*hooks\.json 不合法/u)
-    assert.equal((await readJson(badBaseline, 'source/story/state/manifest.json')).lastAppliedChapter, 0)
-    await assert.rejects(readFile(join(badBaseline, 'source/story/snapshots/1/state/manifest.json'), 'utf8'), /ENOENT/u)
+    assert.equal((await readJson(badBaseline, 'source/story/state/manifest.json')).lastAppliedChapter, 1)
   } finally {
     await rm(badBaseline, { recursive: true, force: true })
   }
@@ -326,7 +340,7 @@ test('settle refuses an already settled chapter and any chapter with a snapshot'
     await seedSnapshot(root, 0)
     await seedIndex(root, [1])
     await tool(root).execute(delta(), exec)
-    await assert.rejects(tool(root).execute(delta(), exec), /已结算.*story_resettle_chapter/u)
+    await assert.rejects(tool(root).execute(delta(), exec), /已发布|已结算.*story_resettle_chapter/u)
 
     const snapped = await workspace()
     try {
@@ -347,6 +361,7 @@ test('resettle repairs unreadable state from the highest available evidence', as
   try {
     await seedSnapshot(root, 0)
     await seedIndex(root, [1])
+    await tool(root).execute(delta(), exec)
     await writeFile(join(root, 'source/story/state/current_state.json'), '{ bad')
     const result = await resettleTool(root).execute(delta(), exec)
     assert.equal(result.chapter, 1)
@@ -474,7 +489,7 @@ test('withdrawal and history protection follow the merge rules', async () => {
 test('chapter order rules and missing review errors', async () => {
   const root = await workspace()
   try {
-    await assert.rejects(tool(root).execute(delta({ chapter: 2 }), exec), /还没有正文/)
+    await assert.rejects(tool(root).execute(delta({ chapter: 2 }), exec), /还没有正文|还没有草稿/)
     await rm(join(root, chapterReviewPath(1)), { force: true })
     await assert.rejects(tool(root).execute(delta(), exec), /还没有审稿记录/)
   } finally {
@@ -530,7 +545,7 @@ test('state file guards reject each missing and each corrupt file before writing
 test('settle allows a forward chapter gap', async () => {
   const root = await workspace()
   try {
-    await writeChapterDocument(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
+    await writeChapterDraft(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
     await saveChapterPlan(root, { chapter: 2, goal: '目标', body: '计划', threadRefs: [] })
     await reviewChapter(root, {
       chapter: 2,
@@ -576,6 +591,36 @@ test('applySettlement allows forward gaps and rejects backwards chapters', async
     } finally {
       await rm(ahead, { recursive: true, force: true })
     }
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('recover reports the latest missing snapshot as fixable and applies it', async () => {
+  const root = await workspace()
+  try {
+    await seedSnapshot(root, 0)
+    await seedIndex(root, [])
+    await tool(root).execute(delta(), exec)
+    await rm(join(root, 'source/story/snapshots/1'), { recursive: true, force: true })
+    const scan = await scanWorkspace(root)
+    const finding = scan.findings.find((item) => item.code === 'chapter-publish-incomplete')
+    assert.equal(finding?.fixable, true)
+    await repairWorkspace(root, scan.findings)
+    assert.equal((await readJson(root, 'source/story/snapshots/1/state/manifest.json')).lastAppliedChapter, 1)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('settle leaves no published chapter when the snapshot commit path is blocked', async () => {
+  const root = await workspace()
+  try {
+    await seedIndex(root, [])
+    await writeFile(join(root, 'source/story/snapshots'), 'x')
+    await assert.rejects(tool(root).execute(delta(), exec), /ENOTDIR|EIO|无法/u)
+    assert.equal(existsSync(join(root, 'source/chapters/0001_雨夜.md')), false)
+    assert.equal(existsSync(join(root, '.drafts/chapter-0001.md')), true)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
