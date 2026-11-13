@@ -2,11 +2,11 @@
  * 产物 manifest 与 revision：artifactId/revision、checksum、current/promote。
  *
  * manifest 是 `source/artifacts/manifest.json` 的可重建索引；章节 revision 的 path
- * 直接指向 `source/chapters/...`，不复制正文。
+ * 指向章节文件，snapshotPath 指向每个 revision 的不可变快照。
  */
 import { createHash } from 'node:crypto'
-import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, realpath } from 'node:fs/promises'
+import { isAbsolute, join, relative, sep } from 'node:path'
 
 import { commitFoundation } from './commit.js'
 import { readWork } from './work.js'
@@ -80,6 +80,10 @@ function assertManifest(manifest: ArtifactStore): ArtifactStore {
     if (artifact.currentRevisionId !== null && current[0]?.id !== artifact.currentRevisionId) {
       throw new Error(`artifact ${artifact.id} 的 currentRevisionId 与 current 不一致`)
     }
+    for (const revision of artifact.revisions) {
+      assertRelativePath(revision.path)
+      if (revision.snapshotPath !== undefined) assertRelativePath(revision.snapshotPath)
+    }
   }
   return manifest
 }
@@ -134,18 +138,50 @@ export function nextRevisionId(revisions: ReadonlyArray<{ id: string }>): string
   return `r${highest + 1}`
 }
 
+/** revision 文件路径：generic revision 与章节快照共用同一布局。 */
+function revisionFilePath(artifactId: string, revisionId: string, extension: string): string {
+  return `source/artifacts/${artifactId}/revisions/${revisionId}${extension}`
+}
+
+function codedError(code: string, message: string): Error & { code: string } {
+  return Object.assign(new Error(message), { code })
+}
+
 /** 为章节写一个 current revision 的 manifest 写入；章节正文本身由调用方同批写入。 */
 export async function chapterArtifactWrite(
   root: string,
-  input: { chapter: number, chapterPath: string, content: string, createdAt?: string },
-): Promise<{ relativePath: string, content: string, artifact: ArtifactManifest }> {
+  input: { chapter: number, chapterPath: string, content: string, previousContent?: string, createdAt?: string },
+): Promise<{
+  relativePath: string
+  content: string
+  artifact: ArtifactManifest
+  snapshot: { relativePath: string, content: string }
+  backfill?: { relativePath: string, content: string }
+}> {
   const store = await loadArtifactStore(root)
   const artifactId = `chapter-${String(input.chapter).padStart(4, '0')}`
   const existing = store.artifacts.find((artifact) => artifact.id === artifactId)
+  const previousText = input.previousContent
+  let revisions = existing?.revisions ?? []
+  let backfill: { relativePath: string, content: string } | undefined
+
+  const current = revisions.find((revision) => revision.id === existing?.currentRevisionId)
+  if (previousText !== undefined && current !== undefined && current.snapshotPath === undefined) {
+    if (checksum(Buffer.from(previousText)) !== current.checksum) {
+      throw codedError('ARTIFACT_REVISION_CONFLICT', `artifact ${artifactId}.${current.id} 的旧正文与登记的 checksum 不符`)
+    }
+    const previousSnapshot = revisionFilePath(artifactId, current.id, '.md')
+    backfill = { relativePath: previousSnapshot, content: previousText }
+    revisions = revisions.map((revision) => revision.id === current.id ? { ...revision, snapshotPath: previousSnapshot } : revision)
+  }
+
+  const revisionId = nextRevisionId(existing?.revisions ?? [])
+  const snapshotPath = revisionFilePath(artifactId, revisionId, '.md')
   const revision = baseArtifact({
-    revisionId: nextRevisionId(existing?.revisions ?? []),
+    revisionId,
     kind: 'chapter',
     path: input.chapterPath,
+    snapshotPath,
     content: Buffer.from(input.content),
     createdAt: input.createdAt ?? new Date().toISOString(),
     parentRevisionId: existing?.currentRevisionId ?? null,
@@ -156,7 +192,7 @@ export async function chapterArtifactWrite(
     kind: 'chapter',
     currentRevisionId: revision.id,
     revisions: [
-      ...(existing?.revisions.map((item) => item.status === 'current' ? { ...item, status: 'superseded' as const } : item) ?? []),
+      ...revisions.map((item) => item.status === 'current' ? { ...item, status: 'superseded' as const } : item),
       revision,
     ],
     metadata: { chapter: input.chapter, chapterPath: input.chapterPath },
@@ -167,7 +203,13 @@ export async function chapterArtifactWrite(
       ? [...store.artifacts, artifact]
       : store.artifacts.map((item) => item.id === artifactId ? artifact : item),
   }
-  return { relativePath: MANIFEST_PATH, content: manifestContent(next), artifact }
+  return {
+    relativePath: MANIFEST_PATH,
+    content: manifestContent(next),
+    artifact,
+    snapshot: { relativePath: snapshotPath, content: input.content },
+    ...(backfill === undefined ? {} : { backfill }),
+  }
 }
 
 /** 通用 artifact revision：写 revision 文件与 manifest。 */
@@ -181,7 +223,7 @@ export async function stageArtifactRevision(
   const extension = /(\.[a-z0-9._-]+)$/iu.exec(input.fileName)?.[1]
   if (extension === undefined) throw new Error(`artifact revision 文件名缺少安全扩展名：${input.fileName}`)
   const bytes = Buffer.from(input.content)
-  const path = `source/artifacts/${artifactId}/revisions/${revisionId}${extension.toLowerCase()}`
+  const path = revisionFilePath(artifactId, revisionId, extension.toLowerCase())
   const existing = store.artifacts.find((artifact) => artifact.id === artifactId)
   const revision = baseArtifact({
     revisionId,
@@ -244,10 +286,28 @@ export async function readArtifactRevision(
 ): Promise<{ revision: ArtifactRevision, bytes: Buffer }> {
   const store = await loadArtifactStore(root)
   const artifact = store.artifacts.find((item) => item.id === assertWorkResourceId(input.artifactId))
-  if (artifact === undefined) throw new Error(`未知 artifact：${input.artifactId}`)
+  if (artifact === undefined) throw codedError('ARTIFACT_NOT_FOUND', `未知 artifact：${input.artifactId}`)
   const revision = artifact.revisions.find((item) => item.id === assertHarnessId(input.revisionId))
-  if (revision === undefined) throw new Error(`未知 revision：${input.artifactId}.${input.revisionId}`)
-  return { revision, bytes: await readFile(join(root, assertRelativePath(revision.path))) }
+  if (revision === undefined) throw codedError('ARTIFACT_NOT_FOUND', `未知 revision：${input.artifactId}.${input.revisionId}`)
+  let bytes: Buffer
+  let absolute: string
+  try {
+    absolute = await realpath(join(root, assertRelativePath(revision.snapshotPath ?? revision.path)))
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      throw codedError('ARTIFACT_SNAPSHOT_UNAVAILABLE', `revision ${artifact.id}.${revision.id} 没有可读快照`)
+    }
+    throw error
+  }
+  const child = relative(await realpath(root), absolute)
+  if (child === '..' || child.startsWith(`..${sep}`) || isAbsolute(child)) {
+    throw codedError('ARTIFACT_PATH_OUTSIDE_WORK', `revision ${artifact.id}.${revision.id} 的路径越出作品`)
+  }
+  bytes = await readFile(absolute)
+  if (checksum(bytes) !== revision.checksum || bytes.byteLength !== revision.byteLength) {
+    throw codedError('ARTIFACT_REVISION_CONFLICT', `revision ${artifact.id}.${revision.id} 的字节与登记的 checksum 不符`)
+  }
+  return { revision, bytes }
 }
 
 /** 找当前章 current revision；没有返回 null。 */

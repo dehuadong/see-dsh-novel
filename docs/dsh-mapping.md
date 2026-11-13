@@ -134,9 +134,16 @@
 ### artifact.identity：产物 manifest 独立于作品身份文件
 
 - 源工程做法：`WorkManifest.artifacts` 嵌在作品 manifest 里，`stageArtifactRevision` 同时写 revision 文件与 manifest；章节 revision 的 `path` 由调用方给，指向 `source/chapters/...`，不复制正文。
-- 复刻做法：`source/artifacts/manifest.json` 独立记录 `workId`、artifact、revision、current、checksum、byteLength；`writeChapterDocument` 同一次提交写章节文件与该 manifest；章节 revision path 也直接指向章节文件。
+- 复刻做法：`source/artifacts/manifest.json` 独立记录 `workId`、artifact、revision、current、checksum、byteLength 与 `snapshotPath`；`writeChapterDocument` 同一次提交写章节文件、manifest 与该 revision 快照；章节 revision 的 `path` 仍指向章节文件，`snapshotPath` 指向 `source/artifacts/<artifactId>/revisions/<rid>.md`。
 - 原因：复刻的 `work.json` 是作品身份文件，产物索引可重建；把 artifacts 混进身份会耦合身份校验与产物状态。DSH 单工作区一作品，跨作品隔离由工作区边界保证。
-- 验证：`test/artifact-store.test.mjs` 覆盖 stage/promote/current、checksum、parent、ID/路径；`artifacts/real-runs/artifact.identity.json` 记录 `chapter-0001` 的 r1 current revision 与 `reviewedArtifact`。
+- 验证：`test/artifact-store.test.mjs` 覆盖 stage/promote/current、checksum、parent、ID/路径、快照回填；`artifacts/real-runs/artifact.identity.json` 记录 r1/r2 的 `snapshotPath` 与 `reviewedArtifact`。
+
+### artifact.identity：章节 revision 快照布局
+
+- 源工程做法：快照写在作品内 `revisions/<artifactId>/<revisionId><ext>`（工作根 `works/<workId>/` 下），`snapshotPath` 是作品内相对路径。
+- 复刻做法：快照写在 `source/artifacts/<artifactId>/revisions/<revisionId>.md`，`snapshotPath` 是相对工作区根的路径。
+- 原因：复刻的作品根就是工作区，artifacts 集中在 `source/artifacts`；两种路径都由各自的作品根解析。
+- 验证：`readArtifactRevision` 按 `snapshotPath ?? path` 解析并校验 checksum；`test/artifact-store.test.mjs` 与 `test/chapter-revise.test.mjs` 覆盖快照读取、回填与错误码。
 
 ### runtime.commands：建书后启动基础设定
 

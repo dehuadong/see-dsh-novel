@@ -53,6 +53,10 @@ test('write refuses a second draft for the same chapter and load round-trips', a
     assert.equal(written.path, 'source/chapters/0001_雨夜.md')
     assert.equal(written.charCount, 3)
     assert.match(await readFile(join(root, written.path), 'utf8'), /^# 第1章 雨夜\n\n正文一。\n$/)
+    const manifest = JSON.parse(await readFile(join(root, 'source/artifacts/manifest.json'), 'utf8'))
+    const snapshotPath = manifest.artifacts[0].revisions[0].snapshotPath
+    assert.equal(snapshotPath, 'source/artifacts/chapter-0001/revisions/r1.md')
+    assert.equal(await readFile(join(root, snapshotPath), 'utf8'), await readFile(join(root, written.path), 'utf8'))
     const loaded = await loadChapterDocument(root, 1)
     assert.equal(loaded.heading, '# 第1章 雨夜')
     assert.equal(loaded.content, '正文一。')

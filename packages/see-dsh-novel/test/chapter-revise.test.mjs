@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { installReviseTool } from '../src/pipelines/long/revise-tool.ts'
 import { countChapterLength, loadChapterDocument, reviseChapterDocument, writeChapterDocument } from '../src/core/chapter-document.ts'
-import { loadArtifactStore } from '../src/core/artifact-store.ts'
+import { loadArtifactStore, readArtifactRevision } from '../src/core/artifact-store.ts'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { applyRangeEdits, assertTargetText, normalizeRangeEdits } from '../src/core/revise.ts'
@@ -118,6 +118,8 @@ test('reviseChapterDocument rewrites the chapter, archives the old prose and app
     assert.equal(artifact.currentRevisionId, 'r2')
     assert.equal(artifact.revisions.find((entry) => entry.id === 'r2')?.parentRevisionId, 'r1')
     assert.equal(artifact.revisions.find((entry) => entry.id === 'r1')?.status, 'superseded')
+    assert.equal(artifact.revisions.find((entry) => entry.id === 'r1')?.snapshotPath, 'source/artifacts/chapter-0001/revisions/r1.md')
+    assert.equal(artifact.revisions.find((entry) => entry.id === 'r2')?.snapshotPath, 'source/artifacts/chapter-0001/revisions/r2.md')
 
     assert.deepEqual(result.changedRegion, {
       scope: 'contiguous_changed_region',
@@ -130,6 +132,38 @@ test('reviseChapterDocument rewrites the chapter, archives the old prose and app
     assert.equal(index[0].title, '雨夜')
     assert.equal(index[0].wordCount, countChapterLength(revised, 'zh'))
     assert.equal(index[0].createdAt, index[0].updatedAt)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('revision snapshots stay readable and fail with coded errors', async () => {
+  const root = await workspace()
+  try {
+    await reviewOnce(root)
+    await reviseChapterDocument(root, { chapter: 1, content: '第一段。\n第二段重写。\n第三段。', language: 'zh' })
+    const originalDocument = `# 第1章 雨夜\n\n${ORIGINAL}\n`
+    assert.equal((await readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r1' })).bytes.toString('utf8'), originalDocument)
+    assert.match((await readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r2' })).bytes.toString('utf8'), /第二段重写/)
+
+    await rm(join(root, 'source/chapters/0001_雨夜.md'), { force: true })
+    assert.equal((await readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r1' })).bytes.toString('utf8'), originalDocument)
+
+    await rm(join(root, 'source/artifacts/chapter-0001/revisions/r1.md'), { force: true })
+    await assert.rejects(
+      readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r1' }),
+      { code: 'ARTIFACT_SNAPSHOT_UNAVAILABLE' },
+    )
+
+    await writeFile(join(root, 'source/artifacts/chapter-0001/revisions/r2.md'), '被改坏')
+    await assert.rejects(
+      readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r2' }),
+      { code: 'ARTIFACT_REVISION_CONFLICT' },
+    )
+    await assert.rejects(
+      readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r9' }),
+      { code: 'ARTIFACT_NOT_FOUND' },
+    )
   } finally {
     await rm(root, { recursive: true, force: true })
   }

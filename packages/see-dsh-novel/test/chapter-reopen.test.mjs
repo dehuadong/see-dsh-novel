@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { listChapterVersions, readChapterVersion } from '../src/core/chapter-versions.ts'
+import { readArtifactRevision } from '../src/core/artifact-store.ts'
 import { reopenChapter } from '../src/core/reopen.ts'
 import { detectStage } from '../src/pipelines/long/stages/index.ts'
 import { writeChapterDocument } from '../src/core/chapter-document.ts'
@@ -168,6 +169,9 @@ test('restoring a version archives the current prose, replaces the chapter and k
     assert.equal((await readdir(join(root, 'source/chapters/.versions/0001'))).length, 2)
     await assert.rejects(readFile(join(runtime, 'chapter-0001.intent.md')), { code: 'ENOENT' })
     assert.equal(await readFile(join(runtime, 'chapter-0001.user-brief.md'), 'utf8'), 'brief')
+    // 恢复追加 revision，旧 revision 仍可读。
+    assert.match((await readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r2' })).bytes.toString('utf8'), /旧文/)
+    assert.match((await readArtifactRevision(root, { artifactId: 'chapter-0001', revisionId: 'r1' })).bytes.toString('utf8'), /正文/)
 
     // 恢复不动运行时状态与摘要行。
     const manifest = JSON.parse(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'))

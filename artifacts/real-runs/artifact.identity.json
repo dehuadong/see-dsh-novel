@@ -1,16 +1,21 @@
 {
   "capability": "artifact.identity",
-  "date": "2026-11-09",
-  "sessionId": "session-14076820-d53e-4fe6-8cff-40a75dae6e93",
+  "date": "2026-11-13",
+  "sessionId": "process:artifact.identity",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "305 passed — artifact-store 3 例（stage/promote/current、checksum、parent、ID/路径）、chapter-document 5 例（number-aware 标题）、chapter-review 3 例（reviewedArtifact、无 artifact 省略、缺稿拒绝）、review-tool 1 例、context/review 等"
+    "summary": "437 tests（Linux 全过；Windows 跳过一个 symlink 用例） — artifact-store 6 例（stage/promote/current、章节快照与回填、回填 checksum 冲突不写、ID/路径/越界拒绝）、chapter-document 5 例（写章快照落盘）、chapter-review 3 例（reviewedArtifact 走 current revision）、chapter-revise 19 例（r1/r2 快照、删章后读取、缺失/损坏/未知错误码）、chapter-reopen 7 例（恢复追加 revision）"
   },
   "receipts": [
-    "`.artifacts/work-review2` 的 `source/artifacts/manifest.json`：workId `work-empty-2`；artifact `chapter-0001`，kind `chapter`，currentRevisionId `r1`；revision path `source/chapters/0001_雨夜.md`（章节文件本身，无副本），checksum `sha256:b9293dc866e591d12b6165f1b01f0031931ff78e86f91f1a4815840136ddf748`，byteLength 25，parentRevisionId null。",
-    "真实审稿（session `session-14076820-d53e-4fe6-8cff-40a75dae6e93`）：`story_review_chapter` 回执「第 1 章审稿已落盘：source/story/runtime/chapter-0001.review.json（issue 1／resolved 0／observation 0／unavailable 3）」。",
-    "`chapter-0001.review.json` 的 `reviewedArtifact` 为 `{workId:\"work-empty-2\", artifactId:\"chapter-0001\", revisionId:\"r1\"}`；reviewedArtifact 只在 current revision 的 number-aware bytes 与被审正文一致时写入。",
-    "`test/artifact-store.test.mjs` 覆盖 stage/promote/current、parent、checksum、非法 ID/路径；`test/chapter-document.test.mjs` 覆盖 `chapterBodyForChapter` 只剥章号匹配的标题；`test/chapter-review.test.mjs` 覆盖无 artifact 时省略 reviewedArtifact。"
+    "`source/artifacts/manifest.json` 的章节 revision 带 `snapshotPath`，快照写在 `source/artifacts/<artifactId>/revisions/<revisionId>.md`；快照与章节、manifest 同一次 `commitFoundation` 提交。",
+    "首次写章生成 `r1` 快照；修订生成 `r2` 快照并保留 `r1` 快照；章节文件被覆盖或删除后，`readArtifactRevision` 仍能读回旧 revision 字节并通过 checksum/byteLength 校验。",
+    "旧 manifest 的 current revision 没有 `snapshotPath` 时，修订用 `previousContent` 的 sha256 对齐旧 checksum：相符则回填旧快照并写 `snapshotPath`；不符返回 `ARTIFACT_REVISION_CONFLICT` 且不写任何文件。",
+    "恢复旧版追加一个 revision（快照为恢复后的正文），旧 current 的快照保留；恢复后复审与修订不再被旧 checksum 阻塞。",
+    "`readArtifactRevision` 按 `snapshotPath ?? path` 读取，`realpath` 后限制在作品根内；缺失、checksum 不符、越界、未知分别返回 `ARTIFACT_SNAPSHOT_UNAVAILABLE`、`ARTIFACT_REVISION_CONFLICT`、`ARTIFACT_PATH_OUTSIDE_WORK`、`ARTIFACT_NOT_FOUND`。",
+    "`assertManifest` 校验 revision 的 `path` 与 `snapshotPath` 都是作品内相对路径；快照布局差异登记在 `dsh-mapping.md`。D42 已注销。该回执是 process-level 测试。"
   ]
 }
+
+
+

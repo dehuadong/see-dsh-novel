@@ -405,7 +405,7 @@
 
 **复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 用 `ranges`＋`replacements` 逐段构造正文，空串删段、多行按换行分行；`targetText` 对任意模式生效，字符级校验片段外不变。修订同时更新 `chapters/index.json`：当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 清空，后代替换 `upstream-revision` 提醒（中英文按作品语言）；缺当前行时追加。回执带 `changedRegion`（scope 与前后 `startLine`／`lineCount`／`content`／`truncated`），`changed=false` 也刷新索引并返回空区域。
 
-**判定：机制等价（重审闸门）+ 保真债 D42／D45** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。多段范围与 `targetText` 任意模式已交付（D53 注销）；revision 缺 `snapshotPath`（D42）；索引更新已交付，但重审→结算→定稿后 `finalizeChapter` 会把该行写成 `generated`，`edited` 不跨定稿（D45 残余）。
+**判定：机制等价（重审闸门）+ 保真债 D45** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。多段范围与 `targetText` 任意模式已交付（D53 注销）；索引更新已交付，但重审→结算→定稿后 `finalizeChapter` 会把该行写成 `generated`，`edited` 不跨定稿（D45 残余）；revision 快照已交付（D42 注销）。
 
 ## 批次 E：P4 结算与定稿
 
@@ -463,11 +463,11 @@
 
 ### artifact.identity
 
-**源工程证据**：`harness/artifact-revisions.ts` 的 `createCurrentArtifact`／`stageArtifactRevision`／`promoteArtifactRevision`、`contracts.ts` 的 manifest/revision 不变量与 `WorkResourceIdSchema`／`RelativeArtifactPathSchema`；章节 revision 的 path 直接指向 `source/chapters/...`，`agents/continuity.ts` 用 current revision 生成 `reviewedArtifact`。
+**源工程证据**：`harness/artifact-revisions.ts` 的 `createCurrentArtifact`／`stageArtifactRevision`／`promoteArtifactRevision`；`harness/source-sync.ts:105-118,132,157-163` 的 revision 快照与旧 current 回填；`harness/artifact-reader.ts:25-37` 的 `snapshotPath ?? path` 读取与三种错误码；`contracts.ts` 的 manifest/revision 不变量；`agents/continuity.ts` 用 current revision 生成 `reviewedArtifact`。
 
-**复刻现状**：`core/artifact-store.ts` 用 `source/artifacts/manifest.json` 记录 chapter artifact 的 `r1` current revision，path 指向章节文件；`writeChapterDocument` 同一次提交写章节与 manifest；`reviewChapter` 读取 current revision 并写 `reviewedArtifact`；checksum/byteLength/current/parent/superseded/ID/路径校验与源一致。
+**复刻现状**：`core/artifact-store.ts` 用 `source/artifacts/manifest.json` 记录 chapter artifact 的 revision、`snapshotPath`、checksum、byteLength；`writeChapterDocument` 与 `reviseChapterDocument` 同一次提交写章节、manifest 与该 revision 快照；修订覆盖旧 current 前用 `previousContent` 回填旧快照；恢复旧版追加 revision；`readArtifactRevision` 按 `snapshotPath ?? path` 读取、`realpath` 限界并校验 checksum/byteLength；`reviewChapter` 用 current revision 写 `reviewedArtifact`。
 
-**判定：等价** — 章节产物 identity 与 review 消费已接通；manifest 是独立索引而非 WorkManifest 内嵌，登记在 `dsh-mapping.md`。
+**判定：等价（D42 注销）** — 章节 revision 有不可变快照、旧 revision 在章节覆盖/删除后仍可读、回填与读取错误码与源对齐；manifest 独立于作品身份文件与快照布局差异登记在 `dsh-mapping.md`。
 
 ### export.work
 

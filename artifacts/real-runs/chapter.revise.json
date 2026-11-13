@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "426 passed — chapter-revise 18 例（范围配对/排序/重叠/越界、空串删段、多行替换、多段区域、content 不一致、缺 replacements、targetText 任意模式、构造归一、归档与 revision、索引更新/追加/后代 upstream-revision、缺索引与坏 JSON 拒绝、英文通知、2000 截断、changed=false 空区域）＋ stage-context 回归"
+    "summary": "437 tests（Windows 436 pass + 1 skip） — chapter-revise 19 例（范围配对/排序/重叠/越界、空串删段、多行替换、多段区域、content 不一致、缺 replacements、targetText 任意模式、构造归一、归档与 revision、索引更新/追加/后代 upstream-revision、缺索引与坏 JSON 拒绝、英文通知、2000 截断、changed=false 空区域）＋ stage-context 回归"
   },
   "receipts": [
     "修订覆盖同一章节文件、把旧正文归档到 `source/chapters/.versions/NNNN/<ts>_revision_<uuid>.md`、追加 artifact revision（r2，parent r1，旧 revision superseded）。",
@@ -13,6 +13,8 @@
     "章号更大的条目刷新 `updatedAt` 并替换 `upstream-revision` 观察：中文「第N章已重写，请重新检查本章与前文的连续性。」，英文对应；其它字段保留。",
     "回执带 `changedRegion`：`scope: \"contiguous_changed_region\"`，前后各 `startLine`／`lineCount`／`content`（≤2000 字符）／`truncated`；渲染文本序列化该对象。",
     "`changed=false` 只刷新索引与后代、不归档、不写 revision、不作废审稿、不写 workflow start，回执返回空区域；`revisionId` 为空串。",
-    "索引缺失或非法 JSON 时在写盘前拒绝，章节文件与 `.versions` 不变。D56 已注销；D45 收窄为「定稿覆盖 edited」的残余；D42（revision 快照）保留。该回执是 process-level 工具/核心/阶段测试。"
+    "索引缺失或非法 JSON 时在写盘前拒绝，章节文件与 `.versions` 不变。D56 已注销；D45 收窄为「定稿覆盖 edited」的残余；D42（revision 快照）已注销。该回执是 process-level 工具/核心/阶段测试。"
   ]
 }
+
+

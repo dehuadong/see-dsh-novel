@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import { chapterArtifactWrite } from './artifact-store.js'
 import { chapterVersionsDir, readChapterVersion } from './chapter-versions.js'
 import { commitFoundation } from './commit.js'
 import { loadChapterDocument } from './chapter-document.js'
@@ -67,10 +68,19 @@ export async function restoreChapter(root: string, chapter: number, versionId: s
 
   const archived = `${chapterVersionsDir(chapter)}/${Date.now()}_restore_${randomUUID()}.md`
   const removed = await chapterRuntimePaths(root, chapter)
+  const artifact = await chapterArtifactWrite(root, {
+    chapter,
+    chapterPath: document.path,
+    content: replacement,
+    previousContent: previous,
+  })
   await commitFoundation(root, {
     writes: [
       { relativePath: archived, content: previous },
       { relativePath: document.path, content: replacement },
+      { relativePath: artifact.relativePath, content: artifact.content },
+      artifact.snapshot,
+      ...(artifact.backfill === undefined ? [] : [artifact.backfill]),
     ],
     deletes: removed,
   })

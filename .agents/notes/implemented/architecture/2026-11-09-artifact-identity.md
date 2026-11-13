@@ -99,4 +99,5 @@ Status: implemented
 - 章节文件是唯一正文；manifest 只是索引，删除 manifest 可重建；审稿读章节文件，不读副本。
 - 独立 manifest 是结构差异，必须在 dsh-mapping 登记，不能写成源 WorkManifest 等价。
 - `reviewedArtifact` 可省略；D18 的“偿还”是能力可用，不是每个 review 必有 identity；审计要写清。
-- `snapshotPath` 目前可选且不生成；`parentRevisionId` 由 store 生成，不能用模型输入。
+- `snapshotPath` 现在由 `chapterArtifactWrite` 为每个 revision 生成，并支持旧 current 回填；`parentRevisionId` 由 store 生成，不能用模型输入。D42 已由 [章节 revision 的不可变快照](2026-11-13-artifact-revision-snapshots.md) 注销。
+

@@ -108,6 +108,7 @@ export async function writeChapterDocument(
     writes: [
       { relativePath, content: document },
       { relativePath: artifact.relativePath, content: artifact.content },
+      artifact.snapshot,
     ],
   })
   return { path: relativePath, charCount: countChapterLength(body, input.language) }
@@ -182,11 +183,14 @@ export async function reviseChapterDocument(
       chapter: input.chapter,
       chapterPath: existing.path,
       content: document,
+      previousContent: previous,
     })
     writes.push(
       { relativePath: existing.path, content: document },
       { relativePath: archivedPath, content: previous },
       { relativePath: artifact.relativePath, content: artifact.content },
+      artifact.snapshot,
+      ...(artifact.backfill === undefined ? [] : [artifact.backfill]),
       ...(input.extraWrites ?? []),
     )
     revisionId = artifact.artifact.currentRevisionId ?? ''
