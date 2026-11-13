@@ -9,22 +9,20 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
+import { readChapterIndex } from './chapter-index.js'
 import { detectStage } from '../pipelines/long/stages/index.js'
 import {
   AUTHOR_INTENT_FILE,
-  BRIEF_FILE,
   CURRENT_FOCUS_FILE,
   PANEL_INDEX_PATH,
   ROLE_TIER_DIRS,
   STORY_CHAPTER_SUMMARIES_MD,
   STORY_CURRENT_STATE_MD,
-  STORY_EXTERNAL_BRIEF,
   STORY_FANFIC_CANON_MD,
   STORY_FRAME_FILE,
   STORY_PARENT_CANON_MD,
   STORY_PENDING_HOOKS,
   STORY_ROOT,
-  STORY_RULES_JSON,
   STORY_RULES_MD,
   STORY_STYLE_GUIDE_MD,
   STORY_VOLUME_MAP_FILE,
@@ -53,6 +51,16 @@ async function readCurrentChapter(root: string): Promise<number> {
   }
 }
 
+/** 章节索引里的最新章号；索引缺失或损坏按 0，面板不让它整体失败。 */
+async function readLatestChapter(root: string): Promise<number> {
+  try {
+    const entries = await readChapterIndex(root)
+    return entries.reduce((latest, entry) => Math.max(latest, entry.number), 0)
+  } catch {
+    return 0
+  }
+}
+
 function artifactType(path: string): PanelArtifact['type'] {
   const extension = extname(path).toLowerCase()
   if (extension === '.md') return 'markdown'
@@ -76,15 +84,12 @@ const TRUTH_FILES: ReadonlyArray<readonly [string, number, string]> = [
   [STORY_FRAME_FILE, 110, '故事框架'],
   [STORY_VOLUME_MAP_FILE, 111, '分卷地图'],
   [STORY_RULES_MD, 120, '规则正文'],
-  [STORY_RULES_JSON, 121, '规则数据'],
   [STORY_PENDING_HOOKS, 130, '待回收伏笔'],
   [STORY_CURRENT_STATE_MD, 131, '当前状态'],
   [STORY_CHAPTER_SUMMARIES_MD, 132, '章节摘要'],
   [STORY_STYLE_GUIDE_MD, 140, '文风指南'],
   [STORY_PARENT_CANON_MD, 141, '母本设定'],
   [STORY_FANFIC_CANON_MD, 142, '同人设定'],
-  [BRIEF_FILE, 150, '立项原文'],
-  [STORY_EXTERNAL_BRIEF, 151, '外部简报'],
 ]
 
 /** 运行时章节诊断：出现、但只读且默认折叠。 */
@@ -92,7 +97,6 @@ const DIAGNOSTIC_LABELS: Readonly<Record<string, string>> = {
   intent: '意图',
   context: '上下文',
   trace: '轨迹',
-  'planner-context': '规划上下文',
 }
 
 interface DisplayFile {
@@ -153,7 +157,7 @@ async function displayFiles(root: string): Promise<DisplayFile[]> {
     files.push({ path: `source/chapters/${name}`, title, order: 200, class: 'chapter' })
   }
   for (const name of await listDir(join(root, `${STORY_ROOT}/runtime`))) {
-    const match = /^chapter-(\d{4})\.(plan|review|intent|context|trace|planner-context)\.(json|md)$/.exec(name)
+    const match = /^chapter-(\d{4})\.(plan|review|intent|context|trace)\.(json|md)$/.exec(name)
     if (match === null) continue
     const chapter = Number(match[1])
     const kind = match[2] as string
@@ -198,7 +202,7 @@ async function buildPanelArtifacts(root: string): Promise<PanelArtifact[]> {
 }
 
 /** 索引格式版本；加字段时同步 `panel-types.ts`。 */
-export const PANEL_INDEX_VERSION = 4
+export const PANEL_INDEX_VERSION = 5
 
 function stageAction(stage: PanelStage['id'], status: PanelStage['status'], current: string): PanelAction | null {
   if (status !== 'current') return null
@@ -237,6 +241,7 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
   const work = await readWork(root)
   const stage = work === null ? 'proposal' : detectStage(root).stage
   const currentChapter = work === null ? 0 : await readCurrentChapter(root)
+  const latestChapter = work === null ? 0 : await readLatestChapter(root)
   // 摘要仍是 source/story 全量（签核语义），面板只显示白名单里的展示集合。
   const digest = await readArtifacts(root)
   const rows = await buildPanelArtifacts(root)
@@ -281,6 +286,7 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
           status: work.status,
           language: work.language,
           currentChapter,
+          latestChapter,
           nextChapter: currentChapter + 1,
         },
     stages,

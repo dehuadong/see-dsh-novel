@@ -71,7 +71,7 @@ test('a successful work action rebuilds the panel index once', async () => {
     assert.equal(await readIndex(root), undefined)
     await withWorkAction(root, async () => {})
     const index = await readIndex(root)
-    assert.equal(index?.version, 4)
+    assert.equal(index?.version, 5)
     assert.equal(index?.work?.title, '标题')
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -112,7 +112,7 @@ test('prewarm builds a missing index once and skips an up-to-date one', async ()
   try {
     await prewarmPanelIndex({ cwd: root })
     const index = await readIndex(root)
-    assert.equal(index?.version, 4)
+    assert.equal(index?.version, 5)
 
     // 已是最新：不再重写（generatedAt 保持不变）。
     await prewarmPanelIndex({ cwd: root })
@@ -130,7 +130,7 @@ test('prewarm rebuilds an index written by an older format', async () => {
     await writeFile(join(root, PANEL_INDEX_PATH), JSON.stringify({ version: 1, generatedAt: 'old' }))
     await prewarmPanelIndex({ cwd: root })
     const index = await readIndex(root)
-    assert.equal(index?.version, 4)
+    assert.equal(index?.version, 5)
     assert.notEqual(index?.generatedAt, 'old')
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -150,7 +150,7 @@ test('prewarm ignores subagent sessions and works without work.json', async () =
     await prewarmPanelIndex({})
     // 判据只看工作区，不看会话头的预设：文件在就补建。
     await prewarmPanelIndex({ cwd: root, agentPreset: 'standard' })
-    assert.equal((await readIndex(root))?.version, 4)
+    assert.equal((await readIndex(root))?.version, 5)
   } finally {
     await rm(root, { recursive: true, force: true })
     await rm(other, { recursive: true, force: true })
@@ -166,8 +166,8 @@ test('the session/created listener never throws and logs projection failures', a
     assert.equal(typeof listener, 'function')
     // 同步返回，不抛；补建在后台完成。
     assert.doesNotThrow(() => listener({ header: { cwd: root } }))
-    await waitFor(async () => (await readIndex(root))?.version === 4)
-    assert.equal((await readIndex(root))?.version, 4)
+    await waitFor(async () => (await readIndex(root))?.version === 5)
+    assert.equal((await readIndex(root))?.version, 5)
 
     // 坏掉的 work.json：补建失败只记录，不把异常抛回会话创建。
     await rm(join(root, PANEL_INDEX_PATH), { force: true })
@@ -179,3 +179,4 @@ test('the session/created listener never throws and logs projection failures', a
     await rm(root, { recursive: true, force: true })
   }
 })
+

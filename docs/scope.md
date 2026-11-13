@@ -84,7 +84,7 @@
 - **用户可见面**：产物 revision、导出、备份/恢复、素材与检索、作品工作台/日志/分析。
 - **入口**：P5 出口。
 - **出口**：八行 `verified` + 不变量 3/4/6/7 + 真实回执。
-- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认；恢复不回滚根上导出文件（D38）；面板真值文件只读（D39）、缺删除动作（D40）、白名单多出源没有的条目（D41）；导出 EPUB 标题/语言与直写待贴源（D50）。
+- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认；恢复不回滚根上导出文件（D38）；面板真值文件只读（D39）；导出 EPUB 标题/语言与直写待贴源（D50）。
 
 ### v1 之外
 
@@ -135,8 +135,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D37 | 章节保存的非原子拆分 | 源 `saveChapter` 一次提交章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引，崩溃后要再定稿补齐 | 后续把快照/索引并入结算，或恢复检测后自动补定稿 |
 | D38 | `backup.restore` 导出不回滚 | 源恢复整目录会连 `exports/` 一起回滚；复刻导出在根上且不在作品拥有项内，恢复后导出仍是旧内容 | 恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出 |
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
-| D40 | `panel.workbench` 删除动作 | 源 `ChapterWorkspacePanel` 有删除按钮与确认；复刻只走对话 | 已裁决补动作：动作条接 `story_delete_chapter` |
-| D41 | `panel.workbench` 白名单 | 面板多出源白名单没有的 `book_rules.json`、`source/brief.md`、`source/story/brief.md`、`.planner-context.json`，未登记 | 对齐源白名单或作者裁决保留 |
 | D42 | `artifact.identity` revision 快照 | 源 revision 带不可变 `snapshotPath`；复刻不写，修订后旧 revision 的 checksum 悬空、不可读 | 补 snapshot 写入与按快照读取 |
 | D45 | 章节索引观察 | 修订落盘时已更新当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 与后代 `upstream-revision`；残余是重审→结算→定稿后 `chapter.finalize` 用审稿观察与 `generated` 覆盖该行，`edited` 不跨定稿 | `chapter.finalize` 保留 `edited` 与既有观察（后续工作项） |
 | D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |

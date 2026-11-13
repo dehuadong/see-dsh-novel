@@ -170,10 +170,10 @@ async function mountEligible(binding, files) {
 /** 一份 foundation-ready 的索引；动作与宿主投影的形状一致。 */
 function panelIndex(overrides = {}) {
   return {
-    version: 4,
+    version: 5,
     generatedAt: '2026-11-10T00:00:00.000Z',
     revision: 'r1',
-    work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, nextChapter: 1 },
+    work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },
     stages: [
       { id: 'proposal', label: '提案', status: 'done', summary: '已完成', action: null, secondary: [] },
       {
@@ -517,6 +517,19 @@ test('the root revise action asks the host to run the revision flow', async () =
   assert.equal(advances.length, 1)
   assert.match(advances[0].text, /story_revise_chapter/)
   assert.match(advances[0].text, /重新审稿/)
+})
+
+test('the header delete runs the host command without claiming success', async () => {
+  installDocumentStub()
+  const withChapter = panelIndex({
+    work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 1, latestChapter: 1, nextChapter: 2 },
+  })
+  const { tree, calls } = await renderView({ indexText: JSON.stringify(withChapter) })
+  await act(async () => { buttonByLabel(tree, '删除本章').props.onClick() })
+  assert.match(textOf(tree), /只允许删除最新章/)
+  await act(async () => { buttonByLabel(tree, '确认删除').props.onClick() })
+  assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-delete' }])
+  assert.match(textOf(tree), /已提交，结果在「对话」里/)
 })
 
 test('a failed command keeps the panel and explains itself', async () => {

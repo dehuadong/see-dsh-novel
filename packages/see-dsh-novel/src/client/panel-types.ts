@@ -32,7 +32,7 @@ export interface PanelArtifact {
 }
 
 export interface PanelIndex {
-  version: 4
+  version: 5
   generatedAt: string
   revision: string
   work: {
@@ -40,6 +40,8 @@ export interface PanelIndex {
     status: string
     language: string
     currentChapter: number
+    /** 章节索引里的最新章；索引缺失或损坏为 0。 */
+    latestChapter: number
     nextChapter: number
   } | null
   stages: PanelStage[]

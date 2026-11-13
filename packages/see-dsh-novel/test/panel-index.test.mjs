@@ -19,6 +19,9 @@ async function workspace(kind = 'foundation') {
     'source/story/outline/volume_map.md',
     'source/story/book_rules.md',
     'source/story/book_rules.json',
+    'source/story/fanfic_canon.md',
+    'source/brief.md',
+    'source/story/brief.md',
     'source/story/current_state.md',
     'source/story/pending_hooks.md',
   ]) {
@@ -32,6 +35,7 @@ async function workspace(kind = 'foundation') {
     await mkdir(join(root, 'source/story/runtime'), { recursive: true })
     await writeFile(join(root, 'source/story/runtime/chapter-0001.plan.json'), JSON.stringify({ version: 2, memo: { chapter: 1, goal: 'g', body: 'b', threadRefs: [] } }))
     await writeFile(join(root, 'source/story/runtime/chapter-0001.context.json'), JSON.stringify({ chapter: 1 }))
+    await writeFile(join(root, 'source/story/runtime/chapter-0001.planner-context.json'), JSON.stringify({ chapter: 1 }))
     await writeFile(join(root, 'source/story/runtime/chapter-0001.review.json'), JSON.stringify({ verdict: 'pass' }))
     await mkdir(join(root, 'source/chapters'), { recursive: true })
     await writeFile(join(root, 'source/chapters/0001_开端.md'), '# 第1章 开端\n\n正文。\n')
@@ -43,7 +47,7 @@ test('panel index is built from files and does not become an artifact', async ()
   const root = await workspace('chapter')
   try {
     const index = await buildPanelIndex(root)
-    assert.equal(index.version, 4)
+    assert.equal(index.version, 5)
     assert.equal(index.action?.id, 'revise-chapter')
     assert.equal(index.work?.title, '标题')
     // 章节正文、章纲与审稿都在：阶段已经走到 chapter-done，基础设定是已完成。
@@ -78,9 +82,23 @@ test('the panel shows the curated set while the approval digest keeps every stor
     const frame = index.artifacts.find((artifact) => artifact.path === 'source/story/outline/story_frame.md')
     assert.equal(frame?.title, '故事框架')
     assert.equal(
-      index.artifacts.find((artifact) => artifact.path === 'source/story/book_rules.json')?.title,
-      '规则数据',
+      index.artifacts.find((artifact) => artifact.path === 'source/story/book_rules.md')?.title,
+      '规则正文',
     )
+    assert.equal(
+      index.artifacts.find((artifact) => artifact.path === 'source/story/fanfic_canon.md')?.title,
+      '同人设定',
+    )
+    // 源白名单没有的四项不出现。
+    for (const path of [
+      'source/story/book_rules.json',
+      'source/brief.md',
+      'source/story/brief.md',
+      'source/story/runtime/chapter-0001.planner-context.json',
+    ]) {
+      assert.equal(paths.includes(path), false, path)
+    }
+    assert.equal(index.work?.latestChapter, 0)
     assert.equal(
       index.artifacts.find((artifact) => artifact.path === 'source/story/pending_hooks.md')?.title,
       '待回收伏笔',
@@ -106,6 +124,29 @@ test('the panel shows the curated set while the approval digest keeps every stor
 
     // 诊断排在最后。
     assert.equal(index.artifacts.at(-1)?.class, 'diagnostic')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('latestChapter comes from the chapter index and a broken index falls back to zero', async () => {
+  const root = await workspace('chapter')
+  try {
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([{
+      number: 1,
+      title: '开端',
+      wordCount: 2,
+      createdAt: '2026-11-09T00:00:00.000Z',
+      updatedAt: '2026-11-09T00:00:00.000Z',
+      observations: [],
+      provenance: 'generated',
+    }]))
+    assert.equal((await buildPanelIndex(root)).work?.latestChapter, 1)
+
+    await writeFile(join(root, 'source/chapters/index.json'), '{ bad')
+    const broken = await buildPanelIndex(root)
+    assert.equal(broken.work?.latestChapter, 0)
+    assert.ok(broken.artifacts.some((artifact) => artifact.path === 'source/chapters/0001_开端.md'))
   } finally {
     await rm(root, { recursive: true, force: true })
   }

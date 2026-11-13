@@ -35,6 +35,7 @@ import { installFinalizeTool } from '../pipelines/long/finalize-tool.js'
 import { installReopenTools } from '../pipelines/long/reopen-tool.js'
 import { installDeleteTool } from '../pipelines/long/delete-tool.js'
 import { installWriteCommand } from './write-command.js'
+import { installDeleteCommand } from './delete-command.js'
 import { installWorkTools } from './work-tools.js'
 
 export const name = 'see-dsh-novel-agent'
@@ -128,6 +129,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeReopen = installReopenTools(ctx)
   const disposeDelete = installDeleteTool(ctx)
   const disposeWrite = installWriteCommand(ctx)
+  const disposeDeleteCommand = installDeleteCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
   const disposeRecovery = installRecoveryTool(ctx)
@@ -155,6 +157,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeReopen()
     disposeDelete()
     disposeWrite()
+    disposeDeleteCommand()
     disposeCommands()
     disposeGate()
     disposeFoundation()

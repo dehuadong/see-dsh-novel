@@ -56,9 +56,16 @@
 ### 面板产物：白名单、JSON 键值树与诊断折叠
 
 - 源工程做法：真值文件浏览器按显式白名单列文件（`api/server.ts:3228-3240` 的 flat／outline／运行时诊断正则，`api/server.ts:4189-4203` 加角色卡目录），诊断文件带 `readonlyReason: "runtime-diagnostic"` 与只读警示（`pages/TruthFiles.tsx:119-129`），内容统一用 `<pre>`（`pages/TruthFiles.tsx:168`）。
-- 复刻做法：面板展示集合同样走白名单（另加章节正文，源在章节页展示）；诊断文件默认收进「运行时诊断」折叠分组，展开后仍是 `<pre>` 原文与同一条警示；作者产物的 JSON（`book_rules.json`、章纲、审稿）用键值树并保留「原始 JSON」切换。`state/*.json`、`memory.db`、`workflow-start.json` 不进面板；审批摘要仍是 `source/story/` 全量。面板另列 `book_rules.json`、`source/brief.md`、`source/story/brief.md` 与 `.planner-context.json`，源白名单没有这四项，记 D41。
+- 复刻做法：面板展示集合同样走白名单（另加章节正文，源在章节页展示）；诊断文件默认收进「运行时诊断」折叠分组，展开后仍是 `<pre>` 原文与同一条警示；作者产物的 JSON（章纲、审稿）用键值树并保留「原始 JSON」切换。`state/*.json`、`memory.db`、`workflow-start.json` 不进面板；审批摘要仍是 `source/story/` 全量。白名单与源一致：不含 `book_rules.json`、两份 brief 与 `planner-context`。
 - 原因：白名单让面板只显示作品产物，作者不必在状态 JSON 与 trace 里找正文；键值树与折叠是作者对可读性的裁决，原文切换保证没有信息损失。
 - 验证：`panel-index.test.mjs` 断言展示集合与摘要集合分离、类别与出现阶段；`workbench.test.mjs` 断言折叠分组、JSON 键值树与原始切换、诊断警示。
+
+### 面板删除：宿主命令替代直接 API
+
+- 源工程做法：章节工作台页头的「删除本章」在确认后调用 `DELETE /books/:id/chapters/:num`，服务端直接调 `deleteLatestChapter` 并广播。
+- 复刻做法：工作台页头的「删除本章」内联确认后调用宿主命令 `/story-delete`；命令在作品锁内读章节索引的最新章号并调 `deleteLatestChapter`，DSH 把命令结果文本显示在对话里；面板只显示「已提交，结果在对话里」，不判断成功或失败。
+- 原因：client 插件没有写权限与作品锁，删除必须经宿主命令；DSH 命令注入面只回 `matched`，面板拿不到结果文本，因此不宣称成败。
+- 验证：`delete-command.test.mjs`（成功删除与空工作区失败）、`workbench.test.mjs`（页头按钮与内联确认）、`client.test.mjs`（`/story-delete` 映射与提示）。
 
 ### chapter.revise：修订后由审稿闸门替代自动复审
 

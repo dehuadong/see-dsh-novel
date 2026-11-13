@@ -69,6 +69,12 @@ function normalizeIndex(raw: unknown): PanelIndex {
   return {
     ...index,
     action: index.action ?? null,
+    work: index.work === null
+      ? null
+      : {
+          ...index.work,
+          latestChapter: Number.isInteger(index.work.latestChapter) ? index.work.latestChapter : 0,
+        },
     stages: (Array.isArray(index.stages) ? index.stages : []).map((stage) => ({
       ...stage,
       secondary: Array.isArray(stage.secondary) ? stage.secondary : [],
@@ -281,6 +287,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     if (action.id === 'confirm-foundation') { await command('确认基础设定', '/story-approve', true); return }
     if (action.id === 'reject-foundation') { await command('退回', '/story-reject'); return }
     if (action.id === 'review-foundation') { await command('查看待确认', '/story-review'); return }
+    if (action.id === 'delete-chapter') { await command('删除本章', '/story-delete'); return }
     if (action.id === 'start-chapter') { await command('开始下一章', '/story-write'); return }
     if (action.id === 'plan-chapter' || action.id === 'write-chapter' || action.id === 'review-chapter' || action.id === 'revise-chapter') {
       await advanceStage(action)

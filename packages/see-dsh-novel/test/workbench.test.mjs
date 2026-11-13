@@ -7,10 +7,10 @@ import { act, create } from 'react-test-renderer'
 import { Workbench } from '../src/client/Workbench.tsx'
 
 const index = {
-  version: 4,
+  version: 5,
   generatedAt: '2026-11-10T00:00:00.000Z',
   revision: 'r1',
-  work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, nextChapter: 1 },
+  work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },
   stages: [
     { id: 'proposal', label: '提案', status: 'done', summary: '已完成', action: null, secondary: [] },
     {
@@ -68,6 +68,11 @@ const rowsOf = (tree) => tree.root.findAllByType('button')
 
 const rowByTitle = (tree, title) => tree.root.findAllByType('button')
   .find((button) => button.props.className === 'sdn-list-row' && button.children[0].children.join('') === title)
+
+const buttonByLabel = (tree, label) => tree.root.findAllByType('button')
+  .find((button) => button.children.join('') === label)
+
+const textOf = (tree) => JSON.stringify(tree.toJSON())
 
 test('the action bar carries the current actions once and the stage list navigates', async () => {
   const { tree, calls } = render()
@@ -143,6 +148,32 @@ test('busy disables the action bar while a submission is in flight', () => {
   for (const label of ['开始下一章', '退回', '查看待确认', '稍后']) {
     assert.equal(buttons.find((button) => button.children.join('') === label).props.disabled, true)
   }
+})
+
+test('the header delete asks for inline confirmation and dispatches once', () => {
+  const { tree, calls } = render({ index: { ...index, work: { ...index.work, latestChapter: 1 } } })
+  act(() => { buttonByLabel(tree, '删除本章').props.onClick() })
+  assert.match(textOf(tree), /只允许删除最新章/)
+  act(() => { buttonByLabel(tree, '取消').props.onClick() })
+  assert.deepEqual(calls, [])
+  assert.equal(tree.root.findAllByType('button').some((button) => button.children.join('') === '删除本章'), true)
+
+  act(() => { buttonByLabel(tree, '删除本章').props.onClick() })
+  act(() => { buttonByLabel(tree, '确认删除').props.onClick() })
+  assert.deepEqual(calls, [['action', 'delete-chapter']])
+})
+
+test('a busy workbench disables the delete confirmation', () => {
+  const { tree, calls } = render({ index: { ...index, work: { ...index.work, latestChapter: 1 } }, busy: true })
+  act(() => { buttonByLabel(tree, '删除本章').props.onClick() })
+  assert.equal(buttonByLabel(tree, '确认删除').props.disabled, true)
+  act(() => { buttonByLabel(tree, '确认删除').props.onClick() })
+  assert.deepEqual(calls, [])
+})
+
+test('a work with no chapter index hides the delete action', () => {
+  const { tree } = render()
+  assert.equal(tree.root.findAllByType('button').some((button) => button.children.join('') === '删除本章'), false)
 })
 
 test('the workbench renders artifact content and the no-work guidance', async () => {

@@ -56,6 +56,7 @@ export function Workbench(props: WorkbenchProps): ReactNode {
   const secondary = current?.secondary ?? []
   const diagnostic = selectedArtifact?.class === 'diagnostic'
   const [exportFormat, setExportFormat] = useState<'txt' | 'md' | 'epub'>('txt')
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
 
   const artifactButton = (artifact: PanelArtifact): ReactNode => (
     <button
@@ -104,6 +105,51 @@ export function Workbench(props: WorkbenchProps): ReactNode {
                 </button>
               </div>
             )}
+        {index.work !== null && index.work.latestChapter >= 1
+          ? (
+              <div className="sdn-export">
+                {confirmingDelete
+                  ? (
+                      <>
+                        <span className="sdn-muted">只允许删除最新章。确认删除并回滚到上一章状态？</span>
+                        <button
+                          type="button"
+                          className="sdn-primary"
+                          disabled={disabled}
+                          aria-disabled={disabled}
+                          onClick={() => {
+                            if (disabled) return
+                            setConfirmingDelete(false)
+                            props.onAction({ id: 'delete-chapter', label: '删除本章', enabled: true, reason: '' })
+                          }}
+                        >
+                          确认删除
+                        </button>
+                        <button
+                          type="button"
+                          className="sdn-secondary"
+                          disabled={disabled}
+                          aria-disabled={disabled}
+                          onClick={() => { setConfirmingDelete(false) }}
+                        >
+                          取消
+                        </button>
+                      </>
+                    )
+                  : (
+                      <button
+                        type="button"
+                        className="sdn-secondary"
+                        disabled={disabled}
+                        aria-disabled={disabled}
+                        onClick={() => { setConfirmingDelete(true) }}
+                      >
+                        删除本章
+                      </button>
+                    )}
+              </div>
+            )
+          : null}
       </header>
 
       <div className="sdn-columns">
