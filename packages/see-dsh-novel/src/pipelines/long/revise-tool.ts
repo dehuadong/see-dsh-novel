@@ -18,7 +18,7 @@ import {
   rangeEditError,
   splitBodyLines,
 } from '../../core/revise.js'
-import type { ReviseMode, ReviseRange } from '../../core/revise.js'
+import type { ReviseMode, ReviseRange, ChangedRegion } from '../../core/revise.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import { readWorkflowStart, WORKFLOW_START_PATH } from '../../core/workflow-start.js'
 import { readWork } from '../../core/work.js'
@@ -62,6 +62,29 @@ const parameters: JsonSchema = {
   required: ['chapter', 'content'],
 }
 
+const regionSide: JsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    startLine: { type: 'integer' },
+    lineCount: { type: 'integer' },
+    content: { type: 'string' },
+    truncated: { type: 'boolean' },
+  },
+  required: ['startLine', 'lineCount', 'content', 'truncated'],
+}
+
+const changedRegionSchema: JsonSchema = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    scope: { type: 'string', enum: ['contiguous_changed_region'] },
+    before: regionSide,
+    after: regionSide,
+  },
+  required: ['scope', 'before', 'after'],
+}
+
 const output: JsonSchema = {
   type: 'object',
   additionalProperties: false,
@@ -74,8 +97,9 @@ const output: JsonSchema = {
     target: { type: 'integer' },
     revisionId: { type: 'string' },
     reviewInvalidated: { type: 'boolean' },
+    changedRegion: changedRegionSchema,
   },
-  required: ['chapter', 'path', 'mode', 'changed', 'charCount', 'target', 'revisionId', 'reviewInvalidated'],
+  required: ['chapter', 'path', 'mode', 'changed', 'charCount', 'target', 'revisionId', 'reviewInvalidated', 'changedRegion'],
 }
 
 export interface ReviseResult {
@@ -87,6 +111,7 @@ export interface ReviseResult {
   target: number
   revisionId: string
   reviewInvalidated: boolean
+  changedRegion: ChangedRegion
 }
 
 interface ReviseArgs {
@@ -111,12 +136,15 @@ export function installReviseTool(ctx: PluginContext): Disposer {
     parameters,
     output: {
       schema: output,
-      render: (_args: unknown, value: ReviseResult) => [{
-        type: 'text' as const,
-        text: value.changed
-          ? `第 ${value.chapter} 章已修订（${value.mode}）：${value.path}（${value.charCount} / 目标 ${value.target}；旧审稿已作废，本章已重新打开，等待重新审稿）`
-          : `第 ${value.chapter} 章没有改动（${value.mode}）`,
-      }],
+      render: (_args: unknown, value: ReviseResult) => {
+        const region = JSON.stringify(value.changedRegion)
+        return [{
+          type: 'text' as const,
+          text: value.changed
+            ? `第 ${value.chapter} 章已修订（${value.mode}）：${value.path}（${value.charCount} / 目标 ${value.target}；改动区域：${region}；旧审稿已作废，本章已重新打开，等待重新审稿）`
+            : `第 ${value.chapter} 章没有改动（${value.mode}）；改动区域：${region}`,
+        }]
+      },
     },
     async execute(args: ReviseArgs, exec: ExecuteContext): Promise<ReviseResult> {
       if (!exec?.agent) throw new Error('story_revise_chapter 需要所属 agent 会话')
@@ -160,23 +188,11 @@ export function installReviseTool(ctx: PluginContext): Disposer {
         if (args.targetText !== undefined) assertTargetText(document.content, body, args.targetText)
 
         const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
-        if (body === document.content) {
-          return {
-            chapter: args.chapter,
-            path: document.path,
-            mode,
-            changed: false,
-            charCount: document.content.length,
-            target,
-            revisionId: '',
-            reviewInvalidated: false,
-          }
-        }
-
-        const review = await loadChapterReview(root, args.chapter)
+        const changed = body !== document.content
+        const review = changed ? await loadChapterReview(root, args.chapter) : null
         // 复审要过 workflow start 闸门：已有 start 就沿用，没有就随本次修订重开一章。
-        const start = await readWorkflowStart(root)
-        const startWrite = start === null
+        const start = changed ? await readWorkflowStart(root) : null
+        const startWrite = changed && start === null
           ? [{
               relativePath: WORKFLOW_START_PATH,
               content: `${JSON.stringify({
@@ -192,18 +208,19 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           chapter: args.chapter,
           content: body,
           language: work.language,
-          deletes: review === null ? [] : [chapterReviewPath(args.chapter)],
+          deletes: changed && review !== null ? [chapterReviewPath(args.chapter)] : [],
           extraWrites: startWrite,
         })
         return {
           chapter: args.chapter,
           path: revised.path,
           mode,
-          changed: true,
+          changed: revised.changed,
           charCount: revised.charCount,
           target,
           revisionId: revised.revisionId,
-          reviewInvalidated: review !== null,
+          reviewInvalidated: changed && review !== null,
+          changedRegion: revised.changedRegion,
         }
       })
     },

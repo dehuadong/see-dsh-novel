@@ -74,6 +74,13 @@
 - 原因：DSH 的修订正文由子代理整段返回，宿主拿不到内部替换字段；不声明范围就无法区分多段局部修订与范围外改动。
 - 验证：`test/chapter-revise.test.mjs` 的多段成功、范围外拒绝、范围非法与 `targetText` 任意 mode 用例；参数形状错误复用 `ARTIFACT_EDIT_RANGE_INVALID` 也由这些用例覆盖。
 
+### chapter.revise：缺索引行时追加修订条目
+
+- 源工程做法：写章节时已有章节索引行，`reviseDraft` 直接 `index.map` 更新当前章与后代；缺行不会发生。
+- 复刻做法：索引在定稿才写；修订时若缺当前章行，`revisedChapterIndex` 追加一条 `edited` 行（`createdAt = updatedAt`），已有行保留 `createdAt`。
+- 原因：DSH 把章节索引写入放在 `chapter.finalize`，修订早于定稿；追加让修订后的索引反映当前正文。
+- 验证：`test/chapter-revise.test.mjs` 的「无索引行时追加」与「已有行保留 createdAt」用例。
+
 
 ### chapter.reopen：恢复正文与重开回退分开
 

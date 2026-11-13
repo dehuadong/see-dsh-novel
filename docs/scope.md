@@ -131,17 +131,16 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D33 | 基线重结算 | 逐章快照已由 `chapter.finalize` 写出（`story/snapshots/0..N`）；缺口是结算与重开不按快照做基线重算：更早章节的重结算被拒绝，同章重结算按增量应用、旧 delta 不再适用的 facts 可能残留；恢复旧版后的状态重建（源 `requiresTruthRebuild`）也没有等价流程 | `chapter.settle`／`state.check` 接基线重算 |
 | D34 | `chapter.settle` 状态校验 | 源在结算后用状态校验 agent 检查投影一致性，必要时带 `validationFeedback` 重结算（`state-validator.ts`／`chapter-truth-validation.ts`）；复刻交付了只读 `story_state_check` 入口，但结算不自动校验、也不会带反馈重结算 | P5 `state.check` 把校验与 reconcile 接进 `chapter.settle` |
 | D35 | `chapter.finalize` 索引字段 | 源 `ChapterMeta` 可带 `lengthTelemetry`／`tokenUsage`，并在标题变化时删 superseded 章节文件；复刻索引只写基础字段，标题变化当前不可达 | P6 或后续 |
-| D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | `chapter.revise` 的索引写入（D45 同批） |
+| D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | `chapter.reopen` 的恢复索引观察（后续工作项） |
 | D37 | 章节保存的非原子拆分 | 源 `saveChapter` 一次提交章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引，崩溃后要再定稿补齐 | 后续把快照/索引并入结算，或恢复检测后自动补定稿 |
 | D38 | `backup.restore` 导出不回滚 | 源恢复整目录会连 `exports/` 一起回滚；复刻导出在根上且不在作品拥有项内，恢复后导出仍是旧内容 | 恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出 |
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
 | D40 | `panel.workbench` 删除动作 | 源 `ChapterWorkspacePanel` 有删除按钮与确认；复刻只走对话 | 已裁决补动作：动作条接 `story_delete_chapter` |
 | D41 | `panel.workbench` 白名单 | 面板多出源白名单没有的 `book_rules.json`、`source/brief.md`、`source/story/brief.md`、`.planner-context.json`，未登记 | 对齐源白名单或作者裁决保留 |
 | D42 | `artifact.identity` revision 快照 | 源 revision 带不可变 `snapshotPath`；复刻不写，修订后旧 revision 的 checksum 悬空、不可读 | 补 snapshot 写入与按快照读取 |
-| D45 | 章节索引观察 | 修订不更新索引 `wordCount`/`observations`/`provenance`，后代无 `upstream-revision` 标记；`provenance` 恒为 `generated` | `chapter.revise`／`chapter.finalize` 写索引与后代标记 |
+| D45 | 章节索引观察 | 修订落盘时已更新当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 与后代 `upstream-revision`；残余是重审→结算→定稿后 `chapter.finalize` 用审稿观察与 `generated` 覆盖该行，`edited` 不跨定稿 | `chapter.finalize` 保留 `edited` 与既有观察（后续工作项） |
 | D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
-| D56 | `chapter.revise` 回执 | 源 `revise_chapter` 回执带 `changedRegion`（`longform-production.ts:307`、`runner.ts:1156`）；复刻回执没有该字段 | `chapter.revise` 补 `changedRegion` |
 
 ## 边界
 

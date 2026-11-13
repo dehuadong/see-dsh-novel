@@ -32,6 +32,55 @@ export interface RangeEdit {
   replacement: string
 }
 
+/** 改动区域的一侧：原文或修订后的最小连续行区。 */
+export interface ChangedRegionSide {
+  startLine: number
+  lineCount: number
+  content: string
+  truncated: boolean
+}
+
+/** 修订回执的最小连续改动区域。 */
+export interface ChangedRegion {
+  scope: 'contiguous_changed_region'
+  before: ChangedRegionSide
+  after: ChangedRegionSide
+}
+
+/** 物理行，保留行终止符。 */
+function splitSourceLines(source: string): string[] {
+  return source.match(/[^\n]*\n|[^\n]+$/g) ?? []
+}
+
+/**
+ * 找出前后文本的最小连续改动行区。
+ * @param before 修订前正文
+ * @param after 修订后正文
+ * @param maxChars 每侧保留的最大字符数
+ */
+export function changedRegion(before: string, after: string, maxChars = 2000): ChangedRegion {
+  const oldLines = splitSourceLines(before)
+  const newLines = splitSourceLines(after)
+  let start = 0
+  let oldEnd = oldLines.length
+  let newEnd = newLines.length
+  while (start < oldEnd && start < newEnd && oldLines[start] === newLines[start]) start += 1
+  while (oldEnd > start && newEnd > start && oldLines[oldEnd - 1] === newLines[newEnd - 1]) {
+    oldEnd -= 1
+    newEnd -= 1
+  }
+  const side = (lines: string[], end: number): ChangedRegionSide => {
+    const content = lines.slice(start, end).join('')
+    return {
+      startLine: start + 1,
+      lineCount: end - start,
+      content: content.slice(0, maxChars),
+      truncated: content.length > maxChars,
+    }
+  }
+  return { scope: 'contiguous_changed_region', before: side(oldLines, oldEnd), after: side(newLines, newEnd) }
+}
+
 /** 范围/替换参数非法的错误码。 */
 export const RANGE_EDIT_ERROR = 'ARTIFACT_EDIT_RANGE_INVALID'
 

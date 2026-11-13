@@ -1,19 +1,18 @@
 {
   "capability": "chapter.revise",
-  "date": "2026-11-12",
+  "date": "2026-11-13",
   "sessionId": "process:chapter.revise",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "402 passed — chapter-revise 14 例（范围配对/排序/重叠/越界/非整数、空串删段、多行替换、多段成功、content 不一致、缺 replacements、空 ranges、targetText 任意模式与字符级边界、构造归一、spot-fix 无改动、归档与 revision）、stage-context 4 例（chapter-done 章号与编号来源、review 修订步骤）"
+    "summary": "426 passed — chapter-revise 18 例（范围配对/排序/重叠/越界、空串删段、多行替换、多段区域、content 不一致、缺 replacements、targetText 任意模式、构造归一、归档与 revision、索引更新/追加/后代 upstream-revision、缺索引与坏 JSON 拒绝、英文通知、2000 截断、changed=false 空区域）＋ stage-context 回归"
   },
   "receipts": [
-    "spot-fix 用 `ranges`＋`replacements`：行范围 1 基、含端点、可乱序，宿主按 `startLine` 排序后校验不重叠；空串删除该段所有行，非空按 `\\n` 分行替换；范围外正文逐字节不变。",
-    "`targetText` 对五种 mode 都生效，要求唯一出现；用字符级前缀/后缀比较保证片段外一个字节不变，不再按行换算。",
-    "`content` 必填；spot-fix 先用原文与范围构造正文，再与归一后的 `content` 逐字节比较，不一致拒绝 `CHAPTER_EDIT_SCOPE_CONFLICT`。构造结果与 `content` 都经 `chapterBodyForChapter` 归一（去本章标题、CRLF→LF、trim）。",
-    "spot-fix 构造结果与原文一致时返回 `changed=false`：不写盘、不作废审稿、不写 workflow start。",
-    "修订覆盖同一章节文件、把旧正文归档到 `source/chapters/.versions/NNNN/<ts>_revision_<uuid>.md`、追加 artifact revision（r2，parent r1，旧 revision superseded），成功后作废旧审稿并重开本章。",
-    "`chapter-done` 协议章号改为 `next`（被审章），并注入该章的编号来源（`## 来源 chapter-N` 与 memo），不复用「审稿要求」；`review` 协议补 spot-fix 修订步骤。",
-    "D53（单段范围与 targetText 仅限 spot-fix）注销；D56（回执缺 `changedRegion`）仍保留。该回执是 process-level 工具/核心/阶段测试，不是 DSH 会话。"
+    "修订覆盖同一章节文件、把旧正文归档到 `source/chapters/.versions/NNNN/<ts>_revision_<uuid>.md`、追加 artifact revision（r2，parent r1，旧 revision superseded）。",
+    "`chapters/index.json` 的当前章更新 `wordCount`／`updatedAt`／`provenance: \"edited\"`，`observations` 清空；已有行保留 `createdAt`，缺行时追加（`createdAt = updatedAt`，标题取文档头）。",
+    "章号更大的条目刷新 `updatedAt` 并替换 `upstream-revision` 观察：中文「第N章已重写，请重新检查本章与前文的连续性。」，英文对应；其它字段保留。",
+    "回执带 `changedRegion`：`scope: \"contiguous_changed_region\"`，前后各 `startLine`／`lineCount`／`content`（≤2000 字符）／`truncated`；渲染文本序列化该对象。",
+    "`changed=false` 只刷新索引与后代、不归档、不写 revision、不作废审稿、不写 workflow start，回执返回空区域；`revisionId` 为空串。",
+    "索引缺失或非法 JSON 时在写盘前拒绝，章节文件与 `.versions` 不变。D56 已注销；D45 收窄为「定稿覆盖 edited」的残余；D42（revision 快照）保留。该回执是 process-level 工具/核心/阶段测试。"
   ]
 }

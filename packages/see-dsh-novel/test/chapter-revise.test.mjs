@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { installReviseTool } from '../src/pipelines/long/revise-tool.ts'
-import { loadChapterDocument, reviseChapterDocument, writeChapterDocument } from '../src/core/chapter-document.ts'
+import { countChapterLength, loadChapterDocument, reviseChapterDocument, writeChapterDocument } from '../src/core/chapter-document.ts'
 import { loadArtifactStore } from '../src/core/artifact-store.ts'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
@@ -15,17 +15,18 @@ import { readWorkflowStart } from '../src/core/workflow-start.ts'
 
 const ORIGINAL = '第一段。\n第二段。\n第三段。'
 
-async function workspace(withChapter = true) {
+async function workspace(withChapter = true, language = 'zh') {
   const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-revise-'))
   await mkdir(join(root, 'source/story/runtime'), { recursive: true })
   await mkdir(join(root, 'source/story/state'), { recursive: true })
   await mkdir(join(root, 'source/chapters'), { recursive: true })
   await writeFile(join(root, WORK_FILE), JSON.stringify({
-    version: 1, id: 'w', title: '标题', profile: 'longform-novel', language: 'zh', status: 'draft',
+    version: 1, id: 'w', title: '标题', profile: 'longform-novel', language, status: 'draft',
     metadata: { chapterWordCount: 300 }, createdAt: '2026-11-10T00:00:00.000Z', updatedAt: '2026-11-10T00:00:00.000Z',
   }))
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '正文计划', threadRefs: [] })
-  if (withChapter) await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: ORIGINAL, language: 'zh' })
+  if (withChapter) await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: ORIGINAL, language })
+  await writeFile(join(root, 'source/chapters/index.json'), '[]')
   return root
 }
 
@@ -117,6 +118,18 @@ test('reviseChapterDocument rewrites the chapter, archives the old prose and app
     assert.equal(artifact.currentRevisionId, 'r2')
     assert.equal(artifact.revisions.find((entry) => entry.id === 'r2')?.parentRevisionId, 'r1')
     assert.equal(artifact.revisions.find((entry) => entry.id === 'r1')?.status, 'superseded')
+
+    assert.deepEqual(result.changedRegion, {
+      scope: 'contiguous_changed_region',
+      before: { startLine: 2, lineCount: 1, content: '第二段。\n', truncated: false },
+      after: { startLine: 2, lineCount: 1, content: '第二段重写。\n', truncated: false },
+    })
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(index.map((entry) => [entry.number, entry.provenance]), [[1, 'edited']])
+    assert.deepEqual(index[0].observations, [])
+    assert.equal(index[0].title, '雨夜')
+    assert.equal(index[0].wordCount, countChapterLength(revised, 'zh'))
+    assert.equal(index[0].createdAt, index[0].updatedAt)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -131,6 +144,10 @@ test('the revise tool invalidates the review and the stage can be reviewed again
     assert.equal(result.changed, true)
     assert.equal(result.mode, 'rewrite')
     assert.equal(result.reviewInvalidated, true)
+    assert.equal(result.changedRegion.scope, 'contiguous_changed_region')
+    const text = tool(root).output.render({}, result)[0].text
+    assert.match(text, /"scope":"contiguous_changed_region"/)
+    assert.match(text, /"content":"第二段重写。\\n"/)
     await assert.rejects(stat(join(root, chapterReviewPath(1))), { code: 'ENOENT' })
     // 复审要过 workflow start 闸门：修订随带重开一章。
     assert.equal((await readWorkflowStart(root))?.chapter, 1)
@@ -140,17 +157,24 @@ test('the revise tool invalidates the review and the stage can be reviewed again
   }
 })
 
-test('an unchanged revise writes nothing and keeps the review', async () => {
+test('an unchanged revise refreshes the index but keeps the chapter and review', async () => {
   const root = await workspace()
   try {
     await reviewOnce(root)
     const before = await readFile(join(root, 'source/artifacts/manifest.json'), 'utf8')
+    const chapterBefore = await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')
     const result = await tool(root).execute({ chapter: 1, content: ORIGINAL }, exec)
     assert.equal(result.changed, false)
     assert.equal(result.reviewInvalidated, false)
+    assert.equal(result.changedRegion.before.lineCount, 0)
+    assert.equal(result.changedRegion.after.lineCount, 0)
     assert.equal(await readFile(join(root, 'source/artifacts/manifest.json'), 'utf8'), before)
+    assert.equal(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), chapterBefore)
     assert.ok((await stat(join(root, chapterReviewPath(1)))).isFile())
     assert.equal(await readWorkflowStart(root), null, '没有改动就不重开一章')
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(index.map((entry) => [entry.number, entry.provenance, entry.observations.length]), [[1, 'edited', 0]])
+    assert.equal(index[0].title, '雨夜')
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -169,8 +193,80 @@ test('spot-fix with no change returns changed=false and keeps the review', async
     }, exec)
     assert.equal(result.changed, false)
     assert.equal(result.reviewInvalidated, false)
+    assert.equal(result.changedRegion.before.lineCount, 0)
     assert.ok((await stat(join(root, chapterReviewPath(1)))).isFile())
     assert.equal((await loadChapterDocument(root, 1)).content, ORIGINAL)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('revising a chapter marks its descendants upstream-revision and keeps their other fields', async () => {
+  const root = await workspace()
+  try {
+    const row = (number, title) => ({
+      number, title, wordCount: 3,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      observations: [{ code: 'upstream-revision', summary: '旧提醒', assessment: 'observation', evidence: [], sourceRefs: [] }],
+      provenance: 'generated',
+    })
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([row(1, '雨夜'), row(2, '第二')]))
+    await reviseChapterDocument(root, { chapter: 1, content: '第一段。\n第二段重写。\n第三段。', language: 'zh' })
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.equal(index[0].provenance, 'edited')
+    assert.equal(index[0].createdAt, '2026-01-01T00:00:00.000Z')
+    assert.equal(index[1].provenance, 'generated')
+    assert.deepEqual(index[1].observations.map((observation) => observation.code), ['upstream-revision'])
+    assert.match(index[1].observations[0].summary, /第1章已重写/)
+    assert.equal(index[1].observations[0].summary === '旧提醒', false)
+    assert.notEqual(index[1].updatedAt, '2026-01-01T00:00:00.000Z')
+    assert.equal(index[1].createdAt, '2026-01-01T00:00:00.000Z')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('revising rejects a missing or malformed index before writing', async () => {
+  const root = await workspace()
+  try {
+    const chapterBefore = await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')
+    await rm(join(root, 'source/chapters/index.json'), { force: true })
+    await assert.rejects(tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec), /index\.json 缺失/)
+    assert.equal(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), chapterBefore)
+
+    await writeFile(join(root, 'source/chapters/index.json'), '{ bad')
+    await assert.rejects(tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec), /不是合法 JSON/)
+    assert.equal(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), chapterBefore)
+    await assert.rejects(stat(join(root, 'source/chapters/.versions')), { code: 'ENOENT' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an English work gets the English downstream notice', async () => {
+  const root = await workspace(true, 'en')
+  try {
+    const row = (number) => ({
+      number, title: `Chapter ${number}`, wordCount: 3,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      observations: [], provenance: 'generated',
+    })
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([row(1), row(2)]))
+    await reviseChapterDocument(root, { chapter: 1, content: '第一段改。\n第二段。\n第三段。', language: 'en' })
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.match(index[1].observations[0].summary, /^Chapter 1 changed/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a long changed region is truncated to the receipt limit', async () => {
+  const root = await workspace()
+  try {
+    const result = await tool(root).execute({ chapter: 1, content: '甲'.repeat(2100) }, exec)
+    assert.equal(result.changedRegion.after.truncated, true)
+    assert.equal(result.changedRegion.after.content.length, 2000)
+    assert.equal(result.changedRegion.before.truncated, false)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -204,6 +300,9 @@ test('spot-fix applies multiple ranges and rejects content that disagrees with t
       content: '第一段改。\n第二段。\n第三段改。',
     }, exec)
     assert.equal(accepted.changed, true)
+    assert.equal(accepted.changedRegion.before.startLine, 1)
+    assert.equal(accepted.changedRegion.before.lineCount, 3)
+    assert.equal(accepted.changedRegion.after.lineCount, 3)
     assert.equal((await loadChapterDocument(root, 1)).content, '第一段改。\n第二段。\n第三段改。')
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -319,7 +418,7 @@ test('revision archives are hidden from the chapter listing', async () => {
   try {
     await reviseChapterDocument(root, { chapter: 1, content: '第一段改。\n第二段。\n第三段。', language: 'zh' })
     const entries = await readdir(join(root, 'source/chapters'))
-    assert.deepEqual(entries.sort(), ['.versions', '0001_雨夜.md'])
+    assert.deepEqual(entries.sort(), ['.versions', '0001_雨夜.md', 'index.json'])
   } finally {
     await rm(root, { recursive: true, force: true })
   }

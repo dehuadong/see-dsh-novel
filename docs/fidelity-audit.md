@@ -401,11 +401,11 @@
 
 ### chapter.revise
 
-**源工程证据**：`pipeline/runner.ts:874-1120` 的 `reviseDraft`；`agents/reviser.ts:13-15` 的五种模式与 `:167-190` 的模式协议；`harness/tools/longform-production.ts` 的 `revise_chapter`（`targetText` 绑定局部修订）；`state/chapter-workspace.ts:61-80` 的 `archiveChapterVersion`；Studio `server.ts:5571-5599,5832-5870` 的修订/重写入口。
+**源工程证据**：`pipeline/runner.ts:874-1120` 的 `reviseDraft`；`:1090-1120` 的索引更新与后代 `upstream-revision`；`:1156` 的 `changedRegion`；`utils/source-text.ts:31-37` 的最小连续改动区；`agents/reviser.ts:13-15` 的五种模式与 `:167-178` 的模式协议；`harness/tools/longform-production.ts:285,307` 的 `revise_chapter` 回执；`state/chapter-workspace.ts:61-80` 的 `archiveChapterVersion`；Studio `server.ts:5571-5599,5832-5870` 的修订/重写入口。
 
-**复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 用 `ranges`＋`replacements` 逐段构造正文，空串删段、多行按换行分行；`targetText` 对任意模式生效，字符级校验片段外不变。面板 `chapter-done` 由索引根动作给出「修订本章」。
+**复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 用 `ranges`＋`replacements` 逐段构造正文，空串删段、多行按换行分行；`targetText` 对任意模式生效，字符级校验片段外不变。修订同时更新 `chapters/index.json`：当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 清空，后代替换 `upstream-revision` 提醒（中英文按作品语言）；缺当前行时追加。回执带 `changedRegion`（scope 与前后 `startLine`／`lineCount`／`content`／`truncated`），`changed=false` 也刷新索引并返回空区域。
 
-**判定：机制等价（重审闸门）+ 保真债 D42／D45／D56** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。多段范围与 `targetText` 任意模式已交付（D53 注销）；revision 缺 `snapshotPath`（D42）、索引与后代标记未写（D45）、回执缺 `changedRegion`（D56）是债。
+**判定：机制等价（重审闸门）+ 保真债 D42／D45** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；自动重结算未复刻，随 D34。多段范围与 `targetText` 任意模式已交付（D53 注销）；revision 缺 `snapshotPath`（D42）；索引更新已交付，但重审→结算→定稿后 `finalizeChapter` 会把该行写成 `generated`，`edited` 不跨定稿（D45 残余）。
 
 ## 批次 E：P4 结算与定稿
 

@@ -2,7 +2,7 @@
  * `source/chapters/index.json`：章节元数据的索引。
  *
  * 章节文件是正文权威；索引记录标题、字数、审稿观察与来源。读取按严格 schema，
- * 写入由建书、定稿与删除各自完成，不存在统一的「重建入口」。
+ * 写入由建书、修订、定稿与删除各自完成，不存在统一的「重建入口」。
  */
 import { readFile, readdir } from 'node:fs/promises'
 import { join } from 'node:path'
@@ -17,9 +17,13 @@ export interface ChapterIndexEntry {
   wordCount: number
   createdAt: string
   updatedAt: string
-  observations: Observation[]
+  observations: IndexObservation[]
   provenance: 'generated' | 'imported' | 'edited'
 }
+
+/** 索引观察：源只保证 code/summary/evidence，其余字段可缺。 */
+export type IndexObservation = Pick<Observation, 'code' | 'summary' | 'evidence'>
+  & Partial<Pick<Observation, 'assessment' | 'category' | 'scope' | 'targetHash' | 'target' | 'sourceRefs'>>
 
 const SOURCE_CHAPTER_FILE = /^(\d+)_.*\.md$/u
 const HEADING = /^#\s*(?:第\s*(\d+)\s*章|Chapter\s+(\d+)\b)[:：]?\s*(.*)$/u
@@ -135,6 +139,44 @@ function validateChapterEntry(value: unknown, index: number): ChapterIndexEntry 
     requireInteger(value.tokenUsage.totalTokens, `${at}.totalTokens`)
   }
   return value as unknown as ChapterIndexEntry
+}
+
+/** 修订后的索引：当前章标 edited，后代替换 upstream-revision 提醒。 */
+export function revisedChapterIndex(
+  entries: ReadonlyArray<ChapterIndexEntry>,
+  input: { chapter: number, title: string, wordCount: number, language: string, now: string },
+): ChapterIndexEntry[] {
+  const notice = input.language === 'en'
+    ? `Chapter ${input.chapter} changed; re-review this downstream chapter for continuity.`
+    : `第${input.chapter}章已重写，请重新检查本章与前文的连续性。`
+  const current = entries.find((entry) => entry.number === input.chapter)
+  const updated: ChapterIndexEntry = {
+    ...(current ?? {
+      number: input.chapter,
+      title: input.title,
+      createdAt: input.now,
+    }),
+    wordCount: input.wordCount,
+    updatedAt: input.now,
+    observations: [],
+    provenance: 'edited',
+  }
+  const next = entries.map((entry): ChapterIndexEntry => {
+    if (entry.number === input.chapter) return updated
+    if (entry.number > input.chapter) {
+      return {
+        ...entry,
+        updatedAt: input.now,
+        observations: [
+          ...entry.observations.filter((observation) => observation.code !== 'upstream-revision'),
+          { code: 'upstream-revision', summary: notice, evidence: [] },
+        ],
+      }
+    }
+    return entry
+  })
+  if (current === undefined) next.push(updated)
+  return next.sort((left, right) => left.number - right.number)
 }
 
 /** `chapters/` 下是否有任意位数前缀的章节正文文件；口径与严格读取一致。 */

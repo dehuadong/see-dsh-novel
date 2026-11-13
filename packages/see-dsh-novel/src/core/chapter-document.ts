@@ -7,6 +7,9 @@ import { join } from 'node:path'
 
 import { commitFoundation } from './commit.js'
 import { chapterArtifactWrite } from './artifact-store.js'
+import { CHAPTER_INDEX_PATH, chapterTitleOf, readChapterIndexStrict, revisedChapterIndex } from './chapter-index.js'
+import { changedRegion } from './revise.js'
+import type { ChangedRegion } from './revise.js'
 import type { WorkLanguage } from './work.js'
 
 const UNSAFE_TITLE = /[\u0000-\u001f/\\:*?"<>|]/g
@@ -123,16 +126,19 @@ export interface ReviseChapterResult {
   path: string
   title: string
   charCount: number
-  /** 旧正文的归档路径（`source/chapters/.versions/...`）。 */
+  /** 旧正文的归档路径（`source/chapters/.versions/...`）；无改动时为空串。 */
   archivedPath: string
   revisionId: string
+  changed: boolean
+  changedRegion: ChangedRegion
 }
 
 /**
- * 修订已有章节：覆盖同一章节文件、归档旧正文、追加一个 artifact revision。
+ * 修订已有章节：覆盖同一章节文件、归档旧正文、追加一个 artifact revision，并更新章节索引。
+ * 正文未变时只刷新索引，不归档、不写 revision。
  * @param root 作品根目录
  * @param input 章号、修订后的正文、语言与同批删除项
- * @returns 落盘路径、标题、字数、归档路径与新 revision id
+ * @returns 落盘路径、标题、字数、归档路径、revision id 与改动区域
  */
 export async function reviseChapterDocument(
   root: string,
@@ -151,28 +157,52 @@ export async function reviseChapterDocument(
   if (body === '') throw new Error('content 不能为空')
   const title = chapterTitleFromHeading(existing.heading, input.chapter)
   const previous = await readFile(join(root, existing.path), 'utf8')
-  const document = renderChapterDocument({ chapter: input.chapter, title, content: body, language: input.language })
-  const archivedPath = `source/chapters/.versions/${String(input.chapter).padStart(4, '0')}/${Date.now()}_revision_${randomUUID()}.md`
-  const artifact = await chapterArtifactWrite(root, {
+  const changed = body !== existing.content
+
+  const entries = await readChapterIndexStrict(root)
+  const now = new Date().toISOString()
+  const wordCount = countChapterLength(body, input.language)
+  const nextEntries = revisedChapterIndex(entries, {
     chapter: input.chapter,
-    chapterPath: existing.path,
-    content: document,
+    title: chapterTitleOf(existing.heading, existing.path.split('/').pop() ?? existing.path),
+    wordCount,
+    language: input.language,
+    now,
   })
-  await commitFoundation(root, {
-    writes: [
+
+  const writes: Array<{ relativePath: string, content: string }> = [
+    { relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(nextEntries, null, 2)}\n` },
+  ]
+  let archivedPath = ''
+  let revisionId = ''
+  if (changed) {
+    const document = renderChapterDocument({ chapter: input.chapter, title, content: body, language: input.language })
+    archivedPath = `source/chapters/.versions/${String(input.chapter).padStart(4, '0')}/${Date.now()}_revision_${randomUUID()}.md`
+    const artifact = await chapterArtifactWrite(root, {
+      chapter: input.chapter,
+      chapterPath: existing.path,
+      content: document,
+    })
+    writes.push(
       { relativePath: existing.path, content: document },
       { relativePath: archivedPath, content: previous },
       { relativePath: artifact.relativePath, content: artifact.content },
       ...(input.extraWrites ?? []),
-    ],
-    deletes: input.deletes ?? [],
+    )
+    revisionId = artifact.artifact.currentRevisionId ?? ''
+  }
+  await commitFoundation(root, {
+    writes,
+    deletes: changed ? (input.deletes ?? []) : [],
   })
   return {
     path: existing.path,
     title,
     charCount: countChapterLength(body, input.language),
     archivedPath,
-    revisionId: artifact.artifact.currentRevisionId ?? '',
+    revisionId,
+    changed,
+    changedRegion: changedRegion(existing.content, body),
   }
 }
 
