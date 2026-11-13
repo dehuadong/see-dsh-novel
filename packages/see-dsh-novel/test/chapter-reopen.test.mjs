@@ -40,6 +40,8 @@ async function workspace() {
   await writeFile(join(root, 'source/story/state/hooks.json'), JSON.stringify({
     hooks: [{ hookId: 'hook-1', startChapter: 1, type: 'promise', status: 'deferred', lastAdvancedChapter: 1, expectedPayoff: '回收', notes: '' }],
   }))
+  await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 0, facts: [] }))
+  await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: [] }))
   for (const [file, body] of [['source/story/outline/story_frame.md', '# 框架'], ['source/story/outline/volume_map.md', '# 卷'], ['source/story/book_rules.md', '# 规则'], ['source/story/book_rules.json', '{}'], ['source/story/pending_hooks.md', '# 伏笔']]) {
     await mkdir(dirname(join(root, file)), { recursive: true })
     await writeFile(join(root, file), `${body}\n`)

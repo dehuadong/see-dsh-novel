@@ -175,6 +175,9 @@ export function installSettleTool(ctx: PluginContext): Disposer {
         }
         const work = await readWork(root)
         const read = await inspectState(root, [], work?.language ?? 'zh')
+        if (read.missing.length > 0) {
+          throw new Error(`状态文件缺失，先修复或重建再结算：${read.missing.join('、')}`)
+        }
         if (read.invalid.length > 0) {
           throw new Error(`状态文件损坏，先修复再结算：${read.invalid.join('、')}`)
         }

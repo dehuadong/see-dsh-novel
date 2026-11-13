@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -45,6 +45,10 @@ async function workspace(options = {}) {
     schemaVersion: 2, language: 'zh', lastAppliedChapter: options.lastApplied ?? 0, projectionVersion: 1,
   }))
   await writeFile(join(root, 'source/story/state/hooks.json'), JSON.stringify({ hooks: options.hooks ?? [HOOK] }))
+  await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({
+    chapter: options.lastApplied ?? 0, facts: [],
+  }))
+  await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: [] }))
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
   await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
@@ -201,33 +205,96 @@ test('withdrawal and history protection follow the merge rules', async () => {
   }
 })
 
-test('chapter order rules and missing review/state errors', async () => {
+test('chapter order rules and missing review errors', async () => {
   const root = await workspace()
   try {
     await assert.rejects(tool(root).execute(delta({ chapter: 2 }), exec), /还没有正文/)
     await rm(join(root, chapterReviewPath(1)), { force: true })
     await assert.rejects(tool(root).execute(delta(), exec), /还没有审稿记录/)
-
-    const other = await workspace()
-    try {
-      await writeFile(join(other, 'source/story/state/hooks.json'), '{ bad')
-      await assert.rejects(tool(other).execute(delta(), exec), /状态文件损坏/)
-    } finally {
-      await rm(other, { recursive: true, force: true })
-    }
   } finally {
     await rm(root, { recursive: true, force: true })
   }
 })
 
-test('applySettlement rejects backwards and out-of-order chapters', async () => {
+test('state file guards reject each missing and each corrupt file before writing', async () => {
+  const names = ['manifest.json', 'current_state.json', 'hooks.json', 'chapter_summaries.json']
+  for (const name of names) {
+    const root = await workspace()
+    try {
+      const stateDir = join(root, 'source/story/state')
+      const before = (await readdir(stateDir)).sort()
+      await rm(join(stateDir, name), { force: true })
+      await assert.rejects(
+        tool(root).execute(delta(), exec),
+        new RegExp(`状态文件缺失.*${name.replace(/\./gu, '\\.')}`, 'u'),
+      )
+      assert.deepEqual((await readdir(stateDir)).sort(), before.filter((file) => file !== name))
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+
+  const empty = await workspace()
+  try {
+    const stateDir = join(empty, 'source/story/state')
+    for (const name of names) await rm(join(stateDir, name), { force: true })
+    await assert.rejects(
+      tool(empty).execute(delta(), exec),
+      /状态文件缺失.*manifest\.json.*current_state\.json.*hooks\.json.*chapter_summaries\.json/u,
+    )
+    assert.deepEqual(await readdir(stateDir), [])
+  } finally {
+    await rm(empty, { recursive: true, force: true })
+  }
+
+  for (const name of names) {
+    const root = await workspace()
+    try {
+      const stateDir = join(root, 'source/story/state')
+      const before = (await readdir(stateDir)).sort()
+      await writeFile(join(stateDir, name), '{ bad')
+      await assert.rejects(tool(root).execute(delta(), exec), /状态文件损坏/u)
+      assert.deepEqual((await readdir(stateDir)).sort(), before)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('settle allows a forward chapter gap', async () => {
+  const root = await workspace()
+  try {
+    await writeChapterDocument(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
+    await saveChapterPlan(root, { chapter: 2, goal: '目标', body: '计划', threadRefs: [] })
+    await reviewChapter(root, {
+      chapter: 2,
+      summary: '二审',
+      observations: [{ code: 'C2', summary: '观察', assessment: 'unavailable' }],
+    })
+    const result = await tool(root).execute(delta({ chapter: 2 }), exec)
+    assert.equal(result.chapter, 2)
+    assert.equal((await readJson(root, 'source/story/state/manifest.json')).lastAppliedChapter, 2)
+    assert.equal((await readJson(root, 'source/story/state/current_state.json')).chapter, 2)
+    const rows = (await readJson(root, 'source/story/state/chapter_summaries.json')).rows
+    assert.deepEqual(rows.map((row) => row.chapter), [2])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('applySettlement allows forward gaps and rejects backwards chapters', async () => {
   const root = await workspace()
   try {
     const before = await inspectState(root, [], 'zh')
+    const gap = applySettlement(before.snapshot, delta({ chapter: 3 }), {})
+    assert.equal(gap.snapshot.manifest.lastAppliedChapter, 3)
+    assert.equal(gap.snapshot.currentState.chapter, 3)
+    assert.deepEqual(gap.snapshot.chapterSummaries.rows.map((row) => row.chapter), [3])
     assert.throws(
-      () => applySettlement(before.snapshot, delta({ chapter: 2 }), {}),
-      /必须前进/,
+      () => applySettlement(gap.snapshot, delta({ chapter: 2 }), {}),
+      /D33/,
     )
+
     const settled = applySettlement(before.snapshot, delta(), {})
     assert.throws(
       () => applySettlement(settled.snapshot, delta({ chapter: 1 }), {}),

@@ -1,18 +1,18 @@
 {
   "capability": "chapter.settle",
-  "date": "2026-11-10",
+  "date": "2026-11-13",
   "sessionId": "process:chapter.settle",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "361 passed — chapter-settle 6 例（四份状态 JSON 与三份投影、facts 失效与替换、mention/defer 不推进与 resolve 推进、候选 id、superseded 撤回与 resolved 历史、未知 id、章号规则、缺正文/缺审稿/坏状态）＋ host 工具清单与 stage 协议回归"
+    "summary": "415 passed — chapter-settle 8 例（四份状态 JSON 与三份投影、facts 失效与替换、mention/defer 不推进与 resolve 推进、候选 id、superseded 撤回与 resolved 历史、未知 id、逐份缺失/四份全缺/逐份损坏的状态前置、跳章与倒退、同章重结算）＋ reopen/finalize fixture 与 host／stage 回归"
   },
   "receipts": [
     "`story_settle_chapter` 一次提交写 `manifest.json`、`current_state.json`、`hooks.json`、`chapter_summaries.json` 与三份 Markdown 投影，`lastAppliedChapter` 推进到本章。",
+    "结算前要求四份状态文件都存在：缺任一份时列出全部缺失路径并在写盘前拒绝；文件存在但不可解析仍报「状态文件损坏」。缺失与损坏来自 `inspectState` 的同一次读取，其它只读消费者仍按默认回退。",
+    "章号只拒倒退：`chapter > lastAppliedChapter` 允许（含跳章），`chapter === lastAppliedChapter` 走同章重结算的增量语义，`chapter < lastAppliedChapter` 拒绝并指向 D33。",
     "facts：`expire` 把命中且活跃的 fact 的 validUntilChapter 设为 chapter-1；`upsert` 使同 subject+predicate 的旧 fact 失效并插入新值（validFromChapter=sourceChapter=章号），facts 按 predicate/object 排序。",
     "hooks：候选伏笔由宿主分配 `hook`／`hook-2` 稳定 id；`mention` 不改状态不推进；`defer` 置 deferred 不推进；`resolve` 置 resolved 并把 lastAdvancedChapter 推到当前章；superseded 撤回需要 notes，resolved 历史不可撤回，未知 id 拒绝。",
-    "章号必须前进（`lastApplied+1`）；同章重结算按增量应用；更早章节重结算拒绝并指向 D33。",
-    "前置：本章有正文与审稿记录；状态文件损坏时拒绝写入，不覆盖坏状态。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+    "D46／D47 已注销；D33（基线重算）与 D34（自动校验与 reconciliation）仍保留。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

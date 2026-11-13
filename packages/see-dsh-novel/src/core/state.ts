@@ -215,6 +215,8 @@ export async function readManifestLanguage(root: string): Promise<ProjectionLang
  */
 export interface StateSnapshotRead {
   snapshot: StateSnapshot
+  /** 缺失的状态文件（相对作品根）。 */
+  missing: string[]
   /** 存在但解析失败的状态文件（相对作品根）。 */
   invalid: string[]
 }
@@ -249,6 +251,14 @@ export async function inspectState(
   ] as const)
     .filter(([, status, value]) => status === 'invalid' || (status === 'ok' && value === undefined))
     .map(([name]) => `${STATE_DIR}/${name}`)
+  const missing = ([
+    ['manifest.json', manifest.status],
+    ['current_state.json', currentState.status],
+    ['hooks.json', hooksState.status],
+    ['chapter_summaries.json', chapterSummaries.status],
+  ] as const)
+    .filter(([, status]) => status === 'missing')
+    .map(([name]) => `${STATE_DIR}/${name}`)
   return {
     snapshot: {
       manifest: manifestValue ?? fallback.manifest,
@@ -256,6 +266,7 @@ export async function inspectState(
       hooks: hooksValue ?? fallback.hooks,
       chapterSummaries: summariesValue ?? fallback.chapterSummaries,
     },
+    missing,
     invalid,
   }
 }

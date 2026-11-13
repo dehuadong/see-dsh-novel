@@ -237,9 +237,6 @@ export function applySettlement(
   if (!reapply && delta.chapter < last) {
     throw new Error(`第 ${delta.chapter} 章早于已结算的第 ${last} 章；更早章节重结算需要章节快照（D33）`)
   }
-  if (!reapply && delta.chapter !== last + 1) {
-    throw new Error(`结算章号必须前进：当前已结算到第 ${last} 章，收到第 ${delta.chapter} 章`)
-  }
 
   const hooks = applyHookOps(snapshot.hooks, delta)
   validateHooks(hooks)

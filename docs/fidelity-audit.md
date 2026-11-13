@@ -421,9 +421,9 @@
 
 **源工程证据**：`agents/settler-tool.ts:45-82` 的 delta 形状；`state/state-reducer.ts:17-199` 的章节前进、hooks 合并与终态保护、facts 失效与同 key 替换；`utils/hook-arbiter.ts:24-90` 的候选伏笔 id 分配；`state/state-validator.ts:15-100` 的整份校验；`agents/settler-prompts.ts:5-45` 的 settler 提示；`agents/state-validator.ts:23-95` 的状态校验与 `pipeline/chapter-truth-validation.ts:39-104` 的对账重试。
 
-**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批替换；整份状态校验。
+**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批替换；整份状态校验。结算前要求四份状态文件都存在，缺失时在写盘前拒绝；章号只拒倒退，允许大于 `lastAppliedChapter` 的跳章。
 
-**判定：保真债 D33／D34／D46／D47** — 结算规则按源 reducer 复刻；逐章快照已由 `chapter.finalize` 写出，缺口是不按快照做基线重算（D33）；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账；状态文件缺失按默认继续（D46）；强制 `last+1` 跳章（D47）。
+**判定：保真债 D33／D34** — 结算规则按源 reducer 复刻；逐章快照已由 `chapter.finalize` 写出，缺口是不按快照做基线重算（D33）；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账。状态缺失前置与跳章已按源对齐（D46／D47 注销）。
 
 ### chapter.finalize
 

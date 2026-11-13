@@ -25,7 +25,7 @@ P4 只剩 `chapter.settle` 与 `chapter.finalize`。章节摘要已经能单独�
 
 - 输入：当前 `StateSnapshot`（`state.ts` 的 `inspectState` 读取）、`delta`、`allowReapply`。
 - 校验 delta 形状（章节、`postSettlement` 为字符串、ops 数组、摘要七字段）；`postSettlement` 允许空串（源 schema 不设下限）。
-- 章号：`chapter === lastAppliedChapter + 1` 走增量；`chapter === lastAppliedChapter` 且 `allowReapply` 走重结算（同章增量）；其余拒绝。源只拒绝倒退（`state-reducer.ts:37-39`），允许任意未结算章；当前强制 `last+1`，记 D47。
+- 章号：只拒倒退；`chapter > lastAppliedChapter` 允许（含跳章），`chapter === lastAppliedChapter` 且 `allowReapply` 走同章重结算。D47 已注销。
 - hooks：先合并 `newHookCandidates`（宿主分配 id），再 `upsert` 合并、`resolve`/`defer` 应用；mention 只做去重与 trim，不改变状态与 `lastAdvancedChapter`。
 - facts：`expire` 与 `upsert` 按上面源语义；fact 排序。
 - summaries：替掉同章行，按章号排序。
@@ -43,7 +43,7 @@ P4 只剩 `chapter.settle` 与 `chapter.finalize`。章节摘要已经能单独�
 `src/pipelines/long/settle-tool.ts`：
 
 - 参数：`chapter`、`postSettlement`、`factOps{upsert,expire}`、`hookOps{upsert,mention,resolve,defer}`、`newHookCandidates`、`chapterSummary`（七字段）。
-- 前置：本章有正文与审稿记录；坏状态（JSON 不可解析）拒绝，不覆盖。状态文件缺失时 `inspectState` 按默认继续（第 1 章可写），与源只校验已有文件一致，但与「必须存在」的描述不符，记 D46。
+- 前置：本章有正文与审稿记录；四份状态文件必须存在，缺任一份时列出缺失路径并在写盘前拒绝；存在但不可解析时按「状态文件损坏」拒绝。D46 已注销。
 - 执行：`withWorkAction` 内读快照 → `applySettlement` → 一次 `commitFoundation` 写四份状态 JSON（manifest／current_state／hooks／chapter_summaries）与三份 Markdown 投影（`state.ts` 的 `stateJsonWrites`／`stateProjectionWrites`）；投影语言取 manifest，manifest 缺失时用 `work.language`。
 - 输出：`{ chapter, facts, hooks, summaryTitle, postSettlement }`（facts／hooks 是结算后的条数），渲染成回执。
 
@@ -56,7 +56,7 @@ P4 只剩 `chapter.settle` 与 `chapter.finalize`。章节摘要已经能单独�
 
 - `capabilities.yaml` 的 `chapter.settle`：implementation 指向 `src/pipelines/long/settle-tool.ts`，consumer 指向 `test/chapter-settle.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.settle.json`。
 - D32：结算把摘要与 facts/hooks 放进同一次提交；修订后的重结算走同一工具的重结算路径，自动重结算仍随 D34。
-- D33（不按快照基线重算）、D46（缺文件按默认继续）、D47（强制 `last+1`）登记 `docs/scope.md` 与 `docs/fidelity-audit.md`。
+- D33（不按快照基线重算）仍登记在 `docs/scope.md` 与 `docs/fidelity-audit.md`；D46／D47 由 [结算的章号间隙与缺失状态前置](2026-11-13-chapter-settle-gaps.md) 注销。
 - `docs/dsh-mapping.md` 不需要新偏差：结算工具是 DSH `tools.register` + commit 的既有机制。
 
 ## Alternatives considered
