@@ -9,8 +9,8 @@ import { listChapterVersions, readChapterVersion } from '../src/core/chapter-ver
 import { reopenChapter } from '../src/core/reopen.ts'
 import { detectStage } from '../src/pipelines/long/stages/index.ts'
 import { writeChapterDocument } from '../src/core/chapter-document.ts'
-import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
-import { chapterPlanPath, saveChapterPlan } from '../src/core/chapter-plan.ts'
+import { reviewChapter } from '../src/core/chapter-review.ts'
+import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
 import { installReopenTools } from '../src/pipelines/long/reopen-tool.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
@@ -107,14 +107,31 @@ test('lists and reads archived versions, newest first, ignoring malformed ids', 
   }
 })
 
-test('reopening keeps the prose, deletes review and plan, reopens the workflow and rolls the pointer back', async () => {
+test('reopening keeps the prose, clears runtime files, reopens the workflow and rolls the pointer back', async () => {
   const root = await workspace()
   try {
     await settle(root)
+    const runtime = join(root, 'source/story/runtime')
+    for (const file of ['chapter-0001.intent.md', 'chapter-0001.context.json', 'chapter-0001.trace.json', 'chapter-0001.planner-context.json', 'chapter-0001.user-brief.md']) {
+      await writeFile(join(runtime, file), 'x')
+    }
     const result = await registry(root).get('story_reopen_chapter').execute({ chapter: 1 }, exec)
     assert.equal(result.chapter, 1)
-    assert.deepEqual(result.removed, [chapterReviewPath(1), chapterPlanPath(1)])
-    assert.deepEqual(result.removed.map((path) => path.includes('chapter-0001')), [true, true])
+    assert.equal(result.stage, 'plan')
+    assert.deepEqual(result.removed, [
+      'source/story/runtime/chapter-0001.context.json',
+      'source/story/runtime/chapter-0001.intent.md',
+      'source/story/runtime/chapter-0001.plan.json',
+      'source/story/runtime/chapter-0001.planner-context.json',
+      'source/story/runtime/chapter-0001.review.json',
+      'source/story/runtime/chapter-0001.trace.json',
+    ])
+    for (const path of result.removed) await assert.rejects(readFile(join(root, path)), { code: 'ENOENT' })
+    assert.equal(await readFile(join(runtime, 'chapter-0001.user-brief.md'), 'utf8'), 'x')
+    assert.deepEqual(
+      JSON.parse(await readFile(join(root, 'source/story/state/hooks.json'), 'utf8')).hooks,
+      [{ hookId: 'hook-1', startChapter: 1, type: 'promise', status: 'deferred', lastAdvancedChapter: 1, expectedPayoff: '回收', notes: '' }],
+    )
 
     const manifest = JSON.parse(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'))
     assert.equal(manifest.lastAppliedChapter, 0)
@@ -132,19 +149,65 @@ test('reopening keeps the prose, deletes review and plan, reopens the workflow a
   }
 })
 
-test('restoring a version archives the current prose as restore and replaces the chapter', async () => {
+test('restoring a version archives the current prose, replaces the chapter and keeps runtime state', async () => {
   const root = await workspace()
   try {
     await settle(root)
     const versionId = await versionFile(root, '# 第1章 旧稿\n\n旧文。\n')
+    const runtime = join(root, 'source/story/runtime')
+    await writeFile(join(runtime, 'chapter-0001.intent.md'), 'x')
+    await writeFile(join(runtime, 'chapter-0001.user-brief.md'), 'brief')
     const result = await registry(root).get('story_reopen_chapter').execute({ chapter: 1, versionId }, exec)
     assert.equal(result.versionId, versionId)
     assert.match(result.archived, /_restore_/)
+    assert.equal(result.stage, 'foundation-ready')
 
     assert.match(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), /旧文/)
     const archived = await readFile(join(root, result.archived), 'utf8')
     assert.match(archived, /正文/)
     assert.equal((await readdir(join(root, 'source/chapters/.versions/0001'))).length, 2)
+    await assert.rejects(readFile(join(runtime, 'chapter-0001.intent.md')), { code: 'ENOENT' })
+    assert.equal(await readFile(join(runtime, 'chapter-0001.user-brief.md'), 'utf8'), 'brief')
+
+    // 恢复不动运行时状态与摘要行。
+    const manifest = JSON.parse(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'))
+    assert.equal(manifest.lastAppliedChapter, 1)
+    const summaries = JSON.parse(await readFile(join(root, 'source/story/state/chapter_summaries.json'), 'utf8'))
+    assert.deepEqual(summaries.rows.map((row) => row.chapter), [1])
+    const hooks = JSON.parse(await readFile(join(root, 'source/story/state/hooks.json'), 'utf8'))
+    assert.deepEqual(hooks.hooks.map((hook) => hook.hookId), ['hook-1'])
+    const facts = JSON.parse(await readFile(join(root, 'source/story/state/current_state.json'), 'utf8'))
+    assert.deepEqual(facts.facts, [])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('restoring an earlier chapter works without rolling the state back', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    await writeChapterDocument(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
+    await saveChapterPlan(root, { chapter: 2, goal: '目标', body: '计划', threadRefs: [] })
+    await reviewChapter(root, {
+      chapter: 2,
+      summary: '二审',
+      observations: [{ code: 'C2', summary: '观察二', assessment: 'unavailable' }],
+    })
+    await registry(root).get('story_settle_chapter').execute({ ...DELTA, chapter: 2 }, exec)
+
+    const manifestPath = join(root, 'source/story/state/manifest.json')
+    const statePath = join(root, 'source/story/state/current_state.json')
+    const versionId = await versionFile(root, '# 第1章 旧稿\n\n旧文。\n')
+    const summariesBefore = await readFile(join(root, 'source/story/state/chapter_summaries.json'), 'utf8')
+    const result = await registry(root).get('story_reopen_chapter').execute({ chapter: 1, versionId }, exec)
+    assert.equal(result.versionId, versionId)
+    assert.match(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), /旧文/)
+    assert.equal(JSON.parse(await readFile(manifestPath, 'utf8')).lastAppliedChapter, 2)
+    assert.equal(JSON.parse(await readFile(statePath, 'utf8')).chapter, 2)
+    const summaries = JSON.parse(await readFile(join(root, 'source/story/state/chapter_summaries.json'), 'utf8'))
+    assert.deepEqual(summaries.rows.map((row) => row.chapter), [1, 2])
+    assert.equal(await readFile(join(root, 'source/story/state/chapter_summaries.json'), 'utf8'), summariesBefore)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -156,10 +219,17 @@ test('restoring the same content and reopening an earlier chapter are rejected',
     await settle(root)
     const current = await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')
     const same = await versionFile(root, current)
+    const runtimeBefore = (await readdir(join(root, 'source/story/runtime'))).sort()
+    const versionsBefore = (await readdir(join(root, 'source/chapters/.versions/0001'))).sort()
+    const manifestBefore = await readFile(join(root, 'source/story/state/manifest.json'), 'utf8')
     await assert.rejects(
       registry(root).get('story_reopen_chapter').execute({ chapter: 1, versionId: same }, exec),
       /相同/,
     )
+    assert.equal(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), current)
+    assert.deepEqual((await readdir(join(root, 'source/story/runtime'))).sort(), runtimeBefore)
+    assert.deepEqual((await readdir(join(root, 'source/chapters/.versions/0001'))).sort(), versionsBefore)
+    assert.equal(await readFile(join(root, 'source/story/state/manifest.json'), 'utf8'), manifestBefore)
     await assert.rejects(
       registry(root).get('story_reopen_chapter').execute({ chapter: 1, versionId: 'bad-id' }, exec),
       /版本 id 不合法/,
@@ -177,13 +247,29 @@ test('restoring the same content and reopening an earlier chapter are rejected',
   }
 })
 
+test('reopening keeps an existing workflow start instruction', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    const startPath = join(root, 'source/story/runtime/workflow-start.json')
+    const existing = JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '开始第 1 章', createdAt: '2026-11-10T00:00:00.000Z',
+    }, null, 2)
+    await writeFile(startPath, existing)
+    await registry(root).get('story_reopen_chapter').execute({ chapter: 1 }, exec)
+    assert.equal(await readFile(startPath, 'utf8'), existing)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('reopenChapter reports the plan stage', async () => {
   const root = await workspace()
   try {
     await settle(root)
     const result = await reopenChapter(root, 1)
-    assert.equal(result.stage, 'plan')
     assert.equal(result.versionId, null)
+    assert.equal(detectStage(root).stage, 'plan')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

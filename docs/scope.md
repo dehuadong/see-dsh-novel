@@ -74,7 +74,7 @@
 - **用户可见面**：章节重开/删除、状态核对。
 - **入口**：P4 出口。
 - **出口**：三行 `verified` + 不变量 + 回执。
-- **非目标/债务**：不导出；不提供移章/重排（源也没有）；重开不更新章节索引观察（D36）；清运行时文件与恢复旧版仍与源有差（D43、D44）；结算后自动校验与重结算未接（D34）。
+- **非目标/债务**：不导出；不提供移章/重排（源也没有）；重开不更新章节索引观察（D36）；结算后自动校验与重结算未接（D34）。
 
 ### P6 产物与工作台
 
@@ -128,24 +128,21 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D23 | `skill.references` | 源 `use_skill.query` 对参考文件检索；复刻只给资源基址与目录读取，`query` 未实现，阶段注入是整份读取 | `skill.references` 补参考检索入口 |
 | D24 | `plan.context-select` | book reference 上下文未实现；源 composer 追加 reference entries | P6 `materials`／`search.unified` |
 | D26 | `plan.compression` | 大 compressible 夹具写出 task spool，但主模型读取 2.3MB task 时卡死；真压缩回执未取得 | 小窗口测试模型或专用夹具后续 |
-| D33 | 基线重结算 | 逐章快照已由 `chapter.finalize` 写出（`story/snapshots/0..N`）；缺口是结算与重开不按快照做基线重算：更早章节的重结算被拒绝，同章重结算按增量应用、旧 delta 不再适用的 facts 可能残留 | `chapter.settle`／`state.check` 接基线重算 |
+| D33 | 基线重结算 | 逐章快照已由 `chapter.finalize` 写出（`story/snapshots/0..N`）；缺口是结算与重开不按快照做基线重算：更早章节的重结算被拒绝，同章重结算按增量应用、旧 delta 不再适用的 facts 可能残留；恢复旧版后的状态重建（源 `requiresTruthRebuild`）也没有等价流程 | `chapter.settle`／`state.check` 接基线重算 |
 | D34 | `chapter.settle` 状态校验 | 源在结算后用状态校验 agent 检查投影一致性，必要时带 `validationFeedback` 重结算（`state-validator.ts`／`chapter-truth-validation.ts`）；复刻交付了只读 `story_state_check` 入口，但结算不自动校验、也不会带反馈重结算 | P5 `state.check` 把校验与 reconcile 接进 `chapter.settle` |
 | D35 | `chapter.finalize` 索引字段 | 源 `ChapterMeta` 可带 `lengthTelemetry`／`tokenUsage`，并在标题变化时删 superseded 章节文件；复刻索引只写基础字段，标题变化当前不可达 | P6 或后续 |
-| D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | P5 `chapter.move-delete`／`state.check` 同批 |
+| D36 | `chapter.reopen` 索引观察 | 源恢复后把章节索引 `provenance` 改为 `edited` 并追加 `manual-edit-review` 观察；复刻未更新 `chapters/index.json` | `chapter.revise` 的索引写入（D45 同批） |
 | D37 | 章节保存的非原子拆分 | 源 `saveChapter` 一次提交章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引，崩溃后要再定稿补齐 | 后续把快照/索引并入结算，或恢复检测后自动补定稿 |
 | D38 | `backup.restore` 导出不回滚 | 源恢复整目录会连 `exports/` 一起回滚；复刻导出在根上且不在作品拥有项内，恢复后导出仍是旧内容 | 恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出 |
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
 | D40 | `panel.workbench` 删除动作 | 源 `ChapterWorkspacePanel` 有删除按钮与确认；复刻只走对话 | 已裁决补动作：动作条接 `story_delete_chapter` |
 | D41 | `panel.workbench` 白名单 | 面板多出源白名单没有的 `book_rules.json`、`source/brief.md`、`source/story/brief.md`、`.planner-context.json`，未登记 | 对齐源白名单或作者裁决保留 |
 | D42 | `artifact.identity` revision 快照 | 源 revision 带不可变 `snapshotPath`；复刻不写，修订后旧 revision 的 checksum 悬空、不可读 | 补 snapshot 写入与按快照读取 |
-| D43 | `chapter.reopen` 运行时清理 | 源清 `chapter-NNNN.*` 全集只留 user-brief；复刻只删 review 与 plan，残留 intent/planner-context/context/trace，且删摘要行未登记 | 按源清全集，或在 mapping 登记 |
-| D44 | `chapter.reopen` 恢复旧版限制 | 源 `chapter-replace` 对任意章可用且不动运行时状态；复刻以 `lastAppliedChapter===chapter` 拒绝 | 已裁决解耦：恢复只换正文，重开回退仍限最新章 |
 | D45 | 章节索引观察 | 修订不更新索引 `wordCount`/`observations`/`provenance`，后代无 `upstream-revision` 标记；`provenance` 恒为 `generated` | `chapter.revise`／`chapter.finalize` 写索引与后代标记 |
 | D48 | `chapter.summary` 入口与替换 | 复刻新增可先于结算的 `story_summarize_chapter`，且无条件替换；源摘要随结算同批写、仅 `allowReapply` 时替换 | 已裁决收敛为结算内唯一路径 |
 | D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |
 | D51 | `state.check` 判据 | 源 `validate` 的布尔判据（仅换投影可消解才 true）未进 Note 与阶段协议 | 协议补判据与选码 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
-| D55 | `chapter.reopen` 重写路径 | 重开保留正文、重规划后阶段判 review，`story_write_chapter` 拒绝覆盖已有正文；「退回重写」会落到审旧稿，未接修订协议 | `chapter.reopen` 与阶段协议接修订路径 |
 | D56 | `chapter.revise` 回执 | 源 `revise_chapter` 回执带 `changedRegion`（`longform-production.ts:307`、`runner.ts:1156`）；复刻回执没有该字段 | `chapter.revise` 补 `changedRegion` |
 
 ## 边界

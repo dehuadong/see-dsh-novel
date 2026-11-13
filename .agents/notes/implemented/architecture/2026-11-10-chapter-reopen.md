@@ -47,17 +47,15 @@ P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回�
 
 ### 阶段与面板
 
-- 重开后阶段回到 `plan`（start 有、章纲删了、正文还在）；作者重新规划本章。正文仍在，重规划后 `detectStage` 会判 `review`、`story_write_chapter` 拒绝覆盖，因此「退回重写」要走修订路径（D55）；只想恢复旧版则不应回退状态指针（D44）。
+- 重开后阶段回到 `plan`（start 有、章纲删了、正文还在）；作者重新规划本章。作者要求整章重写时，`plan` 协议指向 `story_revise_chapter`，不再尝试首次写作；只想恢复旧版时走恢复分支，不回退状态指针。
 - 面板不新增动作：`chapter-done` 的根动作仍是修订，重开走对话；版本列表不进面板。
 
 ### 偏差与债务
 
-- 源恢复只改正文并清运行时，不改运行时状态；复刻为了阶段判定，把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回 `chapter-1`，facts/hooks 留待重结算。登记在 `docs/dsh-mapping.md`。
-- D33：更早章节重开被拒绝；同章重开后的重结算按增量，旧 facts 可能残留。
-- D36：不写索引 `provenance: edited` 与 `manual-edit-review` 观察。
-- D43：清运行时不全、删摘要行未登记。
-- D44：恢复旧版继承最后一章限制；作者裁决解耦（恢复只换正文、重开回退仍限最新章）。
-- D55：重开后「退回重写」会落到审旧稿（重规划后阶段判 `review`，write 拒覆盖），协议未接修订路径。
+- 恢复与重开已分流：恢复只换正文并清运行时、不动状态；重开把两个指针退回 `chapter-1` 并删除摘要行，facts/hooks 留待重结算。登记在 `docs/dsh-mapping.md`。
+- D33：更早章节重开被拒绝；同章重开后的重结算按增量，旧 facts 可能残留；恢复旧版后的状态重建（源 `requiresTruthRebuild`）仍无等价流程。
+- D36：不写索引 `provenance: edited` 与 `manual-edit-review` 观察；偿还位置改为 `chapter.revise` 的索引写入（D45 同批）。
+- D43／D44／D55 已由 [重开与版本恢复分开](2026-11-13-reopen-restore-split.md) 注销。
 
 ## Alternatives considered
 
@@ -69,10 +67,10 @@ P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回�
 
 ## Testing
 
-- `test/chapter-reopen.test.mjs`：版本列表倒序与非法 id 忽略、读取版本；重开删审稿/章纲、保留正文、写 start、指针回退到 0、摘要行删除、阶段回到 `plan`；恢复版本归档当前正文并替换章节；同内容拒绝；更早章节拒绝并指向 D33；非法版本 id 拒绝。
+- `test/chapter-reopen.test.mjs`（7 例）：版本列表倒序与非法 id 忽略、读取版本；重开清全部 `chapter-NNNN.*`（保留 user-brief）、指针回退到 0、摘要行删除、start 写入/沿用、阶段回到 `plan`；任意章恢复归档当前正文且不动状态与摘要；更早章恢复；同内容拒绝且不写；非法版本 id 拒绝。
 - `test/host.test.mjs`：工具清单包含 `story_chapter_versions` 与 `story_reopen_chapter`。
-- `test/stage-context.test.mjs`：`chapter-done` 协议包含两个重开工具。
-- `pnpm run verify` 全绿；回执记录一次重开与一次版本恢复。
+- `test/stage-context.test.mjs`：`plan` 段的条件修订指令与 `chapter-done` 的两个重开工具。
+- `pnpm run verify` 全绿；回执记录重开与版本恢复。
 
 ## Consequences
 

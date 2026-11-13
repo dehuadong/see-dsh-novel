@@ -137,6 +137,7 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /story_plan_chapter/)
         assert.match(stageText, /## planner 契约/)
         assert.match(stageText, /# 第1章 memo 请求/)
+        assert.match(stageText, /story_revise_chapter/)
         assert.equal(craftText, '')
       }
       if (kind === 'review') {

@@ -439,9 +439,9 @@
 
 **源工程证据**：`state/chapter-workspace.ts:61-130` 的版本归档（id `<时间戳>_<来源>_<uuid>`、来源 `manual|agent|revision|regeneration|restore`、`chapters/.versions/<NNNN>/`、列表倒序）；`studio/src/api/server.ts:3132-3175` 的版本列表/读取与 restore；`interaction/edit-controller.ts:337-380` 的 `chapter-replace`（归档当前、替换正文、清 `chapter-NNNN.*` 运行时文件但保留 user-brief、索引记人工编辑观察）。
 
-**复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 只重开最后已结算的一章——删审稿与章纲、保留 user-brief、重开 workflow、把状态指针退回上一章并删摘要行；带 `versionId` 时把当前正文归档为 `restore` 再替换。
+**复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 按 `versionId` 分流。恢复对任意章可用：替换正文、归档当前为 `restore`、清该章全部运行时文件（保留 user-brief），不动状态指针/摘要/facts/hooks；重开只对最后已结算章：保留正文、清运行时、写或沿用 workflow start、指针退回上一章并删除本章摘要行。工具返回提交后的真实阶段。
 
-**判定：机制等价（状态指针回退）+ 保真债 D36／D43／D44／D55** — 源恢复只改正文与运行时文件，不动运行时状态；复刻为了阶段判定把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，facts/hooks 留待重结算（D33）；源在章节索引里记 `manual-edit-review` 观察与 `provenance: edited`，复刻未更新索引（D36）；清运行时文件不全、删摘要行未登记（D43）；恢复旧版被 `lastAppliedChapter` 限制（D44）；重开后「退回重写」会落到审旧稿（D55）。
+**判定：机制等价（重开指针回退）+ 保真债 D33／D36** — 源恢复分支已按源对齐：任意章、只换正文与运行时、不动状态；重开分支的指针回退与摘要删除是 DSH 阶段判定的机制等价，已登记 `dsh-mapping.md`。源在索引里记 `manual-edit-review` 与 `provenance: edited`，复刻未更新索引（D36）；恢复更早章后的状态重建（源 `requiresTruthRebuild`）没有等价流程（并入 D33）。D43／D44／D55 已注销。
 
 ### chapter.move-delete
 

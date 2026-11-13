@@ -75,12 +75,12 @@
 - 验证：`test/chapter-revise.test.mjs` 的多段成功、范围外拒绝、范围非法与 `targetText` 任意 mode 用例；参数形状错误复用 `ARTIFACT_EDIT_RANGE_INVALID` 也由这些用例覆盖。
 
 
-### chapter.reopen：恢复正文，状态指针回退
+### chapter.reopen：恢复正文与重开回退分开
 
-- 源工程做法：恢复版本只替换章节正文、清该章运行时文件并记索引观察，不改 `current_state`／`hooks`；Studio 用 `requiresTruthRebuild` 标出后续重建。
-- 复刻做法：`story_reopen_chapter` 在恢复/重开时删审稿与章纲、写 workflow start，并把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章；facts/hooks 留待重结算。
-- 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章，审稿与重结算无法回到本章。
-- 验证：`test/chapter-reopen.test.mjs` 断言指针回退、审稿/章纲删除、start 写入、阶段回到 `plan`、版本恢复归档；facts/hooks 不回退由 D33 记录。
+- 源工程做法：`chapter-replace` 对任意章可用，只替换正文、归档旧稿、清该章 `chapter-NNNN.*` 运行时文件（保留 user-brief）并记索引观察，不动运行时状态；源用 `requiresTruthRebuild` 标出后续重建。
+- 复刻做法：`story_reopen_chapter` 按 `versionId` 分流。恢复分支对任意章可用：替换正文、归档当前为 `restore`、清运行时，不改指针/摘要/facts/hooks、不写索引；重开分支只对最后已结算章：保留正文、清运行时、写或沿用 workflow start，把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，并删除该章摘要行。
+- 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章。摘要行删除属于重开回退，不是源恢复；源恢复没有对应动作。
+- 验证：`test/chapter-reopen.test.mjs` 断言恢复任意章不动状态、重开清运行时/保留 user-brief/指针回退/摘要删除/start 写入或沿用；`test/stage-context.test.mjs` 断言 plan 段的条件修订指令。D36（恢复写索引观察）与 D33（恢复后的状态重建）仍保留。
 
 ### backup.restore：工作区内的备份与恢复
 
