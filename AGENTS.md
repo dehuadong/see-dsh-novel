@@ -103,8 +103,8 @@ DSH  UI统一圆角规范`deepseek-harness/docs/ui-radius.zh.md`
 任务汇报之后，提示用户输入下一步门禁指令（以 `docs/agents/GATES.md` 为准）：
 
 
-- 收到 `批准，使用技能 planning 执行规划 {工作项}` 时加载 `planning`，完成规划及必要评审后回到 Discuss。
-- 收到 `批准，使用技能 implement 执行实现 {工作项}` 时加载 `implement`。若关键合同仍未解决，指出 blocker 并建议先 `planning`，不自行进入规划。
+- 收到 `/planning 批准，执行规划 {工作项}` 时加载 `planning`，完成规划及必要评审后回到 Discuss。
+- 收到 `/implement 批准，执行实现 {工作项}` 时加载 `implement`。若关键合同仍未解决，指出 blocker 并建议先 `planning`，不自行进入规划。
 
 执行授权仅适用于**当前工单已确认范围的实施工作**，并覆盖该工作内部连续发生的：
 
