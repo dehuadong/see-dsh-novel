@@ -158,7 +158,7 @@ export function renderStageProtocol(facts: StageFacts): string {
         '5. 作者要求定稿时：调 `story_finalize_chapter` 写快照、章节索引并把作品推进到 active；定稿后本章闭环。',
         '6. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档；恢复旧版用 `story_reopen_chapter` 带 versionId，任意章可用、只换正文并清运行时、不动状态；重开回退不带 versionId，仅限最后已结算章；重开后回到章前规划。',
         '7. 作者要删掉最新章时：调 `story_delete_chapter`；原文进 `chapters/.trash/`，状态回滚到上一章。',
-        '8. 作者要求核对状态时：派 state-check 子代理读本章正文、当前状态与投影、上一章快照与权威文档，提交 `reconciliationRequired` 与证据报告，再调 `story_state_check`；findings 只回作者，不自动重结算。',
+        '8. 作者要求核对状态时：派 state-check 子代理读本章正文、当前状态与投影、上一章快照与权威文档，提交 `reconciliationRequired` 与证据报告，再调 `story_state_check`；只有换一份真值投影（truth projection）能消解不一致时才把 `reconciliationRequired` 置 true，正文或权威之间的矛盾只作观察、不授权重结算；findings 只回作者，不自动重结算。',
         '9. 下一章是后续能力/作者动作；不要自行开始。',
         common,
       ].join('\n')

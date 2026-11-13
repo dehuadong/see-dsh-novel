@@ -129,6 +129,9 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /story_finalize_chapter/)
         assert.match(stageText, /story_chapter_versions/)
         assert.match(stageText, /story_reopen_chapter/)
+        assert.match(stageText, /story_state_check/)
+        assert.match(stageText, /只有换一份真值投影（truth projection）能消解[^。]*置 true/)
+        assert.match(stageText, /只作观察/)
         assert.doesNotMatch(stageText, /story_write_chapter/)
         assert.match(craftText, /创作方法（story-review）/)
       }

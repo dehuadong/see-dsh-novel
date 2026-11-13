@@ -157,6 +157,21 @@ test('state check writes nothing', async () => {
   }
 })
 
+test('the tool description carries the reconciliation criterion', async () => {
+  const root = await workspace()
+  try {
+    const tool = registry(root).get('story_state_check')
+    assert.match(tool.description, /only when a different truth projection/)
+    assert.match(tool.description, /do not authorize another settlement pass/)
+    const parameter = tool.parameters.properties.reconciliationRequired.description
+    assert.match(parameter, /真值投影（truth projection）/)
+    assert.match(parameter, /只作观察/)
+    assert.match(parameter, /不授权再次结算/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('check rejects an unsettled chapter and a missing previous snapshot', async () => {
   const root = await workspace()
   try {

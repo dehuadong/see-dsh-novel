@@ -1,17 +1,18 @@
 {
   "capability": "state.check",
-  "date": "2026-11-10",
+  "date": "2026-11-13",
   "sessionId": "process:state.check",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "381 passed — state-check 5 例（报告必填错误码、无重算观察、干净对账、只读不写文件、未结算/缺快照拒绝）＋ host 工具清单与 stage 协议回归"
+    "summary": "425 passed — state-check 6 例（报告必填错误码、无重算观察、干净对账、只读不写文件、未结算/缺快照拒绝、工具 description 与参数说明含判据）＋ host 工具清单与 stage 协议回归"
   },
   "receipts": [
     "`story_state_check({chapter, reconciliationRequired, reportMarkdown})` 由主编/子代理提交语义对账结论；宿主校验章号、布尔与字符串。",
+    "工具 description 与 `reconciliationRequired` 参数说明写明源判据：仅当换一份 truth projection 能消解不一致时为 true；正文或权威之间的矛盾只作观察，不授权再次结算。`chapter-done` 第 8 步同步该判据。",
     "`reconciliationRequired=true` 且报告为空时拒绝，错误带源的 `STATE_RECONCILIATION_REASON_REQUIRED`。",
     "报告非空返回一条只读观察：code 为 `state-reconciliation`（需要重算）或 `state-projection-review`（有观察），`consistent` 与布尔相反。",
     "工具不写任何文件（测试比较调用前后的文件集合与状态内容）；前置为本章有正文、已结算、上一章快照存在。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+    "D51 已注销；D34（结算后自动校验与重结算）保留。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

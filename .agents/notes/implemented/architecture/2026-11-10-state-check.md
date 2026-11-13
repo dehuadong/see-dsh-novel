@@ -39,14 +39,13 @@ P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在�
 
 - 只读：不写状态、不写观察文件、不触发重结算。
 - 不把对账接进 `chapter.settle` 的自动流程；那是 D34 的偿还（在 `chapter.settle` 增加校验步骤与 reconciliation 重试），本行只交付“可随时核对的只读入口”。
-- 源 `validate` 的布尔判据（仅换投影可消解才置 `true`）未写入阶段协议，`state-reconciliation`／`state-projection-review` 的选码因此缺依据，记 D51。
 - 不做静态 schema 校验（损坏由 `inspectState`／各写入工具拒绝，已有机制），本行只做语义对账结果。
 
 ### 偏差与债务
 
 - 无新的机制偏差：对账的模型部分由 DSH 子代理产出，宿主只校验结果。
 - D34 保持：`chapter.settle` 的写入没有接状态校验与 reconciliation；本行不改变结算路径，D34 的偿还位置是 `chapter.settle`。
-- D51：源布尔判据未进协议；账本 `source:` 已改指 `agents/state-validator.ts`。
+- D51 已由 [对账布尔判据写进工具与协议](2026-11-13-state-check-criterion.md) 注销；判据现写在工具 description、`reconciliationRequired` 参数说明与 `chapter-done` 第 8 步。D34 保留。
 
 ## Alternatives considered
 
@@ -60,7 +59,7 @@ P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在�
 
 - `test/state-check.test.mjs`：报告必填错误码、`state-projection-review`／`state-reconciliation` 两种 code、`consistent` 与布尔相反、只读（调用前后文件集合与状态内容不变）、未结算与缺快照拒绝。
 - `test/host.test.mjs`：工具清单包含 `story_state_check`。
-- `test/stage-context.test.mjs`：现有文件没有「`chapter-done` 协议含 `story_state_check`」的断言（D51 同批补）。
+- `test/stage-context.test.mjs`：`chapter-done` 协议含 `story_state_check` 与判据（真值投影／只作观察）的断言。
 - `pnpm run verify` 全绿；回执记录一次对账。
 
 ## Consequences

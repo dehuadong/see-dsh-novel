@@ -455,9 +455,9 @@
 
 **源工程证据**：`agents/state-validator.ts:23-95` 的 `StateValidatorAgent.validate`：模型提交布尔 `reconciliationRequired` 与证据报告，报告缺失时返回 `STATE_RECONCILIATION_REASON_REQUIRED`；`pipeline/chapter-truth-validation.ts:39-104` 的校验与 reconcile 流程。
 
-**复刻现状**：`story_state_check` 接收子代理产出的 `reconciliationRequired` 与 `reportMarkdown`，校验必填报告（`STATE_RECONCILIATION_REASON_REQUIRED`）并返回只读观察；不写作品。自动“结算后校验 + 重结算”仍未接（D34）。
+**复刻现状**：`story_state_check` 接收子代理产出的 `reconciliationRequired` 与 `reportMarkdown`，校验必填报告（`STATE_RECONCILIATION_REASON_REQUIRED`）并返回只读观察；不写作品。工具 description、参数说明与 `chapter-done` 协议写明源判据：仅当换一份 truth projection 能消解时为 true，正文/权威矛盾只作观察、不授权重结算。自动“结算后校验 + 重结算”仍未接（D34）。
 
-**判定：保真债 D34／D51** — 只读对账入口已交付；源在结算后自动校验并可能重结算，复刻仍要作者显式发起，自动路径未接（D34）；源 `validate` 的布尔判据未进协议（D51）。账本 `source:` 已改指 `agents/state-validator.ts`。
+**判定：保真债 D34** — 只读对账入口已交付，布尔判据已进入模型可见的工具说明与阶段协议（D51 注销）；源在结算后自动校验并可能重结算，复刻仍要作者显式发起，自动路径未接（D34）。账本 `source:` 已改指 `agents/state-validator.ts`。
 
 ## 批次 G：P6 产物与工作台
 

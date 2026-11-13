@@ -28,7 +28,10 @@ const parameters: JsonSchema = {
   additionalProperties: false,
   properties: {
     chapter: { type: 'integer', description: '要核对的章号' },
-    reconciliationRequired: { type: 'boolean', description: '投影矛盾是否需要重算状态' },
+    reconciliationRequired: {
+      type: 'boolean',
+      description: '仅当换一份真值投影（truth projection）能消解不一致时为 true；正文或权威之间的矛盾只作观察，不授权再次结算',
+    },
     reportMarkdown: { type: 'string', description: '具体证据报告；需要重算时不能为空' },
   },
   required: ['chapter', 'reconciliationRequired', 'reportMarkdown'],
@@ -60,7 +63,7 @@ const output: JsonSchema = {
 export function installStateCheckTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: STATE_CHECK_NAME,
-    description: 'Record the read-only outcome of a semantic state reconciliation for one settled chapter. The caller (a state-check subagent or the main agent) submits reconciliationRequired plus a Markdown evidence report; a required reconciliation without a report is rejected. Nothing is written to the work.',
+    description: 'Record the read-only outcome of a semantic state reconciliation for one settled chapter. The caller (a state-check subagent or the main agent) submits reconciliationRequired plus a Markdown evidence report; a required reconciliation without a report is rejected. Set reconciliationRequired true only when a different truth projection can resolve the mismatch; contradictions inside the chapter or between authorities remain reported observations and do not authorize another settlement pass. Nothing is written to the work.',
     parameters,
     output: {
       schema: output,
