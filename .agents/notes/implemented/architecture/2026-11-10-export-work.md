@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续：[export.work —— EPUB 贴源与导出面板回执（D50）](2026-11-13-export-work-epub-fidelity.md) 部分取代本 Note 的 EPUB 元数据与写盘结论，并补上面板回执；本 Note 的索引一致性校验、落点、命令与面板入口仍成立。
+
 ## Problem
 
 P6 的 `export.work` 曾是 `missing`。章节、状态与产物都在工作区里，但作者拿不到一份可交付的整本文件；面板只读展示，不是导出。源工程提供 txt／md／epub 三种格式，按章节索引与章节文件一一对应地拼出整本，并在索引与文件不一致时拒绝导出。
@@ -23,7 +25,7 @@ P6 的 `export.work` 曾是 `missing`。章节、状态与产物都在工作区�
 - 章节来源：`chapters/index.json` 是权威顺序；与 `source/chapters/*.md` 逐章核对，四种不一致都抛 `ChapterExportSourceError`（code `CHAPTER_EXPORT_SOURCE_MISMATCH`，details 同源）。
 - 正文：`renderChapterDocument(chapter, title, 文件原文, work.language)` 重新渲染；`txt` 以书名开头、章节间空行；`md` 以 `# 书名` 开头。
 - 空章节列表拒绝（源的 “No chapters to export.”）。
-- 原子替换：同目录临时文件 + `rename`；失败清理临时文件。源是直接 `writeFile`；作者裁决导出改为贴源直写，当前实现仍为原子替换，记 D50。`totalWords` 取索引 `wordCount` 之和（源语义）。
+- 直写：源是 `mkdir` 父目录后直接 `writeFile`；本行最初保留原子替换，作者裁决贴源直写后已由后续 Note 交付（D50 注销）。`totalWords` 取索引 `wordCount` 之和（源语义）。
 - 返回 `{ outputPath, fileName, chaptersExported, totalWords, format, byteLength }`。
 
 ### EPUB
@@ -31,13 +33,13 @@ P6 的 `export.work` 曾是 `missing`。章节、状态与产物都在工作区�
 `src/core/zip.ts` 的最小 ZIP（store）写入器 + `src/core/export.ts` 的 EPUB3 结构：
 
 - ZIP 第一项 `mimetype`（不压缩），`META-INF/container.xml`、`OEBPS/content.opf`、`OEBPS/nav.xhtml`、`OEBPS/chapter-<n>.xhtml`；
-- 每章标题当前取索引 title（缺失时取文件名主体），正文按行分段为 `<p>` 并转义；源用渲染后的 `#` 标题。章 XHTML 的 `xml:lang` 当前固定 `zh-CN`，nav 标题固定「目录」；源按 `work.language` 交给打包器、标题随渲染结果。以上记 D50。
-- 不引入 `epub-gen-memory` 或任何打包库。
+- 每章标题取渲染文档的 `#` 标题（`第N章 标题`／`Chapter N: 标题`），语言按 `work.language`（`en`／`zh-CN`）写进章 XHTML 与 `content.opf`，导航标题固定 `Table of Contents`；这些由后续 Note 交付（D50 注销）。正文按行分段为 `<p>` 并转义。
+- 不引入 `epub-gen-memory` 或任何打包库；包结构（`style.css`、`toc.ncx`、完整元数据、章文件名、DEFLATE）仍未贴源，记 D57。
 
 ### 落点：命令与面板
 
 - 命令：`src/plugin/export-command.ts` 注册 `/story-export [txt|md|epub]`；默认 `txt`；非法格式返回错误；`withWorkAction` 内构建与写；回执带路径、章节数、字数、字节数。宿主执行，不经过模型。
-- 面板：`Workbench` 页头新增格式选择（TXT／Markdown／EPUB）与「导出」按钮；`StoryView` 直接 `runCommand(sessionId, '/story-export <fmt>')`，复用命令通道，不经过 agent、不占阶段动作条、任意阶段可用（`busy`／`running` 时禁用）。
+- 面板：`Workbench` 页头新增格式选择（TXT／Markdown／EPUB）与「导出」按钮；`StoryView` 通过 `command()` 派发 `/story-export <fmt>`，导出走 `executeCommand`（`remote.commands.execute`）把命令处理器的回执（路径、章数或错误）显示在动作条，不经过 agent、不占阶段动作条、任意阶段可用（`busy`／`running` 时禁用）。
 
 ### 范围与非目标
 
@@ -48,8 +50,8 @@ P6 的 `export.work` 曾是 `missing`。章节、状态与产物都在工作区�
 
 ### 偏差与债务
 
-- 无新的机制偏差：导出是 DSH 命令 + 文件写入，面板控件走 `runCommand`。
-- D50：EPUB 标题/语言/导航未贴源，原子替换是源没有的写入方式；作者裁决全部贴源（取渲染标题、按 `work.language`、直接写）。
+- 无新的机制偏差：导出是 DSH 命令 + 文件写入；面板回执的展示面差异（源原生 `alert` → DSH 页面内 notice）由后续 Note 登记。
+- D50 已由后续 Note 注销；包结构贴源另记 D57。
 - 导出文件不进产物摘要：源导出也在 `story/` 之外，等价。
 
 ## Alternatives considered
@@ -63,14 +65,14 @@ P6 的 `export.work` 曾是 `missing`。章节、状态与产物都在工作区�
 
 ## Testing
 
-- `test/export.test.mjs`：txt／md 书名与章节、四种索引不一致与 details、空作品拒绝、原子替换（旧内容不残留）、EPUB ZIP 首项 `mimetype` 与条目集合、命令格式解析（md／默认 txt／非法格式）。EPUB 章标题与 `xml:lang` 没有按 `work.language` 的断言（D50）。
+- `test/export.test.mjs`：txt／md 书名与章节、四种索引不一致与 details、空作品拒绝、直写覆盖（旧内容不残留、硬链接 inode 不变）、EPUB 标题／语言／导航与 ZIP 结构、命令格式解析。
+- `test/client.test.mjs`：导出回执展示与 `executeCommand` 桥接。
 - `test/host.test.mjs`：命令清单包含 `story-export`。
-- `tsc -p tsconfig.client.json`：面板导出控件的类型闭合；React 渲染无 DOM 测试，覆盖限制在构建与类型检查。
 - `pnpm run verify` 全绿；回执记录三种格式各一次导出。
 
 ## Consequences
 
-- EPUB 只做 EPUB3 必需项；阅读器兼容性需要真机验证，超出本行的进程级测试。
+- EPUB 只做 EPUB3 必需项；阅读器兼容性需要真机验证，超出本行的进程级测试。包结构贴源仍是 D57。
 - 索引字数落后于当前正文时，导出文件是当前正文、统计沿用索引（与源一致，刷新索引归定稿）。
 - 导出与结算/定稿通过 `withWorkAction` 互斥；导出不锁读者。
-- 面板导出控件的交互（选择格式、点击、回执）没有自动化 UI 测试，只能靠类型检查与真机操作。
+- 面板导出回执由 `test/client.test.mjs` 覆盖；输出文件本身仍以进程级测试为证据，没有桌面回执。

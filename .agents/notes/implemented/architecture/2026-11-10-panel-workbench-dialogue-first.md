@@ -135,7 +135,7 @@ Status: implemented
 - `test/panel-index.test.mjs`：索引版本 5、`panel.index.json` 不作为产物、`foundation-ready` 的主按钮与四个次级动作、无作品时提案阶段无动作；面板产物只收白名单（`state/*.json`、`memory.db`、`workflow-start.json` 不出现），章节正文归 write／review，运行时诊断归 diagnostic。
 - `test/panel-projection.test.mjs`：写 action 成功后索引重建一次；嵌套 action 只重建一次；`project: false` 不重建；投影抛错不改动作结果；预热补建缺失索引、跳过最新索引、重建旧格式、忽略子代理与无 `work.json` 的目录；`session/created` 监听器不抛错且把补建失败写日志。
 - `test/workbench.test.mjs`：动作只在动作条里且每个只出现一次；阶段栏只负责导航；产物列表只列选中阶段的产物；运行时诊断收在折叠分组；没有表单与「刷新索引」；提交中禁用全部动作；产物正文与无作品引导；一章审完时显示「本章完成」；作者产物的 JSON 有键值树与「原始 JSON」切换，诊断文件保持 `<pre>`。
-- `test/client.test.mjs`：索引驱动渲染与 `generatedAt`；stat 版本变化重读；读取失败可见且不回退旧卡；无作品引导；无索引时保留「开始基础设定」；五个 `foundation-ready` 动作与三个阶段动作的派发；退回不唤醒；确认后 resume；运行中禁用；产物读取失败可见；换会话清空索引；双击只派发一次；`readArtifact` 从第 1 页读起并逐页拼接；缺通道时的错误。
+- `test/client.test.mjs`：索引驱动渲染与 `generatedAt`；stat 版本变化重读；读取失败可见且不回退旧卡；无作品引导；无索引时保留「开始基础设定」；五个 `foundation-ready` 动作与三个阶段动作的派发；退回不唤醒；确认后 resume；运行中禁用；产物读取失败可见；换会话清空索引；双击只派发一次；`readArtifact` 从第 1 页读起并逐页拼接；缺通道时的错误；导出回执（成功／错误／unbound／unmatched）与 `executeCommand` 桥接（成功、处理器错误、未匹配、缺回执、远程失败、抛错、无通道、无绑定）。
 - `/story-index`：命令仍注册并在锁内重建，`project: false` 避免重复投影。
 - 真实回执：`artifacts/real-runs/panel.workbench.json` 记录当前行为的进程级证据；作者裁定不做桌面回执（D31 关闭）。
 
@@ -145,7 +145,7 @@ Status: implemented
 - 投影依赖 `withWorkAction` 边界；绕过它的新写入会留下过期索引，必须走同一边界。
 - 投影失败不阻塞作品写与会话打开，但面板可能显示旧版本；`generatedAt` 可见，`/story-index` 是修复路径。
 - 投影只在执行写入的进程里发生；另一个 DSH 实例写同一部作品时，本进程的索引会停在上一版，直到下次写 action 或重开会话。
-- 面板读取依赖宿主的 `remote.workspaceFiles`；通道不可用时面板显示原因而不是空面板。
+- 面板读取依赖宿主的 `remote.workspaceFiles`；通道不可用时面板显示原因而不是空面板。命令回执依赖 `remote.commands`（导出经 `executeCommand`），通道不可用时导出回执显示「命令通道不可用」。
 - 按钮不直接写作品；client 通过宿主命令/提示，宿主持锁/commit。工作台是操作面，不是写盘层。
 - 布局只有一条导航轴：阶段只列一次，切换阶段决定左栏列哪些产物；动作集中在动作条，阶段节点与产物列表都不放按钮。
 - 动作条只跟随当前阶段，不跟随选中的产物；作者查看旧产物时仍能直接执行当前阶段动作。

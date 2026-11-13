@@ -103,6 +103,13 @@
 - 原因：DSH 没有“项目根 + `works/`”层级，工作区是命令唯一稳定根，且工作区根可能同时是仓库根（`/story-init` 已同因裁定不删根）；复刻的提交事务目录在作品根，恢复是裸 fs 写入，不先回收会让下一次 commit 用旧事务备份覆盖恢复内容。
 - 验证：`test/backup.test.mjs` 的拥有项复制/排除、id 与列表、恢复替换与根文件保留、坏 `work.json`、空工作区 `preRestoreBackupId: null`、死事务隔离、命令参数边界；根上导出文件不回滚是 D38。
 
+### export.work：导出回执从原生 alert 改为页面内 notice
+
+- 源工程做法：Studio 导出按钮 POST `/export-save`，成功后 `alert("已导出到项目目录\n<path>\n(N 章)")`，失败 `alert(e.message)`（`studio/src/pages/BookDetail.tsx:389-401`）。
+- 复刻做法：`StoryView` 的导出动作走 `executeCommand`（`remote.commands.execute`），把命令处理器回执文本写进动作条 notice：成功含落盘路径、章数、字数、字节数，失败含错误文本；回执不跨视图保留。
+- 原因：DSH client UI 规范用页面内反馈面（成功可用 Toast、surface-owned 失败用 in-place notice），不引入原生 `alert` 模态；成功与失败都选与导出按钮同一处的 notice，保持单一入口。
+- 验证：`test/client.test.mjs` 的导出回执用例与 `executeCommand` 桥接用例；`artifacts/real-runs/export.work.json`。
+
 ### 就绪判据：角色卡只能由会话路牌数
 
 - 源工程做法：状态接口用 `isBookFoundationComplete` 判断完成——六份文件（作品身份、大纲两份、book rules 两份、伏笔池）加 `story/roles/` 任一目录里的至少一张角色卡。

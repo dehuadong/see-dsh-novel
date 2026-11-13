@@ -36,6 +36,13 @@ export type SessionId = Parameters<Context['sessions']['binding']>[0]
 /** 命令提交的结果；面板据此给出可见回执，而不是静默失败。 */
 export type CommandOutcome = 'ok' | 'unbound' | 'unmatched' | 'error'
 
+/** 一条命令的处理回执：`ok`／`error` 来自命令处理器，`unbound`／`unmatched` 来自提交面。 */
+export interface CommandReceipt {
+  outcome: CommandOutcome
+  /** 命令处理器的文本；没有文本时是空串。 */
+  text: string
+}
+
 /** 投一条消息的结果：会话有没有被叫醒（认可与开工共用）。 */
 export type PromptOutcome = 'ok' | 'failed'
 
@@ -45,6 +52,8 @@ export interface ViewInjected {
   canCommand(sessionId: SessionId): boolean
   /** 提交一条斜杠命令，把结果折成面板能说清的四态。 */
   runCommand(sessionId: SessionId, line: string): Promise<CommandOutcome>
+  /** 执行一条命令并取回处理器回执；导出面板用它显示落盘路径与错误。 */
+  executeCommand(sessionId: SessionId, line: string): Promise<CommandReceipt>
   /** 认可之后把「继续」投回会话，让 agent 复核回执再接着干。 */
   resume(sessionId: SessionId): Promise<PromptOutcome>
   /** 立项之后投开工指令；`cwd` 是面板看到的工作区，用来让 agent 核对自己读到的目录。 */
@@ -65,6 +74,25 @@ export interface FileRemote {
       signal: AbortSignal,
     ): Promise<
       | { ok: true, value: { text: string, lines: number, eof: boolean } }
+      | { ok: false, error: { message: string } }
+    >
+  }
+}
+
+/**
+ * 宿主命令执行面 `remote.commands`。
+ *
+ * 与 `session.command` 的 admitted 结果不同，这里能拿到命令处理器的 `kind` 与文本，
+ * 面板据此显示导出回执；形状取自宿主生成的 `execute` 远程方法。
+ */
+export interface CommandRemote {
+  commands: {
+    execute(
+      sessionId: SessionId,
+      line: string,
+      attachments: readonly unknown[],
+    ): Promise<
+      | { ok: true, value: { result?: { kind: 'success', text?: string } | { kind: 'error', text: string } } | undefined }
       | { ok: false, error: { message: string } }
     >
   }

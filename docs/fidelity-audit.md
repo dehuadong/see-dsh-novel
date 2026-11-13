@@ -471,11 +471,11 @@
 
 ### export.work
 
-**源工程证据**：`interaction/export-artifact.ts:12-36` 的 `ChapterExportSourceError`（`CHAPTER_EXPORT_SOURCE_MISMATCH`，details 含缺失/重复/未入索引）；`:100-160` 的 `buildExportArtifact`（txt／md／epub、章节索引顺序、书名开头、`renderChapterDocument` 重渲染）；`:162-182` 的 `writeExportArtifact`；`studio/src/api/server.ts:5606-5675` 的下载与 `export-save`（落 `bookDir/<id>.<fmt>`）。
+**源工程证据**：`interaction/export-artifact.ts:12-36` 的 `ChapterExportSourceError`（`CHAPTER_EXPORT_SOURCE_MISMATCH`，details 含缺失/重复/未入索引）；`:100-160` 的 `buildExportArtifact`（txt／md／epub、章节索引顺序、书名开头、`renderChapterDocument` 重渲染）；`:162-183` 的 `writeExportArtifact`（父目录 `mkdir` 后直接 `writeFile`）；`:78-88` 的章标题取渲染文档的 `#` 标题；`:119-142` 的语言交给打包器；`studio/src/api/server.ts:5606-5675` 的下载与 `export-save`；`studio/src/pages/BookDetail.tsx:389-401` 的导出成功/失败 `alert`；`epub-gen-memory@1.1.2` 的模板与默认值（`tocTitle`、章 XHTML 的 `xml:lang`／`lang`）。
 
-**复刻现状**：`/story-export [txt|md|epub]` 命令（宿主执行）＋面板页头格式选择与「导出」按钮（`runCommand`，不经过 agent）；索引与章节文件四种不一致都拒绝且不写目标文件；导出到工作区根 `<workId>.<format>`，临时文件 + rename 原子替换；EPUB 用最小 ZIP store 实现（`mimetype` 第一项不压缩、container／content.opf／nav／章节 XHTML）。
+**复刻现状**：`/story-export [txt|md|epub]` 命令（宿主执行）＋面板页头格式选择与「导出」按钮；索引与章节文件四种不一致都拒绝且不写目标文件；导出到工作区根 `<workId>.<format>`，直接 `writeFile` 覆盖（无临时文件、不换 inode）；EPUB 章标题取渲染后的 `#` 标题（`第N章 标题`／`Chapter N: 标题`）、语言按 `work.language`（`en`／`zh-CN`）、导航标题 `Table of Contents`，章 XHTML 同时带 `xml:lang` 与 `lang`；空标题索引不再回落文件名。面板经 `executeCommand`（`remote.commands.execute`）把命令处理器回执（路径、章数、失败文本）显示在动作条 notice。核心格式契约在 `test/export.test.mjs`，面板回执与桥接在 `test/client.test.mjs`。
 
-**判定：保真债 D50** — 三种格式、索引一致性校验、章节渲染与落点与源一致；EPUB 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」，与源取渲染标题、按 `work.language` 不一致；temp+rename 是源没有的写入方式。
+**判定：机制等价（回执展示面）+ 保真债 D57（D50 已注销）** — D50 的四项已贴源：渲染标题、按 `work.language`、导航标题 `Table of Contents`、直写。面板回执从源原生 `alert` 改为页面内 notice，`dsh-mapping.md` 有偏差行。EPUB 包结构仍是最小 EPUB3：与源在 `style.css` 与章 XHTML 模板结构、`toc.ncx`／`toc.xhtml`、`content.opf` 其余元数据、章文件名、DEFLATE、`container.xml`、包级 `xml:lang` 上不同，记 D57（偿还路径另立工作项逐模板复刻）。
 
 ### backup.restore
 
@@ -505,9 +505,9 @@
 
 **源工程证据**：Studio `pages/` 的工作台、阶段按钮、只读产物浏览；`BookDetail` 的写下一章；立项提案在对话里完成。
 
-**复刻现状**：作品页是工作台：阶段栏、本阶段产物列表、详情/`<pre>` 正文，当前阶段的动作集中在右栏顶部动作条；索引 `panel.index.json` 由宿主投影（写 action 成功后重建、会话发布时补建缺失/旧索引），面板只读不触发；产物按白名单显示（状态 JSON、`memory.db`、流程记账不出现；章节正文归正文/审阅；运行时诊断默认折叠），作者产物的 JSON 用键值树并可切原始；动作经宿主命令/提示（确认、下一章、退回、查看待确认、稍后、规划/写作/审阅）；页头在章节索引有最新章时提供「删除本章」，内联确认后走 `/story-delete`；白名单与源一致，不再列 `book_rules.json`、两份 brief 与 `planner-context`；无作品只给对话引导，没有新建表单；没有「刷新索引」。
+**复刻现状**：作品页是工作台：阶段栏、本阶段产物列表、详情/`<pre>` 正文，当前阶段的动作集中在右栏顶部动作条；索引 `panel.index.json` 由宿主投影（写 action 成功后重建、会话发布时补建缺失/旧索引），面板只读不触发；产物按白名单显示（状态 JSON、`memory.db`、流程记账不出现；章节正文归正文/审阅；运行时诊断默认折叠），作者产物的 JSON 用键值树并可切原始；动作经宿主命令/提示（确认、下一章、退回、查看待确认、稍后、规划/写作/审阅）；页头在章节索引有最新章时提供「删除本章」，内联确认后走 `/story-delete`；白名单与源一致，不再列 `book_rules.json`、两份 brief 与 `planner-context`；无作品只给对话引导，没有新建表单；没有「刷新索引」。导出控件的回执由 `export.work` 交付：面板经 `executeCommand`（`remote.commands.execute`）显示命令处理器文本；删除命令仍只报「已提交，结果在对话里」。
 
-**判定：机制等价 + 保真债 D39** — DSH client 插件 + slots + remote workspace-files 替代 Studio 前端；工作台、对话立项、宿主投影与阶段动作由进程级测试覆盖。作者裁定不做桌面回执（D31 关闭），`artifacts/real-runs/panel.workbench.json` 为交付证据。源真值文件可编辑而复刻只读（D39 保留）；删除动作与白名单已对齐（D40／D41 注销）。
+**判定：机制等价 + 保真债 D39** — DSH client 插件 + slots + remote workspace-files 替代 Studio 前端；工作台、对话立项、宿主投影与阶段动作由进程级测试覆盖。作者裁定不做桌面回执（D31 关闭），`artifacts/real-runs/panel.workbench.json` 为交付证据。源真值文件可编辑而复刻只读（D39 保留）；删除动作与白名单已对齐（D40／D41 注销）。面板的命令依赖 `remote.commands`（导出回执）与 `remote.workspaceFiles`（读文件），两者都由宿主提供。
 
 ### panel.logs
 

@@ -14,7 +14,7 @@ import { outcomeOf } from './outcome.js'
 import { PRESET_ID, SENTINEL_SLOT, VIEW_SLOT } from './preset.js'
 import { StoryView } from './StoryView.js'
 import { installStyles } from './styles.js'
-import type { CommandOutcome, FileRemote, PromptOutcome, SentinelInjected, SessionId, ViewInjected } from './types.js'
+import type { CommandOutcome, CommandReceipt, CommandRemote, FileRemote, PromptOutcome, SentinelInjected, SessionId, ViewInjected } from './types.js'
 
 export const inject = ['slots', 'sessions', 'remote'] as const
 
@@ -99,6 +99,25 @@ export function apply(ctx: Context): void {
       const binding = ctx.sessions.binding(sessionId)
       if (binding === undefined) return 'unbound'
       return outcomeOf(await binding.session.command(line))
+    },
+    executeCommand: async (sessionId: SessionId, line: string): Promise<CommandReceipt> => {
+      if (ctx.sessions.binding(sessionId) === undefined) return { outcome: 'unbound', text: '' }
+      // 宿主把命令执行面注册成 `remote.commands`；它比 admitted 结果多带处理器文本。
+      const commands = ctx.get('remote.commands') as CommandRemote['commands'] | undefined
+      if (commands === undefined) return { outcome: 'error', text: '命令通道不可用' }
+      let result: Awaited<ReturnType<CommandRemote['commands']['execute']>>
+      try {
+        result = await commands.execute(sessionId, line, [])
+      } catch (error) {
+        return { outcome: 'error', text: error instanceof Error ? error.message : String(error) }
+      }
+      if (!result.ok) return { outcome: 'error', text: result.error.message }
+      if (result.value === undefined) return { outcome: 'unmatched', text: '' }
+      const handler = result.value.result
+      if (handler === undefined) return { outcome: 'error', text: '命令回执无法识别' }
+      return handler.kind === 'success'
+        ? { outcome: 'ok', text: handler.text ?? '' }
+        : { outcome: 'error', text: handler.text }
     },
     resume: (sessionId: SessionId): Promise<PromptOutcome> => promptQueue(sessionId, RESUME_TEXT),
     start: (sessionId: SessionId, cwd: string | undefined): Promise<PromptOutcome> => promptQueue(sessionId, START_TEXT(cwd)),

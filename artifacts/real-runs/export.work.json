@@ -1,18 +1,21 @@
 {
   "capability": "export.work",
-  "date": "2026-11-10",
+  "date": "2026-11-13",
   "sessionId": "process:export.work",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "387 passed — export 6 例（txt/md 书名与章节、四种索引不一致拒绝、原子替换、EPUB ZIP 结构与 mimetype、空作品拒绝、命令格式解析）＋ host 命令清单与 client 类型检查"
+    "summary": "446 passed — export 11 例（中英与空标题的 EPUB 标题／语言／导航、硬链接直写、EISDIR 失败与命令回执、四种索引不一致、空索引拒绝、txt/md 输出）、client 33 例（导出回执展示与 executeCommand 桥接八分支）、其余面板／命令／宿主套件回归"
   },
   "receipts": [
-    "`/story-export [txt|md|epub]` 由宿主执行；面板页头的格式选择与「导出」按钮走同一个 `runCommand`，不经过 agent，任意阶段可用。",
-    "章节顺序以 `chapters/index.json` 为准；索引与文件不一致时返回 `/story-export` 错误，details 含 missingChapterNumbers／duplicateChapterNumbers／duplicateIndexNumbers／unindexedFiles，且不写目标文件。",
-    "txt 以书名开头、md 以 `# 书名` 开头，章节正文按 `renderChapterDocument` 重新渲染；总字数为索引 `wordCount` 之和。",
-    "导出到工作区根 `<workId>.<format>`：先写同目录临时文件再 rename，替换不留下半文件。",
-    "EPUB 是 store 模式 ZIP：第一项 `mimetype` 不压缩，含 `META-INF/container.xml`、`OEBPS/content.opf`、`OEBPS/nav.xhtml` 与每章 XHTML，书名与语言来自 `work.json`。",
-    "该回执是 process-level 命令/文件测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+    "`/story-export [txt|md|epub]` 由宿主执行；面板页头的格式选择与「导出」按钮走同一个命令，不经过 agent，任意阶段可用。",
+    "章节顺序以 `chapters/index.json` 为准；索引与文件不一致时返回 `CHAPTER_EXPORT_SOURCE_MISMATCH`，details 含 missingChapterNumbers／duplicateChapterNumbers／duplicateIndexNumbers／unindexedFiles，且不写目标文件。",
+    "txt 以书名开头、md 以 `# 书名` 开头，章节正文按 `renderChapterDocument` 重新渲染；总字数为索引 `wordCount` 之和；空标题索引不再回落文件名，三格式都只剩 `第N章`／`Chapter N:`。",
+    "导出到工作区根 `<workId>.<format>`：父目录补齐后直接 `writeFile` 覆盖，不写临时文件、不换 inode（硬链接 probe 读到新内容）；目标不可写时以 `EISDIR` 失败，命令回执为 error，`work.json` 与章节原文不变。",
+    "EPUB：章 `<title>`／`<h1>` 与导航条目都取渲染后的 `#` 标题（`第N章 标题`／`Chapter N: 标题`）；章 XHTML 同时带 `xml:lang` 与 `lang`，按 `work.language` 取 `en`／`zh-CN`，`content.opf` 的 `<dc:language>` 同值；导航 `<h1>` 为 `Table of Contents`；ZIP 首项 `mimetype` 不压缩。",
+    "面板回执：点「导出」后动作条 notice 显示命令处理器文本（成功含路径、章数、字数、字节数；失败含错误文本）。`StoryView` 经 `executeCommand` → `remote.commands.execute` 取处理器 `{kind,text}`；无绑定、未匹配、无通道、缺回执分别折成 unbound／unmatched／error。",
+    "测试归属：`test/export.test.mjs` 是核心格式契约，`test/client.test.mjs` 是面板回执与桥接的附加消费者（账本 `consumer` 指后者）。",
+    "D50 已从 `docs/scope.md` 注销；EPUB 包结构（`style.css`、`toc.ncx`、完整元数据、章文件名、DEFLATE 等）仍是最小实现，记 D57。",
+    "该回执是 process-level 命令／文件测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
   ]
 }

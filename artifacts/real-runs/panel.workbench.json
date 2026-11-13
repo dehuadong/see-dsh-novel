@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "433 passed — panel-index 5 例（索引 v5、展示集合与审批摘要分离、白名单四项与 planner-context 不出现、latestChapter 与坏索引按 0、foundation-ready 主/次动作、提案无动作）、panel-projection 7 例、workbench 11 例（动作条、阶段导航、阶段过滤与诊断折叠、JSON 键值树、页头删除与内联确认/取消/禁用、无作品引导、本章完成）、client 29 例（索引驱动、版本重读、删除命令映射与提示、确认/阶段动作）、delete-command 2 例、host/story-index/workflow/lock 回归"
+    "summary": "446 passed — panel-index 5 例（索引 v5、展示集合与审批摘要分离、白名单四项与 planner-context 不出现、latestChapter 与坏索引按 0、foundation-ready 主/次动作、提案无动作）、panel-projection 7 例、workbench 11 例（动作条、阶段导航、阶段过滤与诊断折叠、JSON 键值树、页头删除与内联确认/取消/禁用、无作品引导、本章完成）、client 33 例（索引驱动、版本重读、删除命令映射与提示、确认/阶段动作、导出回执与 executeCommand 桥接）、delete-command 2 例、host/story-index/workflow/lock 回归"
   },
   "receipts": [
     "`panel.index.json` 版本 5 由宿主 `buildPanelIndex` 从文件重建：stages（主 `action` + `secondary`）、artifacts（`class` + `stages`）、work（含 `latestChapter`）、confirmation；索引被 `readArtifacts` 排除，不作为作品产物。",
@@ -13,7 +13,7 @@
     "列表显示中文名（作者意图/当前焦点/故事框架/分卷地图/规则正文/待回收伏笔/当前状态/章节摘要/文风指南/母本设定/同人设定），右栏详情仍显示真实路径与 revision；角色卡用角色名，章节用「第 N 章 · 标题」。",
     "宿主投影：`withWorkAction` 最外层成功后就地重建索引；会话发布时 `session/created` 对缺索引/旧格式的作品补建一次；`/story-index` 只作内部兜底，面板不调用。",
     "面板只读：`useResource` 订阅索引 stat，版本变化重读正文；读取失败显示具体原因；没有新建表单、没有「刷新索引」；无作品只显示对话引导。",
-    "删除：页头在 `work.latestChapter >= 1` 时显示「删除本章」，内联确认后调宿主命令 `/story-delete`；命令在作品锁内读章节索引最大章号并调 `deleteLatestChapter`，结果文本在对话里，面板只显示「已提交，结果在对话里」。",
+    "删除：页头在 `work.latestChapter >= 1` 时显示「删除本章」，内联确认后调宿主命令 `/story-delete`；命令在作品锁内读章节索引最大章号并调 `deleteLatestChapter`，结果文本在对话里，面板只显示「已提交，结果在对话里」；导出按钮的回执不同，由 `export.work` 经 `executeCommand` 显示处理器文本。",
     "作者产物的 JSON（章纲、审稿）默认键值树，可切「原始 JSON」；诊断文件不树化。",
     "D40（删除动作）与 D41（白名单）已注销；D39（真值文件只读，作者裁决 v1）保留。该回执是 process-level 测试，不是 DSH 会话。"
   ]

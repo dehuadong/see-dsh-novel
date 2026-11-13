@@ -74,8 +74,8 @@ function twoSessionState(other, running = false) {
 /** 渲染时给组件用的 useSessions 选择器钩子。 */
 const selectorOf = (state) => (selector) => selector(state)
 
-/** 假 ctx：只实现 apply 用到的面；`files` 模拟宿主 workspaceFiles。 */
-function fakeContext(binding, files) {
+/** 假 ctx：只实现 apply 用到的面；`files` 模拟宿主 workspaceFiles，`commands` 模拟 remote.commands。 */
+function fakeContext(binding, files, commands) {
   const registrations = []
   const injected = new Map()
   const effects = []
@@ -94,7 +94,11 @@ function fakeContext(binding, files) {
       },
     },
     sessions: { binding: (id) => (binding === undefined ? undefined : binding(id)) },
-    get(name) { return name === 'remote.workspaceFiles' ? files : undefined },
+    get(name) {
+      if (name === 'remote.workspaceFiles') return files
+      if (name === 'remote.commands') return commands
+      return undefined
+    },
     effect(callback) {
       const dispose = callback()
       effects.push(dispose)
@@ -145,9 +149,11 @@ const entryFor = (registrations, slot) => registrations.find((entry) => entry.sp
 /**
  * 把视图挂到「预设匹配 + 槽位已声明」的状态，返回它的注入面。
  * @param binding 会话绑定工厂；省略表示没有绑定
+ * @param files 宿主 workspaceFiles 读面
+ * @param commands 宿主 remote.commands 执行面
  */
-async function mountEligible(binding, files) {
-  const { ctx, registrations, injected } = fakeContext(binding, files)
+async function mountEligible(binding, files, commands) {
+  const { ctx, registrations, injected } = fakeContext(binding, files, commands)
   apply(ctx)
   const releaseSentinel = injected.get(SENTINEL_SLOT)()
   const releaseSlot = injected.get(SLOT)()
@@ -215,6 +221,7 @@ async function renderView({
   readArtifact,
   outcome = 'ok',
   runCommand,
+  executeCommand,
   resumeOutcome = 'ok',
   resume,
   startOutcome = 'ok',
@@ -251,6 +258,10 @@ async function renderView({
       calls.push({ sessionId: id, line })
       return runCommand === undefined ? outcome : runCommand()
     },
+    executeCommand: async (id, line) => {
+      calls.push({ sessionId: id, line })
+      return executeCommand === undefined ? { outcome, text: '' } : executeCommand(id, line)
+    },
     resume: async (id) => {
       resumes.push(id)
       return resume === undefined ? resumeOutcome : resume()
@@ -284,6 +295,47 @@ async function renderView({
     setIndexText(text) { currentIndexText = text },
   }
 }
+
+test('the export button shows the command receipt with the saved path', async () => {
+  const view = await renderView({
+    executeCommand: async () => ({ outcome: 'ok', text: '已导出 1 章（9 字）到 /w/w.txt（24 字节，txt）。' }),
+  })
+  try {
+    await act(async () => { buttonByLabel(view.tree, '导出').props.onClick() })
+    const text = textOf(view.tree)
+    assert.match(text, /已导出 1 章/u)
+    assert.match(text, /w\.txt/u)
+  } finally {
+    await act(async () => { view.tree.unmount() })
+  }
+})
+
+test('a failed export shows the command error text', async () => {
+  const view = await renderView({
+    executeCommand: async () => ({ outcome: 'error', text: '目标位置被目录占住，导出失败' }),
+  })
+  try {
+    await act(async () => { buttonByLabel(view.tree, '导出').props.onClick() })
+    assert.match(textOf(view.tree), /目标位置被目录占住/u)
+  } finally {
+    await act(async () => { view.tree.unmount() })
+  }
+})
+
+test('an unbound or unmatched export shows the standard failure notice', async () => {
+  for (const [outcome, pattern] of [
+    ['unbound', /当前会话还没有就绪/u],
+    ['unmatched', /没有该命令/u],
+  ]) {
+    const view = await renderView({ executeCommand: async () => ({ outcome, text: '' }) })
+    try {
+      await act(async () => { buttonByLabel(view.tree, '导出').props.onClick() })
+      assert.match(textOf(view.tree), pattern)
+    } finally {
+      await act(async () => { view.tree.unmount() })
+    }
+  }
+})
 
 test('apply installs styles, wires both slots, and registers the view only when eligible', async () => {
   const head = installDocumentStub()
@@ -679,6 +731,64 @@ test('command outcomes map to the four visible states', async () => {
   assert.equal(await face.runCommand(SESSION, '/story-approve'), 'unbound')
   assert.equal(face.canCommand(SESSION), false)
   await dispose()
+})
+
+test('executeCommand maps remote command results to receipts', async () => {
+  installDocumentStub()
+  const binding = { session: { command: async () => ({ ok: true, value: { matched: true } }) } }
+  const mount = (commands) => mountEligible(() => binding, undefined, commands)
+
+  let mounted = await mount({
+    execute: async () => ({ ok: true, value: { result: { kind: 'success', text: '已导出 1 章到 /w/w.txt' } } }),
+  })
+  assert.deepEqual(await mounted.face.executeCommand(SESSION, '/story-export txt'), {
+    outcome: 'ok',
+    text: '已导出 1 章到 /w/w.txt',
+  })
+  await mounted.dispose()
+
+  mounted = await mount({
+    execute: async () => ({ ok: true, value: { result: { kind: 'error', text: '目标被目录占住' } } }),
+  })
+  assert.deepEqual(await mounted.face.executeCommand(SESSION, '/story-export txt'), {
+    outcome: 'error',
+    text: '目标被目录占住',
+  })
+  await mounted.dispose()
+
+  mounted = await mount({ execute: async () => ({ ok: true, value: undefined }) })
+  assert.equal((await mounted.face.executeCommand(SESSION, '/story-export txt')).outcome, 'unmatched')
+  await mounted.dispose()
+
+  mounted = await mount({ execute: async () => ({ ok: true, value: {} }) })
+  const malformed = await mounted.face.executeCommand(SESSION, '/story-export txt')
+  assert.equal(malformed.outcome, 'error')
+  assert.match(malformed.text, /回执/u)
+  await mounted.dispose()
+
+  mounted = await mount({ execute: async () => ({ ok: false, error: { message: 'rpc down' } }) })
+  assert.deepEqual(await mounted.face.executeCommand(SESSION, '/story-export txt'), {
+    outcome: 'error',
+    text: 'rpc down',
+  })
+  await mounted.dispose()
+
+  mounted = await mount({ execute: async () => { throw new Error('transport closed') } })
+  assert.deepEqual(await mounted.face.executeCommand(SESSION, '/story-export txt'), {
+    outcome: 'error',
+    text: 'transport closed',
+  })
+  await mounted.dispose()
+
+  mounted = await mount(undefined)
+  const missing = await mounted.face.executeCommand(SESSION, '/story-export txt')
+  assert.equal(missing.outcome, 'error')
+  assert.match(missing.text, /命令通道不可用/u)
+  await mounted.dispose()
+
+  const detached = await mountEligible()
+  assert.deepEqual(await detached.face.executeCommand(SESSION, '/story-export txt'), { outcome: 'unbound', text: '' })
+  await detached.dispose()
 })
 
 test('the resume inject face sends one queue-mode continuation prompt', async () => {

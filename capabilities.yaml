@@ -353,11 +353,11 @@ capabilities:
     realRun: artifacts/real-runs/artifact.identity.json
     status: verified
   - id: export.work
-    title: 导出（原子替换）
+    title: 导出 txt／md／epub（直写，面板回执）
     source: inkos:packages/core/src/interaction/export-artifact.ts
     dsh: commands
     implementation: packages/see-dsh-novel/src/plugin/export-command.ts
-    consumer: packages/see-dsh-novel/test/export.test.mjs
+    consumer: packages/see-dsh-novel/test/client.test.mjs
     realRun: artifacts/real-runs/export.work.json
     status: verified
   - id: backup.restore

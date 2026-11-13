@@ -1,12 +1,10 @@
 /**
  * 导出整本作品：txt／md／epub。
  *
- * 章节顺序以 `chapters/index.json` 为准；索引与章节文件不一致时拒绝导出，
- * 与源的 `CHAPTER_EXPORT_SOURCE_MISMATCH` 同义。
+ * 章节顺序以 `chapters/index.json` 为准；索引与章节文件不一致时拒绝导出。
  */
-import { randomUUID } from 'node:crypto'
-import { readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 
 import { readChapterIndex } from './chapter-index.js'
 import { renderChapterDocument } from './chapter-document.js'
@@ -108,11 +106,16 @@ function chapterHtml(document: string): string {
     .join('\n')
 }
 
-function xhtml(title: string, body: string): string {
+/** 渲染文档的一级标题；取不到时给一个缺省标题。 */
+function renderedTitle(document: string): string {
+  return /^#\s+(.+)/mu.exec(document)?.[1]?.trim() ?? 'Untitled Chapter'
+}
+
+function xhtml(title: string, body: string, lang: string): string {
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<!DOCTYPE html>',
-    '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="zh-CN">',
+    `<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="${lang}" lang="${lang}">`,
     `<head><meta charset="UTF-8"/><title>${escapeXml(title)}</title></head>`,
     '<body>',
     `<h1>${escapeXml(title)}</h1>`,
@@ -124,12 +127,19 @@ function xhtml(title: string, body: string): string {
 
 interface RenderedChapter {
   number: number
-  title: string
   document: string
 }
 
+/** 导航页标题固定，不随作品语言变化。 */
+const EPUB_TOC_TITLE = 'Table of Contents'
+
 function epub(work: { id: string, title: string, language: WorkLanguage }, chapters: ReadonlyArray<RenderedChapter>): Buffer {
   const lang = work.language === 'en' ? 'en' : 'zh-CN'
+  const rendered = chapters.map((chapter) => ({
+    number: chapter.number,
+    title: renderedTitle(chapter.document),
+    html: chapterHtml(chapter.document),
+  }))
   const modified = new Date().toISOString().replace(/\.\d{3}Z$/u, 'Z')
   const entries: ZipEntry[] = []
   entries.push({ name: 'mimetype', data: Buffer.from('application/epub+zip', 'utf8') })
@@ -165,17 +175,17 @@ function epub(work: { id: string, title: string, language: WorkLanguage }, chapt
       '</package>',
     ].join('\n'), 'utf8'),
   })
-  const toc = chapters.map((chapter) => `      <li><a href="chapter-${chapter.number}.xhtml">${escapeXml(chapter.title)}</a></li>`).join('\n')
+  const toc = rendered.map((chapter) => `      <li><a href="chapter-${chapter.number}.xhtml">${escapeXml(chapter.title)}</a></li>`).join('\n')
   entries.push({
     name: 'OEBPS/nav.xhtml',
     data: Buffer.from([
       '<?xml version="1.0" encoding="UTF-8"?>',
       '<!DOCTYPE html>',
-      '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="' + lang + '">',
+      '<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops" xml:lang="' + lang + '" lang="' + lang + '">',
       `<head><meta charset="UTF-8"/><title>${escapeXml(work.title)}</title></head>`,
       '<body>',
       '  <nav epub:type="toc" id="toc">',
-      '    <h1>目录</h1>',
+      `    <h1>${EPUB_TOC_TITLE}</h1>`,
       '    <ol>',
       toc,
       '    </ol>',
@@ -184,10 +194,10 @@ function epub(work: { id: string, title: string, language: WorkLanguage }, chapt
       '</html>',
     ].join('\n'), 'utf8'),
   })
-  for (const chapter of chapters) {
+  for (const chapter of rendered) {
     entries.push({
       name: `OEBPS/chapter-${chapter.number}.xhtml`,
-      data: Buffer.from(xhtml(chapter.title, chapterHtml(chapter.document)), 'utf8'),
+      data: Buffer.from(xhtml(chapter.title, chapter.html, lang), 'utf8'),
     })
   }
   return buildZip(entries)
@@ -214,10 +224,9 @@ export async function buildWorkExport(root: string, format: ExportFormat = 'txt'
   const rendered: RenderedChapter[] = []
   for (const entry of index) {
     const file = files.find((item) => item.chapter === entry.number) as ChapterFile
-    const title = entry.title.trim() === '' ? file.file.replace(/^\d{4}_/u, '').replace(/\.md$/u, '') : entry.title
+    const title = entry.title
     rendered.push({
       number: entry.number,
-      title,
       document: renderChapterDocument({ chapter: entry.number, title, content: file.raw, language: work.language }),
     })
   }
@@ -232,22 +241,15 @@ export async function buildWorkExport(root: string, format: ExportFormat = 'txt'
 }
 
 /**
- * 构建并原子写导出文件。
+ * 构建并直写导出文件：父目录补齐后覆盖目标文件。
  * @param root 作品根目录
  * @param format 导出格式
  */
 export async function writeWorkExport(root: string, format: ExportFormat = 'txt'): Promise<ExportResult> {
   const built = await buildWorkExport(root, format)
   const outputPath = join(root, built.fileName)
-  const tmp = join(root, `.${built.fileName}.${randomUUID()}.tmp`)
-  try {
-    await writeFile(tmp, built.payload)
-    await rename(tmp, outputPath)
-  } catch (error) {
-    await rm(tmp, { force: true })
-    throw error
-  }
-  await rm(tmp, { force: true })
+  await mkdir(dirname(outputPath), { recursive: true })
+  await writeFile(outputPath, built.payload)
   return {
     outputPath: join(root, built.fileName),
     fileName: built.fileName,

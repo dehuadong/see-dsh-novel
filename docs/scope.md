@@ -84,7 +84,7 @@
 - **用户可见面**：产物 revision、导出、备份/恢复、素材与检索、作品工作台/日志/分析。
 - **入口**：P5 出口。
 - **出口**：八行 `verified` + 不变量 3/4/6/7 + 真实回执。
-- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认；恢复不回滚根上导出文件（D38）；面板真值文件只读（D39）；导出 EPUB 标题/语言与直写待贴源（D50）。
+- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认；恢复不回滚根上导出文件（D38）；面板真值文件只读（D39）；导出 EPUB 包结构待贴源（D57）。
 
 ### v1 之外
 
@@ -136,8 +136,8 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D38 | `backup.restore` 导出不回滚 | 源恢复整目录会连 `exports/` 一起回滚；复刻导出在根上且不在作品拥有项内，恢复后导出仍是旧内容 | 恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出 |
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
 | D45 | 章节索引观察 | 修订落盘时已更新当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 与后代 `upstream-revision`；残余是重审→结算→定稿后 `chapter.finalize` 用审稿观察与 `generated` 覆盖该行，`edited` 不跨定稿 | `chapter.finalize` 保留 `edited` 与既有观察（后续工作项） |
-| D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
+| D57 | `export.work` EPUB 包结构 | 源 `epub-gen-memory` 产出 `style.css`、`toc.ncx`／`toc.xhtml`、完整 `content.opf` 元数据（identifier／creator／publisher／date／rights／description／guide）、章文件名 `N_slug.xhtml`、DEFLATE 压缩、`container.xml` 序列化与包级 `xml:lang`；复刻是最小 EPUB3（无 CSS、无 ncx、全 store） | 另立工作项逐模板复刻（是否引入打包库届时裁决） |
 
 ## 边界
 

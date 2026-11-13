@@ -14,7 +14,7 @@ import type { ReactNode } from 'react'
 
 import { Workbench } from './Workbench.js'
 import type { PanelAction, PanelArtifact, PanelIndex } from './panel-types.js'
-import type { CommandOutcome, SessionId, ViewInjected } from './types.js'
+import type { CommandOutcome, CommandReceipt, SessionId, ViewInjected } from './types.js'
 
 const RESOURCE_PREFIX = 'dsh-resource://file/session/'
 
@@ -97,7 +97,7 @@ function indexErrorText(error: unknown): string {
  * @param props slot 的 owner 面加上注册时注入的业务面
  */
 export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): ReactNode {
-  const { sessionId, useSessions, useResource, runCommand, resume, start, advance, readArtifact } = props
+  const { sessionId, useSessions, useResource, runCommand, executeCommand, resume, start, advance, readArtifact } = props
   const cwd = useSessions((state: SessionListState) => state.byId[sessionId]?.cwd)
   const sessionRunning = useSessions((state: SessionListState) => state.byId[sessionId]?.running === true)
 
@@ -193,17 +193,27 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     }
   }
 
-  /** 提交一条命令；成功后读回宿主已重建的索引。 */
-  async function command(label: string, line: string, resumeAfter = false): Promise<void> {
+  /**
+   * 提交一条命令；成功后读回宿主已重建的索引。
+   * @param runner 命令执行器；默认走 admission 语义，导出传能拿回处理器回执的 `executeCommand`
+   */
+  async function command(
+    label: string,
+    line: string,
+    resumeAfter = false,
+    runner?: (line: string) => Promise<CommandReceipt>,
+  ): Promise<void> {
     const stillHere = begin()
     if (stillHere === undefined) return
     setBusy(true)
     setNotice(`正在执行「${label}」…`)
     try {
-      const outcome = await runCommand(sessionId, line)
+      const receipt = runner === undefined
+        ? { outcome: await runCommand(sessionId, line), text: '' }
+        : await runner(line)
       if (!stillHere()) return
-      if (outcome !== 'ok') {
-        setNotice(failureNotice(outcome))
+      if (receipt.outcome !== 'ok') {
+        setNotice(receipt.text === '' ? failureNotice(receipt.outcome) : receipt.text)
         return
       }
       if (resumeAfter) {
@@ -219,7 +229,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
           : '已确认；会话没能自动继续，在「对话」里说一句「继续」即可。')
         return
       }
-      setNotice(successNotice(line))
+      setNotice(receipt.text === '' ? successNotice(line) : receipt.text)
       // 命令已成功：索引读取失败不能改写成提交失败，版本变化会再读一次。
       try {
         await loadPanel()
@@ -312,7 +322,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         onOpenArtifact={(artifact) => { void openArtifact(artifact) }}
         onCloseArtifact={() => setSelectedArtifact(null)}
         onAction={(action) => { void handleAction(action) }}
-        onExport={(format) => { void command('导出', `/story-export ${format}`) }}
+        onExport={(format) => { void command('导出', `/story-export ${format}`, false, (line) => executeCommand(sessionId, line)) }}
       />
     )
   }
