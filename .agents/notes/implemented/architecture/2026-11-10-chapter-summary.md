@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 摘要入口已收敛为结算内唯一路径；本 Note 记录当时的设计，后续决定见 [摘要只随结算写入](2026-11-13-settle-only-summary.md)。
+
 ## Problem
 
 `chapter_summaries` 的状态表与投影已经播种（`state/chapter_summaries.json`、`chapter_summaries.md`），但没有写入路径：P4 第一行 `chapter.summary` 曾是 `missing`。
@@ -46,7 +48,7 @@ Status: implemented
 
 - `capabilities.yaml` 的 `chapter.summary`：implementation 指向 `src/pipelines/long/summary-tool.ts`，consumer 指向 `test/chapter-summary.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.summary.json`；`source:` 已改指 `agents/settler-tool.ts`，状态由 `check-capabilities` 依据证据生成。
 - `docs/fidelity-audit.md` 的 `chapter.summary` 段改为保真债 D48；`docs/scope.md` 的 P4 描述同步。
-- 源把摘要与 facts/hooks 放在同一个结算提交里；本行先写摘要，独立入口可早于结算落盘，收敛前记 D48。
+- 源把摘要与 facts/hooks 放在同一个结算提交里；本行先写摘要，独立入口可早于结算落盘。D48 已由 [摘要只随结算写入](2026-11-13-settle-only-summary.md) 注销。
 
 ## Alternatives considered
 

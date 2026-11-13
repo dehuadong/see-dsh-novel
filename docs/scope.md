@@ -139,7 +139,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D41 | `panel.workbench` 白名单 | 面板多出源白名单没有的 `book_rules.json`、`source/brief.md`、`source/story/brief.md`、`.planner-context.json`，未登记 | 对齐源白名单或作者裁决保留 |
 | D42 | `artifact.identity` revision 快照 | 源 revision 带不可变 `snapshotPath`；复刻不写，修订后旧 revision 的 checksum 悬空、不可读 | 补 snapshot 写入与按快照读取 |
 | D45 | 章节索引观察 | 修订不更新索引 `wordCount`/`observations`/`provenance`，后代无 `upstream-revision` 标记；`provenance` 恒为 `generated` | `chapter.revise`／`chapter.finalize` 写索引与后代标记 |
-| D48 | `chapter.summary` 入口与替换 | 复刻新增可先于结算的 `story_summarize_chapter`，且无条件替换；源摘要随结算同批写、仅 `allowReapply` 时替换 | 已裁决收敛为结算内唯一路径 |
 | D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D56 | `chapter.revise` 回执 | 源 `revise_chapter` 回执带 `changedRegion`（`longform-production.ts:307`、`runner.ts:1156`）；复刻回执没有该字段 | `chapter.revise` 补 `changedRegion` |

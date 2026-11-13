@@ -413,15 +413,15 @@
 
 **源工程证据**：`agents/settler-tool.ts:21-62` 的 `chapterSummary` 七字段；`models/runtime-state.ts:39-56` 的行 schema（chapter ≥1、title 非空、strict）；`state/state-reducer.ts:195-213` 的排序与重结算替换；`agents/writer.ts:214-260` 的 `settleChapterState` 返回摘要与状态；`pipeline/runner.ts:999-1123` 结算后随章节保存。
 
-**复刻现状**：`story_summarize_chapter` 写 `chapter_summaries.json` 与 `chapter_summaries.md` 投影；七字段校验、同章替换、按章号排序；前置为本章有正文与审稿记录；坏状态拒绝覆盖。摘要由 settler 子代理在 `chapter-done` 协议里产出。
+**复刻现状**：摘要只由 `story_settle_chapter` 写入：七字段校验、按章号排序、`chapter_summaries.md` 投影同批渲染；非重结算遇到已有同章行时在写盘前拒绝并给出修复路径，同章重结算沿用 `allowReapply` 替换；没有独立摘要入口。
 
-**判定：保真债 D48** — 七字段、排序与同章过滤一致；但源没有独立摘要入口，摘要只在结算 schema 内产生、随 `saveChapter` 同批写，且仅 `allowReapply` 时替换/拒绝重复；复刻新增可先于结算的 `story_summarize_chapter` 且无条件替换。账本 `source:` 同时改指 `agents/settler-tool.ts`。
+**判定：等价（D48 注销）** — 摘要随结算写入、随状态与投影同批提交，字段与排序一致；重复行与替换由 `allowReapply` 门控，与源 reducer 的正常结算/重建路径一致。账本 `source:` 指向 `agents/settler-tool.ts`。
 
 ### chapter.settle
 
 **源工程证据**：`agents/settler-tool.ts:45-82` 的 delta 形状；`state/state-reducer.ts:17-199` 的章节前进、hooks 合并与终态保护、facts 失效与同 key 替换；`utils/hook-arbiter.ts:24-90` 的候选伏笔 id 分配；`state/state-validator.ts:15-100` 的整份校验；`agents/settler-prompts.ts:5-45` 的 settler 提示；`agents/state-validator.ts:23-95` 的状态校验与 `pipeline/chapter-truth-validation.ts:39-104` 的对账重试。
 
-**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批替换；整份状态校验。结算前要求四份状态文件都存在，缺失时在写盘前拒绝；章号只拒倒退，允许大于 `lastAppliedChapter` 的跳章。
+**复刻现状**：`story_settle_chapter` 一次提交写四份状态 JSON 与三份投影，推进 `manifest.lastAppliedChapter`；hooks 六动作（候选创建、upsert 合并、mention 不推进、resolve 推进、defer 不推进、superseded 撤回需 notes）；facts 的 expire 与同 key 失效；摘要同批写入并按章号排序，非重结算遇同章摘要行拒绝、同章重结算替换；整份状态校验。结算前要求四份状态文件都存在，缺失时在写盘前拒绝；章号只拒倒退，允许大于 `lastAppliedChapter` 的跳章。
 
 **判定：保真债 D33／D34** — 结算规则按源 reducer 复刻；逐章快照已由 `chapter.finalize` 写出，缺口是不按快照做基线重算（D33）；缺状态校验 agent 与 reconciliation 重试（D34），写入前没有模型对账。状态缺失前置与跳章已按源对齐（D46／D47 注销）。
 

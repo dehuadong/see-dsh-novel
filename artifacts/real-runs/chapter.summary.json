@@ -1,17 +1,17 @@
 {
   "capability": "chapter.summary",
-  "date": "2026-11-10",
+  "date": "2026-11-13",
   "sessionId": "process:chapter.summary",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "355 passed — chapter-summary 5 例（七字段写入与排序、同章替换、工具回执、缺正文/缺审稿拒绝、非法章号/空标题/字段类型/坏 JSON 拒绝且不写）＋ stage-context 与 host 工具清单回归"
+    "summary": "422 passed — chapter-settle 10 例中的摘要覆盖（七字段写入与排序、预置乱序后按章号升序、非重结算遇同章行拒绝且四份状态/投影不变、同章重结算替换、空 title 拒绝）＋ host 工具清单与 stage 协议回归"
   },
   "receipts": [
-    "`story_summarize_chapter({chapter, summary})` 把 title／characters／events／stateChanges／hookActivity／mood／chapterType 写入 `source/story/state/chapter_summaries.json`，并把同一份状态渲染成 `source/story/chapter_summaries.md` 投影；两处同一次 commit。",
-    "行按章号升序；同章再次写入替换该行（修订后重审的重结算路径），其它章节保留；文件缺失按空表创建。",
-    "前置是本章有正文与审稿记录；缺任一、章号非正整数、标题为空、字段类型错误、`chapter_summaries.json` 损坏都拒绝且不写。",
-    "摘要在 `chapter-done` 协议里由 settler 子代理产出后经工具落盘；事实与伏笔结算仍未交付（`chapter.settle`），D32 的收口在那一行完成。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+    "`story_settle_chapter` 一次提交把 title／characters／events／stateChanges／hookActivity／mood／chapterType 写入 `source/story/state/chapter_summaries.json`，并把同一份状态渲染成 `source/story/chapter_summaries.md` 投影。",
+    "行按章号升序；预置乱序行（第 2 章）后结算第 1 章会重排；同章重结算（`allowReapply`）替换该行，其它章节保留。",
+    "非重结算遇到已有同章摘要行时在写盘前拒绝，提示删除 `source/story/state/chapter_summaries.json` 的 rows 中该章后再结算；拒绝时四份状态 JSON 与投影逐字节不变。",
+    "`story_summarize_chapter` 已删除，`chapter-done` 协议不再有独立摘要步骤；摘要只随结算写入。空 title 在结算时被拒绝。",
+    "D48 已注销。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

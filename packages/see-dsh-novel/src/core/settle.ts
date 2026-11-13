@@ -56,8 +56,11 @@ function textValue(value: unknown, field: string): string {
   return value
 }
 
-/** 按章号排好的摘要表；重复章节在这里拒绝。 */
-function applySummary(state: ChapterSummariesState, delta: SettlementDelta): ChapterSummariesState {
+/** 按章号排好的摘要表；非重结算遇到同章行时拒绝覆盖。 */
+function applySummary(state: ChapterSummariesState, delta: SettlementDelta, allowReapply: boolean): ChapterSummariesState {
+  if (!allowReapply && state.rows.some((row) => row.chapter === delta.chapter)) {
+    throw new Error(`第 ${delta.chapter} 章已有摘要行；删除 source/story/state/chapter_summaries.json 的 rows 中该章后再结算`)
+  }
   const rows = state.rows.filter((row) => row.chapter !== delta.chapter)
   const summary = delta.chapterSummary
   rows.push({
@@ -241,7 +244,7 @@ export function applySettlement(
   const hooks = applyHookOps(snapshot.hooks, delta)
   validateHooks(hooks)
   const currentState = applyFactOps(snapshot.currentState, delta)
-  const chapterSummaries = applySummary(snapshot.chapterSummaries, delta)
+  const chapterSummaries = applySummary(snapshot.chapterSummaries, delta, reapply)
   const next: StateSnapshot = {
     manifest: { ...snapshot.manifest, lastAppliedChapter: delta.chapter },
     currentState: { ...currentState, chapter: delta.chapter },

@@ -300,8 +300,8 @@ capabilities:
     title: 结构化摘要
     source: inkos:packages/core/src/agents/settler-tool.ts
     dsh: storage
-    implementation: packages/see-dsh-novel/src/pipelines/long/summary-tool.ts
-    consumer: packages/see-dsh-novel/test/chapter-summary.test.mjs
+    implementation: packages/see-dsh-novel/src/core/settle.ts
+    consumer: packages/see-dsh-novel/test/chapter-settle.test.mjs
     realRun: artifacts/real-runs/chapter.summary.json
     status: verified
   - id: chapter.settle

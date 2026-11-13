@@ -48,7 +48,8 @@ async function workspace(options = {}) {
   await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({
     chapter: options.lastApplied ?? 0, facts: [],
   }))
-  await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: [] }))
+  await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: options.rows ?? [] }))
+  await writeFile(join(root, STORY_CHAPTER_SUMMARIES_MD), '# 章节摘要\n')
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
   await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
@@ -115,6 +116,38 @@ test('settle writes facts, hooks, summary, manifest and projections', async () =
   }
 })
 
+test('settling sorts summaries by chapter and rejects a pre-existing row off the reapply path', async () => {
+  const later = { chapter: 2, ...SUMMARY, title: '第二' }
+  const root = await workspace({ rows: [later] })
+  try {
+    const result = await tool(root).execute(delta(), exec)
+    assert.equal(result.chapter, 1)
+    const summaries = await readJson(root, 'source/story/state/chapter_summaries.json')
+    assert.deepEqual(summaries.rows.map((row) => row.chapter), [1, 2])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+
+  const legacy = await workspace({ rows: [{ chapter: 1, ...SUMMARY }] })
+  try {
+    const files = ['source/story/state/chapter_summaries.json', 'source/story/state/manifest.json', 'source/story/state/current_state.json', 'source/story/state/hooks.json', STORY_CHAPTER_SUMMARIES_MD]
+    const before = await Promise.all(files.map((file) => readFile(join(legacy, file), 'utf8')))
+    await assert.rejects(tool(legacy).execute(delta(), exec), /第 1 章已有摘要行/)
+    assert.deepEqual(await Promise.all(files.map((file) => readFile(join(legacy, file), 'utf8'))), before)
+  } finally {
+    await rm(legacy, { recursive: true, force: true })
+  }
+})
+
+test('settling rejects an empty summary title', async () => {
+  const root = await workspace()
+  try {
+    await assert.rejects(tool(root).execute(delta({ chapterSummary: { ...SUMMARY, title: '' } }), exec), /chapterSummary\.title 不能为空/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('re-settling the same chapter expires the old value and keeps one active fact', async () => {
   const root = await workspace()
   try {
@@ -122,6 +155,7 @@ test('re-settling the same chapter expires the old value and keeps one active fa
     await tool(root).execute(delta({
       factOps: { upsert: [{ subject: '甲', predicate: '位置', object: '山脚' }], expire: [] },
       newHookCandidates: [],
+      chapterSummary: { ...SUMMARY, mood: '释然' },
     }), exec)
     const state = await readJson(root, 'source/story/state/current_state.json')
     const active = state.facts.filter((fact) => fact.validUntilChapter === null)
@@ -129,6 +163,8 @@ test('re-settling the same chapter expires the old value and keeps one active fa
     assert.equal(active[0].object, '山脚')
     const old = state.facts.find((fact) => fact.object === '山门')
     assert.equal(old.validUntilChapter, 0)
+    const summaries = await readJson(root, 'source/story/state/chapter_summaries.json')
+    assert.deepEqual(summaries.rows.map((row) => [row.chapter, row.mood]), [[1, '释然']])
   } finally {
     await rm(root, { recursive: true, force: true })
   }
