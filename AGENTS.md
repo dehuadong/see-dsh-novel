@@ -57,7 +57,7 @@
 - InkOS 仓库分析研究文档 `docs\report\inkos\readme.md`；源工程地址`inkos/`
 
 ## DSH 插件与预设
-
+`dsh-doc` skill：涉及 DSH 插件/slot/tool 机制时查本机 DSH 事实。
 在开发deepseek-harness 插件时遇到问题可参阅deepseek-harness官方源码工程包 `deepseek-harness/packages`（仓库根下的目录联接）
 DSH UI设计判断参考`deepseek-harness/docs/ui-design-review-cases.zh.md`
 Web UI 样式参考`deepseek-harness/docs/web-styling.zh.md`
