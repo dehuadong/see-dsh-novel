@@ -429,9 +429,9 @@
 
 **源工程证据**：`writer.ts:364-450` 的 `saveChapter`（章节 + 三份投影 + 四份状态 JSON + `story/snapshots/<chapter>/` 七份文件 + `chapters/index.json`，一次原子提交；标题变化删除被取代文件）；`manager.ts:495-520` 的 `snapshotStateAt`；`runner.ts:1424-1434` 的 `markBookActiveIfNeeded`；`models/chapter.ts:5-16` 的 `ChapterMeta`。
 
-**复刻现状**：`story_finalize_chapter` 写 `source/story/snapshots/<chapter>/` 七个文件、更新 `source/chapters/index.json`、把 `work.status` 从 `draft` 推进到 `active`；幂等，保留已有 `createdAt`；坏索引拒绝覆盖。
+**复刻现状**：`story_finalize_chapter` 写 `source/story/snapshots/<chapter>/` 七个文件；严格读取 `source/chapters/index.json`，只替换本章条目、保留其余条目（已有条目保留 `createdAt`，`updatedAt` 取当前时间，新条目追加），标题经文档头（含 `：` 形式）并经文件名兜底、字数取自正文；把 `work.status` 从 `draft` 推进到 `active`。索引缺失/非法/条目不合 schema 时在写盘前拒绝。
 
-**判定：保真债 D35／D37／D49** — 源在结算后一次 `saveChapter` 原子写章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引（D37，重新定稿可补齐）；章节索引缺 `lengthTelemetry`／`tokenUsage`（D35，superseded 清理当前不可观测）；索引重建会改写他章 `updatedAt`、缺索引静默重建（D49）。
+**判定：保真债 D35／D37** — 源在结算后一次 `saveChapter` 原子写章节、状态、快照与索引；复刻拆成写作/修订 → 审稿 → 结算 → 定稿，中间态没有快照与索引（D37，重新定稿可补齐）；章节索引缺 `lengthTelemetry`／`tokenUsage`（D35，superseded 清理当前不可观测）。索引的单行更新与严格校验已交付（D49 注销）。
 
 ## 批次 F：P5 章节运维与对账
 

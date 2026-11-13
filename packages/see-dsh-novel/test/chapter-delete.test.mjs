@@ -64,6 +64,8 @@ async function workspace() {
   await writeWrites(root, snapshotWrites(seeded, 0))
 
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
+  await mkdir(join(root, 'source/chapters'), { recursive: true })
+  await writeFile(join(root, 'source/chapters/index.json'), '[]')
   await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
     chapter: 1,

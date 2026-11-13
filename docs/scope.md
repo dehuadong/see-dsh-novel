@@ -64,7 +64,7 @@
 - **用户可见面**：结算记录、伏笔状态、定稿/快照。
 - **入口**：P3 出口。
 - **出口**：三行 `verified` + 不变量 2/6 + 回执。
-- **非目标/债务**：不做重开/移动/导出；更早章节重结算需要基线重算（D33）；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）；章节保存仍是分步提交（D37）；定稿索引改为单行替换（D49）。
+- **非目标/债务**：不做重开/移动/导出；更早章节重结算需要基线重算（D33）；结算缺状态校验与 reconciliation（D34）；章节索引缺 lengthTelemetry／tokenUsage（D35）；章节保存仍是分步提交（D37）。
 
 ### P5 章节运维与对账
 
@@ -142,7 +142,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D44 | `chapter.reopen` 恢复旧版限制 | 源 `chapter-replace` 对任意章可用且不动运行时状态；复刻以 `lastAppliedChapter===chapter` 拒绝 | 已裁决解耦：恢复只换正文，重开回退仍限最新章 |
 | D45 | 章节索引观察 | 修订不更新索引 `wordCount`/`observations`/`provenance`，后代无 `upstream-revision` 标记；`provenance` 恒为 `generated` | `chapter.revise`／`chapter.finalize` 写索引与后代标记 |
 | D48 | `chapter.summary` 入口与替换 | 复刻新增可先于结算的 `story_summarize_chapter`，且无条件替换；源摘要随结算同批写、仅 `allowReapply` 时替换 | 已裁决收敛为结算内唯一路径 |
-| D49 | `chapter.finalize` 索引重建 | `buildChapterIndex` 重建全部行并把各章 `updatedAt` 置 now；缺索引时静默重建、只查 number/title | 单行替换 + 严格 `ChapterMeta` 校验 |
 | D50 | `export.work` EPUB | 章标题取裸索引 title、`xml:lang` 固定 `zh-CN`、导航标题固定「目录」；源取渲染标题、按 `work.language`；且复刻 temp+rename 直写增强 | 已裁决标题/语言/直写全部贴源 |
 | D51 | `state.check` 判据 | 源 `validate` 的布尔判据（仅换投影可消解才 true）未进 Note 与阶段协议 | 协议补判据与选码 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |

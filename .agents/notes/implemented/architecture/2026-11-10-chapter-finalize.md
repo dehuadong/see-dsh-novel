@@ -53,7 +53,7 @@ P4 的最后一行 `chapter.finalize` 曾是 `missing`。结算已经把四份�
 
 - `capabilities.yaml` 的 `chapter.finalize`：implementation 指向 `src/pipelines/long/finalize-tool.ts`，consumer 指向 `test/chapter-finalize.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.finalize.json`。
 - D33：快照落地后，`state.check`／后续阶段可以用 `story/snapshots/<chapter>/` 做基线重结算；本行只负责写快照，不改结算的重算逻辑。
-- D49（索引全量重建、缺索引重建、宽松校验）由 [定稿只更新本章索引行](../../proposed/architecture/2026-11-13-chapter-finalize-index.md) 承接；D35／D37 保留。
+- D49（索引全量重建、缺索引重建、宽松校验）已由 [定稿只更新本章索引行](2026-11-13-chapter-finalize-index.md) 注销；D35／D37 保留。
 
 ## Alternatives considered
 

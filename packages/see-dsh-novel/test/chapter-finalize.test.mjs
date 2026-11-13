@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -39,6 +39,7 @@ async function workspace() {
   }))
   await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 0, facts: [] }))
   await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: [] }))
+  await writeFile(join(root, 'source/chapters/index.json'), '[]')
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '计划', threadRefs: [] })
   await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文。', language: 'zh' })
   await reviewChapter(root, {
@@ -79,6 +80,7 @@ test('finalize writes the snapshot, the chapter index and moves the work to acti
   const root = await workspace()
   try {
     await settle(root)
+    const started = Date.now()
     const result = await tools(root).get('story_finalize_chapter').execute({ chapter: 1 }, exec)
     assert.deepEqual({ chapter: result.chapter, status: result.status, chapters: result.chapters }, { chapter: 1, status: 'active', chapters: 1 })
 
@@ -95,9 +97,13 @@ test('finalize writes the snapshot, the chapter index and moves the work to acti
     assert.equal(index.length, 1)
     assert.equal(index[0].number, 1)
     assert.equal(index[0].title, '雨夜')
-    assert.ok(index[0].wordCount > 0)
-    assert.equal(index[0].observations.length, 1)
+    assert.equal(index[0].wordCount, 2)
+    assert.deepEqual(index[0].observations.map(({ code, summary, assessment }) => ({ code, summary, assessment })), [
+      { code: 'C1', summary: '观察', assessment: 'unavailable' },
+    ])
     assert.equal(index[0].provenance, 'generated')
+    assert.equal(index[0].createdAt, index[0].updatedAt)
+    assert.ok(Date.parse(index[0].updatedAt) >= started)
 
     const work = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
     assert.equal(work.status, 'active')
@@ -113,10 +119,13 @@ test('re-finalizing keeps createdAt and does not duplicate the index row', async
     const tool = tools(root).get('story_finalize_chapter')
     await tool.execute({ chapter: 1 }, exec)
     const first = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    await new Promise((resolve) => setTimeout(resolve, 10))
     await tool.execute({ chapter: 1 }, exec)
     const again = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
     assert.equal(again.length, 1)
     assert.equal(again[0].createdAt, first[0].createdAt)
+    assert.notEqual(again[0].updatedAt, first[0].updatedAt)
+    assert.ok(Date.parse(again[0].updatedAt) > Date.parse(first[0].updatedAt))
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -140,6 +149,111 @@ test('finalize requires settlement, a review and a readable index', async () => 
     await writeFile(join(root, 'source/chapters/index.json'), '{ bad')
     await assert.rejects(tool.execute({ chapter: 1 }, exec), /不是合法 JSON/)
     assert.equal(await readFile(join(root, 'source/chapters/index.json'), 'utf8'), '{ bad')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('finalizing preserves the other index rows exactly', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    const foreign = {
+      number: 9,
+      title: '外章',
+      wordCount: 7,
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-02T00:00:00.000Z',
+      observations: [{ code: 'F', summary: '外章观察', assessment: 'observation', evidence: [], sourceRefs: [] }],
+      provenance: 'imported',
+    }
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([foreign]))
+    await finalizeChapter(root, 1)
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(index[0], foreign)
+    assert.equal(index[1].number, 1)
+    assert.equal(index[1].provenance, 'generated')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('re-finalizing a later chapter leaves earlier rows untouched', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    await finalizeChapter(root, 1)
+    const before = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))[0]
+
+    await writeChapterDocument(root, { chapter: 2, title: '第二', content: '第二章正文。', language: 'zh' })
+    await saveChapterPlan(root, { chapter: 2, goal: '目标', body: '计划', threadRefs: [] })
+    await reviewChapter(root, {
+      chapter: 2,
+      summary: '二审',
+      observations: [{ code: 'C2', summary: '观察二', assessment: 'unavailable' }],
+    })
+    await tools(root).get('story_settle_chapter').execute({ ...DELTA, chapter: 2 }, exec)
+    assert.equal((await finalizeChapter(root, 2)).chapters, 2)
+
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(index[0], before)
+    assert.equal(index[1].number, 2)
+    assert.equal(index[1].title, '第二')
+    assert.equal(index[1].createdAt, index[1].updatedAt)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a colon heading still yields the chapter title', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    await writeFile(
+      join(root, 'source/chapters/0001_雨夜.md'),
+      '# 第1章：雨夜\n\n正文。\n',
+      'utf8',
+    )
+    await finalizeChapter(root, 1)
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.equal(index[0].title, '雨夜')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('finalizing rejects a missing or malformed index before writing', async () => {
+  const root = await workspace()
+  const entries = {
+    valid: (overrides = {}) => ({
+      number: 1,
+      title: '旧章',
+      wordCount: 1,
+      createdAt: '2026-11-10T00:00:00.000Z',
+      updatedAt: '2026-11-10T00:00:00.000Z',
+      observations: [],
+      provenance: 'generated',
+      ...overrides,
+    }),
+  }
+  try {
+    await settle(root)
+    const workBefore = await readFile(join(root, WORK_FILE), 'utf8')
+    await rm(join(root, 'source/chapters/index.json'), { force: true })
+    await assert.rejects(finalizeChapter(root, 1), /index\.json 缺失/)
+    await assert.rejects(stat(join(root, 'source/story/snapshots/1/current_state.md')), { code: 'ENOENT' })
+
+    for (const [body, pattern] of [
+      [JSON.stringify([entries.valid({ extra: true })]), /未知字段 extra/],
+      [JSON.stringify([{ number: 1, title: '旧章' }]), /第 1 条记录/],
+      [JSON.stringify([entries.valid({ createdAt: '2026-13-40T00:00:00.000Z' })]), /createdAt 必须是 ISO 时间/],
+      ['{}', /必须是数组/],
+    ]) {
+      await writeFile(join(root, 'source/chapters/index.json'), body)
+      await assert.rejects(finalizeChapter(root, 1), pattern)
+    }
+    assert.equal(await readFile(join(root, WORK_FILE), 'utf8'), workBefore)
+    await assert.rejects(stat(join(root, 'source/story/snapshots/1/current_state.md')), { code: 'ENOENT' })
   } finally {
     await rm(root, { recursive: true, force: true })
   }

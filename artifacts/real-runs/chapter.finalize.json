@@ -1,17 +1,17 @@
 {
   "capability": "chapter.finalize",
-  "date": "2026-11-10",
+  "date": "2026-11-13",
   "sessionId": "process:chapter.finalize",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "365 passed — chapter-finalize 4 例（快照七文件与状态一致、章节索引字段与排序、draft→active、重复定稿保留 createdAt、未结算/缺审稿/坏索引拒绝）＋ host 工具清单与 stage 协议回归"
+    "summary": "422 passed — chapter-finalize 8 例（快照七文件与状态一致、严格索引单行写入、其他条目不变、原位替换、重复定稿 createdAt 保留与 updatedAt 刷新、新条目 createdAt=updatedAt、冒号标题、缺索引/未知键/缺字段/非法日期/非数组拒绝且 work.json 未写、draft→active）＋ host 工具清单与 stage 协议回归"
   },
   "receipts": [
     "`story_finalize_chapter` 写 `source/story/snapshots/<chapter>/`：`current_state.md`、`pending_hooks.md`、`chapter_summaries.md` 与 `state/manifest.json`、`state/current_state.json`、`state/hooks.json`、`state/chapter_summaries.json`，内容与当前状态一致。",
-    "`source/chapters/index.json` 写入章节元数据（number、title、wordCount、createdAt、updatedAt、observations、provenance），按章号排序；重复定稿保留已有 createdAt，不重复行。",
+    "`source/chapters/index.json` 严格读取；只替换本章条目：已有条目保留 `createdAt`、`updatedAt` 取当前时间，新条目追加且 `createdAt = updatedAt`；其余条目的字段（含 `updatedAt`、`observations`）不变。条目写标题（`# 第N章：标题` 与空格形式都识别，取不到回退文件名）、字数（正文汉字/英文词）、本章审稿观察与 `provenance: generated`。",
+    "索引缺失而章节文件存在、JSON 非法、非数组、条目缺字段/未知键/非法日期时，在 `commitFoundation` 前拒绝，不写快照与 `work.json`。",
     "第一次定稿把 `work.json` 的 status 从 draft 推进到 active；已 active 不重复更新 updatedAt。",
-    "前置：本章有正文与审稿、已结算（manifest.lastAppliedChapter 等本章）、摘要行存在；`chapters/index.json` 损坏时拒绝覆盖。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据。"
+    "D49（全量重建、缺索引重建、宽松校验）已注销；D35（`lengthTelemetry`／`tokenUsage`、标题变化 superseded 清理）与 D37（拆分提交）仍保留。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }
