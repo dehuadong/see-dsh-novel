@@ -135,4 +135,4 @@ Status: implemented
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
 - 实施：`length.ts` 增 spec/delivery/replacementBudget；`revise-tool` 统一 `chapterLengthSpecOf`，预算先于长度断言；`revision-commit-tool` 共用 spec；新增 chapter-revise 长度/预算/delivery 用例。
-- 验证：`pnpm run verify` 520 passed／1 skipped；CI 待回填。
+- 验证：`pnpm run verify` 520 passed／1 skipped；CI `43574964583` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `24ae48a`）。
