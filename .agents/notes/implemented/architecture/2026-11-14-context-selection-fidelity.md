@@ -145,4 +145,4 @@ Status: implemented
 ## 实施记录
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
-- 实施：context-package 上一章全文、强制 N-1 摘要、source-id 顺序/reason、双语 hook、strict context、planner-context 登记。`pnpm run verify` 529 passed／1 skipped；realRun 重录；CI 待回填。
+- 实施：context-package 上一章全文、强制 N-1 摘要、source-id 顺序/reason、双语 hook、strict context、planner-context 登记。`pnpm run verify` 529 passed／1 skipped；realRun 重录；CI `43579836554` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `14fa0b7`）。
