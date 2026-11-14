@@ -151,12 +151,12 @@ export interface SaveChapterPlanInput {
 /** 写入两个文件；返回作品根相对路径。调用方负责「只规划下一章」等前置校验。 */
 export async function saveChapterPlan(root: string, input: SaveChapterPlanInput): Promise<{ planPath: string, intentPath: string }> {
   if (!Number.isInteger(input.chapter) || input.chapter < 1) throw new Error('chapter 必须是 ≥1 的整数')
-  const goal = input.goal.trim()
-  const body = input.body.trim()
-  if (goal === '') throw new Error('goal 不能为空')
-  if (body === '') throw new Error('body 不能为空')
-  if (!Array.isArray(input.threadRefs) || input.threadRefs.some((id) => typeof id !== 'string')) {
-    throw new Error('threadRefs 必须是字符串数组')
+  const goal = input.goal
+  const body = input.body
+  if (goal.length === 0) throw new Error('goal 不能为空')
+  if (body.length === 0) throw new Error('body 不能为空')
+  if (!Array.isArray(input.threadRefs) || input.threadRefs.some((id) => typeof id !== 'string' || id.length === 0)) {
+    throw new Error('threadRefs 必须是非空字符串数组')
   }
   const intent: ChapterIntent = { chapter: input.chapter, goal }
   const memo: ChapterMemo = { chapter: input.chapter, goal, body, threadRefs: [...input.threadRefs] }
@@ -167,7 +167,7 @@ export async function saveChapterPlan(root: string, input: SaveChapterPlanInput)
   await commitFoundation(root, {
     writes: [
       { relativePath: planPath, content: `${JSON.stringify(persisted, null, 2)}\n` },
-      { relativePath: intentPath, content: `${renderIntentMarkdown(intent, memo)}\n` },
+      { relativePath: intentPath, content: renderIntentMarkdown(intent, memo) },
     ],
   })
   return { planPath, intentPath }

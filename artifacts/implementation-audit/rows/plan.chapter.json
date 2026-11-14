@@ -175,6 +175,7 @@
     "源 planner 的上下文选择在 planner 内部调 composer.selectTaskContext（planner.ts:64-69）；复刻拆成 story_context_candidates／package 工具调用，属 plan.context-select 的登记范围，本行只裁决 memo 输入与落盘。",
     "docs/fidelity-audit.md:378 把「user message 分段（指令／上下文／上一章／字数遥测）」列为源证据，但 planner.planChapter 不传 previousChapter，该段在 planner 路径不存在；docs/fidelity-audit.md:382「与源缓存语义一致」「hook id／上一章结尾是源契约」也不成立。",
     "2026-11-06-plan-chapter.md 引用的 `skills/story-plan/SKILL.md` 在冻结树中不存在（skills/ 只有 longform-writing、story-proposal、story-review），该 Note 的『方法用 DSH 原生 Skill』一项与实现不符。",
-    "对照：capabilities.yaml:267-274 标 verified；docs/fidelity-audit.md:376-382 判机制差异已登记（D14／D15 已偿还）并自认「上一章 2000 字／进度来源」为残余，但残余没有被登记成 scope 债，也没有 dsh-mapping 偏差行；本行按未登记行为差异裁决。"
+    "对照：capabilities.yaml:267-274 标 verified；docs/fidelity-audit.md:376-382 判机制差异已登记（D14／D15 已偿还）并自认「上一章 2000 字／进度来源」为残余，但残余没有被登记成 scope 债，也没有 dsh-mapping 偏差行；本行按未登记行为差异裁决。",
+    "2026-11-14 AU-22 修复：删除独立上一章段、空白/字节/threadRefs 对齐、plan 工具三道 DSH 闸门登记；索引进度仍 current_state+1，复用语义/brief 指令段仍开放，AU-22 维持债。"
   ]
 }

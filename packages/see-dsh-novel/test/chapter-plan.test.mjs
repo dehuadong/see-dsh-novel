@@ -33,7 +33,7 @@ test('save writes the governed plan and its intent projection', async () => {
     assert.deepEqual(persisted.plannerInputs, ['source/story/outline/story_frame.md'])
     assert.equal(
       await readFile(join(root, intentPath), 'utf8'),
-      '# Chapter Intent\n\n## Goal\n让沈砚接下无尸命案\n\n## Chapter Memo\n### Thread Refs\n- H-01\n\n### Body\n场景一：雨夜接案。\n场景二：编号牌。\n',
+      '# Chapter Intent\n\n## Goal\n让沈砚接下无尸命案\n\n## Chapter Memo\n### Thread Refs\n- H-01\n\n### Body\n场景一：雨夜接案。\n场景二：编号牌。',
     )
   } finally {
     await cleanup(root)
@@ -69,13 +69,15 @@ test('load round-trips, validates identity and falls back to the memo body', asy
   }
 })
 
-test('blank goal/body and a non-array refs are rejected without writing', async () => {
+test('empty goal/body and invalid refs are rejected; whitespace is preserved', async () => {
   const root = await workspace()
   try {
-    await assert.rejects(saveChapterPlan(root, { chapter: 1, goal: ' ', body: 'b', threadRefs: [] }), /goal/)
-    await assert.rejects(saveChapterPlan(root, { chapter: 1, goal: 'g', body: ' ', threadRefs: [] }), /body/)
+    await assert.rejects(saveChapterPlan(root, { chapter: 1, goal: '', body: 'b', threadRefs: [] }), /goal/)
+    await assert.rejects(saveChapterPlan(root, { chapter: 1, goal: 'g', body: '', threadRefs: [] }), /body/)
     await assert.rejects(saveChapterPlan(root, { chapter: 1, goal: 'g', body: 'b', threadRefs: [1] }), /threadRefs/)
-    assert.equal(await loadChapterPlan(root, 1), null)
+    await assert.rejects(saveChapterPlan(root, { chapter: 1, goal: 'g', body: 'b', threadRefs: [''] }), /threadRefs/)
+    const saved = await saveChapterPlan(root, { chapter: 1, goal: ' ', body: ' ', threadRefs: [] })
+    assert.ok(saved.planPath)
   } finally {
     await cleanup(root)
   }

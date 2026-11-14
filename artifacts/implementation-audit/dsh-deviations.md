@@ -288,3 +288,10 @@
 - 复刻做法：审稿契约与工具统一使用 `chapter-N@before`，不依赖 artifact revision id。
 - 原因：审稿契约是同步渲染，无法在渲染时安全读取 artifact revision；固定标签保证工具校验与模型引用一致。
 - 验证：`test/chapter-review.test.mjs` 的 scope 双源用例；`test/review-contract.test.mjs` 的 before 编号来源。
+
+### plan.chapter：三道 DSH 工具闸门
+
+- 源工程做法：planner 在进程内由 pipeline 直接调用；基础设定齐全与 workflow start 是上游流程条件，不是工具参数校验。
+- 复刻做法：`story_plan_chapter` 先要求基础设定六件套齐全、本章已有 workflow start，再落 plan；chapter+1 闸门仍按 current_state；索引进度为 AU-22 残余。
+- 原因：DSH 的工具是独立授权边界，宿主必须在工具入口拒绝未立项/未开工的写入；这两道闸门是阶段与授权机制的落点。
+- 验证：`test/plan-tool.test.mjs` 的 plan 工具基础前置；闸门行为由工具/阶段测试覆盖。

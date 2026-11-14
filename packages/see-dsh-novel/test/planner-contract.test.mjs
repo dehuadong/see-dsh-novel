@@ -20,7 +20,7 @@ async function workspace(language = 'zh') {
 
 const cleanup = (root) => rm(root, { recursive: true, force: true })
 
-test('the Chinese contract carries the method, the memo skeleton, previous ending and hook ids', async () => {
+test('the Chinese contract carries the method, the memo skeleton and hook ids', async () => {
   const root = await workspace('zh')
   try {
     const text = renderPlannerContract(root)
@@ -29,7 +29,6 @@ test('the Chinese contract carries the method, the memo skeleton, previous endin
     assert.match(text, /只使用输入中存在的 hook id/)
     assert.match(text, /# 第2章 memo 请求/)
     assert.match(text, /## 当前用户指令\n写《夜行》的基础设定/)
-    assert.match(text, /## 上一章正文\n雨从二十三点下到现在。/)
     assert.match(text, /## 宿主字数遥测\n用户目标：3000 字/)
     assert.match(text, /## 可用 hook id\nH-01、H-02/)
   } finally {
