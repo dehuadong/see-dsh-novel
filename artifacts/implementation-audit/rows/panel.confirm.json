@@ -98,6 +98,7 @@
     "P1 的面板与命令只确认『一章』的 workflow start；多章确认、逐章停点与连续生产没有实现，也没有测试。",
     "create_book 的确认不在本行实现里；本行的『开始下一章』按钮只出现在 foundation-ready，create_book 由 proposal.creative 的 approval 承接。跨行看确认语义没有三套 decision，但按行看本行覆盖不全。",
     "workflow-start 的 instruction 是固定的『开始第 N 章』，面板不传作者备注；源 POST /write-next 也不传备注，等价；chat 确认路径的 instruction 由对话给，复刻的命令入口没有对应参数。",
-    "2026-11-09 之后 panel.workbench/D58 改了 StoryView 的外围结构，但 write-command.ts 与 write-command.test.mjs 自 cfa290d 起没有改动（git diff 为空），11-09 的进程级证据仍对应当前命令行为。"
+    "2026-11-09 之后 panel.workbench/D58 改了 StoryView 的外围结构，但 write-command.ts 与 write-command.test.mjs 自 cfa290d 起没有改动（git diff 为空），11-09 的进程级证据仍对应当前命令行为。",
+    "/story-write 仍不接收作者附言；workflow-start.instruction 恒为默认句，作者方向的生产链是 AU-11 残余。"
   ]
 }

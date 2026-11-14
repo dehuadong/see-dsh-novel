@@ -42,12 +42,14 @@ async function workspace(language = 'zh', withRules = true) {
 
 const cleanup = (root) => rm(root, { recursive: true, force: true })
 
-test('the Chinese contract carries all six sections', async () => {
+test('the Chinese contract carries the genre, authority and six context sections', async () => {
   const root = await workspace('zh')
   try {
     const text = renderWriterContract(root)
+    assert.match(text, /## 题材与平台\n题材：悬疑｜平台：番茄；按已激活的专业 Skill 写作/)
     assert.match(text, /## 权威顺序/)
     assert.match(text, /## 字数\n用户目标：2500 字/)
+    assert.doesNotMatch(text, /## 本章指令/)
     assert.match(text, /## 叙事人称\n第三人称限知/)
     assert.match(text, /## 主角权威\n名字：沈砚/)
     assert.match(text, /## 本书规则\n# 本书规则/)
@@ -77,6 +79,7 @@ test('an English work gets the English contract', async () => {
   const root = await workspace('en')
   try {
     const text = renderWriterContract(root)
+    assert.match(text, /## Genre and platform\nGenre: 悬疑; platform: 番茄/)
     assert.match(text, /## Authority/)
     assert.match(text, /## Length\nUser target: 2500 words/)
     assert.match(text, /## Narrative person\n第三人称限知/)

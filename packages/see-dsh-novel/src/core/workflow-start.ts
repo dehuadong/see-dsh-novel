@@ -79,6 +79,17 @@ export function workflowStartedSync(root: string, chapter: number): boolean {
 }
 
 /** 同步读 start 的章号；没有或无效时返回 null。 */
+/** 同步读 start 的指令；章号不匹配或没有时返回 null。 */
+export function workflowStartInstructionSync(root: string, chapter: number): string | null {
+  try {
+    const parsed = JSON.parse(readFileSync(join(root, WORKFLOW_START_PATH), 'utf8')) as Partial<WorkflowStart>
+    if (parsed.chapter !== chapter || typeof parsed.instruction !== 'string') return null
+    return parsed.instruction
+  } catch {
+    return null
+  }
+}
+
 export function workflowStartChapterSync(root: string): number | null {
   try {
     const parsed = JSON.parse(readFileSync(join(root, WORKFLOW_START_PATH), 'utf8')) as Partial<WorkflowStart>

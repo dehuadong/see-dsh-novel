@@ -45,8 +45,8 @@
   "replicaEvidence": [
     {
       "file": "packages/see-dsh-novel/src/pipelines/long/write-tool.ts",
-      "line": 58,
-      "behavior": "story_write_chapter 只写 .drafts/chapter-NNNN.md：要求 workflow start、章纲、未发布；:63 拒绝标题带章号前缀；:66 已发布章拒绝；:85 只返回 charCount／target。"
+      "line": 63,
+      "behavior": "story_write_chapter 只写 .drafts/chapter-NNNN.md：要求 workflow start、章纲、未发布；标题章号前缀不再拒绝；已发布章拒绝；返回 charCount/target/wordCount/delivery。"
     },
     {
       "file": "packages/see-dsh-novel/src/core/chapter-draft.ts",
@@ -55,13 +55,13 @@
     },
     {
       "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
-      "line": 199,
-      "behavior": "detectStage 用 .drafts/<NNNN>.md 判断草稿存在（与 draftPath 不一致）；:200 据此把阶段留在 write。"
+      "line": 200,
+      "behavior": "detectStage 复用 draftPath() 判断草稿存在；写后进入 review。"
     },
     {
       "file": "packages/see-dsh-novel/src/pipelines/long/stages/writer.ts",
       "line": 45,
-      "behavior": "renderWriterContract 注入六段：权威／字数／人称／主角／规则与风格／本章章纲 + 已选上下文；:63 无题材／平台首段，:88 只给目标字数，无 min／max，也无 externalContext／章级用户指令。"
+      "behavior": "renderWriterContract 注入题材/平台+专业 Skill 首段、本章 workflow-start 指令（最高优先级）与 min/max 区间；原有六段保留。"
     },
     {
       "file": "packages/see-dsh-novel/src/core/length.ts",
@@ -80,10 +80,9 @@
     }
   ],
   "tests": [
-    "packages/see-dsh-novel/test/chapter-document.test.mjs（5 例：标题／正文剥离、非法标题、字数口径、二次写入拒绝、artifact 快照）",
-    "packages/see-dsh-novel/test/writer-contract.test.mjs（3 例：中文六段、缺省段省略、英文契约）",
-    "packages/see-dsh-novel/test/write-tool.test.mjs（3 例：workflow start 闸门、草稿落盘、草稿审稿后改稿路径）",
-    "packages/see-dsh-novel/test/stage-context.test.mjs（阶段夹具；write 夹具没有草稿，未测写入后的阶段）"
+    "packages/see-dsh-novel/test/chapter-write.test.mjs",
+    "packages/see-dsh-novel/test/write-tool.test.mjs",
+    "packages/see-dsh-novel/test/writer-contract.test.mjs"
   ],
   "realRunLevel": "P",
   "realRunBasis": "artifacts/real-runs/chapter.write.json：date=2026-11-14，sessionId=process:chapter.write；receipts 明说「本次口径切换后未重新跑真实会话；旧会话回执的 2363 是 CJK 口径，已失效」，属 process-level 证据。",
@@ -93,13 +92,16 @@
     "显式 min／max 章长既没有进入 writer prompt（源 writer.ts:551），也没有 delivery 回执（源 runner.ts:1469）；work.metadata.minChapterLength／maxChapterLength 被严格校验后无人使用。",
     "标题拒绝章号前缀是复刻新增限制（write-tool.ts:63）；源只做文件名 sanitize（writer.ts:374／:695），不因标题内容拒稿。",
     "D61：源 saveChapter 在标题变化时删除同章号旧 .md（writer.ts:381-382／:449）；复刻没有改标题的写入路径，分支不可触发；scope.md 的 owner 已改回 chapter.write，触发是 import_chapters；fidelity-audit 同。",
-    "账本 implementation 指向 core/chapter-document.ts，但它只在测试里被调用；生产写入是 core/chapter-draft.ts + pipelines/long/settle-tool.ts，账本映射与实际入口不一致。"
+    "账本 implementation 指向 core/chapter-document.ts，但它只在测试里被调用；生产写入是 core/chapter-draft.ts + pipelines/long/settle-tool.ts，账本映射与实际入口不一致。",
+    "safeChapterTitle 与源 sanitize 仍有空标题/字符替换差异；本行未修，保留为 AU-23 残余。",
+    "/story-write 不接收作者附言，workflow-start.instruction 恒为默认句；生产链归 panel.confirm 的 AU-11。"
   ],
   "limitations": [
     "只有 process-level 证据；字数口径切换后没有重跑真实 DSH 会话，旧会话回执已失效。",
-    "没有覆盖「写草稿后阶段变为 review」的测试；stage-context 的 write 夹具直接构造 plan + start，不经过 story_write_chapter。",
+    "chapter-write.test 覆盖写后 detectStage=review；标题前缀不再拒绝；writer 契约含题材/平台/指令/minmax。",
     "源 writer 在同一调用内完成正文 + 结算；复刻拆成草稿 + 结算两阶段（已登记 chapter.publish／chapter.settle 偏差），本行只审首版正文。",
-    "writer 子代理的提示由主编临场组装，阶段契约注入只保证主会话看到六段；测试断言契约文本，不断言子代理实际收到。",
-    "对照：capabilities.yaml:275-282 标 verified；docs/fidelity-audit.md:386-392 判「机制差异已登记（D16 已偿还）+ D61 残余」；D16 的 writer 契约只覆盖六段，未覆盖章级指令／min-max／草稿阶段推进，差异与判定见 docs/fidelity-audit.md 的审计表。"
+    "writer 子代理的提示由主编临场组装，阶段契约注入保证主会话看到契约；测试断言契约文本，不断言子代理实际收到。",
+    "对照：capabilities.yaml:275-282 标 verified；docs/fidelity-audit.md:386-392 判「机制差异已登记（D16 已偿还）+ D61 残余」；D16 的 writer 契约只覆盖六段，未覆盖章级指令／min-max／草稿阶段推进，差异与判定见 docs/fidelity-audit.md 的审计表。",
+    "2026-11-14 AU-23 修复：detectStage 复用 draftPath、writer 契约补题材/平台/指令/minmax、write 回执 delivery、标题前缀拒绝删除、账本改 write-tool；D61 与 safeChapterTitle 清洗差异仍开放，AU-23 维持债。"
   ]
 }

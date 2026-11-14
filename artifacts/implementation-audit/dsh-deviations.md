@@ -260,3 +260,10 @@
 - 复刻做法：`story_revise_chapter` 只承接显式修订；工具调用本身即显式，没有非显式自动复审入口。
 - 原因：DSH 的修订由主编在审稿后显式调用；源的非显式短路是 pipeline 内部行为，没有对应的工具调用面。登记为机制差异，不新增 `explicit` 参数。
 - 验证：`test/chapter-revise.test.mjs` 的显式路径与回执；更早章观察差异由同一事务行覆盖。
+
+### chapter.write：草稿路径由阶段检测复用
+
+- 源工程做法：源没有 `.drafts` 概念；章节保存后直接进入章节索引/发布路径。
+- 复刻做法：首版正文先写 `.drafts/chapter-NNNN.md`；`detectStage` 直接复用 `draftPath()` 判定草稿存在，不再硬编码 `.drafts/NNNN.md`。
+- 原因：DSH 的审稿闸门要求首版正文先落草稿、审稿后结算发布；路径只能由草稿 helper 单点决定。
+- 验证：`test/chapter-write.test.mjs` 写后 `detectStage=review`；`test/write-tool.test.mjs` 路径与回执。

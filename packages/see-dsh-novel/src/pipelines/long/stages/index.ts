@@ -6,6 +6,7 @@ import { join } from 'node:path'
 
 import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/types.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
+import { draftPath } from '../../../core/chapter-draft.js'
 import { renderArchitectContract } from './architect.js'
 import { renderWriterContract } from './writer.js'
 import { renderNumberedSources, renderReviewContract } from './review.js'
@@ -196,7 +197,7 @@ export function detectStage(root: string): StageFacts {
   if (!existsSync(join(root, nextPlan))) {
     return { stage: 'plan', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
-  const hasDraft = existsSync(join(root, '.drafts', `${String(nextChapter).padStart(4, '0')}.md`))
+  const hasDraft = existsSync(join(root, draftPath(nextChapter)))
   if (!chapterPublished && !hasDraft) {
     return { stage: 'write', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }

@@ -276,8 +276,8 @@ capabilities:
     title: 首版正文；writer 子代理与章节文档落盘（源字数口径）
     source: inkos:packages/core/src/agents/writer.ts、utils/length-metrics.ts
     dsh: subagents + tools.register
-    implementation: packages/see-dsh-novel/src/core/chapter-document.ts
-    consumer: packages/see-dsh-novel/test/chapter-document.test.mjs
+    implementation: packages/see-dsh-novel/src/pipelines/long/write-tool.ts
+    consumer: packages/see-dsh-novel/test/chapter-write.test.mjs
     realRun: artifacts/real-runs/chapter.write.json
     status: verified
   - id: chapter.review

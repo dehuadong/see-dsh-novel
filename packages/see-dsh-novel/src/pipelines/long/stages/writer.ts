@@ -8,6 +8,7 @@ import { chapterContextPath, chapterIntentPath, chapterPlanPath } from '../../..
 import { defaultChapterLength } from '../../../core/length.js'
 import { STORY_RULES_MD, STORY_STYLE_GUIDE_MD } from '../../../core/story-paths.js'
 import type { WorkLanguage } from '../../../core/work.js'
+import { workflowStartInstructionSync } from '../../../core/workflow-start.js'
 
 interface BookRulesLike {
   narrativePerson?: string
@@ -18,7 +19,7 @@ interface BookRulesLike {
 interface WorkLike {
   title?: string
   language?: WorkLanguage
-  metadata?: { genre?: string, platform?: string, targetChapters?: number, chapterWordCount?: number }
+  metadata?: { genre?: string, platform?: string, targetChapters?: number, chapterWordCount?: number, minChapterLength?: number, maxChapterLength?: number }
 }
 
 function readJson<T>(path: string): T | undefined {
@@ -53,6 +54,11 @@ export function renderWriterContract(root: string): string {
   const bookRulesBody = readText(join(root, STORY_RULES_MD))
   const styleGuide = readText(join(root, STORY_STYLE_GUIDE_MD))
   const target = work.metadata?.chapterWordCount ?? defaultChapterLength(language)
+  const instruction = workflowStartInstructionSync(root, chapter) ?? ''
+  const genre = work.metadata?.genre ?? 'other'
+  const platform = work.metadata?.platform ?? 'other'
+  const min = work.metadata?.minChapterLength
+  const max = work.metadata?.maxChapterLength
 
   const selectedContext = (context?.selectedContext ?? [])
     .filter((entry) => entry.protection === 'protected' || entry.protection === 'compressible')
@@ -61,11 +67,14 @@ export function renderWriterContract(root: string): string {
 
   const sections: string[] = []
   if (language === 'en') {
+    sections.push(`## Genre and platform\nGenre: ${genre}; platform: ${platform}. Write with the activated professional skill.`)
     sections.push([
       '## Authority',
       'The current user instruction and chapter memo govern this chapter. Established facts, explicit prohibitions, selected context, and real hook ids remain binding. The outline is a fallback only when it does not conflict with higher authority. Satisfy every populated memo requirement in the prose; do not duplicate or rename an existing narrative promise.',
     ].join('\n'))
-    sections.push(`## Length\nUser target: ${target} words. Preserve scene completeness instead of padding or cutting mechanically.`)
+    if (instruction !== '') sections.push(`## Chapter instruction\nThis instruction has highest priority. If it specifies a title, use that title verbatim.\n${instruction}`)
+    const range = min === undefined && max === undefined ? '' : `; range ${min === undefined ? '—' : min}–${max === undefined ? '—' : max}`
+    sections.push(`## Length\nUser target: ${target} words${range}. Preserve scene completeness instead of padding or cutting mechanically.`)
     if (rules?.narrativePerson) sections.push(`## Narrative person\n${rules.narrativePerson}; this durable constraint overrides model defaults.`)
     if (rules?.protagonist) {
       sections.push([
@@ -81,11 +90,14 @@ export function renderWriterContract(root: string): string {
     if (plan?.memo?.body) sections.push(`## Chapter memo\n${intent || plan.memo.body}`)
     if (selectedContext !== '') sections.push(`## Selected context\n${selectedContext}`)
   } else {
+    sections.push(`## 题材与平台\n题材：${genre}｜平台：${platform}；按已激活的专业 Skill 写作。`)
     sections.push([
       '## 权威顺序',
       '当前用户指令和 chapter memo 决定本章任务；既成事实、显式禁令、已选上下文和真实 hook id 必须保留。卷纲仅在无冲突时作为兜底。memo 已填写的每项要求都要在正文落地，不要为同一承诺重复开 hook，也不要改名既有叙事承诺。',
     ].join('\n'))
-    sections.push(`## 字数\n用户目标：${target} 字。保持场景完整，不要机械注水或裁切。`)
+    if (instruction !== '') sections.push(`## 本章指令\n该指令最高优先级；若指定标题，原样使用。\n${instruction}`)
+    const range = min === undefined && max === undefined ? '' : `；区间 ${min === undefined ? '—' : min}–${max === undefined ? '—' : max}`
+    sections.push(`## 字数\n用户目标：${target} 字${range}。保持场景完整，不要机械注水或裁切。`)
     if (rules?.narrativePerson) sections.push(`## 叙事人称\n${rules.narrativePerson}；该持久约束优先于模型默认。`)
     if (rules?.protagonist) {
       sections.push([

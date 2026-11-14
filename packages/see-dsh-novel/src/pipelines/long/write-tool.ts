@@ -8,7 +8,7 @@ import { loadChapterDocument } from '../../core/chapter-document.js'
 import { loadChapterReview } from '../../core/chapter-review.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import { readWorkflowStart, workflowStarted, writeWorkflowStart } from '../../core/workflow-start.js'
-import { defaultChapterLength } from '../../core/length.js'
+import { chapterLengthDelivery, chapterLengthSpecOf, countChapterLengthByMode } from '../../core/length.js'
 import { readWork } from '../../core/work.js'
 
 export const WRITE_NAME = 'story_write_chapter'
@@ -32,6 +32,8 @@ const output: JsonSchema = {
     path: { type: 'string' },
     charCount: { type: 'integer' },
     target: { type: 'integer' },
+    wordCount: { type: 'integer' },
+    delivery: { type: 'object' },
   },
   required: ['chapter', 'path', 'charCount', 'target'],
 }
@@ -41,6 +43,8 @@ export interface WriteResult {
   path: string
   charCount: number
   target: number
+  wordCount?: number
+  delivery?: ReturnType<typeof chapterLengthDelivery>
 }
 
 export function installWriteTool(ctx: PluginContext): Disposer {
@@ -60,9 +64,6 @@ export function installWriteTool(ctx: PluginContext): Disposer {
       const root = await ctx.workingDirectory.ensure(exec.agent)
       return withWorkAction(root, async () => {
         if (!await workflowStarted(root, args.chapter)) throw new Error('这一章还没有作者确认的 workflow start；先由作者开始本章')
-        if (/^\s*(第\s*\d+\s*章|chapter\s*\d+)/iu.test(args.title)) {
-          throw new Error('标题不要带章号前缀；章节文档头由宿主生成')
-        }
         if (await loadChapterDocument(root, args.chapter) !== null) {
           throw new Error(`第 ${args.chapter} 章已经发布；不能再写草稿，改稿请用 story_revise_chapter`)
         }
@@ -82,8 +83,10 @@ export function installWriteTool(ctx: PluginContext): Disposer {
         if (await readWorkflowStart(root) === null) {
           await writeWorkflowStart(root, { chapter: args.chapter, instruction: '开始写作' })
         }
-        const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
-        return { chapter: args.chapter, path: draft.path, charCount: draft.charCount, target }
+        const spec = chapterLengthSpecOf(work)
+        const finalCount = countChapterLengthByMode(draft.content, spec.countingMode)
+        const delivery = chapterLengthDelivery(finalCount, spec)
+        return { chapter: args.chapter, path: draft.path, charCount: finalCount, target: spec.target, wordCount: finalCount, ...(delivery === undefined ? {} : { delivery }) }
       })
     },
   } as ToolDefinition<{ chapter: number, title: string, content: string }, WriteResult>)
