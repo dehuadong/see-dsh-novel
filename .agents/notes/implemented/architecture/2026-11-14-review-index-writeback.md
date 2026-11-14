@@ -121,7 +121,7 @@ D45 的残余就是这一条：**已发布章重审后没有把当次 observatio
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（第 4 轮确认）。
 - Implementation Review 第 1 轮：Standards 报 3 major（realRun 计数、批准证据、偏差原因）＋3 minor（旧证据、引用、覆盖声明）；Spec 通过，另报覆盖缺口（`lengthTelemetry`/`tokenUsage` 未测、observations 未全等、空白引文未测）与 Design 表述。已修：realRun 490、批准证据、偏差原因改 DSH 机制、旧 Note/归档说明、引用改正；索引写回下沉 `reviewedChapterIndex`；补 schema/空白引文/时间区间/字段时间/全等断言。
 - Implementation Review 第 2 轮：Standards 通过（余两项不阻塞判断：`updatedAt` notEqual 改 `>=`；空 code/summary 复用 `REVIEW_SOURCE_REQUIRED` 的命名问题保留）；Spec 通过。
-- 验证：`pnpm run verify` 通过（490 passed／1 skipped symlink）；`verify-notes`、`check-capabilities`、`verify-audit-coverage` 通过；CI 结果见提交后回填。
+- 验证：`pnpm run verify` 通过（490 passed／1 skipped symlink）；`verify-notes`、`check-capabilities`、`verify-audit-coverage` 通过；CI `43552345981` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `2468272`）。
 ## Alternatives considered
 
 - **草稿审稿也写索引**：能让审稿后索引立刻有观察。否掉：源的草稿审稿只返回观察、索引在落盘时写；复刻提前写会让未发布章进入索引，破坏 `story_recover` 的「已发布未入索引」判据。
