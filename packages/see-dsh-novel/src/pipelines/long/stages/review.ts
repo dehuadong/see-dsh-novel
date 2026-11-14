@@ -64,8 +64,8 @@ function readPlanMemo(root: string, chapter: number): string | undefined {
 }
 
 /** 章节正文的编号来源；缺正文时返回空串。 */
-export function renderChapterSource(root: string, chapter: number): string {
-  const body = readCurrentChapterBody(root, chapter)
+export function renderChapterSource(root: string, chapter: number, revisionContent?: string): string {
+  const body = revisionContent ?? readCurrentChapterBody(root, chapter)
   if (body === undefined) return ''
   const language = workLanguage(root)
   const chapterLabel = language === 'en' ? `## Source chapter-${chapter}` : `## 来源 chapter-${chapter}`
@@ -73,8 +73,8 @@ export function renderChapterSource(root: string, chapter: number): string {
 }
 
 /** 章节正文与章纲的编号来源；缺正文或章纲时返回空串。 */
-export function renderNumberedSources(root: string, chapter: number): string {
-  const chapterSource = renderChapterSource(root, chapter)
+export function renderNumberedSources(root: string, chapter: number, revisionContent?: string): string {
+  const chapterSource = renderChapterSource(root, chapter, revisionContent)
   if (chapterSource === '') return ''
   const memo = readPlanMemo(root, chapter)
   if (memo === undefined) return ''
@@ -84,9 +84,9 @@ export function renderNumberedSources(root: string, chapter: number): string {
 }
 
 /** 审稿要求 + 编号来源；缺正文时返回空串；缺章纲时只给正文并说明。 */
-export function renderReviewContract(root: string, chapter: number): string {
+export function renderReviewContract(root: string, chapter: number, revisionContent?: string): string {
   const language = workLanguage(root)
-  const chapterSource = renderChapterSource(root, chapter)
+  const chapterSource = renderChapterSource(root, chapter, revisionContent)
   if (chapterSource === '') return ''
   const requirement = language === 'en'
     ? [

@@ -74,12 +74,12 @@
 - 原因：client 插件没有写权限与作品锁，删除必须经宿主命令；DSH 命令注入面只回 `matched`，面板拿不到结果文本，因此不宣称成败。
 - 验证：`delete-command.test.mjs`（成功删除与空工作区失败）、`workbench.test.mjs`（页头按钮与内联确认）、`client.test.mjs`（`/story-delete` 映射与提示）。
 
-### chapter.revise：修订后由审稿闸门替代自动复审
+### chapter.revise：修订事务拆成提案、审稿与一次提交
 
-- 源工程做法：`pipeline/runner.ts:874-1120` 的 `reviseDraft` 在修订事务内 `collectReviewObservations` 复审修订稿，把观察写回章节 index；状态结算与校验也在同一事务。
-- 复刻做法：`story_revise_chapter` 覆盖章节文件后删除旧审稿记录，并写/替换本章的 `workflow-start.json`（同章沿用，指向其它章时替换并在回执返回 `replacedStartChapter`），阶段回到 `review`；审稿观察由主编派审稿子代理产出，再经 `story_review_chapter` 校验落盘；重结算由 `story_settle_chapter` 单独完成（可重入）。
-- 原因：DSH 的审稿观察与结算 delta 都是模型输出，工具内不能跑模型；阶段闸门保证修订后必须重审，再结算由作者/协议触发。
-- 验证：`test/chapter-revise.test.mjs` 断言修订后审稿文件消失、`reviewInvalidated`；`test/stage-context.test.mjs` 断言 review／chapter-done 协议写明重审。
+- 源工程做法：`pipeline/runner.ts:943-1134` 的 `reviseDraft` 在修订事务内读 N-1 基线、`settleChapterState` 产出状态增量、`stateValidator.validate` 对账（一次 reconcile）、复审修订稿，最后 `writer.saveChapter` 一次写章节/索引/状态/快照；更早章只写章节与索引。
+- 复刻做法：最新已发布章由 `story_revise_chapter` 只写 `.drafts/revision-NNNN.json` 与复审 start，并删除旧审稿；`story_review_chapter` 带 `revisionDigest` 从提案正文审稿、不写索引；`story_commit_revision` C1 写修订结算提案，state-check 后 C2 一次写章节、索引、artifact、状态与快照，观察合并 review + `settlementObservations`。更早章/草稿保持即时路径。
+- 原因：DSH 的审稿、settler 与 state-check 都是模型输出，工具内不能跑模型；审稿闸门要求复审在结算前，因此把源的单事务拆成“提案 → 复审 → C1/C2 一次提交”，原子提交仍由 `commitFoundation` 保证。
+- 验证：`test/chapter-revision-commit.test.mjs` 覆盖提案、`revisionDigest` 错摘要拒绝、审稿与一次提交；`test/chapter-revise.test.mjs` 覆盖更早章即时路径与长度遥测；`test/stage-context.test.mjs` 覆盖提案注入与 C1/C2 协议。
 
 ### chapter.revise：局部修订范围由主编随正文提交
 

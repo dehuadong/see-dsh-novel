@@ -9,6 +9,9 @@ import { chapterBodyForChapter, countChapterLength, loadChapterDocument, renderC
 import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
 import { commitFoundation } from '../../core/commit.js'
 import { chapterReviewPath, loadChapterReview } from '../../core/chapter-review.js'
+import { chapterTitleOf, readChapterIndex } from '../../core/chapter-index.js'
+import { readStateSnapshot } from '../../core/state.js'
+import { renderRevisionProposal, revisionDigest, revisionProposalPath, revisionSettlementPath } from '../../core/revision.js'
 import { loadChapterPlan } from '../../core/chapter-plan.js'
 import { countingModeOf, lengthTargetOf } from '../../core/length.js'
 import {
@@ -102,6 +105,9 @@ const output: JsonSchema = {
     reviewInvalidated: { type: 'boolean' },
     replacedStartChapter: { type: 'integer', description: '被本章 start 替换掉的未消费 start 章号' },
     changedRegion: changedRegionSchema,
+    proposalPath: { type: 'string' },
+    proposalDigest: { type: 'string' },
+    settleRequired: { type: 'boolean' },
   },
   required: ['chapter', 'path', 'mode', 'changed', 'charCount', 'target', 'revisionId', 'reviewInvalidated', 'changedRegion'],
 }
@@ -117,6 +123,9 @@ export interface ReviseResult {
   reviewInvalidated: boolean
   replacedStartChapter?: number
   changedRegion: ChangedRegion
+  proposalPath?: string
+  proposalDigest?: string
+  settleRequired?: boolean
 }
 
 interface ReviseArgs {
@@ -197,11 +206,54 @@ export function installReviseTool(ctx: PluginContext): Disposer {
 
         const target = lengthTargetOf(work)
         const changed = body !== base
-        const review = changed ? await loadChapterReview(root, args.chapter) : null
+        const entries = document === null ? [] : await readChapterIndex(root)
+        const latest = entries.reduce((max, entry) => Math.max(max, entry.number), 0)
+        const latestTwoPhase = document !== null && args.chapter === latest
+        const review = changed || latestTwoPhase ? await loadChapterReview(root, args.chapter) : null
         // 复审要过 workflow start 闸门：同章沿用，没有或指向其它章时写本章 start。
-        const start = changed ? await reviewStartWrites(root, args.chapter, `修订后重审第 ${args.chapter} 章`) : null
+        const start = changed || latestTwoPhase ? await reviewStartWrites(root, args.chapter, `修订后重审第 ${args.chapter} 章`) : null
         const startWrites = start?.writes ?? []
         const replacedStartChapter = start?.replacedStartChapter
+        if (document !== null) await readStateSnapshot(root, args.chapter - 1)
+        if (latestTwoPhase) {
+          const digest = revisionDigest(body)
+          const proposal = {
+            version: 1 as const,
+            chapter: args.chapter,
+            title: chapterTitleOf(document!.heading, document!.path.split('/').pop() ?? ''),
+            content: body,
+            contentDigest: digest,
+            baseDigest: revisionDigest(base),
+            changed,
+            mode,
+            ...(args.ranges === undefined ? {} : { ranges: args.ranges }),
+            ...(args.replacements === undefined ? {} : { replacements: args.replacements }),
+            ...(args.targetText === undefined ? {} : { targetText: args.targetText }),
+            createdAt: new Date().toISOString(),
+          }
+          await commitFoundation(root, {
+            writes: [
+              { relativePath: revisionProposalPath(args.chapter), content: renderRevisionProposal(proposal) },
+              ...startWrites,
+            ],
+            deletes: [chapterReviewPath(args.chapter), revisionSettlementPath(args.chapter)],
+          })
+          return {
+            chapter: args.chapter,
+            path: revisionProposalPath(args.chapter),
+            mode,
+            changed,
+            charCount: countChapterLength(body, work.language),
+            target,
+            revisionId: '',
+            reviewInvalidated: review !== null,
+            ...(replacedStartChapter === undefined ? {} : { replacedStartChapter }),
+            changedRegion: changedRegion(base, body),
+            proposalPath: revisionProposalPath(args.chapter),
+            proposalDigest: digest,
+            settleRequired: true,
+          }
+        }
         if (document === null) {
           const draftDocument = renderChapterDocument({ chapter: args.chapter, title: draft!.title, content: body, language: work.language })
           await commitFoundation(root, {

@@ -34,6 +34,7 @@ export interface ReviewRecord {
   observations: Observation[]
   counts: ObservationCounts
   reviewedArtifact?: ReviewedArtifact
+  reviewedRevisionDigest?: string
 }
 
 function assertReviewedArtifact(value: ReviewedArtifact | undefined): ReviewedArtifact | undefined {
@@ -48,13 +49,14 @@ function assertReviewedArtifact(value: ReviewedArtifact | undefined): ReviewedAr
 export async function reviewSources(
   root: string,
   chapter: number,
+  revisionContent?: string,
 ): Promise<{ sources: Map<string, string>, published: boolean }> {
   const [document, draft, plan] = await Promise.all([
     loadChapterDocument(root, chapter),
     loadChapterDraft(root, chapter),
     loadChapterPlan(root, chapter).catch(() => null),
   ])
-  const body = document?.content ?? draft?.content ?? null
+  const body = revisionContent ?? document?.content ?? draft?.content ?? null
   if (body === null) throw new Error(`第 ${chapter} 章还没有正文，先写再审`)
   const sources = new Map([[`chapter-${chapter}`, body]])
   if (plan !== null) {
@@ -63,12 +65,17 @@ export async function reviewSources(
     // 草稿态仍要求章纲：规划闸门不变；已发布章可只用正文复审（章纲缺失/损坏时）。
     throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
   }
-  return { sources, published: document !== null }
+  return { sources, published: revisionContent === undefined && document !== null }
 }
 
 export async function reviewChapter(
   root: string,
-  input: { chapter: number, summary: string, observations: ReadonlyArray<ObservationInput> },
+  input: {
+    chapter: number
+    summary: string
+    observations: ReadonlyArray<ObservationInput>
+    revision?: { digest: string, content: string }
+  },
 ): Promise<{ path: string, counts: ObservationCounts, observations: Observation[] }> {
   if (input.summary.trim() === '') throw new Error('summary 不能为空')
   const existing = await readFile(join(root, chapterReviewPath(input.chapter)), 'utf8').catch((error: NodeJS.ErrnoException) => {
@@ -76,20 +83,22 @@ export async function reviewChapter(
     throw error
   })
   if (existing !== null) throw new Error(`第 ${input.chapter} 章已经有审稿记录，不覆盖`)
-  const { sources, published } = await reviewSources(root, input.chapter)
+  const { sources, published } = await reviewSources(root, input.chapter, input.revision?.content)
   const observations = resolveObservationSources(input.observations, sources)
   const counts = countObservations(observations)
   let reviewedArtifact: ReviewedArtifact | undefined
-  const artifact = await currentChapterArtifact(root, input.chapter)
-  if (artifact !== null) {
-    const current = await readArtifactRevision(root, { artifactId: artifact.artifact.id, revisionId: artifact.revision.id })
-    const currentBody = chapterBodyForChapter(current.bytes.toString('utf8'), input.chapter)
-    if (currentBody === sources.get(`chapter-${input.chapter}`)) {
-      reviewedArtifact = assertReviewedArtifact({
-        workId: artifact.workId,
-        artifactId: artifact.artifact.id,
-        revisionId: artifact.revision.id,
-      })
+  if (input.revision === undefined) {
+    const artifact = await currentChapterArtifact(root, input.chapter)
+    if (artifact !== null) {
+      const current = await readArtifactRevision(root, { artifactId: artifact.artifact.id, revisionId: artifact.revision.id })
+      const currentBody = chapterBodyForChapter(current.bytes.toString('utf8'), input.chapter)
+      if (currentBody === sources.get(`chapter-${input.chapter}`)) {
+        reviewedArtifact = assertReviewedArtifact({
+          workId: artifact.workId,
+          artifactId: artifact.artifact.id,
+          revisionId: artifact.revision.id,
+        })
+      }
     }
   }
   const record: ReviewRecord = {
@@ -99,6 +108,7 @@ export async function reviewChapter(
     observations,
     counts,
     ...(reviewedArtifact === undefined ? {} : { reviewedArtifact }),
+    ...(input.revision === undefined ? {} : { reviewedRevisionDigest: input.revision.digest }),
   }
   const path = chapterReviewPath(input.chapter)
   const writes: Array<{ relativePath: string, content: string }> = [

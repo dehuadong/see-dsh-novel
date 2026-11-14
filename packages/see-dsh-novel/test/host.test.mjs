@@ -101,6 +101,7 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
 
   assert.deepEqual([...registered.keys()].sort(), [
     'story_chapter_versions',
+    'story_commit_revision',
     'story_context_candidates',
     'story_context_compression_task',
     'story_context_package',

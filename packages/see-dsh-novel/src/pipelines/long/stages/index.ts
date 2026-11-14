@@ -11,6 +11,7 @@ import { renderWriterContract } from './writer.js'
 import { renderNumberedSources, renderReviewContract } from './review.js'
 import { renderPlannerContract } from './planner.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
+import { revisionProposalPath } from '../../../core/revision.js'
 import { workflowStartChapterSync, workflowStartedSync } from '../../../core/workflow-start.js'
 import {
   STORY_FRAME_FILE,
@@ -48,6 +49,10 @@ export interface StageFacts {
   chapterSnapshot: boolean
   /** 复审目标章；非 review 阶段为 0。 */
   reviewTarget: number
+  /** 修订提案存在（最新已发布章的两阶段修订）。 */
+  revisionProposed?: boolean
+  /** 修订审稿记录存在且绑定 proposal digest。 */
+  revisionReviewed?: boolean
 }
 
 const NO_CHAPTER: Pick<StageFacts, 'chapterPublished' | 'chapterSnapshot' | 'reviewTarget'> = {
@@ -81,6 +86,38 @@ function hasIndexedChapter(root: string): boolean {
   }
 }
 
+/** 已发布索引最大章号；索引缺失/坏掉返回 0。 */
+function latestIndexChapterSync(root: string): number {
+  try {
+    const parsed = JSON.parse(readFileSync(join(root, 'source/chapters/index.json'), 'utf8')) as Array<{ number?: unknown }>
+    return parsed.reduce((max, entry) => typeof entry.number === 'number' ? Math.max(max, entry.number) : max, 0)
+  } catch {
+    return 0
+  }
+}
+
+/** 修订提案与修订审稿是否存在（最新章两阶段修订的路由依据）。 */
+function revisionState(root: string, chapter: number): { proposed: boolean, reviewed: boolean } {
+  const proposed = existsSync(join(root, revisionProposalPath(chapter)))
+  if (!proposed) return { proposed: false, reviewed: false }
+  try {
+    const record = JSON.parse(readFileSync(join(root, chapterReviewPath(chapter)), 'utf8')) as { reviewedRevisionDigest?: unknown }
+    return { proposed: true, reviewed: typeof record.reviewedRevisionDigest === 'string' }
+  } catch {
+    return { proposed: true, reviewed: false }
+  }
+}
+
+/** 修订提案正文；缺失/坏文件返回 undefined，回落到已发布章。 */
+function revisionContentSync(root: string, chapter: number): string | undefined {
+  try {
+    const proposal = JSON.parse(readFileSync(join(root, revisionProposalPath(chapter)), 'utf8')) as { content?: unknown }
+    return typeof proposal.content === 'string' ? proposal.content : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** 同步判定阶段：`systemPrompt.context` 的文本提供函数是同步的。 */
 export function detectStage(root: string): StageFacts {
   if (!existsSync(join(root, 'work.json'))) {
@@ -105,9 +142,11 @@ export function detectStage(root: string): StageFacts {
   const nextChapter = currentChapter + 1
   const chapterPublished = chapterFileExists(root, nextChapter)
   const chapterSnapshot = chapterSnapshotExists(root, nextChapter)
+  const revisionChapter = latestIndexChapterSync(root)
+  const revision = revisionChapter > 0 ? revisionState(root, revisionChapter) : { proposed: false, reviewed: false }
   const startChapter = workflowStartChapterSync(root)
   // 已发布章有待复审的 start：恢复/修订后的复审目标；先于 chapter-done 判断。
-  if (startChapter !== null && startChapter <= currentChapter
+  if (!revision.proposed && startChapter !== null && startChapter <= currentChapter
     && chapterFileExists(root, startChapter)
     && !existsSync(chapterReviewPath(startChapter))) {
     return {
@@ -118,6 +157,32 @@ export function detectStage(root: string): StageFacts {
       chapterPublished,
       chapterSnapshot,
       reviewTarget: startChapter,
+    }
+  }
+  if (revision.proposed && revision.reviewed) {
+    return {
+      stage: 'chapter-done',
+      title,
+      currentChapter,
+      hasChapters,
+      chapterPublished,
+      chapterSnapshot,
+      reviewTarget: revisionChapter,
+      revisionProposed: true,
+      revisionReviewed: true,
+    }
+  }
+  if (revision.proposed) {
+    return {
+      stage: 'review',
+      title,
+      currentChapter,
+      hasChapters,
+      chapterPublished,
+      chapterSnapshot,
+      reviewTarget: revisionChapter,
+      revisionProposed: true,
+      revisionReviewed: false,
     }
   }
   const review = chapterReviewPath(nextChapter)
@@ -188,6 +253,18 @@ function renderStageBase(facts: StageFacts): string {
       ].join('\n')
     case 'review': {
       const target = facts.reviewTarget || next
+      if (facts.revisionProposed) {
+        return [
+          header,
+          `目标：审第 ${target} 章的修订提案。`,
+          '1. 派审稿子代理读注入的编号来源（提案正文），按写作方法审稿；拿回 observations 与 summary。',
+          '2. 每条观察给出 code、summary、assessment 与 sourceRefs；只能引用注入的来源。',
+          `3. 调 \`story_review_chapter\`（chapter=${target}，revisionDigest）落盘；不要审已发布旧正文。`,
+          '4. 审稿落盘后进入修订提交：settler 增量 → `story_commit_revision` C1 → state-check → C2；不要调用 resettle。',
+          '修订提案未提交前不要开下一章。',
+          common,
+        ].join('\n')
+      }
       return [
         header,
         `目标：审第 ${target} 章的首版正文。`,
@@ -216,6 +293,18 @@ function renderStageBase(facts: StageFacts): string {
         common,
       ].join('\n')
     case 'chapter-done':
+      if (facts.revisionReviewed) {
+        return [
+          header,
+          `目标：第 ${facts.reviewTarget} 章的修订提案已审稿，提交修订事务。`,
+          '1. 派 settler 子代理按修订提案正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要。',
+          `2. 调 \`story_commit_revision\`（chapter=${facts.reviewTarget}，revisionDigest，增量）生成修订结算提案（C1），只写 \`.drafts/revision-NNNN.settlement.json\`。`,
+          '3. 派 state-check 子代理读结算提案、修订提案正文、story_frame 与 book_rules，按结算判据只回 {reconciliationRequired, reportMarkdown}。',
+          `4. 一致时带 validation={proposalDigest, outcome: consistent, reportMarkdown} 和 proposalDigest 重调 \`story_commit_revision\`（C2）一次提交正文/索引/artifact/状态/快照；第一次对账不通过时按报告重派 settler 再走 C1/C2。`,
+          '修订单不要先调 `story_resettle_chapter`；扣下/恢复仍用 resettle。',
+          common,
+        ].join('\n')
+      }
       return [
         header,
         `目标：第 ${next} 章审稿已落盘，本章 workflow 结束；不要自动结算或开下一章。`,
@@ -321,14 +410,16 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
         root = ''
       }
       if (root === '') return renderStageProtocol(facts)
+      const reviewChapter = facts.revisionProposed ? facts.reviewTarget : (facts.reviewTarget || facts.currentChapter + 1)
+      const revisionContent = facts.revisionProposed ? revisionContentSync(root, facts.reviewTarget) : undefined
       const contract = facts.stage === 'foundation'
         ? renderArchitectContract(root)
         : facts.stage === 'write'
           ? renderWriterContract(root)
           : facts.stage === 'review'
-            ? renderReviewContract(root, facts.reviewTarget || facts.currentChapter + 1)
+            ? renderReviewContract(root, reviewChapter, revisionContent)
             : facts.stage === 'chapter-done'
-              ? renderNumberedSources(root, facts.currentChapter + 1)
+              ? renderNumberedSources(root, reviewChapter, revisionContent)
               : renderPlannerContract(root)
       return `${renderStageProtocol(facts)}\n\n${contract}`
     },

@@ -5,9 +5,10 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "503 passed／1 skipped（symlink）— stage-context 7 例（阶段判定与 reviewTarget、已发布章 start 命中 review 目标、重算块注入条件、扣下/遗留两态、chapter-done 两阶段协议、英文契约、其它预设不注入）＋ 结算/恢复/面板回归"
+    "summary": "505 passed／1 skipped（symlink）— stage-context 7 例（阶段判定与 reviewTarget、已发布章 start 命中 review 目标、重算块注入条件、扣下/遗留两态、chapter-done 两阶段协议、英文契约、其它预设不注入）＋ 结算/恢复/面板回归"
   },
   "receipts": [
+    "`revisionProposed`/`revisionReviewed`：提案无审稿→review，有审稿→chapter-done 修订分支；source 与 renderReviewContract 从提案正文注入，协议给 C1/C2 与 `story_commit_revision`。",
     "`StageFacts` 增加 `reviewTarget`：`detectStage` 在 `chapter-done` 判断之前检查「start 指向已发布章（startChapter <= currentChapter）且该章无审稿记录」，命中则阶段为 `review`、目标为该章；普通下一章的 review 目标仍是 `currentChapter + 1`；其它阶段为 0。",
     "`chapter-done` 协议写两阶段：派 settler → 不带 validation 生成提案 → 派 state-check 子代理读提案/正文/story_frame/book_rules 对账 → 带 {proposalDigest, outcome, reportMarkdown} 提交；含判据、failureReport 原文用法、attempt 2 扣下含义与修复入口，并注明结算前不得调用 `story_state_check`。",
     "`chapter-done` 第 4 步更新：重开只限最新已发布且最后已结算章、状态从 N-1 快照回退、三件套缺失指向 `story_recover`；恢复保留章纲并写复审 start；重开后改稿走 `story_revise_chapter`，不直接审旧稿。",

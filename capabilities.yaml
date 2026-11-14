@@ -281,7 +281,7 @@ capabilities:
     realRun: artifacts/real-runs/chapter.write.json
     status: verified
   - id: chapter.review
-    title: observations/assessment/quote 校验与审稿记录；已发布章审稿写回章节索引
+    title: observations/assessment/quote 校验与审稿记录；已发布章审稿写回索引；修订提案审稿（revisionDigest）
     source: inkos:packages/core/src/pipeline/chapter-review.ts、pipeline/runner.ts
     dsh: subagents + tools.register
     implementation: packages/see-dsh-novel/src/core/chapter-review.ts
@@ -289,11 +289,11 @@ capabilities:
     realRun: artifacts/real-runs/chapter.review.json
     status: verified
   - id: chapter.revise
-    title: spot-fix/polish/rewrite/rework/anti-detect；reviser 方法 prompt；索引长度遥测；保留 tokenUsage
+    title: 最新章两阶段修订（提案/审稿/一次提交）；spot-fix/polish/rewrite/rework/anti-detect；索引长度遥测
     source: inkos:packages/core/src/agents/reviser.ts、pipeline/runner.ts、utils/length-metrics.ts
     dsh: subagents
-    implementation: packages/see-dsh-novel/src/pipelines/long/revise-tool.ts
-    consumer: packages/see-dsh-novel/test/chapter-revise.test.mjs
+    implementation: packages/see-dsh-novel/src/pipelines/long/revision-commit-tool.ts
+    consumer: packages/see-dsh-novel/test/chapter-revision-commit.test.mjs
     realRun: artifacts/real-runs/chapter.revise.json
     status: verified
   - id: chapter.summary

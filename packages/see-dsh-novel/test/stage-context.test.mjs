@@ -316,3 +316,43 @@ test('an English work gets the English contract and its brief', async () => {
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('a revision proposal routes stage and injects proposal prose', async () => {
+  const root = await workspace('chapter-done')
+  try {
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([{
+      number: 1,
+      title: '雨夜',
+      wordCount: 4,
+      createdAt: '2026-11-10T00:00:00.000Z',
+      updatedAt: '2026-11-10T00:00:00.000Z',
+      observations: [],
+      provenance: 'generated',
+    }], null, 2) + '\n')
+    const content = '提案正文第一段。\n第二段。'
+    const digest = (await import('node:crypto')).createHash('sha256').update(content, 'utf8').digest('hex')
+    await mkdir(join(root, '.drafts'), { recursive: true })
+    await writeFile(join(root, '.drafts/revision-0001.json'), JSON.stringify({
+      version: 1, chapter: 1, title: '雨夜', content, contentDigest: digest,
+      baseDigest: 'base', changed: true, mode: 'rewrite', createdAt: '2026-11-10T00:00:00.000Z',
+    }, null, 2) + '\n')
+    await writeFile(join(root, 'source/story/runtime/chapter-0001.review.json'), JSON.stringify({
+      version: 1, chapter: 1, summary: '修订审稿', observations: [], counts: { issue: 0, resolved: 0, observation: 0, unavailable: 0 },
+      reviewedRevisionDigest: digest,
+    }, null, 2) + '\n')
+    const facts = detectStage(root)
+    assert.equal(facts.stage, 'chapter-done')
+    assert.equal(facts.revisionReviewed, true)
+    const { ctx, entries } = fakeContext(root)
+    installStageContext(ctx, packageRoot, PRESET)
+    const stageText = textOf(entries.get('story:stage'))
+    assert.match(stageText, /提案正文第一段/)
+    const protocol = renderStageProtocol(facts)
+    assert.match(protocol, /story_commit_revision/)
+    assert.match(protocol, /C1|结算提案/)
+    const contract = await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')
+    assert.match(contract, /正文。/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

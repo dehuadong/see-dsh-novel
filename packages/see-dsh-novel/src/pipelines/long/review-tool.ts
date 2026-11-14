@@ -3,6 +3,7 @@
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { reviewChapter } from '../../core/chapter-review.js'
+import { readRevisionProposal } from '../../core/revision.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import { workflowStarted, clearWorkflowStart } from '../../core/workflow-start.js'
 import type { ObservationCounts, ObservationInput } from '../../core/observation.js'
@@ -14,6 +15,7 @@ const parameters: JsonSchema = {
   additionalProperties: false,
   properties: {
     chapter: { type: 'integer', description: '章号；草稿必须有正文与章纲，已发布章可无章纲（只按正文审）' },
+    revisionDigest: { type: 'string', description: '修订提案的 contentDigest；带它时从提案正文审稿，不写索引' },
     summary: { type: 'string', description: '本轮审稿的总结' },
     observations: {
       type: 'array',
@@ -66,6 +68,13 @@ export interface ReviewResult {
   counts: ObservationCounts
 }
 
+async function revisionSource(root: string, chapter: number, digest: string): Promise<{ digest: string, content: string }> {
+  const proposal = await readRevisionProposal(root, chapter)
+  if (proposal === null) throw new Error(`第 ${chapter} 章没有修订提案；先生成修订提案`)
+  if (proposal.contentDigest !== digest) throw new Error(`第 ${chapter} 章的修订提案摘要不匹配；重新生成修订提案后再审`)
+  return { digest, content: proposal.content }
+}
+
 export function installReviewTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: REVIEW_NAME,
@@ -78,12 +87,15 @@ export function installReviewTool(ctx: PluginContext): Disposer {
         text: `第 ${value.chapter} 章审稿已落盘：${value.path}（issue ${value.counts.issue}／resolved ${value.counts.resolved}／observation ${value.counts.observation}／unavailable ${value.counts.unavailable}）`,
       }],
     },
-    async execute(args: { chapter: number, summary: string, observations: ObservationInput[] }, exec: ExecuteContext): Promise<ReviewResult> {
+    async execute(args: { chapter: number, summary: string, observations: ObservationInput[], revisionDigest?: string }, exec: ExecuteContext): Promise<ReviewResult> {
       if (!exec?.agent) throw new Error('story_review_chapter 需要所属 agent 会话')
       const root = await ctx.workingDirectory.ensure(exec.agent)
       return withWorkAction(root, async () => {
         if (!await workflowStarted(root, args.chapter)) throw new Error('这一章还没有作者确认的 workflow start；先由作者开始本章')
-        const result = await reviewChapter(root, { chapter: args.chapter, summary: args.summary, observations: args.observations })
+        const revision = args.revisionDigest === undefined
+          ? undefined
+          : await revisionSource(root, args.chapter, args.revisionDigest)
+        const result = await reviewChapter(root, { chapter: args.chapter, summary: args.summary, observations: args.observations, ...(revision === undefined ? {} : { revision }) })
         try {
           await clearWorkflowStart(root)
         } catch (error) {

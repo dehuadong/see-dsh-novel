@@ -53,8 +53,8 @@
 - **横向不变量**：1（workflow start 确认，不逐工具确认）、6（产物同一）、2（阶段停点）。
 - **用户可见面**：写作/审阅阶段、章节正文与审阅记录、artifact revision；面板只读展示。
 - **入口**：P2 出口。
-- **出口**：能力行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致；真实回执；D32 的自动复审已由审稿闸门承接；修订事务内的自动重结算归 D59。
-- **非目标/债务**：不在每个 write 工具上加 approval；summary/settle 归 P4；修订后的自动重结算归 D59。
+- **出口**：能力行 `verified` + 不变量 1/2/6；`reviewedArtifact` 与章节 revision 一致（仅非提案审稿）；真实回执；D32 的自动复审已由审稿闸门承接；修订事务内的自动重结算已随 D59 交付（提案→审稿→一次提交）。
+- **非目标/债务**：不在每个 write 工具上加 approval；summary/settle 归 P4；修订后的自动重结算已随 D59 交付。
 
 ### P4 结算与发布
 
@@ -100,7 +100,7 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 - **`artifact.identity`（P6）晚于 `chapter.revise`（P3）**：源在基础设定结束时就建初始快照；复刻的 `chapter.revise` 先交付了 r2／parent／superseded 修订历史，而不可变 `snapshotPath` 到 `artifact.identity`（`235d9c6`）才补上，期间旧 revision 覆盖后不可读，记 D42 并已注销。这与本段原先「v1 只有第 1 章、不做历史修订，因此可以接受」的前提冲突：修订能力已经交付，前提不成立。后续任何写 revision 的能力必须先有 `artifact.identity`。
 - **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work` 已 `verified`，但 P4／P5 的 D61（标题删除）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 其余四行（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）与 D57 也未完成。在这批债偿还、或作者把其中某几项明确改挂到 P6 之后以前，P4／P5 出口不能标记完成。
 
-债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链的写入与对账已交付（D33／D34 注销），重开/恢复入口与重审写回索引已交付（D36／D58／D45 注销），索引 `lengthTelemetry` 与按章 `tokenUsage` 已交付（D35／D60 注销），残余 D61（标题删除）；修订事务内的自动重结算（D59）随 `chapter.revise` 另立；D38、D23／D54、D57 独立。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
+债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链的写入与对账已交付（D33／D34 注销），重开/恢复入口与重审写回索引已交付（D36／D58／D45 注销），索引 `lengthTelemetry` 与按章 `tokenUsage` 已交付（D35／D60 注销），残余 D61（标题删除）；修订后的自动重结算已随 D59 交付；D38、D23／D54、D57 独立。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
 
 源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
 
@@ -136,7 +136,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D57 | `export.work` EPUB 包结构 | 源 `epub-gen-memory` 产出 `style.css`、`toc.ncx`／`toc.xhtml`、完整 `content.opf` 元数据（identifier／creator／publisher／date／rights／description／guide）、章文件名 `N_slug.xhtml`、DEFLATE 压缩、`container.xml` 序列化与包级 `xml:lang`；复刻是最小 EPUB3（无 CSS、无 ncx、全 store） | 另立工作项逐模板复刻（是否引入打包库届时裁决） |
-| D59 | 修订事务内的自动重结算 | 源在修订时结算修订稿、校验并随章节保存（`runner.ts:999-1042`），复刻的修订只写正文与索引，状态停在旧正文直到作者重算 | `chapter.revise` 把「先出状态增量再落正文」排成一次提交 |
 
 ## 边界
 

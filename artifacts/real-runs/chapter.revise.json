@@ -5,14 +5,14 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "503 passed／1 skipped（symlink）— chapter-revise 22 例（范围配对/排序/重叠/越界、空串删段、多行替换、多段区域、content 不一致、缺 replacements、targetText 任意模式、构造归一、归档与 revision、索引更新/追加/后代 upstream-revision、缺索引与坏 JSON 拒绝、英文通知、2000 截断、changed=false 空区域、索引 lengthTelemetry（条目 target 优先、修订前后字数、repairApplied、tokenUsage 保留、en_words 条目口径））＋ chapter-reopen 的「修订已发布章进 review 并替换他章 start」＋ stage-context 回归"
+    "summary": "505 passed／1 skipped（symlink）— chapter-revise 23 例（范围/替换/归一/归档/索引/长度遥测/更早章即时路径）＋ chapter-revision-commit 1 例（最新章提案→审稿→C1→C2 一次提交）＋ chapter-revision-commit 的 revisionDigest 拒绝 ＋ stage-context 的修订路由/协议"
   },
   "receipts": [
-    "修订覆盖同一章节文件、把旧正文归档到 `source/chapters/.versions/NNNN/<ts>_revision_<uuid>.md`、追加 artifact revision（r2，parent r1，旧 revision superseded）。",
-    "`chapters/index.json` 的当前章更新 `wordCount`／`updatedAt`／`provenance: \"edited\"`，`observations` 清空；已有行保留 `createdAt`，缺行时追加（`createdAt = updatedAt`，标题取文档头）。",
-    "索引同时写 `lengthTelemetry`：target／countingMode 优先取该章条目（`en_words` 才沿用条目模式，否则作品语言），writerCount=修订前正文，postReviseCount=finalCount=修订后正文，repairApplied=正文是否改变；回执 `target` 取同一值；`tokenUsage` 与其它字段保留。`changed=false` 也写同值 telemetry。",
-    "修订改变正文时删除本章审稿记录，并写/替换本章 workflow start：同章沿用原指令，没有 start 或指向其它章时写 `修订后重审第 N 章`，返回 `replacedStartChapter`；提交后阶段为 `review`、目标本章，审稿消费 start 后回到 `foundation-ready`。",
-    "修订未改变正文时不删审稿、不写 start；spot-fix 的范围外拒绝、构造归一与 targetText 绑定保持原行为。",
+    "最新已发布章修订只写 `.drafts/revision-NNNN.json` 与复审 start，删除旧审稿与旧修订结算提案；`source/chapters`、索引、artifact、状态字节不变；缺 N-1 快照拒绝；已有提案覆盖并重写。",
+    "修订审稿带 `revisionDigest` 从提案正文取源，写 `reviewedRevisionDigest`，不写索引；审稿后阶段为 chapter-done 修订分支。",
+    "`story_commit_revision` C1 只写 `.drafts/revision-NNNN.settlement.json`；C2 用 N-1 基线重跑结算，一次提交正文、索引（wordCount／lengthTelemetry／observations=review+settlementObservations／provenance edited／tokenUsage 保留）、artifact、状态与快照；删除提案/结算提案/审稿记录。",
+    "attempt=1 非一致拒绝并把结算提案标记为 reconciliation-required；C1 重跑为 attempt=2；attempt=2 的 reconciliation/unavailable 照源提交并写观察。提交前校验 baseDigest、索引最大章与 lastApplied ∈ {N-1,N}。",
+    "更早已发布章与草稿仍走即时路径（写正文/索引，不进入两阶段）；`story_revise_chapter` 对最新章返回提案回执（`settleRequired:true`）。",
     "该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

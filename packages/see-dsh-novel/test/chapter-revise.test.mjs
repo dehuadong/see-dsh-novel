@@ -12,6 +12,7 @@ import { chapterUsagePath } from '../src/core/chapter-usage.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { applyRangeEdits, assertTargetText, normalizeRangeEdits } from '../src/core/revise.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
+import { inspectState, snapshotWrites } from '../src/core/state.ts'
 import { readWorkflowStart } from '../src/core/workflow-start.ts'
 
 const ORIGINAL = '第一段。\n第二段。\n第三段。'
@@ -28,6 +29,11 @@ async function workspace(withChapter = true, language = 'zh') {
   await saveChapterPlan(root, { chapter: 1, goal: '目标', body: '正文计划', threadRefs: [] })
   if (withChapter) await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: ORIGINAL, language })
   await writeFile(join(root, 'source/chapters/index.json'), '[]')
+  const state = await inspectState(root, [], language)
+  for (const write of snapshotWrites(state.snapshot, 0)) {
+    await mkdir(join(root, write.relativePath, '..'), { recursive: true })
+    await writeFile(join(root, write.relativePath), write.content)
+  }
   return root
 }
 
@@ -489,7 +495,7 @@ test('revising prefers the entry target and keeps token usage', async () => {
       },
       tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
     }
-    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry], null, 2) + '\n')
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry, { ...entry, number: 2, title: '后章', wordCount: 1 }], null, 2) + '\n')
     const result = await tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec)
     assert.equal(result.target, 999)
     const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
@@ -537,7 +543,7 @@ test('revising uses an en_words entry counting mode', async () => {
         repairApplied: false,
       },
     }
-    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry], null, 2) + '\n')
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry, { ...entry, number: 2, title: '后章', wordCount: 1 }], null, 2) + '\n')
     const result = await tool(root).execute({ chapter: 1, content: 'one two three' }, exec)
     assert.equal(result.target, 100)
     assert.equal(result.charCount, 3)
