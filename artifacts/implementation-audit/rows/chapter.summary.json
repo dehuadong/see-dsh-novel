@@ -1,6 +1,5 @@
 {
   "id": "chapter.summary",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/settler-tool.ts",
@@ -75,12 +74,6 @@
   "deviations": [
     "无行为偏差：七字段、章号归属、按章排序、同章替换／拒绝、随结算与状态／投影／快照同批落盘均与源一致。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "摘要 title 空白处理与源字节不同；仅 process-level 证据",
-    "owner": "chapter.summary",
-    "closure": "按源保留原始 title 不 trim（或登记偏差并补边界用例）；补真实 DSH 会话回执。"
-  },
   "limitations": [
     "只有 process-level 证据；没有真实 DSH 会话回执。",
     "摘要没有独立工具入口，只能通过 story_settle_chapter 提交；源同样由 settler 在结算里产出，没有独立摘要步骤。",

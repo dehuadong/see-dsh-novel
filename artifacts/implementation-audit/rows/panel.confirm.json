@@ -1,6 +1,5 @@
 {
   "id": "panel.confirm",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/interaction/action-envelope.ts",
@@ -94,12 +93,6 @@
     "账本标题写『workflow start（create_book／write_next）的确认、拒绝与回执』，但本行 implementation 只覆盖 write_next；create_book 的确认在 proposal.creative 的 story_propose approval 里，两行分担了标题。",
     "fidelity-audit.md:342-344 说『P1 面板固定第 1 章、动态章节由 panel.workbench 承接』；现在 panel.index 的 nextChapter/reviewChapter 与 client 的 start-chapter 都由 detectStage/索引给出（panel-index.ts:279-298；StoryView.tsx:302），该句已过时，固定第 1 章只剩『无索引兜底时由命令算 N+1』这一层。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "write_next 的 chapterCount（N>1）未复刻；状态 verified 只有 process:panel.confirm 的进程级回执，没有真实 DSH 会话证据",
-    "owner": "panel.confirm",
-    "closure": "给 workflow-start 与 /story-write 增加 chapterCount（缺省 1，strict，int≥1），阶段协议按连续 N 章推进并保留每章审阅停点，补 N>1、重复 start、锁竞争的测试；在真实 DSH 会话里从面板『开始下一章』/ /story-write 走一次并录非 process:* 的 sessionId、命令回执与 workflow-start 文件，替换 artifacts/real-runs/panel.confirm.json；若作者裁决不做 N>1，需在 capability 标题与审计行删掉该语义并记 limitation。"
-  },
   "limitations": [
     "本行的真实证据是进程级的：sessionId=process:panel.confirm，tests.command=pnpm test；按任务定义只能是 P。capabilities.yaml:115-122 仍写 verified，是因为 check-capabilities.mjs:97-101 只校验 sessionId 非空字符串，没有拒绝 process:*。",
     "P1 的面板与命令只确认『一章』的 workflow start；多章确认、逐章停点与连续生产没有实现，也没有测试。",

@@ -10,6 +10,24 @@
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
+### v1 链路与维度
+
+| # | 阶段 | 用户结果 | 能力行 |
+| --- | --- | --- | --- |
+| 1 | 提案 | 一句话收敛为提案卡并确认 | `proposal.creative`、`proposal.execution-brief` |
+| 2 | 立项/初始化 | 作品身份、会话绑定、面板可见 | `runtime.load`、`runtime.session-binding`、`runtime.commands`、`panel.confirm`、`panel.gate-resume`、`panel.foundation-start` |
+| 3 | 基础设定 | outline／details／cast_index／cards、规则、伏笔、控制文档 | `foundation.architect`、`foundation.hooks`、`foundation.approval`、`cast.single-authority`、`foundation.rule-contract`、`foundation.ready-check`、`foundation.truth-projections`、`foundation.truth-write`、`foundation.control-docs`、`foundation.hook-ledger` |
+| 4 | 全书/章前规划 | 全书方向、章纲、上下文、压缩 | `plan.retrieval`、`plan.context-select`、`plan.compression`、`plan.chapter` |
+| 5 | 正文 | 第 1 章正文、审稿、修订/清稿 | `chapter.write`、`chapter.review`、`chapter.revise` |
+| 6 | 摘要/结算/定稿 | 摘要、状态/伏笔/快照、索引、artifact | `chapter.summary`、`chapter.settle`、`state.check` |
+| 7 | 章节运维 | 第 1 章重开/回滚、删最新章 | `chapter.reopen`、`chapter.move-delete` |
+| 8 | 导出/备份 | txt/md/epub、全作品备份/恢复、工作台 | `artifact.identity`、`export.work`、`backup.restore`、`panel.workbench` |
+| 9 | 运行时底座 | 加载、工具面、命令、提交/锁/事务、阶段、遥测、恢复、边界、打包、客户端 | `runtime.agent-tools`、`skill.references`、`runtime.client-ui`、`runtime.package-check`、`runtime.boundary-check`、`runtime.telemetry`、`runtime.recovery`、`runtime.stage-context`、`runtime.commit-safety`、`runtime.work-lock`、`runtime.txn-format` |
+
+每个阶段固定七个维度：产品行为（入口/动作/产物）、能力行与状态、DSH 机制落点、文件/状态不变量、证据（测试/回执/CI）、债或偏差、出口条件。`chapter.finalize` 不设独立行，并入 `chapter.settle`；v1 只覆盖第 1 章定稿与导出/备份。
+
+**v1 能力集 = 当前 45 条 `verified`。** `materials.import`、`search.unified`、`panel.logs`、`panel.analysis` 与 `short.*`、`script.*`、`radar.topic`、`forecast.plot` 不进入 v1；它们已登记在账本，按 v1 之后推进。
+
 ## 阶段合同
 
 阶段只表达交付顺序，不表达状态；状态仍只来自账本证据。每个阶段固定七项：源模块、能力行、横向不变量、用户可见面、入口条件、出口条件、非目标/债务。行清单按 `capabilities.yaml` 行序；`capabilities.yaml` 是唯一状态表。
@@ -78,17 +96,17 @@
 
 ### P6 产物与工作台
 
-- **源模块**：artifact revisions、export、backup、materials、搜索、Studio workbench/logs/analysis；见 `inkos/packages/core/src/harness/`、`interaction/export-artifact.ts`、`studio/src/pages/`。
-- **能力行**：`artifact.identity`、`export.work`、`backup.restore`、`materials.import`、`search.unified`、`panel.workbench`、`panel.logs`、`panel.analysis`。
+- **源模块**：artifact revisions、export、backup、Studio workbench；见 `inkos/packages/core/src/harness/`、`interaction/export-artifact.ts`、`studio/src/pages/`。materials／搜索／logs／analysis 的源模块留在 v1 之后。
+- **能力行**：`artifact.identity`、`export.work`、`backup.restore`、`panel.workbench`。
 - **横向不变量**：3（跨作品隔离）、4（证据同一）、6（产物同一）、7（面板只读同一证据）。
-- **用户可见面**：产物 revision、导出、备份/恢复、素材与检索、作品工作台/日志/分析。
+- **用户可见面**：产物 revision、导出、备份/恢复、作品工作台。
 - **入口**：P5 出口。
-- **出口**：八行 `verified` + 不变量 3/4/6/7 + 真实回执。
-- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认；恢复不回滚根上导出文件（D38）；面板真值文件只读（D39）；导出 EPUB 包结构待贴源（D57）。
+- **出口**：四行 `verified` + 不变量 3/4/6/7 + 真实回执。
+- **非目标/债务**：`panel.confirm` 已归 P1；P6 不再承载作者确认；恢复不回滚根上导出文件（D38）；面板真值文件只读（D39）；导出 EPUB 包结构待贴源（D57）。`materials.import`、`search.unified`、`panel.logs`、`panel.analysis` 移出 v1，v1 之后推进。
 
 ### v1 之外
 
-P7 短篇、P8 剧本、P9 雷达/预演不进入 v1 阶段合同；对应账本行保留 `missing`，不参与 P0–P6 出口。P7–P9 的源模块与能力另行规划，不能借“补齐”混进当前阶段。
+P7 短篇、P8 剧本、P9 雷达/预演不进入 v1 阶段合同；`materials.import`、`search.unified`、`panel.logs`、`panel.analysis` 同样排在 v1 之后。对应账本行保留 `missing`，不参与 P0–P6 出口。P7–P9 与 P6 扩展的源模块与能力另行规划，不能借“补齐”混进当前阶段。
 
 
 
@@ -98,19 +116,11 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 - **P1 前置行晚于 `foundation.*` 与 `cast.single-authority`**：这两组在 P1 前置行之前就已交付并 `verified`。账本行序仍是推进顺序——`runtime.*` 组剩余行补齐后才进 P2；这条历史事实不改写已验证的状态。
 - **`artifact.identity`（P6）晚于 `chapter.revise`（P3）**：源在基础设定结束时就建初始快照；复刻的 `chapter.revise` 先交付了 r2／parent／superseded 修订历史，而不可变 `snapshotPath` 到 `artifact.identity`（`235d9c6`）才补上，期间旧 revision 覆盖后不可读，记 D42 并已注销。这与本段原先「v1 只有第 1 章、不做历史修订，因此可以接受」的前提冲突：修订能力已经交付，前提不成立。后续任何写 revision 的能力必须先有 `artifact.identity`。
-- **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work` 已 `verified`，但 P4／P5 的 D61（标题删除）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 其余四行（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）与 D57 也未完成。在这批债偿还、或作者把其中某几项明确改挂到 P6 之后以前，P4／P5 出口不能标记完成。
+- **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work`、`backup.restore` 已 `verified`，但 P4／P5 的 D61（标题删除）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 的 v1 扩展（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）已移出 v1，不阻塞 v1 出口；D57（EPUB 包结构）仍是 P6 的保真债。
 
 债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链的写入与对账已交付（D33／D34 注销），重开/恢复入口与重审写回索引已交付（D36／D58／D45 注销），索引 `lengthTelemetry` 与按章 `tokenUsage` 已交付（D35／D60 注销），残余 D61（标题删除）；修订后的自动重结算已随 D59 交付；D38、D23／D54、D57 独立。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
 
 源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
-
-### 运行形态
-
-- 从 DSH 会话进入，面板与对话、轨迹并列，界面用 React 渲染，接入 `client` 插件与 slots。
-- 角色由子代理承担；模型选择由预设／配置提供，代码不绑定 Provider。
-- 作品内容以文档形式落盘，可读、可 diff、可直接导出；SQLite 只做索引，一作品一库。一个工作区即一部作品。
-- 会话与调用证据留在 DSH session。
-- 长任务用 jobs／schedule 调度，不建队列；`story_*` 工具按阶段注册独立 tool schema。
 
 ## 非目标（v1）
 
@@ -143,7 +153,9 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 
 ## 2026-11-14 实现审计债
 
-来源：[`../artifacts/implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)。审计只读，不改 `capabilities.yaml` 状态；本表记录审计判为保真债/机制等价但仍有未关闭差异的行。
+来源：[`../artifacts/implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)。审计只读，不改 `capabilities.yaml` 状态；本表记录审计中仍未关闭的差异。
+
+AU 号是 2026-11-14 审计细分号；同一差异已有 D 号时，AU 行是当前验收行，D 行保留历史号并交叉引用。AU-10 已关闭，保留历史行。
 
 | 债号 | 能力行 | 债 | 关闭判据 |
 | --- | --- | --- | --- |
@@ -178,7 +190,6 @@ P1 的前四行是内容生成的前提，不是「就近补齐」的附属项�
 | AU-29 | export.work | D57 EPUB 包结构未贴源；导出索引未严格校验；章节文件编号正则收紧为 4 位 | 另立工作项逐模板复刻 EPUB（D57，是否引入打包库届时裁决）；导出改用 readChapterIndexStrict；chapterNumberOf 改回任意位数数字前缀并补失败用例。 |
 | AU-30 | backup.restore | 导出文件不回滚（D38 遗留）；create 缺作品存在校验；panel.index 排除与 .drafts 清理未登记为偏差 | 1) 按 docs/scope.md D38 的偿还位置处理导出：恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出，并补「恢复后导出不残留」用例；2) create 前按 work.json／source 判作品存在，空工作区回「没有可备份的作品」并补失败用例（与源 Book Work not found 对齐）；3) 把 panel.index.json 排除与 .drafts 清理写进 docs/dsh-mapping.md 的 backup.restore 偏差行，说明恢复后索引由宿主重建；4) 同批更新 docs/fidelity-audit.md:476-482 的判定与 scope D38 行。 |
 | AU-31 | panel.workbench | 面板未复刻源工作台的设置编辑、删书、基础设定重修、章节重写／同步／版本恢复与本章 brief 入口；真值文件编辑仍只读（D39） | 为上述每个动作补宿主命令／提示 + 面板控件 + workbench/client 测试；或由作者裁决为不可见并在 docs/dsh-mapping.md 逐条登记偏差；D39 按 scope.md 的后继面板写通道偿还。 |
-
 | AU-32 | foundation.truth-projections | projection realRun 描述旧写入集，回执过期 | 重录 artifacts/real-runs/foundation.truth-projections.json，按当前写入集记录文件数与真实会话；或在回执中明确旧写入集限制。 |
 | AU-33 | runtime.commit-safety | 回滚目录替换语义与源不同 | 对齐源 rm(target,{force:true}) 语义并补目录替换用例，或登记偏差行。 |
 | AU-34 | foundation.truth-write | truth 写工具入参/回执与源不同，realRun 早于加锁 | 补 bookId 可选入参与源回执文本，或登记单工作区偏差；重录覆盖加锁后的回执。 |

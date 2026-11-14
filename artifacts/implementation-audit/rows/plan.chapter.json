@@ -1,6 +1,5 @@
 {
   "id": "plan.chapter",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/planner.ts",
@@ -169,12 +168,6 @@
     "投影字节差异：复刻 intent.md 末尾多一个换行、memo.body 存 trim 后的值（chapter-plan.ts:128-129,144），源 intent.md 无尾换行、plan.json 的 memo.body 保存模型原文（planner.ts:108,167-184；persisted-governed-plan.ts:39-46）；测试把复刻的字节形状固化了。",
     "plan.json＋intent.md 一次 commitFoundation 原子写入（chapter-plan.ts:141-146）替代源的两次 writeFile（planner.ts:108 与 persisted-governed-plan.ts:45），属 DSH 原子提交机制；plan 工具新增的基础设定六件套／workflow start／只允许 current+1 三道闸门（plan-tool.ts:66-77,106,108）是 DSH 阶段与授权机制的落点，其中前两道未逐条登记。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "plan 阶段缺创作方法、章级作者指令与全文上一章；plan 复用语义与源条件缓存相反；进度按 current_state 而非章节索引；hook id 列表为自创输入",
-    "owner": "plan.chapter",
-    "closure": "1) 恢复/补齐 plan 阶段创作方法注入（craftSkillsFor('plan') 指向长文写作技能或新增规划技能，并用测试断言 plan 阶段上下文含方法正文）；2) 为本章产生并读取章级作者指令（workflow-start.instruction 进 planner「当前用户指令」，或恢复带 instruction 的 start 入口），方法句与段落顺序按源 planner-prompts.ts；3) previous_chapter 改用全文并删掉自创的 prompt 段（或登记为偏差）；4) plan 工具按源 resolveGovernedPlan 语义：有新上下文/新指令时重规划并覆盖、无上下文才 reused，并补「带新指令重规划覆盖 plan.json」用例；5) 进度改用章节索引连续前缀（或把 current_state 口径写进 docs/dsh-mapping.md 并说明分叉后果）；6) 删除 hook id 全量列表或改为只列 governed context 内的 id；7) 同批更新 fidelity-audit.md:376-382 的判定与 dsh-mapping 偏差行。"
-  },
   "limitations": [
     "S 级证据只有 2026-11-09 一次会话，且回执写 295 tests；冻结提交 e3b7886 的当前测试规模、判定与实现已变化（D14/D15、planner 契约、plan 工具 reused），没有针对当前代码的真实会话证据；复用与重规划路径没有真实回执。",
     "测试断言的是复刻自己的形状：intent.md 尾换行、hook id 列表段、上一章 2000 字截断、无条件 reused——测试全绿不能证明源等价。",
@@ -182,6 +175,6 @@
     "源 planner 的上下文选择在 planner 内部调 composer.selectTaskContext（planner.ts:64-69）；复刻拆成 story_context_candidates／package 工具调用，属 plan.context-select 的登记范围，本行只裁决 memo 输入与落盘。",
     "docs/fidelity-audit.md:378 把「user message 分段（指令／上下文／上一章／字数遥测）」列为源证据，但 planner.planChapter 不传 previousChapter，该段在 planner 路径不存在；docs/fidelity-audit.md:382「与源缓存语义一致」「hook id／上一章结尾是源契约」也不成立。",
     "2026-11-06-plan-chapter.md 引用的 `skills/story-plan/SKILL.md` 在冻结树中不存在（skills/ 只有 longform-writing、story-proposal、story-review），该 Note 的『方法用 DSH 原生 Skill』一项与实现不符。",
-    "对照：capabilities.yaml:267-274 标 verified；docs/fidelity-audit.md:376-382 判机制等价（D14／D15 已偿还）并自认「上一章 2000 字／进度来源」为残余，但残余没有被登记成 scope 债，也没有 dsh-mapping 偏差行；本行按未登记行为差异裁决。"
+    "对照：capabilities.yaml:267-274 标 verified；docs/fidelity-audit.md:376-382 判机制差异已登记（D14／D15 已偿还）并自认「上一章 2000 字／进度来源」为残余，但残余没有被登记成 scope 债，也没有 dsh-mapping 偏差行；本行按未登记行为差异裁决。"
   ]
 }

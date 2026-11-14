@@ -1,6 +1,5 @@
 {
   "id": "runtime.stage-context",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/base.ts",
@@ -120,18 +119,12 @@
     "writer/planner 的章纲、上一章与已选上下文从源的 user message 移进了系统契约：源 writer 的 buildGovernedUserPrompt 把 user direction、memo、selected context、length requirement 放 user message（writer.ts:453-513），planner 的 user message 同样（planner.ts:129-146）；复刻把它们放进 story:stage 注入的系统文本（stages/writer.ts:81-102；stages/planner.ts:83-97）。内容大体在场，但提示层级与权威位置不同，尤其是源把 author_intent/current_focus 提升成绑定块（writer.ts:463-478），复刻只平铺在已选上下文。",
     "「不需要再调用技能工具加载」是复刻自创的全局禁令（stages/index.ts:210）；源主 agent 的规则是技能只在语义确有需要时用 use_skill，强制技能才必须用（system-prompt.ts:65-68,100-101）。阶段主动注入是项目裁决（AGENTS.md），但把「不要再调技能工具」写成所有阶段的一律规则，没有源依据。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "plan 阶段没有创作方法、chapter-done 结算没有 state-projection 方法、英文作品仍注入中文阶段协议；planner 契约把全部 hook id 当可用集合，且 stage 文本的提示层级与源 user message 不同",
-    "owner": "runtime.stage-context（plan 的规划方法交叉 plan.chapter；settlement 方法交叉 chapter.settle；参考检索整份注入归 skill.references）",
-    "closure": "按源每个角色调用点的 requiredSkillIds 映射阶段→技能：plan 注入 longform-writing（或新建 story-plan 方法）并带 planning 参考，chapter-done 注入 longform-writing 的 state-projection；把 renderStageBase/CHAPTER_REPAIR 做成中英双语并补英文协议用例；删除或收窄「不需要再调用技能工具加载」；planner 的可用 hook id 改为 planner 包/selectedContext 中的集合；把 writer 的 author_intent/current_focus 绑定块放回注入；每项用文本断言 + 真实回执关闭。"
-  },
   "limitations": [
     "realRun 是 process-level；补充的真实会话（2026-11-09/10、2026-11-14 repo-root）只证明注入生效，文本早于当前代码；当前协议文本没有会话回执。",
-    "阶段上下文机制（同一会话按工作区状态注入）是 DSH 机制等价，已登记 docs/dsh-mapping.md:21,42-47 的「阶段停点」与 :18 的「方法注入」；本行的 plan/chapter-done 方法缺失、英文协议缺失不是 DSH 强制，属保真债。",
+    "阶段上下文机制（同一会话按工作区状态注入）是 DSH 机制差异已登记，已登记 docs/dsh-mapping.md:21,42-47 的「阶段停点」与 :18 的「方法注入」；本行的 plan/chapter-done 方法缺失、英文协议缺失不是 DSH 强制，属未关闭差异。",
     "模型的对话历史里仍可能保留前一阶段注入的技能正文（runtime context 快照会 supersede，但旧 user message 仍在），因此 plan 阶段无 craft 的影响可能被历史文本部分掩盖；不能把这种残留当作等价实现。",
     "阶段协议里的工具顺序、停点与各步判据是复刻自创的流程文本，其逐步正确性由 plan.chapter/write/review/settle 等行裁决；本行只审计注入机制、方法与语言。",
     "源角色 prompt 是「角色调用点的 system prompt + 独立 user message」；复刻把契约放进 system context、把数据放进工具回执，提示层级差异见 deviations 第 6 项，本行不能证明两种放置对模型行为等价。",
-    "对照：capabilities.yaml:219-226 标 verified；docs/fidelity-audit.md:298-306 判「等价 — 阶段注入机制等价」；本审计确认机制等价，但因 plan/chapter-done 方法缺失、英文协议缺失与 planner hook id 集合不同，判 false-equivalence。"
+    "对照：capabilities.yaml:219-226 标 verified；docs/fidelity-audit.md:298-306 判「等价 — 阶段注入机制差异已登记」；本审计确认机制差异已登记，但因 plan/chapter-done 方法缺失、英文协议缺失与 planner hook id 集合不同，判 保真差异。"
   ]
 }

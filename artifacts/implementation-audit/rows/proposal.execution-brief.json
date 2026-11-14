@@ -1,6 +1,5 @@
 {
   "id": "proposal.execution-brief",
-  "verdict": "faithful",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/tools/longform-production.ts",
@@ -83,12 +82,6 @@
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/proposal.execution-brief.json：date=2026-11-08，sessionId=session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96（非 process:*）。本机 session 日志（.artifacts/work-proposal2，2026-11-08T06:11Z）seq 26 的 story_propose 参数为 title=夜行提案、instruction=写《夜行长街》的基础设定与第一卷大纲…、createBook={title:夜行长街, genre:都市悬疑, platform:番茄小说, language:zh, targetChapters:120, chapterWordCount:2500, minChapterLength:2200, maxChapterLength:2800}；seq 27 approval/asked 回执为立项《夜行提案》…，seq 28 allowed-once，seq 29 已立项。工作区 work.json metadata 与参数一致；source/story/brief.md 与 author_intent.md 为 instruction 原文（author_intent 末尾有换行），current_focus 为「# 当前聚焦 / ## 当前重点」模板。命令路径由 2026-11-06 的 session-88eb3ff4（.artifacts/work-init）回执「已立项《夜行测试》… 目标 200 章，单章 3000 字，都市悬疑」与 brief「Create 夜行测试」佐证。",
   "deviations": [],
-  "debt": {
-    "needed": false,
-    "title": "本行无新债；instruction 的 trim 差异、语言缺省链与 min/max 只存不消费归 proposal.creative（D1/D2）",
-    "owner": "proposal.execution-brief（交叉 proposal.creative）",
-    "closure": "本行的关闭判据是 instruction 原文、默认规模与三份控制文档同批落盘，已由测试与真实回执覆盖；trim/语言链按 proposal.creative 的债偿还，min/max 消费按 chapter.write 的长度契约偿还。"
-  },
   "limitations": [
     "源 propose_action 在进确认卡前 trim instruction（agent-tools.ts:660），confirm 时把 trim 后的那句交给 create_book；复刻用 verbatim 保留原文空白（proposal.ts:132；proposal.test.mjs:162-183 断言 brief 为「  写…  」）。文本相同，brief/author_intent 的前后空白字节不同；卡片展示同样保留空白。该规范化归 proposal.creative 行，本行只在字节层登记。",
     "源 language 缺省链含 surfaceLanguage（longform-production.ts:132；studio/server.ts:1175-1191 的 lang），再决定 chapterWordCount 是 3000 还是 2000；复刻在提案解析时先固定 zh（proposal.ts:106）。英文界面且未给 createBook.language 的提案，源会取 en/2000，复刻取 zh/3000。该链同属 proposal.creative 的既有偏差，本行不重复记债，但它直接决定本行的「默认规模」。",

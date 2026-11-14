@@ -1,6 +1,5 @@
 {
   "id": "proposal.creative",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agent/agent-tools.ts",
@@ -105,12 +104,6 @@
     "复刻只支持 create_book，源的 propose_action 枚举 15 个 workflow start（agent-tools.ts:178-195）；其余动作属 v1 之外的 short/play/script/import 等能力行，本行不要求，但账本标题的范围需要按 create_book 理解。",
     "源确认卡把 instruction trim 后展示并交给 create_book（agent-tools.ts:660-661）；复刻卡上保留原文空白（proposal.ts:132 用 verbatim，proposalCard:161 原样拼），brief 也是原文——brief 与源一致，卡片展示有空白差异。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "确认后的源默认（genre/platform='other'、language 取会话语言）未复刻；确认的 min/max 只存不消费，且该债未在 fidelity-audit 本行或 scope.md 立号",
-    "owner": "proposal.creative（min/max 的消费点落在 chapter.write 的 writer/reviser 长度契约）",
-    "closure": "在 proposal 的批准路径补源默认：未给 genre/platform 时写 'other'，language 未给时取会话语言再回退 zh，并补测试；让 writer 长度契约与修订替换预算消费 work.metadata.minChapterLength/maxChapterLength，越界返回 CHAPTER_LENGTH_OUT_OF_RANGE（或明确记录不做的作者裁决），补越界用例；在 docs/scope.md 立 debt 号并在 docs/fidelity-audit.md 本行引用，重录 proposal.creative 的真实回执覆盖 min/max 拒绝与默认值。"
-  },
   "limitations": [
     "源 propose_action 的 action 枚举有 15 项并有 targetSessionKind；复刻只实现 create_book 一项，其它动作属于 v1 之外的 short/play/script/import 等行。",
     "复刻确认在同一会话继续（另起下一 turn），源的 confirmed production action 也在当前 bookSession 执行（server.ts:5013-5016），差别在宿主执行 vs agent 下一步执行；create_book→基础设定在真实会话里由阶段上下文接着跑（seq 32 起）。targetSessionKind 只出现在源的卡片 details，复刻不携带该字段。",

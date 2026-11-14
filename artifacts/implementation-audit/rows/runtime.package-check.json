@@ -1,6 +1,5 @@
 {
   "id": "runtime.package-check",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "capabilities.yaml",
@@ -82,12 +81,6 @@
     "源断言与源包硬绑定（@linfengqaqtat/dsh-scriptor、GPL-3.0-only、presets/writing.patch.yml）；这些对复刻包不适用，但文档没有区分“不适用”与“未复刻”，也没有登记。",
     "真实回执 files:7/patchRows:21 与当前 tarball 内容不一致（3 lib＋8 技能 md＋patch＋manifest）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "package-check 的 source 不属冻结源工程、检查集合只覆盖标题要求且回执过期",
-    "owner": "runtime.package-check",
-    "closure": "把 source 改为 `none:仓库工具` 或 pin dsh-webnovel-writer@<commit>；逐条登记源脚本里不适用的检查与未复刻的通用检查；重录 artifacts/real-runs/runtime.package-check.json 的 files/patchRows。"
-  },
   "limitations": [
     "能力标题只要求 files/exports/patch 与 manifest 一致，复刻覆盖了这组；源脚本的其余检查（包名/license/双 patch/CLI 契约、依赖声明、技能脚本与参考、发布白名单与凭据/绝对路径扫描）没有复刻，也不在本行标题内。",
     "check-package 需要 pnpm pack；本次只读审计没有重新打包，回执不可独立复核。",

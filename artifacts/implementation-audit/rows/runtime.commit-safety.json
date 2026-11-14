@@ -1,6 +1,5 @@
 {
   "id": "runtime.commit-safety",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
@@ -72,12 +71,6 @@
   "realRunLevel": "S",
   "realRunBasis": "session-be199bcf-db91-4deb-ae75-6da15a44a06f 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-txn-format--；session 日志含 story_recover（回收死事务）与 story_truth_file 成功写入 author_intent.md，日期 2026-11-08。real-run 的 escape／queue 回执来自 check-commit-safety.mjs 进程级脚本，不在该 session 内；session 证明的是原子提交与死事务回收路径。",
   "deviations": [],
-  "debt": {
-    "needed": true,
-    "title": "回滚目录替换语义与源不同",
-    "owner": "runtime.commit-safety",
-    "closure": "对齐源 rollback 的 rm(target,{force:true}) 语义（目录替换时失败而非递归删除），补目录替换用例；或登记偏差行。"
-  },
   "limitations": [
     "复刻 restoreFromBackups 在 existed=false 且无 backup 时用 rm(target,{recursive:true})；源 rollback 用 rm(target,{force:true})。若目标位置被外部替换成目录，源会回滚失败并保留日志，复刻会直接删除目录。",
     "源 commitAtomicFileSet 返回 void；复刻 commitFoundation 返回 {written,deleted}，是调用层附加信息，不影响写入与回滚。",

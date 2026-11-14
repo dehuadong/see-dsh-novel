@@ -1,6 +1,5 @@
 {
   "id": "chapter.move-delete",
-  "verdict": "faithful",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/state/chapter-delete.ts",
@@ -66,12 +65,6 @@
   "realRunLevel": "P",
   "realRunBasis": "artifacts/real-runs/chapter.move-delete.json：date=2026-11-12，sessionId=process:chapter.move-delete，tests.passed=true（pnpm run verify，413 passed），receipts 覆盖前置、严格索引、trash、回滚与不读 work.json；文件自述『该回执是 process-level 核心/工具/阶段测试，不是 DSH 会话』。",
   "deviations": [],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "memory.db 删除：源无条件加入删除集（manager.ts:658-660），复刻只在文件存在时加入（delete-chapter.ts:139-141）；可观察结果相同。",
     "复刻把章节目录、快照、运行时与 drafts 放在工作区根的 source/ 下；源的对应目录在作品根的 chapters/、story/ 下。这是本仓库『工作区即作品根』的整体布局映射，不是删除语义差异。",

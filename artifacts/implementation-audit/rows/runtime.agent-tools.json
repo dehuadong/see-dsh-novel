@@ -1,6 +1,5 @@
 {
   "id": "runtime.agent-tools",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/builtin-profiles.ts",
@@ -75,12 +74,6 @@
     "复刻额外挂载源没有的 DSH 工具（ask_user/todo/jobs/schedule/subagent），属于机制新增，未登记。",
     "真实回执与当前工具集不一致：31 tools 对应不到当前 31 个 story_*＋DSH 工具。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "写作工具面与 persona 的源证据指向错文件，工具面替换与 artifact 读面缺失未登记",
-    "owner": "runtime.agent-tools",
-    "closure": "把 capabilities.yaml 与 docs/fidelity-audit.md 的源证据改到 inkos/packages/core/src/harness/production-capabilities.ts:232-295 与 system-prompt.ts:13-103；在 docs/dsh-mapping.md 登记工具面替换（含未搬的源工具、read 的 artifactId/revision 模式、persona 文本）；补运行时工具集与 persona 行为对照测试；重录 artifacts/real-runs/runtime.agent-tools.json。"
-  },
   "limitations": [
     "测试只解析预设 YAML 并用假 ctx 验证注册函数，没有断言 DSH 运行时真正暴露的工具表。",
     "仓库没有可复核的会话日志；real-run 只有文字回执，无法独立验证 seq 350 的 31 个工具。",

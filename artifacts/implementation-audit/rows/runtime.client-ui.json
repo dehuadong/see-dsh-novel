@@ -1,6 +1,5 @@
 {
   "id": "runtime.client-ui",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/studio/package.json",
@@ -63,12 +62,6 @@
     "Studio 的确认与文件浏览是独立组件加服务端 API（BookDetail.tsx:120-131 的 DELETE /api/v1/books/:id）；复刻改为宿主命令/提示与 workspaceFiles 读面（client/index.ts:97-131），确认语义归 panel.confirm。",
     "真实回执过期：9325 字节/8 例描述的是旧客户端，当前产物 43507 字节、client.test.mjs 34 例；旧回执不能继续作为当前客户端行为的证据。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "客户端 real-run 回执过期（9325B/8 例 → 43507B/34 例）",
-    "owner": "runtime.client-ui",
-    "closure": "重录 artifacts/real-runs/runtime.client-ui.json：当前 lib/client.js 大小与 sha256、client.test.mjs 与 workbench.test.mjs 的通过数、真实会话里面板注册与命令回执的 seq。"
-  },
   "limitations": [
     "DSH client 只能按路径读 panel.index.json 与 workspaceFiles，不能列目录；阶段与产物清单因此由宿主投影提供（docs/dsh-mapping.md:183-188）。",
     "没有独立前端服务；面板从会话进入，与对话、轨迹并列。",

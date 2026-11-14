@@ -1,6 +1,5 @@
 {
   "id": "runtime.telemetry",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/execution-evidence.ts",
@@ -84,12 +83,6 @@
     "源按 workId 的 episode 跨会话可查（server.ts:2829-2866）；复刻的 story_telemetry 作用域是调用它的会话的当前委派树，不能跨会话查历史委派。按章用量由 story_record_chapter_usage 持久化，是另一条回执路径。",
     "失败在复刻回执里体现为 state=incomplete/unknown 与 diagnostics 的 corrupt/unavailable；源 model-call-completed 还带 error/status 文本，复刻没有把错误原因读进回执。"
   ],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "失败回执只有状态与诊断，没有错误文本/错误码；源 model-call-completed 的 status/error 可在 episode 事件里读到。需要错误原因时要读 DSH 会话日志本身，story_telemetry 不提供。",
     "回执只覆盖当前会话的 descendants；主会话自己的模型调用、非委派的 action（如导出、恢复）不在 story_telemetry 里，也不存在与源 episodes 等同的按作品查询入口。",

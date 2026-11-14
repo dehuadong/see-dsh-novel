@@ -1,6 +1,5 @@
 {
   "id": "plan.compression",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/composer.ts",
@@ -104,18 +103,12 @@
     "D25 的 memory 分组预算差异已登记：源 2048/2048（composer.ts:386-391），复刻 contextWindow-reservedOutput-3072（context-package.ts:477-480；docs/dsh-mapping.md:204-209）；本行只引用，不重复记债。",
     "D26 证据缺口：夹具只写出候选 task 文件（2.3MB 级），主模型读取时卡死，没有 selection→compression→package 的真实回执；真实压缩的算法、重压、六字段 trace 都没有会话级证据。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "D26 真压缩没有会话回执；重压一次只在阶段协议文本、宿主不执行；压缩也作用于 planner pass；压缩分块缺 Source id/pointer；缺 onContextCompression 回执；预算派生缺失时静默跳过",
-    "owner": "plan.compression",
-    "closure": "补一条真实会话回执覆盖 selection→compression→package（小窗口模型或专用夹具），记录 sessionId 与回执；把重压一次做成宿主可验证的下一步（例如 package 返回 recompress 指令或压缩任务），并断言超预算拒绝；与源对齐只对 writer 压缩，或把 planner 压缩登记为偏差；分块输入补 Source id/Source pointer；补压缩进度回执或登记为不可观测；预算不可得时按源记录/报错而不是静默 complete；重录 real-run，并在 docs/dsh-mapping.md 增加压缩编排（非 D25）的偏差行，否则不满足机制等价的门槛。"
-  },
   "limitations": [
     "real-run 的 sessionId 是真实的，但压缩分支的回执不可用：同会话的窗口是 caller 传参，两个夹具调用被 abort，夹具没有 compress-* 文件；因此本行只能把压缩记为 process-level（P），不能按 S 放行。",
-    "源压缩是进程内同步子代理；复刻是主模型按阶段协议派 subagent 读 spool。这是 DSH 的 subagent/工具机制，但 docs/dsh-mapping.md:204-209 只登记了 D25 的分组预算，没有登记重压/编排差异，所以本行判保真债而不是机制等价。",
+    "源压缩是进程内同步子代理；复刻是主模型按阶段协议派 subagent 读 spool。这是 DSH 的 subagent/工具机制，但 docs/dsh-mapping.md:204-209 只登记了 D25 的分组预算，没有登记重压/编排差异，所以本行判未关闭差异而不是机制差异已登记。",
     "context-package.test.mjs 的压缩用例是手工构造 fixed/candidate/budget，直接调用 assembleContext；它不经过真实模型，也不覆盖 chunk 派发与合并后的重压。",
     "大夹具 .artifacts/work-compression 有 139 个 hook、6 个 writer task 文件（task-1 2.37MB、task-2 2.37MB、task-3 0.40MB…），但没有 compress manifest/chunk，也没有 package 回执；D26 的阻塞证据是「主模型读取 task-1 卡死」，不是行为已等价。",
     "source 的 onContextCompression 是 Studio 侧可观察的状态；复刻没有等价消费者，无法在本行证明压缩开始/结束/失败对作者可见。",
-    "对照：capabilities.yaml:259-266 标 verified；docs/fidelity-audit.md:368-374 判「保真债」（D13/D25 行为已偿还，D26 证据缺口）；本审计确认保真债，并补入重压、planner 压缩、Source id/pointer、预算静默降级的证据。"
+    "对照：capabilities.yaml:259-266 标 verified；docs/fidelity-audit.md:368-374 判「未关闭差异」（D13/D25 行为已偿还，D26 证据缺口）；本审计确认未关闭差异，并补入重压、planner 压缩、Source id/pointer、预算静默降级的证据。"
   ]
 }

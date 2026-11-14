@@ -1,6 +1,5 @@
 {
   "id": "chapter.reopen",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/state/chapter-workspace.ts",
@@ -80,12 +79,6 @@
     "恢复/重开写或替换复审 start（reopen.ts:178-183,247-248），源没有 workflow start；由 DSH 审稿闸门承接，已登记 docs/dsh-mapping.md:165-167。",
     "恢复与重开都走 commitFoundation 一次原子提交（reopen.ts:185,249），源逐步直接写章节/索引并 unlink 运行时（edit-controller.ts:350-365）；失败可见性不同，但无部分写状态。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "恢复分支未复刻源 chapter-replace 的 trim／空正文拒绝；恢复新增 artifact revision 仍是未登记偏差",
-    "owner": "chapter.reopen",
-    "closure": "在 core/reopen.ts 按源 trim 版本全文并拒绝空正文，补两个失败用例；在 docs/dsh-mapping.md 的 chapter.reopen 偏差行补记恢复同批写 artifact revision 与原子提交。"
-  },
   "limitations": [
     "版本排序在 createdAt 相同的一毫秒内不同：源只按 createdAt 倒序（chapter-workspace.ts:109），复刻再按 id 倒序（chapter-versions.ts:75）。",
     "源恢复端点经 Studio 的 edit-controller 执行，除读取章节索引外不检查 artifact 或快照；复刻恢复额外写 artifact revision，重开额外要求本章快照、索引条目与 artifact 三件套。",

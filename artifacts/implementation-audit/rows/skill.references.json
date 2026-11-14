@@ -1,6 +1,5 @@
 {
   "id": "skill.references",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agent/skill-tool.ts",
@@ -71,14 +70,8 @@
     "源激活结果按轮次过期并按任务 query 再水合（skill-tool.ts:221-246,305-319）；复刻没有『激活』概念，技能正文由阶段注入，生命周期不同。",
     "源检索按标题切段并在内存 LocalSearchIndex 内以技能 scope 检索 top 4（skill-tool.ts:167-214）；复刻没有对应检索实现（search.unified 行仍 missing）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "D23 use_skill.query 参考检索未实现；D54 参考边界校验与失败回执未实现",
-    "owner": "skill.references",
-    "closure": "注册一个按技能取参考的工具/入口：收集 md/txt、按标题切段、对 query 检索 top N 并返回带区间与来源的段落；同时复刻 resourcePath 的 safe-child、符号链接、非文件、512KB、UTF-8 与失败回执。停止把整份 references 注入当作 query 的等价；补检索与拒绝用例。"
-  },
   "limitations": [
-    "DSH skills 服务只声明资源基址，没有 query API（docs/dsh-mapping.md 映射表『技能』行）；但项目可以注册工具提供检索，因此缺失是保真债而不是 DSH 机制强制。",
+    "DSH skills 服务只声明资源基址，没有 query API（docs/dsh-mapping.md 映射表『技能』行）；但项目可以注册工具提供检索，因此缺失是未关闭差异而不是 DSH 机制强制。",
     "真实回执是进程级注册/文件测试，不是 DSH 会话；3 例只证明基址与文件可达。",
     "账本 status 仍为 verified，但本行标题要求的参考检索没有交付；测试通过不等于源等价。",
     "技能正文当前由阶段注入（systemPrompt.context）而非模型主动 use_skill，加载时机也不同；这一层已登记在映射表『方法注入』，本行只裁决参考检索。"

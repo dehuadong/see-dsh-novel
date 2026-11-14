@@ -1,6 +1,5 @@
 {
   "id": "runtime.work-lock",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/state/manager.ts",
@@ -109,12 +108,6 @@
     "stale 缺省回退：源 parseLockMetadata 在缺 heartbeatAt 时回退 startedAt（manager.ts:245），复刻 parseLockMetadata 保留 undefined（work-lock.ts:58-69），isStale 改用文件 mtime（work-lock.ts:88）。当 startedAt 与 mtime 不一致时，接管时机与源不同；test/work-lock.test.mjs 的『lease metadata without heartbeatAt uses file mtime』把复刻行为写成了断言。",
     "错误文本：源 WorkLockError 用英文并带 bookId；复刻用中文并带作品根 basename。错误码 BOOK_BUSY 与失败分支一致，仅文案不同。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "work-lock 旧 lease 的 stale 基准与源不一致：源回退 startedAt，复刻回退文件 mtime",
-    "owner": "runtime.work-lock",
-    "closure": "parseLockMetadata 在缺 heartbeatAt 时回退 startedAt（与源一致）；测试覆盖 startedAt 与 mtime 不一致的两个方向（startedAt 旧／mtime 新应 stale，startedAt 新／mtime 旧应不 stale）；重录 process-level 回执。"
-  },
   "limitations": [
     "realRun 只有 P 级：sessionId 是 process:*，跨进程 child 测试是进程级证据，不是 DSH 会话回执；不能单独支撑等价，必须配代码与测试。",
     "源仓库没有针对 StateManager.acquireBookLock 的单元测试；本行的源行为只能按 manager.ts 源码对照，无法用源测试交叉验证。",

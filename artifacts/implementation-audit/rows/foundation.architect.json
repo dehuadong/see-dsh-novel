@@ -1,6 +1,5 @@
 {
   "id": "foundation.architect",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/architect-tool.ts",
@@ -122,12 +121,6 @@
     "生成参数不可控：源固定 temperature 0.8 与分段 maxTokens（architect.ts:76,282,325,332）；复刻没有等价约束，由 DSH 模型/预设决定。",
     "外部指令引导句缺失：源 contextBlock 带『以下是来自外部系统的创作指令，请将其融入设定中』（architect.ts:53-55）；复刻只渲染『## 外部指令』标题与 brief 原文（stages/architect.ts:57,64）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "四段生成未贴源：审核反馈/修订与导入/同人变体缺失，schema 下限未补偿，init 换档删卡、多写 chapters/index.json、种子状态不校验、英文强制与外部指令引导句都不同",
-    "owner": "foundation.architect",
-    "closure": "1) 为 foundation 建立修订入口（反馈→reviseFrom→writeFoundationFiles('revise')）或在作者裁决后另立能力行；2) 导入/同人变体按源补工具或登记为 v1 外；3) 在四个工具入口补空串/空 roles/空 hook 字段拒绝，补偿 schema 子集不能表达的 minLength/minItems；4) 把 movedRoleCards 限定 revise；5) 裁决 chapters/index.json 与种子状态校验：补 validateHooks 后写入，或登记偏差；6) 补 LANGUAGE OVERRIDE 与外部指令引导句；每项关闭判据=对应拒绝/写入用例+真实回执更新，且 capabilities.yaml 的 source/dsh 字段修正（architect-tool.ts、tools.register 而非 subagents）。"
-  },
   "limitations": [
     "realRun 是 process-level；唯一的四段工具真实调用回执来自 2026-11-06 的 session-974fa00e，早于 2026-11-13 的初始索引改动（commit 7925d42），也早于本次审计看到的 tools.ts 现状。",
     "没有验证模型真的按四步顺序调用；stages/index.ts 只是提示词，stage-context 测试只断言文本包含四个工具名。",

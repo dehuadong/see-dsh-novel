@@ -1,6 +1,5 @@
 {
   "id": "foundation.rule-contract",
-  "verdict": "faithful",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/models/book-rules.ts",
@@ -73,12 +72,6 @@
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/foundation.rule-contract.json：date=2026-11-05，sessionId=session-5856f2b8-8c5c-465b-b00a-61674176d2fc（非 process:*），tests.passed=true（pnpm run verify，202 passed）。receipts：work-rules 会话里主编调 story_foundation_details，bookRulesData={prohibitions:['不写现实政治'],enableFullCastTracking:false,allowedDeviations:[],narrativePerson:'第三人称'}，回执『写入 6 个文件』；落盘 book_rules.json 首项 version:'2'，字段序 version→narrativePerson→prohibitions→enableFullCastTracking→allowedDeviations，readBookRules 读回一致、body 为『# 本书规则\\n\\n不写现实政治。』；删除 version 后重跑读取退出非零，stderr 为『source/story/book_rules.json: 字段 version 必须是 \"2\"，实际是 undefined』，恢复后通过。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-rules--/session-5856f2b8-.../session.v4.jsonl.zstd 存在（30119 字节，2026-11-05 17:59 写入）。",
   "deviations": [],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "错误文案不同：源抛 zod 的英文校验错误，复刻抛带文件/字段名的中文错误；拒绝与不写盘的行为一致，但文本不是源文案。源没有错误码，复刻也没有，因此没有错误码映射问题。",
     "源 BookRulesSchema 用 zod 的 .trim() 转换后比较；复刻显式 trim 后返回；两者对纯空白 narrativePerson/fanficMode 都拒绝，对 name/prohibitions 等裸字符串都允许空串，逐项一致（book-rules.test.mjs:47 固定了这些边界）。",

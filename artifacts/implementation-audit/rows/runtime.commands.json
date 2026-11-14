@@ -1,6 +1,5 @@
 {
   "id": "runtime.commands",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/cli/src/commands/book.ts",
@@ -111,12 +110,6 @@
     "审计文档自相矛盾：docs/fidelity-audit.md:116 写“已有 work.json 一律拒绝”，同文 :123 与实现/测试写不完整作品删除重建（work-command.ts:248-254；work-command.test.mjs:395-418）。",
     "已登记偏差：源删整个 workDir（book.ts:57）→复刻删 source/＋work.json（docs/dsh-mapping.md:232-237）；源同步跑基础设定（book.ts:87-113）→复刻 followup 异步启动（docs/dsh-mapping.md:225-230）；--brief 相对进程 cwd（book.ts:80-81）→相对工作区根（docs/dsh-mapping.md:239-244）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "重新立项判据、work id、brief.md 写入与源不一致，且审计文档自相矛盾",
-    "owner": "runtime.commands",
-    "closure": "按源 isCompleteBookDirectory 的 7 项改预检（含 current_state.md 与 chapters/index.json）或登记差异；id 改 deriveBookIdFromTitle 或登记；brief.md 只在有简报时写且写原文（或登记）；修正 docs/fidelity-audit.md:116 与 :123 的矛盾并去掉 --chapters/--words 为源别名的说法；重录 artifacts/real-runs/runtime.commands.json。"
-  },
   "limitations": [
     "DSH 命令处理器不能同步跑模型；基础设定在后续回合完成（D19 已登记）。",
     "只有会话内命令，没有 headless CLI 入口与参数解析测试；账本标题允许 init/export 至少一条。",

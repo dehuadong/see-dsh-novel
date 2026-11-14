@@ -1,6 +1,5 @@
 {
   "id": "foundation.hooks",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/models/runtime-state.ts",
@@ -119,12 +118,6 @@
     "notes 兜底：源映射时 notes 必填字符串并 trim（architect.ts:314）；复刻 notes ?? '' 允许缺失（state.ts:75）。",
     "复刻另有只读 story_hooks 工具（plugin/agent.ts:59-70）输出 count+投影；源没有同名工具，hooks 通过 read/ls 读文件。该工具归 foundation.hook-ledger，但本行 realRun 用它作为证据。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "播种路径不做源等价的写前校验；自造且未使用的 TRANSITIONS/transitionHook 与源 reducer 语义相反；mention 过滤与 notes 兜底未登记",
-    "owner": "foundation.hooks",
-    "closure": "1) 在 story_foundation_details 播种前对 hooks 状态跑 validateHooks（或在 stateWritesIfMissing 增加保存前校验），使非法 pendingHooks 与源一样不落盘；2) 删除 TRANSITIONS/transitionHook 或改为只实现源 reducer 允许的语义，并把 hooks.test.mjs:48 改成源迁移行为（deferred→resolved 允许、resolved 不能被 defer 改回）；3) mention 按源过滤或登记落盘 delta 的结构偏差；4) notes 缺省按源必填处理；关闭判据=非法播种拒绝用例、迁移用例与源 reducer 对齐、真实回执重录。"
-  },
   "limitations": [
     "realRun 是 2026-11-04 的会话，hooks.ts 在 2026-11-06 的 commit 9f141ed 里收紧过校验顺序；回执描述的播种/投影行为仍然成立，但没有覆盖收紧后的拒绝路径。",
     "fidelity-audit.md:196 说『hooks 池与六动作』，源 HookOps 实际是 upsert/mention/resolve/defer 四个操作（加 newHookCandidates 与 superseded 合并），'六动作'没有源码依据。",

@@ -1,6 +1,5 @@
 {
   "id": "chapter.write",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/writer.ts",
@@ -96,17 +95,11 @@
     "D61：源 saveChapter 在标题变化时删除同章号旧 .md（writer.ts:381-382／:449）；复刻没有改标题的写入路径，分支不可触发；scope.md 的 owner 已改回 chapter.write，触发是 import_chapters；fidelity-audit 同。",
     "账本 implementation 指向 core/chapter-document.ts，但它只在测试里被调用；生产写入是 core/chapter-draft.ts + pipelines/long/settle-tool.ts，账本映射与实际入口不一致。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "草稿写入后阶段停在 write（.drafts 路径不一致）；writer 缺章级用户指令与 min／max 区间回执；D61 标题删除分支不可达",
-    "owner": "chapter.write（阶段判定代码在 runtime.stage-context）",
-    "closure": "统一 draftPath 与 detectStage 的路径（或直接复用 draftPath()），补「story_write_chapter 后 detectStage=review」用例；把 workflow-start.instruction 与 work.metadata.min／max 注入 writer 契约并返回 delivery；修正 scope.md 的 D61 owner 与账本 implementation；D61 随改标题写入路径（import_chapters）关闭。"
-  },
   "limitations": [
     "只有 process-level 证据；字数口径切换后没有重跑真实 DSH 会话，旧会话回执已失效。",
     "没有覆盖「写草稿后阶段变为 review」的测试；stage-context 的 write 夹具直接构造 plan + start，不经过 story_write_chapter。",
     "源 writer 在同一调用内完成正文 + 结算；复刻拆成草稿 + 结算两阶段（已登记 chapter.publish／chapter.settle 偏差），本行只审首版正文。",
     "writer 子代理的提示由主编临场组装，阶段契约注入只保证主会话看到六段；测试断言契约文本，不断言子代理实际收到。",
-    "对照：capabilities.yaml:275-282 标 verified；docs/fidelity-audit.md:386-392 判「机制等价（D16 已偿还）+ D61 残余」；D16 的 writer 契约只覆盖六段，未覆盖章级指令／min-max／草稿阶段推进，故本行记 false-equivalence。"
+    "对照：capabilities.yaml:275-282 标 verified；docs/fidelity-audit.md:386-392 判「机制差异已登记（D16 已偿还）+ D61 残余」；D16 的 writer 契约只覆盖六段，未覆盖章级指令／min-max／草稿阶段推进，差异与判定见 docs/fidelity-audit.md 的审计表。"
   ]
 }

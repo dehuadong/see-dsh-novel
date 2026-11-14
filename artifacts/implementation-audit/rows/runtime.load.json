@@ -1,6 +1,5 @@
 {
   "id": "runtime.load",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/runtime.ts",
@@ -78,12 +77,6 @@
     "复刻根插件只装面板预热（plugin/index.ts:24-26），agent 工具面由预设子行 see-dsh-novel/agent 挂载（cordis.patch.yml:96），工具只在选中预设的会话可见；源按 WorkProfile/capability 限定工具面，作用域意图一致但作用域机制不同。",
     "源 runtime 先建 episode 再执行 action，并把 action 生命周期写进 episode store（runtime.ts:74-191）；复刻把会话/调用证据交给 DSH session log，不建 episode store。已由映射表『会话／事件』行承接。"
   ],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "fidelity-audit.md:27 把源证据描述为『runtime.ts 装载 profile／bundle、注册工具与 client』；runtime.ts 实际是 episode/action 运行时，profile 注册在 profile-registry.ts/builtin-profiles.ts，工具注册在 production-capabilities.ts，client 在 studio/。审计按实际源文件定位，该句需要修正。",
     "realRun 的会话日志只有 session 头（agentPreset=see-dsh-novel），没有 turn/tool 事件；install_bundle、『作品』视图与 story_next isError=false 只存在于 real-runs 的 receipts 文本，无法从会话日志逐条复核。",

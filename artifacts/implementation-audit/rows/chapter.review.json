@@ -1,6 +1,5 @@
 {
   "id": "chapter.review",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/pipeline/runner.ts",
@@ -88,17 +87,11 @@
     "已发布章无章纲仍可审是复刻新增的放宽（chapter-review.ts:64）；源始终有 governed context，不需要这条降级。",
     "审稿观察的 evidence 不同：源在 submitSourcedReview 里强制把 evidence 清空（base.ts:91），复刻保留模型提交的 evidence 并写入审稿记录／索引（observation.ts:71）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "修订审稿缺对照来源与 scope 证据校验；审稿失败无 unavailable 回退；一章只能审一次（源可重复审并替换索引观察）",
-    "owner": "chapter.review",
-    "closure": "把修订前 revision 作为第二个编号来源交给审稿子代理，并在 review 工具校验 scope 类 issue 同时引用 before+current（错误码 REVIEW_SCOPE_EVIDENCE_REQUIRED）；实现 review-unavailable 落盘；允许重审（记录版本化或替换并写明语义）；补对照、失败、重审测试。"
-  },
   "limitations": [
     "只有 process-level 证据；正常路径的旧会话回执沿用，新增索引写回与草稿路径没有真实 DSH 会话。",
     "审稿由主编派子代理完成，宿主只能校验提交的观察，无法证明子代理读过全部来源；源同一进程内由 auditor 直接提交。",
     "reviewedArtifact 的字节匹配依赖 artifact manifest；没有 artifact 的旧工作区仍可审稿但记录无 identity（与源一致）。",
     "索引观察写回只在已发布章；草稿审稿不写索引，与源 reviewChapterDraft 的行为一致。",
-    "对照：capabilities.yaml:283-290 标 verified；docs/fidelity-audit.md:394-400 判「等价（D17／D18 已偿还）」，却把 plan memo 当 governed-context、未提 scope／对照与 unavailable，故本行记 false-equivalence。"
+    "对照：capabilities.yaml:283-290 标 verified；docs/fidelity-audit.md:394-400 判「等价（D17／D18 已偿还）」，却把 plan memo 当 governed-context、未提 scope／对照与 unavailable，差异与判定见 docs/fidelity-audit.md 的审计表。"
   ]
 }

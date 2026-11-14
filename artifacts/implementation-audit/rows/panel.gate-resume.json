@@ -1,6 +1,5 @@
 {
   "id": "panel.gate-resume",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/system-prompt.ts",
@@ -85,12 +84,6 @@
     "源在确认后只继续『用户已确认请求中仍未满足的部分』；复刻的 RESUME_TEXT 在 foundation 闸门场景只要求复核+签核+继续下一步，随后由阶段上下文接管。产物上等价，但续作指令更窄。",
     "源把『确认后继续』接在 confirmed workflow start 上（create_book/write_next，确认后宿主执行 action 再续作）；复刻把它接在 foundation 定稿闸门上——这个闸门本身是源没有的附加面（见 foundation.approval 审计与 docs/dsh-mapping.md:35-40 的作者确认双通道）。续作机制同源，触发对象不同。"
   ],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "真实会话的续作轮在签核后调 story_next 得到『阶段 unbound』并结束（seq 404-417），所以『签核后接着干』的下一个阶段没有被这轮真实回执证明；回执证明到『复核+签核+正常收轮』。工作绑定属 runtime.session-binding/runtime.commands，不在本行。",
     "复刻的续作消息在会话日志里是一条 user/message（seq 386），作者会看到自己没打过的句子；源的 replayed toolResult 默认 visibility=model 不显示。",

@@ -1,6 +1,5 @@
 {
   "id": "state.check",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/state-validator.ts",
@@ -64,12 +63,6 @@
     "源校验前置于结算并可能触发一次重算（chapter-truth-validation.ts:80-103）；复刻 story_state_check 只读，结算前对账由结算提案＋收据承接（stages/index.ts:312-320），已登记 chapter.settle 偏差。",
     "复刻额外要求本章已结算且有严格可读的 N-1 基线（state-check-tool.ts:87-91）；源 validator 由调用方提供 old/new 文本，自身不读状态目录。"
   ],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "错误回执形状不同：源抛出的 message 是 JSON {code,instruction} 且错误对象带 code 属性（state-validator.ts:82）；复刻抛中文 message，包含 STATE_RECONCILIATION_REASON_REQUIRED 但没有 code 属性（state-check-tool.ts:93-95）。判据仍可被模型识别，测试只断言 code 文本。",
     "源返回的 observations 带 evidence: []（state-validator.ts:89）；复刻只返回 code/summary（state-check-tool.ts:96-98），因为本入口只读、不写索引。",

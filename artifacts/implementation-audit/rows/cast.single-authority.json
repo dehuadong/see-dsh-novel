@@ -1,6 +1,5 @@
 {
   "id": "cast.single-authority",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/utils/outline-paths.ts",
@@ -92,12 +91,6 @@
     "读取失败语义：源读目录非 ENOENT 错误直接抛出；复刻把读目录/读文件失败降级成 problem 文本并把其余卡继续注入（cast.ts:41-57）。",
     "复刻缺少源 readCharacterContext 的『没有卡就抛错』行为（cast.ts:126 返回空串）；该差异被客户端预设守卫掩盖，但函数级行为不同。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "人物权威的目录覆盖、同名冲突、空卡与上下文格式均未贴源；英文档位目录的卡不计入上下文，唯一权威在就绪判定与模型侧不一致",
-    "owner": "cast.single-authority",
-    "closure": "1) readCast/roleCandidates 读四个档位目录（或把 major/minor 迁移/别名成中文目录并拒绝并存），保证『就绪有卡』与『上下文有卡』同一集合；2) 同名跨档位、空卡、读失败的处置按源行为（合并/抛错）复刻，或由作者裁决后登记为偏差并写清源行为→DSH 落点→原因→验证；3) 上下文格式与结尾规则行改贴源 readCharacterContext，或登记为方法注入偏差；4) 补英文作品、英文目录、空卡三类测试与真实回执。关闭判据=上述用例通过且 capabilities.yaml 的 source 从 reference-context.ts 改为 outline-paths.ts/composer.ts 后重录回执。"
-  },
   "limitations": [
     "capabilities.yaml 的 source 指向 inkos:packages/core/src/references/reference-context.ts；该文件实际是书籍参考资料（materials）的分节选择（reference/<materialId>#<anchor>），与人物档案无关。真正的源证据在 utils/outline-paths.ts 与 agents/composer.ts。fidelity-audit.md:212 同样把本行源证据写成 reference-context.ts，需要修正。",
     "realRun 是 2026-11-04 的会话，cast.ts 自 2026-11-04 起未再改（commit 883ef9f），cast.test.mjs 在 2026-11-06 因提交范围/分隔符改过；回执描述的 [roles:index]/[role:*] 是复刻自造格式，只能证明复刻当前行为，不能证明与源格式等价。",

@@ -1,6 +1,5 @@
 {
   "id": "runtime.session-binding",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/session-binding.ts",
@@ -80,12 +79,6 @@
     "work.id 取工作区目录名（work.ts:308），源取 deriveBookIdFromTitle(title)（packages/cli/src/commands/book.ts:47、packages/core/src/utils/book-id.ts:3-10）；id 进入导出文件名与面板路径。",
     "源作品根是 projectRoot/works/<id>（work-store.ts:11-20）；复刻作品根=工作区根，work.json 从 works/<id>/work.json 与 source/book.json 两处合并成根一份，位置与合并未登记。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "work.json 身份 schema、作品 id 与会话绑定语义未按源对齐/登记",
-    "owner": "runtime.session-binding",
-    "closure": "在 docs/dsh-mapping.md 登记 work.json 两源合并、profileId→profile、lineage 缺失、id 取目录名与 work.json 位置；或按源补 profileId/lineage/source/book.json；把 capabilities.yaml 的 source 指向 work-store.ts:11-20 与 interaction/session.ts:92；重录 real-run。"
-  },
   "limitations": [
     "DSH 会话没有 bookId/profileId 参数，只有 workingDirectory；同一会话不能切换作品。",
     "短篇/剧本/互动世界 profile 不在 v1；复刻硬编码 longform-novel（work.ts:40）。",

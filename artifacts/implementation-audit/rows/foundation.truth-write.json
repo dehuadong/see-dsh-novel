@@ -1,6 +1,5 @@
 {
   "id": "foundation.truth-write",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
@@ -107,12 +106,6 @@
   "realRunLevel": "S",
   "realRunBasis": "session-def287c5-1fb5-41d3-b58e-db5774a8adb1 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-truth--；解压 session.v4.jsonl.zstd 可见三次 story_truth_file 调用与原样回执：写 author_intent.md 返回 Updated \"author_intent.md\"，写 book_rules.md 返回 Updated \"book_rules.md\"，写 nope.md 返回白名单错误，日期 2026-11-06。",
   "deviations": [],
-  "debt": {
-    "needed": true,
-    "title": "truth 写工具入参/回执与源不同，realRun 早于加锁",
-    "owner": "foundation.truth-write",
-    "closure": "补 bookId 可选入参与源回执文本，或登记单工作区偏差；重录覆盖 withWorkAction 加锁后的回执。"
-  },
   "limitations": [
     "源工具的 schema 有可选 bookId，回执为 `Updated \"<file>\" for \"<bookId>\".`；复刻按单工作区模型没有 bookId，回执只 `Updated \"<file>\"`。白名单、规范化与写入内容一致，但工具入参与回执文本不同。",
     "源对非 book_rules 文件直接 writeFile；复刻统一走 commitFoundation 的 staged/backup 事务。崩溃安全更强，不是源行为的损失。",

@@ -1,6 +1,5 @@
 {
   "id": "foundation.ready-check",
-  "verdict": "faithful",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/utils/outline-paths.ts",
@@ -52,12 +51,6 @@
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/foundation.ready-check.json：date=2026-11-07，sessionId=session-9b39af0e-8b8b-410f-a9c0-df61c99891c0（非 process:*），tests.passed=true（pnpm run verify，276 passed）。receipts：work-ready 会话里基础设定齐全、无章纲无正文时调 story_next 回执『阶段 ready · 夜行测试』；临时移除 source/story/book_rules.json 后回执『阶段 draft · 夜行测试』，说明规则数据仍是就绪门槛；workProbes 七项（work.json、story_frame、volume_map、book_rules.md、book_rules.json、pending_hooks、至少一张角色卡），current_state.md/chapter_summaries.md 不参与；stages 与 story_next 已统一同一组文件。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-ready--/session-9b39af0e-.../session.v4.jsonl.zstd 存在（53477 字节，2026-11-07 13:28 写入）。",
   "deviations": [],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "源的身份文件是 works/<id>/book.json，复刻用工作区根 work.json 替代；这是已登记的『一个工作区即一部作品』结构映射（docs/dsh-mapping.md 映射表『作品存储』、runtime.session-binding 行），就绪判据本身（存在性）不变。",
     "复刻把就绪判定交给 story_next 工具并扩展成 unbound/foundation/draft/ready 四阶段（story-next.ts:50-70）；源没有阶段状态机，阶段语义归 runtime.stage-context，本行只裁决『就绪 = 六项文件 + 至少一张卡』。",

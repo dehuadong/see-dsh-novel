@@ -1,6 +1,5 @@
 {
   "id": "runtime.txn-format",
-  "verdict": "faithful",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
@@ -106,12 +105,6 @@
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/runtime.txn-format.json：date=2026-11-08，sessionId=session-be199bcf-db91-4deb-ae75-6da15a44a06f（非 process:*）。本机 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-txn-format--/session-be199bcf-db91-4deb-ae75-6da15a44a06f/session.v4.jsonl.zstd（2026-11-08T08:15Z 创建）可读：seq 30 调 story_recover(apply:true)，seq 31 回执列出 staging-rollback .inkos-file-txn-fixture（属主 999999 已退出），已修复 3 项包含该事务；seq 36-37 story_truth_file 写 author_intent.md 返回 Updated。工作区 .artifacts/work-txn-format 的 story_frame.md 现为「# 旧大纲」，根目录无 .inkos-file-txn-* 残留，证明死事务按 backup 还原且提交成功即清理。",
   "deviations": [],
-  "debt": {
-    "needed": false,
-    "title": "无未偿还保真债",
-    "owner": "runtime.txn-format",
-    "closure": "不适用；旧 .staging-* 与旧日志不迁移，预发布格式不做兼容层。"
-  },
   "limitations": [
     "复刻对非空提交无条件创建 staged/ 与 backup/（commit.ts:255-256）；源只在有写入时建 staged/、只在有目标被搬走时建 backup/（atomic-file-set.ts:179-197）。运行中的目录布局对空写入或纯删除提交会多出空目录；恢复只读 journal+backup，不影响判据。",
     "空 writes+deletes 批次复刻直接返回（commit.ts:213）；源仍会建事务、写空 entries、写 committed 并清理（atomic-file-set.ts:167-216）。外部无可观察残留，只有瞬时目录差异。",

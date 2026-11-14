@@ -1,6 +1,5 @@
 {
   "id": "plan.retrieval",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/retrieval/local-search.ts",
@@ -100,17 +99,11 @@
     "trace 的候选 id 命名不同：源用 summary:<chapter>/hook:<hookId>/volume-summary:<index>（memory-retrieval.ts:223-233）；复刻 context-package 的 memory 候选用 memory:<source>（context-package.ts:328,750），写进 ChapterTrace 后 id 前缀与源不同。该差异属 plan.context-select 的 trace 组装，但根源是本行 story-index 的文档 id 不含 kind 前缀。",
     "源检索会把第 N-1 章摘要强制放进选定摘要（memory-retrieval.ts:256-266）；复刻检索只返回命中/候选，强制包含由调用方的 selection 决定且没有实现（context-package.ts:323-345,612-628）。该行为债归 plan.context-select。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "D22 素材过渡候选仍在 story-memory scope；检索读取用自写校验（hook 重复拒绝、摘要未知字段/非整数章放行）与源 zod strict 不一致；trace 文档 id 命名不同；源 MemorySelection 单入口被拆到 context-select",
-    "owner": "plan.retrieval（strictness 交叉 foundation.hooks/chapter.settle；forced previous summary 与 trace id 交叉 plan.context-select）",
-    "closure": "P6 把素材移出 story-memory（materials scope / search.unified）并补跨 scope 用例；检索入口改用与源等价的 strict schema（拒未知字段、chapter 为 int≥1、title 非空；hook 唯一性按作者裁决）；trace candidates/semanticSelectedIds 使用源 document id；或补一个与源同形的 retrieveMemorySelection 入口承接选择与 trace；重录真实回执覆盖三类型与素材分离。"
-  },
   "limitations": [
     "S 级回执来自开发中的同一会话：seq 22-28 还是旧索引，role/outline 在会话中途被移出，seq 47-54 才是当前行为；没有冻结后重新开的独立会话。",
     "素材过渡候选是已登记的 D22/P6 债，不是永久设计；本行把它计入不等价，是因为当前 story_search 的可见结果确实包含 material。",
     "源没有对外的 story_search 工具，story-memory 检索是 composer 内部的 retrieveMemorySelection；复刻用 tools.register 暴露只读入口，这是 DSH 机制（docs/dsh-mapping.md:19 的「工具」行），但工具面的查询参数与输出形状由复刻自定。",
     "本行不覆盖语义选择：源 retrieveMemorySelection 的 selector 与 trace 由 plan.context-select 的候选/子代理流程承接，本行只审计检索内核、故事记忆类型与来源标注。",
-    "对照：capabilities.yaml:243-250 标 verified；docs/fidelity-audit.md:348-356 判「保真债」（D22/D23）；本审计确认保真债，并把 strictness 与 trace id 命名补进本行。"
+    "对照：capabilities.yaml:243-250 标 verified；docs/fidelity-audit.md:348-356 判「未关闭差异」（D22/D23）；本审计确认未关闭差异，并把 strictness 与 trace id 命名补进本行。"
   ]
 }

@@ -1,6 +1,5 @@
 {
   "id": "chapter.revise",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/reviser.ts",
@@ -90,17 +89,11 @@
     "更早章即时修订把索引 observations 清空并另写复审 start（chapter-index.ts:198、revise-tool.ts:214），源在同一事务内复审并写 postRevisionObservations（runner.ts:1043-1101）；机制上由审稿闸门承接，但 dsh-mapping 未单独登记这条观察差异。",
     "源修订回执有 wordCount 与 length delivery（runner.ts:1156-1159）；复刻 charCount／target 没有区间状态。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "修订缺显式章长区间校验（CHAPTER_LENGTH_OUT_OF_RANGE）与 spot-fix 替换预算冲突（CHAPTER_EDIT_SCOPE_CONFLICT）；更早章修订的复审时点与源不同",
-    "owner": "chapter.revise",
-    "closure": "按 work.metadata.min／max（或条目 lengthTelemetry.target）构造 LengthSpec，在 rewrite 与 spot-fix 候选上校验并返回源错误码；spot-fix 计算 fixedContentLength／replacementBudget，受保护文本超限时返回 CHAPTER_EDIT_SCOPE_CONFLICT；补 rewrite／spot-fix／多段范围测试；在 docs/dsh-mapping.md 登记更早章复审延后。"
-  },
   "limitations": [
     "只有 process-level 证据，没有真实 DSH 会话；修订提案与 C1／C2 是 DSH 机制拆分（已登记），源在同一事务内跑 settler／validator／review。",
     "ranges 由主编把 reviser 子代理的选择原样提交，宿主只负责构造与逐字节比较；无法验证子代理是否遵守模式协议。",
     "长度硬校验只对作品显式 min／max 生效，源也是如此；本章账本未把 min／max 的读取列成消费者。",
     "更早章即时修订不推进状态（源一致），但复刻要求随后走复审 start 才能继续。",
-    "对照：capabilities.yaml:291-298 标 verified；docs/fidelity-audit.md:402-408 判「机制等价 + D59 注销」，只讲事务拆分，未覆盖 reviser 的长度硬校验与预算冲突，故本行记 false-equivalence。"
+    "对照：capabilities.yaml:291-298 标 verified；docs/fidelity-audit.md:402-408 判「机制差异已登记 + D59 注销」，只讲事务拆分，未覆盖 reviser 的长度硬校验与预算冲突，差异与判定见 docs/fidelity-audit.md 的审计表。"
   ]
 }

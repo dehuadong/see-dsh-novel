@@ -1,6 +1,5 @@
 {
   "id": "foundation.control-docs",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/state/manager.ts",
@@ -110,12 +109,6 @@
     "章前读取不补方向文档：源在每次 _executeNextChapterLocked 前 ensureControlDocuments（runner.ts:1299），复刻的 plan／write action 入口不调用 controlDocumentWrites；context-package 对缺失文件返回空串（context-package.ts:143、298），被手删的 author_intent／current_focus 不会像源那样在下一次章节执行前补默认模板。复刻的 readControlDocs 会补，但只有测试调用，没有产品消费者。",
     "方向文档语言解析：源 ensureControlDocuments 从 book.json 解析 language；复刻由调用方 projectionLanguage 按 manifest → work.json → zh 解析（docs/dsh-mapping.md 已登记）。这是机制差异，不是本行判 false 的主因。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "章节执行前不补方向文档：源在每个章节执行前 ensureControlDocuments，复刻只有 foundation／truth 写入路径补，章前读取缺文件即空",
-    "owner": "foundation.control-docs",
-    "closure": "在 plan／write 入口（或 context 装配前）调用 controlDocumentWrites 或 readControlDocs；新增测试：删除 author_intent.md／current_focus.md 后构建 planner／writer 上下文，文件应被补默认模板且上下文包含该模板。"
-  },
   "limitations": [
     "源 loadControlDocuments 在源仓库也没有调用点；源的活行为是 runner 每次章节执行前 ensureControlDocuments。复刻对应的是 foundation／truth 写入时补，两者在『从缺失恢复到有默认』这一点上路径不同。",
     "复刻 readControlDocs 额外读 source/brief.md（立项 intent）；源的 loadControlDocuments 不读 brief，source/story/brief.md（外部上下文）由 context-package 单独读取。两者是两个 brief，语义没有合并。",

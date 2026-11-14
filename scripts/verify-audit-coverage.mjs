@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 文档审计覆盖检查：v1 P0–P6 的每个能力行都必须在 fidelity-audit.md 有 `### id` 段。
+ * 文档审计覆盖检查：v1 的每个能力行都必须在 fidelity-audit.md 有 `### id` 段；v1 = 45 条 verified，P6 的 materials.import/search.unified/panel.logs/panel.analysis 与 P7–P9 不在内。
  *
  * P7–P9（short.*／script.*／radar.*／forecast.*）不在 v1 阶段合同内，由审计的
  * 「v1 之外」段统一说明；它们不要求逐行 `###`。
@@ -16,6 +16,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const LEDGER = join(ROOT, 'capabilities.yaml')
 const AUDIT = join(ROOT, 'docs/fidelity-audit.md')
 const OUT_OF_V1 = /^(?:short|script|radar|forecast)\./
+const P6_OUT_OF_V1 = new Set(['materials.import', 'search.unified', 'panel.logs', 'panel.analysis'])
 
 function fail(message) {
   console.error(`error: ${message}`)
@@ -33,7 +34,7 @@ if (!existsSync(LEDGER)) {
   const headings = new Set(
     [...audit.matchAll(/^### ([a-z][a-z0-9-]*(?:\.[a-z0-9-]+)+)(?:（[^\n]*）)?/gmu)].map((match) => match[1]),
   )
-  const v1 = ids.filter((id) => !OUT_OF_V1.test(id))
+  const v1 = ids.filter((id) => !OUT_OF_V1.test(id) && !P6_OUT_OF_V1.has(id))
   const missing = v1.filter((id) => !headings.has(id))
   if (missing.length > 0) {
     fail(`fidelity-audit.md 缺 ${missing.length} 个 v1 能力段：${missing.join('、')}`)

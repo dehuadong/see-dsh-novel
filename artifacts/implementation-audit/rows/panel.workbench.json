@@ -1,6 +1,5 @@
 {
   "id": "panel.workbench",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
@@ -89,17 +88,11 @@
     "源工作台由 BookDetail + TruthFiles + ChapterWorkspacePanel 三个面组成；复刻用阶段轨道把它们折成一页（DSH 阶段机制，已登记），但阶段／结算节点在源不存在，不能据此宣称动作集合相同。",
     "源导出用原生 alert，复刻改页面内 notice（已登记 export.work 偏差）；源面板直接调 Studio API，复刻依赖 remote.commands／remote.workspaceFiles，读不到时只能显示失败（已登记面板只读投影）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "面板未复刻源工作台的设置编辑、删书、基础设定重修、章节重写／同步／版本恢复与本章 brief 入口；真值文件编辑仍只读（D39）",
-    "owner": "panel.workbench",
-    "closure": "为上述每个动作补宿主命令／提示 + 面板控件 + workbench/client 测试；或由作者裁决为不可见并在 docs/dsh-mapping.md 逐条登记偏差；D39 按 scope.md 的后继面板写通道偿还。"
-  },
   "limitations": [
     "只有进程级证据；真实 DSH 会话中的布局、remote.commands 与文件资源通道未由 real-run 覆盖。",
     "workbench 测试用 react-test-renderer + 注入假索引，不断言宿主投影与客户端在同一真实会话中的联动。",
     "panel.logs 与 panel.analysis 仍是 missing 行，源工作台的日志／分析入口不在本行交付。",
     "面板从不重建索引（设计如此）；索引未生成时只显示兜底卡片，源面板每次请求实时读 API。",
-    "对照：capabilities.yaml:379-386 标 verified；docs/fidelity-audit.md:500-506 判「机制等价 + 保真债 D39」；该判定只承认真值编辑一项，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据，故本行记 false-equivalence。"
+    "对照：capabilities.yaml:379-386 标 verified；docs/fidelity-audit.md:500-506 判「机制差异已登记 + 未关闭差异 D39」；该判定只承认真值编辑一项，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据，差异与判定见 docs/fidelity-audit.md 的审计表。"
   ]
 }

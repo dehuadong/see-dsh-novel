@@ -1,6 +1,5 @@
 {
   "id": "backup.restore",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/cli/src/book-backup.ts",
@@ -101,18 +100,12 @@
     "恢复前判据不同：源以「作品目录是否存在」决定 pre-restore（book-backup.ts:111-116）；复刻以「work.json 或 source/ 除锁外有内容」判断（core/backup.ts:117-127,191-193）。这是工作区＝作品根、活动锁落在 source/ 的机制后果；空工作区 null 的回执与源的可观察结果一致。",
     "CLI 被 DSH 命令替代：源 `inkos book backup/restore` 子命令（cli/src/commands/book.ts:301-374）改为 `/story-backup [create|list|restore <id>]`（plugin/backup-command.ts），命令映射已在 docs/dsh-mapping.md 的 CLI 行登记。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "导出文件不回滚（D38 遗留）；create 缺作品存在校验；panel.index 排除与 .drafts 清理未登记为偏差",
-    "owner": "backup.restore",
-    "closure": "1) 按 docs/scope.md D38 的偿还位置处理导出：恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出，并补「恢复后导出不残留」用例；2) create 前按 work.json／source 判作品存在，空工作区回「没有可备份的作品」并补失败用例（与源 Book Work not found 对齐）；3) 把 panel.index.json 排除与 .drafts 清理写进 docs/dsh-mapping.md 的 backup.restore 偏差行，说明恢复后索引由宿主重建；4) 同批更新 docs/fidelity-audit.md:476-482 的判定与 scope D38 行。"
-  },
   "limitations": [
     "只有 P 级证据：real-run 自述是 process-level 命令／文件测试；作者裁定不做桌面回执（D31 关闭），进程级测试即交付证据，但没有真实 DSH 会话回执来证明作者在会话里走过 create→list→restore 全链路。",
     "测试没有覆盖「空工作区 create 应当失败」（复刻当前成功）、导出文件回滚（D38 未偿还），也没有断言恢复成功后 panel.index 由 withWorkAction 重建（代码路径存在，见 core/work-mutation.ts:84-88；backup.test.mjs 未检查索引）。",
     "备份集合的等价依赖「源 bookDir(source)＝复刻 source/」这一路径映射：源整目录 cp 还包含 revisions/ 快照，复刻快照在 source/artifacts/ 内，所以等价；但根上的导出／作者文件按 DSH 机制不回滚（D38），不能据此说备份集完全同形。",
     "源在同一 projectRoot 下多作品、备份按 bookId 分目录；复刻一工作区一作品，跨作品隔离只有单作品用例，没有多作品同根对照。恢复锁在 withWorkAction 内、源 CLI 无锁，这一层是已登记的锁机制差异，不在本行重复裁决。",
     "real-run 记录 396 tests，冻结提交 e3b7886 当前测试规模为 437；本次只读代码与测试，未重跑 verify。",
-    "对照：capabilities.yaml:355-362 标 verified；docs/fidelity-audit.md:476-482 判「机制等价（备份位置、恢复范围、死事务隔离三条偏差）+ 保真债 D38」。三条偏差确实来自 DSH 机制，核心行为（id 规则与冲突号、列表顺序、pre-restore、恢复替换、坏 work.json 可备份、空工作区 null）与源对齐，故判机制等价；未登记的 create 校验缺口与排除项记债。"
+    "对照：capabilities.yaml:355-362 标 verified；docs/fidelity-audit.md:476-482 判「机制差异已登记（备份位置、恢复范围、死事务隔离三条偏差）+ 未关闭差异 D38」。三条偏差确实来自 DSH 机制，核心行为（id 规则与冲突号、列表顺序、pre-restore、恢复替换、坏 work.json 可备份、空工作区 null）与源对齐，故判机制差异已登记；未登记的 create 校验缺口与排除项记债。"
   ]
 }

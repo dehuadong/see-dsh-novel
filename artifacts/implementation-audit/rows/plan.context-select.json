@@ -1,6 +1,5 @@
 {
   "id": "plan.context-select",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/composer.ts",
@@ -158,18 +157,12 @@
     "complete 预算不含 book reference：源 completeContextWithinBudget 接收 reference entries 并计入 tokens（composer.ts:323-330,368-380）；复刻没有 reference，故 complete 判定天然更宽（D24 的下游影响）。",
     "源 planner/writer 在进程内直接调选择器；复刻要求主模型按阶段协议派 composer 子代理再把 id 回传（context-tool.ts:144-307；stages/index.ts:245-252,286-293）。这是 DSH 的 subagent 机制（docs/dsh-mapping.md:12「Agent 循环」、:21「阶段停点」），但其语义分支的真实回执缺失（见 limitations）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "D24 book reference 上下文缺失；上一章只取末尾 2000 字且带着 N-1 标题；N-1 摘要未强制进入选择；英文角色目录不参与；入口顺序/reason/trace id 与源不同；上下文包读取不校验 strict schema；多写 planner-context.json",
-    "owner": "plan.context-select（上一章截断交叉 plan.chapter；strict 读交叉 chapter.settle；book reference 交叉 P6 materials/search.unified）",
-    "closure": "按源补 reference context（material 读取 + 段选择 + compressible entries + notes）并登记；上一章取全文、去掉 N-1 标题行，补 context-package/stages 断言；semantic 选择强制包含 N-1 摘要；roleCandidates 加 roles/major|minor；按源顺序与 reason 组装，trace id 用源 document id；用 strict schema 校验 context/trace 的读入；planner-context 若保留则登记为复刻产物；重录真实回执覆盖 semantic 子代理分支与带 book reference 的作品。"
-  },
   "limitations": [
     "S 级会话只覆盖 complete 分支：两次 candidates 都回「0 个任务」，semantic 子代理选择（选择器/回传/校验）没有真实 DSH 会话回执，只有 context-package 的进程级用例。",
     "该会话的 story_context_candidates 在参数里传了 contextWindowTokens=128000/12000（旧工具面）；当前 context-tool.ts:125-138 从 request/header + llm.resolveModelInfo 派生预算，这条派生路径没有会话回执。",
     "会话创建时间早于 2026-11-09 13:46 的 context-package 改动（previous chapter 改为 chapterBodyForChapter(..., chapter)），因此当前上一章带 N-1 标题的行为没有回执；43/47 条数与 writer 2363 字的回执仍可与代码对上。",
     "源 composer 的选择器是进程内直接调用模型；复刻的候选/任务经 spool 文件交接，主模型派子代理读任务，宿主只校验 id 与未知 id。spool 读取是 DSH 机制（context-spool.ts:1-12），但它把「选择」拆成多次工具回合，真实行为依赖模型按协议执行；本行只能证明工具与文本。",
     "book reference（D24）在源是 materials 资产绑定的引用段；复刻当前没有 materials.import/search.unified 承载，属于 P6 的已知未交付，无法在本行内等价。",
-    "对照：capabilities.yaml:251-258 标 verified；docs/fidelity-audit.md:358-366 判「保真债」（D24/D25）；本审计确认保真债，并把上一章截断/标题残留、N-1 摘要强制、英文角色目录、顺序/reason/trace id、strict 读取列为新证据。"
+    "对照：capabilities.yaml:251-258 标 verified；docs/fidelity-audit.md:358-366 判「未关闭差异」（D24/D25）；本审计确认未关闭差异，并把上一章截断/标题残留、N-1 摘要强制、英文角色目录、顺序/reason/trace id、strict 读取列为新证据。"
   ]
 }

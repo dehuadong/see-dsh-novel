@@ -1,6 +1,5 @@
 {
   "id": "runtime.boundary-check",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "capabilities.yaml",
@@ -68,12 +67,6 @@
     "允许层是 client/ 与 plugin/ 的 type-only 宿主导入（boundary.ts:32），与账本标题“预设与前端半边”一致；client 层的值导入另有 boundaries.test.mjs:54-79 的独立断言。",
     "真实回执 files:33 与当前 100 个源文件不符。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "check-boundary 回执过期（33→100 文件），扫描范围未覆盖 tests/scripts/清单",
-    "owner": "runtime.boundary-check",
-    "closure": "重录 artifacts/real-runs/runtime.boundary-check.json 的 files 数；在文档写明扫描范围仅限 src，或把 tests/、scripts/、package.json 纳入检查并补测试。"
-  },
   "limitations": [
     "文本扫描而非 TS 解析器；注释与字符串剥离、跨行 import 有测试覆盖，但正则边界仍可能误判。",
     "不扫 .mjs/.js 配置与生成物。",

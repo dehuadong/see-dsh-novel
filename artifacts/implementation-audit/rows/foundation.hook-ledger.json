@@ -1,6 +1,5 @@
 {
   "id": "foundation.hook-ledger",
-  "verdict": "faithful",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/models/runtime-state.ts",
@@ -67,12 +66,6 @@
   "realRunLevel": "S",
   "realRunBasis": "session-c277e8d7-5c9b-4ddf-a112-f5edd2a0db2a 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-hook--；session 日志含 story_hooks 正常回执（七列表格含 H1）、加入 mysteryField 后 story_hooks 返回 `Error: H1 上的未知字段：mysteryField`，以及读 hooks.json 看到 dependsOn:[\"H0\"]、paysOffInArc:\"第一卷\"，日期 2026-11-06。",
   "deviations": [],
-  "debt": {
-    "needed": false,
-    "title": "",
-    "owner": "",
-    "closure": ""
-  },
   "limitations": [
     "复刻 hooks.ts 里有源没有的 transitionHook 迁移表与终态判断（deferred→resolved 被拒、resolved 不可再 defer、章节号不得倒退）；源在 state-reducer.ts 对 resolve／defer／merge 的规则不同。该函数没有生产者，只在 hooks.test.mjs 使用，因此当前不改变产品行为；若结算链要接它，必须按源 reducer 重写或删除。",
     "dsh-mapping『伏笔 id：记录唯一性由复刻自己校验』说源 schema 不要求唯一；实际源 validateRuntimeState 在读写路径也拒绝重复 id。复刻与源行为等价，但 mapping 的『源不校验』表述不准确，建议修正。",

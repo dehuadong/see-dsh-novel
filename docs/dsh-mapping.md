@@ -4,6 +4,14 @@
 
 **登记前提**：偏差只有两种合法来源——DSH 机制无法等价，或源行为本身不可观测。能用 DSH 机制等价实现的一律按源行为复刻；「先简化、记一笔」不算合法偏差，算保真债（见 `AGENTS.md`「保真原则」）。
 
+## 运行形态
+
+- 从 DSH 会话进入，面板与对话、轨迹并列，界面用 React 渲染，接入 `client` 插件与 slots。
+- 角色由子代理承担；模型选择由预设／配置提供，代码不绑定 Provider。
+- 作品内容以文档形式落盘，可读、可 diff、可直接导出；SQLite 只做索引，一作品一库。一个工作区即一部作品。
+- 会话与调用证据留在 DSH session。
+- 长任务用 jobs／schedule 调度，不建队列；`story_*` 工具按阶段注册独立 tool schema。
+
 ## 映射表
 
 | 机制 | 源工程做法 | 复刻做法 | 原因 | 验证 |
@@ -18,7 +26,7 @@
 | 方法注入 | 自建 prompt 拼装 | `systemPrompt.context()` | 不在实现里复制方法正文；角色档案整份注入，预算与裁剪留给 `context.brief` | 注入片段可在 trace 中定位 |
 | 工具 | 自有工具总线 | `tools.register` | `story_*` 工具按阶段注册独立 schema | 每阶段工具集不同且可校验 |
 | 作者确认 | Studio `propose_action` 只确认 workflow start（`create_book`、`write_next` 等 15 项），带 actionPayload／targetSessionKind；确认后 host 执行 | DSH `approval` 服务 + `commands` + `panel.confirm`（P1）；面板/命令/原生确认同一 decision | 原生确认留 `approval/decided` 回执，但与会话权限策略耦合；策略为 `never` 时由面板命令产生回执；plan/write 是 workflow 内部步骤，不逐工具确认 | 无有效回执时不启动 workflow；`panel.confirm` 覆盖 workflow start；`approval.test.mjs` |
-| 阶段停点 | 源无“阶段 prompt 自动推进”；workflow start 由作者/命令触发 | `systemPrompt.context()` 只描述当前阶段；阶段完成停下；下一阶段需 workflow start | DSH 阶段上下文是机制等价，不是动作授权 | `runtime.stage-context` 测试；真实回执 |
+| 阶段停点 | 源无“阶段 prompt 自动推进”；workflow start 由作者/命令触发 | `systemPrompt.context()` 只描述当前阶段；阶段完成停下；下一阶段需 workflow start | DSH 阶段上下文是机制落点，不是动作授权 | `runtime.stage-context` 测试；真实回执 |
 | 面板 | 独立前端服务；文件/阶段确认/只读产物 | `client` 插件 + slots；`panel.workbench`（P6）是唯一作品页，承载阶段栏、产物列表、详情与动作条；确认语义仍归 `panel.confirm` | 从会话进入，与对话、轨迹并列；UI 用 React；DSH resource 只能按路径订阅，阶段与产物清单由宿主投影的 `panel.index.json` 提供；面板只读、不触发投影 | 索引驱动渲染；动作经宿主命令/提示；`workbench`/`client`/`panel-projection` 测试 |
 
 ## 偏差登记
@@ -127,7 +135,7 @@
 
 - 源工程做法：扣下后索引已含第 N 章，`getNextChapterNumber` 取索引连续前缀 +1，下一次写入是 N+1；reducer 只拒 `chapter <= lastApplied`，所以源会在状态停在 N-1 时继续写并结算 N+1。
 - 复刻做法：`detectStage` 按 `current_state.chapter + 1` 找下一章，扣下时命中第 N 章审稿记录 → `chapter-done`；下一章 start 只在 `foundation-ready` 写，所以先修复（重算／修订复审后重算／删除本章）才推进。
-- 原因：阶段由工作区文件判定，是已登记的机制等价（源没有阶段概念）；不新增作者确认门，也不把状态缺口静默带过。
+- 原因：阶段由工作区文件判定，是已登记的机制落点（源没有阶段概念）；不新增作者确认门，也不把状态缺口静默带过。
 - 验证：`test/stage-context.test.mjs` 断言扣下态阶段与修复行；`test/chapter-settle.test.mjs` 断言扣下时的修复与删除出口。
 
 ### chapter.settle：按章用量记账（显式子会话 id、四桶→三字段）
@@ -226,7 +234,7 @@
 
 - 源工程做法：`book create` 在命令里同步调用 `createBookFoundationTool`，跑完基础设定后打印完成行。
 - 复刻做法：`/story-init` 写身份、brief 与方向文档，然后用 `invocation.agent.followup` 投一条基础设定指令；命令立即返回「已启动」，模型在下一轮按 `story_next` 完成 outline／details／角色卡。
-- 原因：命令处理器不能同步等待一次模型生成；DSH 的 `Agent.followup` 是启动后续回合的机制。源行为等价点是「一条命令启动基础设定」，完成回执在后续回合。
+- 原因：命令处理器不能同步等待一次模型生成；DSH 的 `Agent.followup` 是启动后续回合的机制。源行为对应点是「一条命令启动基础设定」，完成回执在后续回合。
 - 验证：`test/work-command.test.mjs` 覆盖 followup 一次、消息内容/source、init 失败不投、followup 失败回执；真实运行回执在 `artifacts/real-runs/runtime.commands.json`。
 
 ### runtime.commands：重新立项的清理范围

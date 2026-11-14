@@ -1,6 +1,5 @@
 {
   "id": "runtime.recovery",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
@@ -99,12 +98,6 @@
     "源另有 interrupted episode 的恢复（episode-store.ts:251）；复刻没有 episode store，DSH 会话生命周期承接中断轮次，这部分没有可对照的副本。",
     "源按 CLI preAction / Studio 启动递归回收项目根（atomic-file-set.ts:96-104、program.ts:103-114、server.ts:6669）；复刻只回收工作区根，事务也只写在工作区根，故在当前布局下等价，但一旦事务出现在子目录不会被回收发现。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "启动/读取边界不回收死事务；自检与索引/章节重建面没有偏差登记；realRun 停在 2026-11-08，未覆盖 D37 后的 chapter-* 行为",
-    "owner": "runtime.recovery",
-    "closure": "在宿主入口（session/created 或 workingDirectory.ensure/读阶段前）调用 recoverDeadTransactions，使只读路径与源启动回收时序一致并补用例；在 docs/dsh-mapping.md 增偏差行，记录源无自检/重建面、复刻新增 story_recover 与 chapter-* 补齐的原因与验证；重录 artifacts/real-runs/runtime.recovery.json，用非 process:* 会话覆盖 chapter-publish-incomplete/chapter-unsettled-published 与启动回收。"
-  },
   "limitations": [
     "fidelity-audit.md:136-142 写『源 state 重建索引与故障恢复』，但源的 state 恢复是章节级重算（pipeline/chapter-state-recovery.ts），不是 workspace/work 索引重建；该句把复刻新增的自检面写成了源行为。",
     "realRun 的 5 项发现与 3 项修复只覆盖 11-08 的扫描集；D37 后的 chapter-* 行为由 chapter-settle.test.mjs:640-654 覆盖扫描与 apply（recovery.test.mjs 未覆盖），但没有真实会话回执。",

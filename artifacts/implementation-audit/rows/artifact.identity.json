@@ -1,6 +1,5 @@
 {
   "id": "artifact.identity",
-  "verdict": "false-equivalence",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/harness/artifact-revisions.ts",
@@ -129,12 +128,6 @@
     "manifest 独立于作品身份文件、快照目录 source/artifacts/<id>/revisions 替代源的 revisions/<id>/（docs/dsh-mapping.md:211-223）：属 DSH 单工作区／作品身份与产物索引分离的机制落点，不计为债；但它同时掩盖了 artifactId／revisionId 方案与登记范围的差异。",
     "来源侧 createCurrentArtifact 的初始 revision id \"initial\" 在复刻没有对应：复刻首版章节 revision 也从 r1 开始（artifact-store.ts:178）。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "artifactId／revisionId 方案、按 checksum 去重、全量 source 文件登记与 manifest 严格校验未贴源；通用 stage／promote 无消费者",
-    "owner": "artifact.identity",
-    "closure": "1) 按源方案生成宿主 artifactId（basename＋路径 hash）与 revisionId（内容 hash），或把 id 方案与可观察影响写进 docs/dsh-mapping.md 偏差行并说明 reviewedArtifact／manifest 的变化；2) chapterArtifactWrite 与 reopen 恢复在 current checksum 相同时不追加 revision，并补「同字节重发布不新增 revision」用例；3) 把基础设定／状态／索引纳入 artifact 登记（或把本行明确缩到 chapter artifact 并把范围差登记为债），并补文件删除时的 superseded／removedAt 行为；4) loadArtifactStore 按源 schema 校验 revision 字段，读取错误补 recovery 负载，把 byteLength 额外校验登记或去掉；5) 让 stage／promote 有产品入口或删除死代码；6) 同批更新 docs/fidelity-audit.md:460-466 的判定与 dsh-mapping 偏差行。"
-  },
   "limitations": [
     "只有 P 级证据：artifacts/real-runs/artifact.identity.json 自述是 process-level 测试，没有 DSH 会话；作者在 D31 只对看板回执做了裁定，不覆盖本行。",
     "测试固化的是复刻自己的 id 方案（artifact-store.test.mjs:73,126 断言 chapter-0001／r1），因此测试通过不能证明与源的 identity 等价。",

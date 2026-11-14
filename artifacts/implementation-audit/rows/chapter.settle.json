@@ -1,6 +1,5 @@
 {
   "id": "chapter.settle",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/agents/settler-tool.ts",
@@ -114,17 +113,11 @@
     "work.status 激活条件不同：源只在 outlining→active（runner.ts:2106-2115）；复刻把 draft→active（settle-tool.ts:261）。未在 dsh-mapping 登记，属 work.json 身份简化的残余。",
     "重算目标章的判定比源宽：源 resync 只按章节索引的最后一章；复刻取 max(index, lastApplied, snapshot)（resettle-tool.ts:108-119），用于修复索引落后或状态回退。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "四份状态读取放宽（摘要行未知字段／非整数 chapter 不拒，源 zod strict 拒绝）；work.status 的 draft→active 与源 outlining→active 不一致",
-    "owner": "chapter.settle",
-    "closure": "为四份状态 JSON 补与源等价的 strict schema（拒未知字段、chapter 为 int≥1、标题非空）并在 inspectState／readStateSnapshot 使用，补 corrupt-row 测试；把 work.status 激活条件对齐源或在 runtime.session-binding 登记身份状态差异；重算目标章判定与源差异写进 dsh-mapping。"
-  },
   "limitations": [
     "只有 process-level 证据；真实 DSH 会话里 state-check 子代理的传递与会话用量未由 real-run 覆盖。",
     "settler 与 state-check 的模型调用在复刻是独立子代理，源在 writer 侧累计；按章 tokenUsage 因此少算这两个调用（已登记）。",
     "扣下态的索引观察与快照是当前真值副本；源同样以 runtimeStateApplied=false 落当前真值，但源没有「扣下后先修复再开下一章」的阶段判定。",
     "重算不自动复审，作者需要显式重审；源在重算后自动刷新索引观察。",
-    "对照：capabilities.yaml:307-314 标 verified；docs/fidelity-audit.md:420-426 判「机制等价 + D34 注销」；本审计确认机制等价，新增债仅严格读取与 status 激活条件。"
+    "对照：capabilities.yaml:307-314 标 verified；docs/fidelity-audit.md:420-426 判「机制差异已登记 + D34 注销」；本审计确认机制差异已登记，新增债仅严格读取与 status 激活条件。"
   ]
 }

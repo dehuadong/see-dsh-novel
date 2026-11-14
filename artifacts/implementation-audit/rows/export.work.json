@@ -1,6 +1,5 @@
 {
   "id": "export.work",
-  "verdict": "mechanism-equivalent",
   "sourceEvidence": [
     {
       "file": "inkos/packages/core/src/interaction/export-artifact.ts",
@@ -88,12 +87,6 @@
     "复刻 EPUB 是最小 EPUB3，源码用 epub-gen-memory（export-artifact.ts:119-143），包结构差异记 D57（style.css、toc.ncx、完整 OPF 元数据、章文件名、DEFLATE、container.xml、包级 xml:lang）。",
     "源 book.language 可缺省并从章标题推断语言（export-artifact.ts:115-116）；复刻 work.json 强制 language 为 zh/en（work.ts:197），该分支不可达，输出一致但来源不同。"
   ],
-  "debt": {
-    "needed": true,
-    "title": "D57 EPUB 包结构未贴源；导出索引未严格校验；章节文件编号正则收紧为 4 位",
-    "owner": "export.work",
-    "closure": "另立工作项逐模板复刻 EPUB（D57，是否引入打包库届时裁决）；导出改用 readChapterIndexStrict；chapterNumberOf 改回任意位数数字前缀并补失败用例。"
-  },
   "limitations": [
     "源还有 GET /export 的内存下载（不落盘）与 CLI 导出入口；复刻只有宿主命令/面板写文件一个入口，按能力行与面板回执交付。",
     "复刻 EPUB 的 ZIP 全 store、无 style.css/ncx，导航/章 XHTML 结构也与源不同；字节级输出不可比，D57 已登记。",
