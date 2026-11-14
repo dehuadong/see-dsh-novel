@@ -92,7 +92,7 @@ Status: implemented
 - Implementation Review 第 1 轮（Standards／Spec 两线独立）：Standards 报 6 硬（注释标注源工程、审计批次 F 未同步、Note 未转 implemented 与旧笔记未改、面板契约变化未登记、重算块残留、恢复新增状态读取与回执缺提示）＋4 判断项；Spec 报 3 项（三件套文案未区分 fixable、恢复回执缺「先处理更晚章」、重算块未写恢复/重开后先复审）＋AC1/AC5/AC7/AC8 测试缺口。已修：删除代码注释中的来源标注；恢复的当前章读取改为可失败的安全读取并新增 `startSkipped`；三件套拒绝按 fixable 判据区分「可 apply／需人工」；重算块写恢复/重开先复审与 N-1 基线；审稿契约与 `reviewSources` 的章纲判定对齐；审计/scope/Note/旧笔记同步；面板 `reviewChapter` 与版本 6 登记偏差；补 AC1/AC5/AC7/AC8 用例。
 - Implementation Review 第 2 轮：Spec 指出 artifact 缺失但 store 可读时 fixable 应为 true、AC1 只比对一份投影、`startSkipped` 无测试与 Note 未登记、AC7 提示词无断言；Standards 指出 client 验证引用不成立、audit revise 段 D45 措辞矛盾、`startSkipped` 公共契约未同批。已修：`artifactOk` 按 store 可读性判定；AC1 比对三份投影；补 `state-unreadable`／`later-chapter` 测试与 Note/mapping/回执；补 client 审阅目标测试；audit/scope 的 D45 残余统一为「observations 写回」；reopen 判定把复审 start/阶段目标标为 DSH 机制承接。
 - Implementation Review 第 3 轮：Spec 要求补「artifact 缺失且 store 可读 → 可 apply」用例，已补并通过；Standards 通过（无新硬违规）。两项判断项不阻塞：restore 与 revise 的索引观察写入未抽公共（保留其它观察与清空观察语义不同）；安全读取把意外异常降级为 `state-unreadable` 并在输出中可观察。
-- 验证：`pnpm run verify` 通过（484 passed／1 skipped symlink）；`pnpm run verify-notes` 通过。
+- 验证：`pnpm run verify` 通过（484 passed／1 skipped symlink）；`pnpm run verify-notes` 通过；CI `43550190665` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `78c66ea`）。
 
 ## Design
 
