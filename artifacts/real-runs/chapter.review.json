@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "534 passed／1 skipped（symlink）— chapter-review 15 例（观察校验与重复审替换、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章写回索引、草稿不写索引、索引缺失/损坏/schema 不符拒绝、scope 双源、evidence 空数组）＋ chapter-reopen 的「恢复→复审替换 manual-edit-review」＋ review-contract 4 例与 stage review 回归"
+    "summary": "535 passed／1 skipped（symlink）— chapter-review 16 例（观察校验与重复审替换、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章写回索引、草稿不写索引、索引缺失/损坏/schema 不符拒绝、scope 双源、evidence 空数组）＋ chapter-reopen 的「恢复→复审替换 manual-edit-review」＋ review-contract 5 例与 stage review 回归"
   },
   "receipts": [
     "重复审替换索引观察；修订 before/current 双源与 scope 校验；unavailable/delivery/evidence 空数组；无章纲拒绝；context 包优先、缺包回退章纲（债）。",

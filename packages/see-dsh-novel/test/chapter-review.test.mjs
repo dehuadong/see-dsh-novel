@@ -8,7 +8,7 @@ import { chapterReviewPath, loadChapterReview, reviewChapter } from '../src/core
 import { resolveObservationSources } from '../src/core/observation.ts'
 import { writeChapterDocument } from '../src/core/chapter-document.ts'
 import { writeChapterDraft } from '../src/core/chapter-draft.ts'
-import { chapterPlanPath, saveChapterPlan } from '../src/core/chapter-plan.ts'
+import { chapterContextPath, chapterPlanPath, saveChapterPlan } from '../src/core/chapter-plan.ts'
 
 async function workspace() {
   const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-review-'))
@@ -314,6 +314,23 @@ test('review returns delivery when the work has explicit bounds', async () => {
     await writeFile(join(root, 'work.json'), JSON.stringify(work, null, 2) + '\n')
     const result = await reviewChapter(root, { chapter: 1, summary: '有界', observations: [] })
     assert.equal(result.delivery.status, 'checks_passed')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('review sources prefer the context package', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, chapterContextPath(1)), JSON.stringify({
+      chapter: 1,
+      selectedContext: [{ source: 'runtime/chapter_memo', reason: '包来源', excerpt: '包正文', protection: 'protected' }],
+    }))
+    await reviewChapter(root, {
+      chapter: 1,
+      summary: '包来源',
+      observations: [{ code: 'C10', summary: '引用包', assessment: 'observation', sourceRefs: [{ sourceId: 'governed-context', quote: '包正文' }] }],
+    })
   } finally {
     await cleanup(root)
   }

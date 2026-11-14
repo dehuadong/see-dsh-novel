@@ -132,4 +132,4 @@ Status: implemented
 ## 实施记录
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
-- 实施：重复审替换、context 来源/缺包回退、before/current+scope、unavailable、delivery、evidence 空数组、无章纲拒绝；`pnpm run verify` 534 passed／1 skipped；realRun 重录；CI `43581686598` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `26cc585`）。
+- 实施：重复审替换、context 来源/缺包回退、before/current+scope、unavailable、delivery、evidence 空数组、无章纲拒绝；`pnpm run verify` 535 passed／1 skipped；realRun 重录；CI `43581686598` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `26cc585`）。
