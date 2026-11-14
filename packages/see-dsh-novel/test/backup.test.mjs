@@ -74,6 +74,7 @@ test('restore replaces work.json and source, keeps root files and the live lock'
     await writeFile(join(root, 'w.txt'), '新导出')
     await mkdir(join(root, '.drafts'), { recursive: true })
     await writeFile(join(root, '.drafts/chapter-0001.md'), '# 第1章 雨夜\n\n草稿。\n')
+    await writeFile(join(root, '.drafts/settlement-0001.json'), '{"kind":"settle"}')
 
     const result = await restoreBackup(root, backup.backupId, { now: at('2026-11-10T09:00:00Z') })
     assert.equal(result.restoredFrom, backup.backupId)
@@ -89,6 +90,7 @@ test('restore replaces work.json and source, keeps root files and the live lock'
     assert.ok((await stat(join(root, '.backups', result.preRestoreBackupId))).isDirectory())
     assert.ok((await stat(join(root, '.backups', backup.backupId))).isDirectory())
     await assert.rejects(stat(join(root, '.drafts/chapter-0001.md')), { code: 'ENOENT' })
+    await assert.rejects(stat(join(root, '.drafts/settlement-0001.json')), { code: 'ENOENT' })
   } finally {
     await rm(root, { recursive: true, force: true })
   }
