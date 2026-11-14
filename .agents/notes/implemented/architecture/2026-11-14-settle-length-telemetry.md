@@ -152,7 +152,7 @@ D35 拆成三笔：
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（第 3 轮确认）。
 - Implementation Review 第 1 轮：Standards 报 2 blocker（mapping/活 Note 未同步、批准证据未更新）＋4 major（计数函数落点、D61 归属、同值双算/口径分叉、注释写源证据）；Spec 报 4 项（chapter.write realRun 旧回执、audit D60/D61、同步半成品、en_words 无测试）。已修：mapping/scope/audit/活 Note 同步；批准证据写 `/implement`；计数与目标函数下沉 `core/length.ts`（`countingModeOf`/`lengthTargetOf`）；`wordCount`/`charCount` 统一取 finalCount；`chapter.write` realRun 改 process-level 并删除旧 CJK 回执；补 en_words 条目测试。
 - Implementation Review 第 2 轮：Standards 通过（余 3 条非阻塞已清：死导入、内联 target/mode、活 Note 历史措辞）；Spec 通过（仅文档行号清单，已补）。
-- 验证：`pnpm run verify` 通过（495 passed／1 skipped symlink）；`verify-notes`、`check-capabilities`、`verify-audit-coverage` 通过；CI 结果见提交后回填。
+- 验证：`pnpm run verify` 通过（495 passed／1 skipped symlink）；`verify-notes`、`check-capabilities`、`verify-audit-coverage` 通过；CI `43554836251` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `7343ccb`）。
 ## Alternatives considered
 
 - **本行连 `tokenUsage` 一起做**：一步还清 D35。否掉：工具边界没有按章用量；写 0 是伪造，写会话总量不是每章值；要新增按章记账或主编传参，属新合同，归 D60。
