@@ -134,5 +134,5 @@ Status: implemented
 
 - 冻结清单：[`verified-2026-11-14.txt`](../../../../artifacts/implementation-audit/verified-2026-11-14.txt)；矩阵：[`2026-11-14.md`](../../../../artifacts/implementation-audit/2026-11-14.md)；逐行证据：`artifacts/implementation-audit/rows/<id>.json`。
 - plan-review finding 复核：[`plan-review-11-findings.md`](../../../../artifacts/implementation-audit/plan-review-11-findings.md)。
-- `pnpm run verify`：505 passed／1 skipped；`check-capabilities` 45 verified/14 missing；`verify-audit-coverage` 49 行有审计段。
+- `pnpm run verify`：505 passed／1 skipped；CI `43569305960` 双端通过（提交 `e287531`）；`check-capabilities` 45 verified/14 missing；`verify-audit-coverage` 49 行有审计段。
 - 审计未改动产品代码与账本状态；发现的行为差异以 AU 债记录，修复另立工作项。
