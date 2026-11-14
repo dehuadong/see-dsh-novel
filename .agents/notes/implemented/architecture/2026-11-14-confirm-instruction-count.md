@@ -110,4 +110,4 @@ Status: implemented
 ## 实施记录
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
-- 实施：命令 input.hint、作者附言写入 workflow-start、空附言默认；chapterCount/真实会话留债。`pnpm run verify` 537 passed／1 skipped；realRun 重录；CI 待回填。
+- 实施：命令 input.hint、作者附言写入 workflow-start、空附言默认；chapterCount/真实会话留债。`pnpm run verify` 537 passed／1 skipped；realRun 重录；CI `43586024142` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `49d1173`）。
