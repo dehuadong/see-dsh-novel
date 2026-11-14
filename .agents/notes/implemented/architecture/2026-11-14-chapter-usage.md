@@ -143,7 +143,7 @@ DSH 侧模型用量不在工具边界：`story_telemetry` 从子会话投影读�
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（第 3 轮确认）。
 - Implementation Review 第 1 轮：Standards 报 2 major（audit finalize/D35 note 的 D60 指针未注销、已发布章拒绝未登记/Note schema 不实）＋2 个 smell；Spec 报 5 项（坏文件变体无测试、修订不受 usage 影响无测试、同步未完成、schema 断言、协议断言不足）。已修：audit/D35 Note/runtime-telemetry Note 指针更新；mapping 登记已发布章拒绝；schema 措辞改为 execute 校验；usage 文件用严格 `isTokenUsage`（恰好三字段、非负、求和），索引保持源形状 `isIndexTokenUsage`（三整数，不额外约束负值/求和），坏 usage 的未知字段不再毒化索引；补章号不符/字段非法、修订保留、协议“直接子会话/删除 usage”断言；`validUsage` 去重、`ChapterTokenUsage` 别名删除。
 - Implementation Review 第 2 轮：Standards／Spec 均通过（余 Message Chains 等判断项不阻塞）。
-- 验证：`pnpm run verify` 通过（503 passed／1 skipped symlink）；`verify-notes`、`check-capabilities`、`verify-audit-coverage` 通过；CI 结果见提交后回填。
+- 验证：`pnpm run verify` 通过（503 passed／1 skipped symlink）；`verify-notes`、`check-capabilities`、`verify-audit-coverage` 通过；CI `43557040441` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `7bef372`）。
 ## Alternatives considered
 
 - **主编在结算参数里直接传 tokenUsage**：少一个工具。否掉：主编要自己汇总数字，无法校验来源；工具内显式 id + 投影是唯一可审计路径。
