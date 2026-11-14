@@ -1,0 +1,80 @@
+{
+  "id": "state.check",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/state-validator.ts",
+      "line": "28-97",
+      "behavior": "StateValidatorAgent.validate：oldState/newState/oldHooks/newHooks 与正文、authority context 组成提示，模型通过 submit_state_validation 提交布尔 reconciliationRequired 与 reportMarkdown；oldState===newState 且 oldHooks===newHooks 时直接返回 consistent、无观察；reconciliationRequired 为真而报告为空时抛 STATE_RECONCILIATION_REASON_REQUIRED；返回 observations（state-reconciliation／state-projection-review）与 consistent。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/state-validator.ts",
+      "line": "46-47",
+      "behavior": "system prompt 固定判据：只有换一份 truth projection 能消解不一致时 reconciliationRequired=true；正文或权威之间的矛盾只作观察、不授权再次结算。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/state-validation-tool.ts",
+      "line": "3-8",
+      "behavior": "结构化工具 schema 只有 reconciliationRequired（boolean）与 reportMarkdown（string），报告无内容时返回空串。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/chapter-truth-validation.ts",
+      "line": "43-103",
+      "behavior": "validate 在写章前调用；抛错时转为 consistent=false、reconciliationRequired=true、state-validation-unavailable 观察；不一致时走一次 reconcile（chapter-state-recovery）后才保存。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/state-check-tool.ts",
+      "line": "59-106",
+      "behavior": "story_state_check 接收 {chapter, reconciliationRequired, reportMarkdown}；校验章号、布尔与字符串；要求本章有正文、状态可解析、已结算且 N-1 基线快照严格可读；reconciliationRequired=true 且报告为空时抛 STATE_RECONCILIATION_REASON_REQUIRED；返回 consistent 与 observations（state-reconciliation／state-projection-review）；不写任何作品文件。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/state-check-tool.ts",
+      "line": "13-34",
+      "behavior": "工具 description 与 reconciliationRequired 参数说明写明源判据：仅当换一份 truth projection 能消解时为 true；正文/权威矛盾只作观察、不授权再次结算。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "302-320",
+      "behavior": "结算/修订/重算协议派 state-check 子代理读提案、正文、story_frame 与 book_rules，只回 {reconciliationRequired, reportMarkdown}；一致时收据随提交，第一次不通过重派 settler。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "329",
+      "behavior": "作者要求核对状态时的独立入口：派子代理读本章正文、当前状态与投影、上一章快照与权威文档，再调 story_state_check；findings 只回作者，不自动重结算。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/state-check.test.mjs:90 干净报告返回一条 state-projection-review 观察",
+    "packages/see-dsh-novel/test/state-check.test.mjs:108 空报告且不要求重算时为一致、无观察",
+    "packages/see-dsh-novel/test/state-check.test.mjs:124 要求重算无报告时以 STATE_RECONCILIATION_REASON_REQUIRED 拒绝，有报告时返回 state-reconciliation",
+    "packages/see-dsh-novel/test/state-check.test.mjs:147 调用前后目录与 manifest 字节不变（只读）",
+    "packages/see-dsh-novel/test/state-check.test.mjs:165 工具 description 与参数说明含源判据",
+    "packages/see-dsh-novel/test/state-check.test.mjs:180 未结算、缺快照、坏快照均拒绝并点名文件",
+    "packages/see-dsh-novel/test/host.test.mjs:127 工具在预设工具面注册",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:246-252 结算前不调 story_state_check、派状态对账子代理的协议文本",
+    "本次审计运行 node --import tsx --test（含 state-check.test.mjs）共 92 例通过"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/state.check.json：date=2026-11-14，sessionId=process:state.check，tests.passed=true（pnpm run verify，470 tests／469 pass／1 skipped），receipts 覆盖布尔判据、必填报告错误码、只读、严格基线、未结算拒绝；文件自述『该回执是 process-level 工具/状态测试，不是 DSH 会话』。",
+  "deviations": [
+    "模型部分被拆给 state-check 子代理，宿主工具只接收布尔与报告并校验（state-check-tool.ts:73-104）；源由 StateValidatorAgent 在进程内调模型（state-validator.ts:70-92）。DSH 工具内不能跑模型，拆分已登记 docs/dsh-mapping.md:119-124 与 :98-103。",
+    "源 validate 在 oldState===newState 且 oldHooks===newHooks 时短路为一致（state-validator.ts:38-40）；复刻入口只收结论、无从判断输入是否无变化。该短路在新章结算与基线重算不可达（卡片必推进章号，见 chapter.settle 审计），但独立入口不再具备这一快速路径。",
+    "源校验前置于结算并可能触发一次重算（chapter-truth-validation.ts:80-103）；复刻 story_state_check 只读，结算前对账由结算提案＋收据承接（stages/index.ts:312-320），已登记 chapter.settle 偏差。",
+    "复刻额外要求本章已结算且有严格可读的 N-1 基线（state-check-tool.ts:87-91）；源 validator 由调用方提供 old/new 文本，自身不读状态目录。"
+  ],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "错误回执形状不同：源抛出的 message 是 JSON {code,instruction} 且错误对象带 code 属性（state-validator.ts:82）；复刻抛中文 message，包含 STATE_RECONCILIATION_REASON_REQUIRED 但没有 code 属性（state-check-tool.ts:93-95）。判据仍可被模型识别，测试只断言 code 文本。",
+    "源返回的 observations 带 evidence: []（state-validator.ts:89）；复刻只返回 code/summary（state-check-tool.ts:96-98），因为本入口只读、不写索引。",
+    "源的 system/user prompt、authority context 与旧/新状态卡片不在工具内构造，由阶段协议与子代理提示承接（stages/index.ts:302,315,329,342）；宿主不证明子代理真的读过证据，只依赖收据真实性（见 dsh-mapping.md:119-124）。",
+    "独立 story_state_check 没有源对应入口：源没有『只读对账工具』，等价物是写章前 validator 的一次调用；本行把该调用面缩到只读结论。",
+    "真实回执是进程级测试，不是 DSH 会话。"
+  ]
+}

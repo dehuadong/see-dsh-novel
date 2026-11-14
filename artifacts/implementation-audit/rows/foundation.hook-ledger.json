@@ -1,0 +1,81 @@
+{
+  "id": "foundation.hook-ledger",
+  "verdict": "faithful",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": 18,
+      "behavior": "HookRecordSchema 必填 hookId、startChapter、type、status、lastAdvancedChapter、expectedPayoff、notes，可选 dependsOn 与 paysOffInArc；对象 strict。"
+    },
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": 22,
+      "behavior": "status 只接受 open／progressing／deferred／resolved／superseded 五种。"
+    },
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": 27,
+      "behavior": "dependsOn 是 string.min(1) 的数组且可选；paysOffInArc 是 string 且可选（允许空串）。"
+    },
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": 33,
+      "behavior": "HooksStateSchema 是严格的 `{ hooks: HookRecord[] }`，未知顶层字段拒绝。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-validator.ts",
+      "line": 52,
+      "behavior": "validateRuntimeState 在 schema 解析之后单独检查重复 hookId，重复 id 报 duplicate_hook_id。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": 10,
+      "behavior": "HookRecord 接口字段与源逐项一致；dependsOn 注释明确元素非空、不 trim、不唯一化，paysOffInArc 为自由字符串。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": 25,
+      "behavior": "HOOK_FIELDS 列出九个允许字段，用于未知字段拒绝。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": 53,
+      "behavior": "validateHooks 拒绝 null／非对象／非数组 hooks，拒绝顶层未知字段，逐条校验字段与类型，不跳过、不修复。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": 71,
+      "behavior": "validateHooks 还拒绝重复 hookId，与源 validateRuntimeState 的 duplicate_hook_id 检查在读写入口上等价。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": 73,
+      "behavior": "status 必须是五种之一；type 非空；expectedPayoff／notes 必须是字符串；startChapter／lastAdvancedChapter 必须是非负整数。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": 79,
+      "behavior": "dependsOn 必须是非空字符串数组（空串拒绝、纯空白接受），paysOffInArc 必须是字符串（空串接受），与源 min(1) 与可选 string 的形状一致。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/hooks.test.mjs：重复 id、非法 status、空 type、startChapter 晚于 lastAdvancedChapter 不拒绝、dependsOn／paysOffInArc 接受与 JSON 往返、空串与类型拒绝、未知字段、null 记录、纯空白 type 合法",
+    "packages/see-dsh-novel/test/recovery.test.mjs：hooks.json 顶层未知字段判 state-invalid"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "session-c277e8d7-5c9b-4ddf-a112-f5edd2a0db2a 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-hook--；session 日志含 story_hooks 正常回执（七列表格含 H1）、加入 mysteryField 后 story_hooks 返回 `Error: H1 上的未知字段：mysteryField`，以及读 hooks.json 看到 dependsOn:[\"H0\"]、paysOffInArc:\"第一卷\"，日期 2026-11-06。",
+  "deviations": [],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "复刻 hooks.ts 里有源没有的 transitionHook 迁移表与终态判断（deferred→resolved 被拒、resolved 不可再 defer、章节号不得倒退）；源在 state-reducer.ts 对 resolve／defer／merge 的规则不同。该函数没有生产者，只在 hooks.test.mjs 使用，因此当前不改变产品行为；若结算链要接它，必须按源 reducer 重写或删除。",
+    "dsh-mapping『伏笔 id：记录唯一性由复刻自己校验』说源 schema 不要求唯一；实际源 validateRuntimeState 在读写路径也拒绝重复 id。复刻与源行为等价，但 mapping 的『源不校验』表述不准确，建议修正。",
+    "本行只覆盖字段与严格校验；六动作生命周期归 chapter.settle（real-run 自述同此），不在本行裁决。"
+  ]
+}

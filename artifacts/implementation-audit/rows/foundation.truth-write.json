@@ -1,0 +1,121 @@
+{
+  "id": "foundation.truth-write",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 13,
+      "behavior": "SAFE_TRUTH_FLAT_FILE_NAMES 是 9 个平铺名：author_intent、current_focus、book_rules、style_guide、parent_canon、fanfic_canon、current_state、pending_hooks、chapter_summaries。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 25,
+      "behavior": "SAFE_TRUTH_OUTLINE_FILE_NAMES 只允许 outline/story_frame.md 与 outline/volume_map.md。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 30,
+      "behavior": "角色卡只允许 roles/(主要角色|次要角色|major|minor)/<name>.md，名字段不允许斜杠或反斜杠。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 32,
+      "behavior": "assertSafeTruthFileName 先 trim、缺扩展补 .md，再拒绝空名、绝对路径、反斜杠、NUL 与任意 `..`；平铺与 outline 命中后返回小写规范名，角色卡保留原大小写。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 100,
+      "behavior": "write_truth_file 在作品锁内先 ensureControlDocuments，再用 safeChildPath(bookDir/story, fileName) 落盘；未知真值文件在写之前抛错。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 108,
+      "behavior": "book_rules.md 必须同时提供 bookRulesData；写入时 BookRulesSchema.parse({version:\"2\",...})，并同一次 commit 写 book_rules.md 与 book_rules.json（JSON.stringify + 末尾换行）。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-edits.ts",
+      "line": 121,
+      "behavior": "非 book_rules 的真值文件用 writeFile(targetPath, content, \"utf-8\") 原样写入。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/truth-files.ts",
+      "line": 24,
+      "behavior": "TRUTH_FILE_PATHS 把 9 个平铺名与 2 个 outline 名映射到 source/story 下的路径。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/truth-files.ts",
+      "line": 39,
+      "behavior": "FLAT_NAMES 逐项等于源的 9 个平铺名。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/truth-files.ts",
+      "line": 52,
+      "behavior": "OUTLINE_NAMES 只有 outline/story_frame.md 与 outline/volume_map.md。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/truth-files.ts",
+      "line": 55,
+      "behavior": "ROLE_TIERS 为主要角色、次要角色、major、minor 四种目录名。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/truth-files.ts",
+      "line": 69,
+      "behavior": "normalizeTruthFileName 执行 trim、补 .md、拒绝绝对路径／反斜杠／NUL／`..`；平铺与 outline 转小写，角色卡保留原名；未知名字抛错并列出白名单。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/truth-files.ts",
+      "line": 87,
+      "behavior": "truthFileRelativePath 只解析白名单内的名字；角色卡落到 source/story/roles/<tier>/<name>.md。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/truth-tool.ts",
+      "line": 79,
+      "behavior": "story_truth_file 在 withWorkAction 锁内执行；未知名字在写之前失败。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/truth-tool.ts",
+      "line": 83,
+      "behavior": "写前调用 controlDocumentWrites 补方向文档；与目标写入并入同一次 commitFoundation，目标为方向文档时不重复写默认模板。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/truth-tool.ts",
+      "line": 85,
+      "behavior": "fileName 为 book_rules.md 时要求 bookRulesData，并调用 bookRulesWrites；校验失败时先提交本次补齐的控制文档再抛错。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/truth-tool.ts",
+      "line": 93,
+      "behavior": "其它真值文件走 truthFileRelativePath，内容按传入字符串原样写入；written 只列本次请求路径。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": 216,
+      "behavior": "bookRulesWrites 产出 book_rules.md 原文与带 version \"2\" 的 book_rules.json（2 空格缩进、末尾换行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": 228,
+      "behavior": "withVersion 先把输入补 version \"2\" 再走严格 parseBookRules，未知字段与缺失必填字段都拒绝。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/truth-file.test.mjs：白名单与大小写规范化、越界／JSON 名／空名／角色目录拒绝、方向文档原样写、空内容、九份平铺逐一写、book rules 缺数据与非法数据不落盘、两种角色目录、outline、单行回执、written 只列请求文件",
+    "packages/see-dsh-novel/test/host.test.mjs：工具清单包含 story_truth_file"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "session-def287c5-1fb5-41d3-b58e-db5774a8adb1 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-truth--；解压 session.v4.jsonl.zstd 可见三次 story_truth_file 调用与原样回执：写 author_intent.md 返回 Updated \"author_intent.md\"，写 book_rules.md 返回 Updated \"book_rules.md\"，写 nope.md 返回白名单错误，日期 2026-11-06。",
+  "deviations": [],
+  "debt": {
+    "needed": true,
+    "title": "truth 写工具入参/回执与源不同，realRun 早于加锁",
+    "owner": "foundation.truth-write",
+    "closure": "补 bookId 可选入参与源回执文本，或登记单工作区偏差；重录覆盖 withWorkAction 加锁后的回执。"
+  },
+  "limitations": [
+    "源工具的 schema 有可选 bookId，回执为 `Updated \"<file>\" for \"<bookId>\".`；复刻按单工作区模型没有 bookId，回执只 `Updated \"<file>\"`。白名单、规范化与写入内容一致，但工具入参与回执文本不同。",
+    "源对非 book_rules 文件直接 writeFile；复刻统一走 commitFoundation 的 staged/backup 事务。崩溃安全更强，不是源行为的损失。",
+    "realRun 日期 2026-11-06 早于 2026-11-09 把 truth 工具纳入 withWorkAction 锁；回执仍与当前写路径一致，但未覆盖加锁后的 action 队列。"
+  ]
+}

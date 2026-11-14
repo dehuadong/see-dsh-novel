@@ -1,0 +1,102 @@
+{
+  "id": "proposal.execution-brief",
+  "verdict": "faithful",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-production.ts",
+      "line": "23-34",
+      "behavior": "BookCreateParams：instruction 必填；title/bookId/genre/platform/language/targetChapters/chapterWordCount/minChapterLength/maxChapterLength 可选；规模字段都是 integer minimum 1。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-production.ts",
+      "line": "117-153",
+      "behavior": "create_book 解析 title/id；language 依次取 existing → activeWork.language → payload.language → params.language → options.language → zh（:132）；genre/platform 缺省 other（:140-141）；targetChapters 缺省 200（:144）；chapterWordCount 缺省 defaultChapterLength(language)（:145）；min/max 只传不默认（:146-147）；最后 pipeline.initBook(book, { externalContext: params.instruction })（:151-153）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "453-474,491-495",
+      "behavior": "initBook 在生成 foundation 前，若 effectiveExternalContext.trim() 非空，把那句 instruction 原文写 story/brief.md；staging 目录里再写一份同样的 brief；brief 内容不 trim、不加换行。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "498-509",
+      "behavior": "ensureControlDocumentsAt(stagingBookDir, language, options.authorIntent ?? effectiveExternalContext)；如传 currentFocus 则用 trimEnd + 换行覆写 current_focus.md。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": "59-72,76-103",
+      "behavior": "默认方向文档模板：author_intent（中文「# 作者意图…」／英文「# Author Intent…」）与 current_focus（「# 当前聚焦 / ## 当前重点」或英文对应）；只补缺失文件；有 authorIntent 时写 authorIntent.trimEnd() + 换行，否则写语言默认模板。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/length-metrics.ts",
+      "line": "8-12",
+      "behavior": "单章默认长度：中文 3000、英文 2000；defaultChapterLength(language) 返回对应值。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": "658-692",
+      "behavior": "propose_action 先 trim title/summary/instruction 并要求非空，再把 trim 后的 instruction 放进确认卡 details；Studio 确认时把 details.instruction 作为请求 instruction 发给 server（ChatPage.tsx:710-740），server 再原样传给 create_book 的 params.instruction（server.ts:1175-1191）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/plugin/proposal-tool.ts",
+      "line": "95-122",
+      "behavior": "story_propose 先 parseProposal 校验，再走 approval；allowed-once 时 initWork，targetChapters 缺省 200、chapterWordCount 缺省 defaultChapterLength(language)，min/max 仅作者给了才传，instruction 直接传给 initWork。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/proposal.ts",
+      "line": "106,120-141",
+      "behavior": "normalizeProposalInput 把 createBook.language 缺省固定成 zh；parseProposal 校验 language 属于 zh/en、规模与 min/max 为正整数、instruction 用 verbatim 保留原文空白。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/init-work.ts",
+      "line": "20-33",
+      "behavior": "initWork 在 withWorkAction 锁内先 prepareWork 校验身份，再取 controlDocumentWrites，并让 createWork 把 work.json、方向文档与 source/story/brief.md（instruction 原文）放在同一次提交。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/control-docs.ts",
+      "line": "26-36,45-70",
+      "behavior": "defaultAuthorIntent/defaultCurrentFocus 与源同文案；controlDocumentWrites 先建目录，只补缺失的 author_intent（有 instruction 时 trimEnd + 换行，否则模板）与 current_focus（模板）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/work.ts",
+      "line": "283-330",
+      "behavior": "prepareWork 只把已提供的 targetChapters/chapterWordCount/genre/platform/min/max 写进 metadata，未给不写键；createWork 把身份与额外写入同批提交。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/work-command.ts",
+      "line": "186-189,274-286",
+      "behavior": "命令路径缺省 targetChapters=200、chapterWordCount=3000，genre/platform 缺省 xuanhuan/tomato；brief 取 --brief-text 或 --brief 文件 trim 后回退「Create <title>」；同样走 initWork。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/proposal.test.mjs:80-97 缺字段/非法 language/0 值拒绝；instruction 原样保留；缺省规模 undefined",
+    "packages/see-dsh-novel/test/proposal.test.mjs:104-116 卡片只展示已给字段，未给规模不编造数字",
+    "packages/see-dsh-novel/test/proposal.test.mjs:118-160 允许后同一次提交写 work.json（含目标/章长/min/max）、source/story/brief.md、author_intent、current_focus，story_next=foundation",
+    "packages/see-dsh-novel/test/proposal.test.mjs:162-183 批准时补 200 章 × 3000 字；instruction 带前后空白原样进 brief，author_intent 只去尾部空白",
+    "packages/see-dsh-novel/test/proposal.test.mjs:185-227 拒绝/取消/不可用/无服务/never 不落盘",
+    "packages/see-dsh-novel/test/proposal.test.mjs:229-245 已立项先于字段校验拒绝",
+    "packages/see-dsh-novel/test/work-command.test.mjs:174-186 命令路径缺省 zh + 200 × 3000 + brief「Create 夜行测试」",
+    "artifacts/real-runs/proposal.execution-brief.json 记录 pnpm run verify 278 passed"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/proposal.execution-brief.json：date=2026-11-08，sessionId=session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96（非 process:*）。本机 session 日志（.artifacts/work-proposal2，2026-11-08T06:11Z）seq 26 的 story_propose 参数为 title=夜行提案、instruction=写《夜行长街》的基础设定与第一卷大纲…、createBook={title:夜行长街, genre:都市悬疑, platform:番茄小说, language:zh, targetChapters:120, chapterWordCount:2500, minChapterLength:2200, maxChapterLength:2800}；seq 27 approval/asked 回执为立项《夜行提案》…，seq 28 allowed-once，seq 29 已立项。工作区 work.json metadata 与参数一致；source/story/brief.md 与 author_intent.md 为 instruction 原文（author_intent 末尾有换行），current_focus 为「# 当前聚焦 / ## 当前重点」模板。命令路径由 2026-11-06 的 session-88eb3ff4（.artifacts/work-init）回执「已立项《夜行测试》… 目标 200 章，单章 3000 字，都市悬疑」与 brief「Create 夜行测试」佐证。",
+  "deviations": [],
+  "debt": {
+    "needed": false,
+    "title": "本行无新债；instruction 的 trim 差异、语言缺省链与 min/max 只存不消费归 proposal.creative（D1/D2）",
+    "owner": "proposal.execution-brief（交叉 proposal.creative）",
+    "closure": "本行的关闭判据是 instruction 原文、默认规模与三份控制文档同批落盘，已由测试与真实回执覆盖；trim/语言链按 proposal.creative 的债偿还，min/max 消费按 chapter.write 的长度契约偿还。"
+  },
+  "limitations": [
+    "源 propose_action 在进确认卡前 trim instruction（agent-tools.ts:660），confirm 时把 trim 后的那句交给 create_book；复刻用 verbatim 保留原文空白（proposal.ts:132；proposal.test.mjs:162-183 断言 brief 为「  写…  」）。文本相同，brief/author_intent 的前后空白字节不同；卡片展示同样保留空白。该规范化归 proposal.creative 行，本行只在字节层登记。",
+    "源 language 缺省链含 surfaceLanguage（longform-production.ts:132；studio/server.ts:1175-1191 的 lang），再决定 chapterWordCount 是 3000 还是 2000；复刻在提案解析时先固定 zh（proposal.ts:106）。英文界面且未给 createBook.language 的提案，源会取 en/2000，复刻取 zh/3000。该链同属 proposal.creative 的既有偏差，本行不重复记债，但它直接决定本行的「默认规模」。",
+    "realRun 的 proposal2 会话显式给了 120 章 × 2500 字，并未展示「createBook 未给规模时批准补 200/语言默认」；缺省补齐只有 proposal.test.mjs:162-183 的进程级用例。命令路径 200/3000 是 CLI 自己的固定缺省（源 cli book.ts:36-39 同样是 200/3000），不是提案批准路径。",
+    "源 create_book 在同一个工具调用里同步跑完 foundation，brief 在 foundation 前先落盘（runner.ts:469-474）；复刻批准只写身份、brief 与方向文档，foundation 由下一阶段按 story_next/阶段上下文继续（runtime.commands/panel.foundation-start 的机制）。brief 仍能到达 architect，但「确认即建完基础设定」的时序不同。",
+    "源 author_intent 的种子取 options.authorIntent ?? externalContext；复刻固定取 instruction。当前提案与 CLI 调用都不传 authorIntent，所以没有可观察差异。",
+    "min/max 只被校验并写入 work.json（work.ts:303-304），没有写进 foundation/writer 的长度契约；该消费缺口归 proposal.creative 与 chapter.write，本行只证明字段落盘。",
+    "命令回执 session-88eb3ff4 的创建时间是 2026-11-06，早于 real-run 记录的 2026-11-08；其下的 .artifacts/work-init 已被 2026-11-09 的另一份作品（en，8 章 × 1200 字）覆盖，回执仍以 session 日志为准。",
+    "对照：capabilities.yaml:235-242 标 verified；docs/fidelity-audit.md:318-336 判「等价」；本审计对 brief/author_intent/current_focus 同批写入与规模默认补齐确认该判定，并把 trim/语言链列为跨行限制。"
+  ]
+}

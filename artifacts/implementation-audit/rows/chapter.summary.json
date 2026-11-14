@@ -1,0 +1,92 @@
+{
+  "id": "chapter.summary",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/settler-tool.ts",
+      "line": 21,
+      "behavior": "ChapterSummaryToolSchema = title／characters／events／stateChanges／hookActivity／mood／chapterType 七个必填字符串；:62 结算工具要求 chapterSummary 必填。"
+    },
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": 39,
+      "behavior": "ChapterSummaryRowSchema：chapter 为 int≥1，title 非空，其余七字段字符串，strict；:121 delta 里的 chapterSummary 可选。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-reducer.ts",
+      "line": 195,
+      "behavior": "applySummaryDelta：无摘要时只排序；allowReapply 时过滤同章旧行再追加，否则直接追加；:45-51 非重结算同章行在更早处已拒绝；:206-211 结果按章号排序。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 214,
+      "behavior": "settleChapterState 产出摘要与状态；:342 摘要的 chapter 由宿主持有（模型不提交章号）。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 404,
+      "behavior": "saveChapter 把 chapter_summaries.md 与 state/chapter_summaries.json 同批写入；:429-437 snapshots/<N> 也含摘要投影与 JSON。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-projections.ts",
+      "line": 45,
+      "behavior": "renderChapterSummariesProjection：中英表头、按章号升序、单元格转义、末尾换行；缺数据只输出表头。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/settle.ts",
+      "line": 61,
+      "behavior": "applySummary：非重结算遇同章行拒绝，重结算（reapply）过滤旧行；:67-76 写入 chapter（取自 delta）、title 与六个字段；:77 按章号排序。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settle.ts",
+      "line": 231,
+      "behavior": "applySettlement 把摘要与 facts／hooks 一起施加，并在 :255-262 拒绝重复摘要行与 current_state 超过 manifest。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settlement.ts",
+      "line": 111,
+      "behavior": "buildSettlementProposal 把 old／new 摘要渲染成 previousChapterSummaries／proposed 卡片（:130），供对账方读。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/settle-tool.ts",
+      "line": 239,
+      "behavior": "提交时一次写章节、四份状态 JSON、三份投影、snapshots/<N>、索引与 artifact；摘要随状态 JSON／投影／快照同批落盘。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": 82,
+      "behavior": "renderChapterSummariesProjection 与源同列、同排序、同转义、同末尾换行。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": 164,
+      "behavior": "validateChapterSummaries 校验 rows 与七字段类型，但不拒未知字段与非整数 chapter；读入比源 zod strict 宽松。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs（167：摘要随 facts／hooks／manifest／投影写入；209：乱序预置后按章号排序、非重结算同章行拒绝且文件不变；232：空 title 拒绝；241：重算替换摘要；272：重算保留索引字节）",
+    "packages/see-dsh-novel/test/state-projections.test.mjs（投影列、排序、转义与末尾换行）",
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs（340：快照读取与跨文件不变量，覆盖摘要重复拒绝）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.summary.json：date=2026-11-13，sessionId=process:chapter.summary；receipts 为 422 passed 的 process-level 工具／状态测试，并注明「该回执是 process-level 工具/状态测试，不是 DSH 会话」。",
+  "deviations": [
+    "无行为偏差：七字段、章号归属、按章排序、同章替换／拒绝、随结算与状态／投影／快照同批落盘均与源一致。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "摘要 title 空白处理与源字节不同；仅 process-level 证据",
+    "owner": "chapter.summary",
+    "closure": "按源保留原始 title 不 trim（或登记偏差并补边界用例）；补真实 DSH 会话回执。"
+  },
+  "limitations": [
+    "只有 process-level 证据；没有真实 DSH 会话回执。",
+    "摘要没有独立工具入口，只能通过 story_settle_chapter 提交；源同样由 settler 在结算里产出，没有独立摘要步骤。",
+    "title 空白处理有细微差别：复刻先 trim 再要求非空，源只要求原始长度≥1 并按原样存储；纯空白或带首尾空白的 title 落盘字节会不同。",
+    "四份状态读取对摘要行比源宽松（未知字段／非整数 chapter 不拒）；该缺口归 chapter.settle 的严格基线债，不在摘要写入路径。",
+    "摘要的 tokenUsage 不单独记录；按章用量由 chapter.settle 的 tokenUsage 承接。",
+    "对照：capabilities.yaml:299-306 标 verified；docs/fidelity-audit.md:412-418 判「等价（D48 注销）」；本审计对有效输入确认该判定（读校验缺口另记 chapter.settle）。"
+  ]
+}

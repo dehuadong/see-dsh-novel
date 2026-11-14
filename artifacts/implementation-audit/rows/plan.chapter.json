@@ -1,0 +1,187 @@
+{
+  "id": "plan.chapter",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/planner.ts",
+      "line": "46-117",
+      "behavior": "PlannerAgent.planChapter：先 loadPlanningSeedMaterials 读 current_focus／author_intent／brief／上一章正文；taskGoal = externalContext + currentFocus + authorIntent + brief（全空则「根据当前作品状态续写第N章」）用于 composer.selectTaskContext；把上一章正文作为 protected 条目追加进 contextPackage；plannerInputs 取 selectedContext 的 source；写 intent.md；返回 intent／memo／plannerInputs。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/planner.ts",
+      "line": 70,
+      "behavior": "上一章全文（planning-materials 只去首行标题）作为 source=`runtime/previous_chapter#N-1`、protection=protected 的上下文条目进入 governed context，而不是单独的提示段。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/planner.ts",
+      "line": 93,
+      "behavior": "planChapterMemo 只把 input.externalContext 作为 currentInstruction 传给 buildPlannerUserMessage；没有把种子材料写进「当前用户指令」，也没有把 memo 里的 hook id 列表单独注入。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/planner.ts",
+      "line": "129-138",
+      "behavior": "调 buildPlannerUserMessage 时只传 chapterNumber／contextPackage／currentInstruction／lengthBudget／language，不传 previousChapter，因此 planner 的 user message 永远不渲染「## 上一章正文」段；上一章正文只经 governed context 段落出现。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/planner-prompts.ts",
+      "line": 4,
+      "behavior": "planner system prompt：把 governed context 编译为 chapter memo、不写正文、「专业规划方法只来自已激活 Skill」、保留用户方向与既成事实、只使用输入中的 hook id、通过结果工具提交。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/planner-prompts.ts",
+      "line": "10-43",
+      "behavior": "user message 只有五段：章标题、当前用户指令（仅 externalContext）、权威上下文（renderNarrativeSelectedContext 渲染 selectedContext）、上一章正文（仅调用方传入时）、宿主字数遥测；没有单独的 hook id 列表段。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/base.ts",
+      "line": "52-78",
+      "behavior": "submitStructured 默认 professionalGuidance=true，经 prepareWorkerMessages 把已激活技能正文（profile requiredSkillIds 如 inkos-long-writing 与动态激活项）注入 planner 消息；runner.ts:243-247 的 currentActivatedSkills 按 agent 名取 workerSkills。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/builtin-profiles.ts",
+      "line": 18,
+      "behavior": "longform-novel 预设 requiredSkillIds=[\"inkos-long-writing\"]；inkos/packages/core/skills/inkos-long-writing/SKILL.md:24 要求规划章节时加载 references/reader-contract-and-progression.md，即规划方法随 Skill 进入 planner。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/persisted-governed-plan.ts",
+      "line": "16-79",
+      "behavior": "plan.json 的 PersistedPlanSchema = {version:2, intent, memo, plannerInputs}；savePersistedPlan 用 writeFile 直写；loadPersistedPlan 先 zod 解析再校验 memo.chapter／intent.chapter 与请求章号一致，intentMarkdown 优先读 intent.md，缺失回退 memo.body。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "2159-2187",
+      "behavior": "resolveGovernedPlan：只有 reuseExistingIntentWhenContextMissing=true 且 externalContext 为空时才 loadPersistedPlan 直接复用；否则重新跑 planner.planChapter 并 savePersistedPlan 覆盖旧 plan——新指令可以重规划同一章。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "1905-1911",
+      "behavior": "prepareWriteInput 调用 createGovernedArtifacts 时固定传 reuseExistingIntentWhenContextMissing:true，即「无新上下文才复用缓存」。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-bootstrap.ts",
+      "line": "4-47",
+      "behavior": "下一章进度 = resolveDurableStoryProgress + 1：读 chapters/index.json 与章节文件集合，索引/文件不一致（orphaned/missing）直接抛错，再取连续前缀 + 1。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/length-metrics.ts",
+      "line": "42-49",
+      "behavior": "buildLengthSpec(book.chapterWordCount, language) 生成 target 与计数口径（en_words / zh_chars），供 planner 的字数遥测使用。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-plan.ts",
+      "line": "24-42",
+      "behavior": "路径为 source/story/runtime/chapter-XXXX.plan.json、.intent.md、.planner-context.json、.context.json、.trace.json，与源 bookDir/story/runtime 布局等价。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-plan.ts",
+      "line": "126-148",
+      "behavior": "saveChapterPlan 校验 chapter≥1、goal/body trim 非空、threadRefs 为字符串数组，然后一次 commitFoundation 同时写 plan.json（version 2，intent＝{chapter,goal}，memo，plannerInputs）与 intent.md。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-plan.ts",
+      "line": "151-176",
+      "behavior": "loadChapterPlan：缺文件返回 null；version 必须为 2；intent.chapter／memo.chapter 与请求章号不一致抛错；intent.md 缺失回退 memo.body——身份校验与回退与源一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/plan-tool.ts",
+      "line": "101-131",
+      "behavior": "story_plan_chapter：锁内先查六份基础设定、该章 workflow start、该章号必须等于 current_state.chapter+1；已有 plan 时无条件返回 {reused:true}，不校验入参、不覆盖；否则从 planner-context 的 selectedContext 取 plannerInputs 并落盘。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/planner.ts",
+      "line": "29-99",
+      "behavior": "renderPlannerContract 往 systemPrompt.context 注入：方法句（中英）、`# 第N章 memo 请求`、`## 当前用户指令`（source/story/brief.md + current_focus + author_intent 拼接）、`## 权威上下文`（占位句「把 story_context_package 返回的 selectedContext 放在这里」）、`## 上一章正文`（末尾 2000 字）、`## 宿主字数遥测`、`## 可用 hook id`（hooks.json 全量 id）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/planner.ts",
+      "line": 52,
+      "behavior": "「当前用户指令」段只由 STORY_EXTERNAL_BRIEF、CURRENT_FOCUS_FILE、AUTHOR_INTENT_FILE 三份文件拼接；不读 workflow-start.json 的 instruction，也没有章级作者指令输入。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/planner.ts",
+      "line": "56-67",
+      "behavior": "上一章正文取 source/chapters 中同章号文件，chapterBodyForChapter 后 slice(-2000) 只保留末尾 2000 字，作为独立提示段注入。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "356-361",
+      "behavior": "craftSkillsFor(stage)：proposal→story-proposal，review/chapter-done→story-review，foundation/write→longform-writing，其它（含 plan）返回 []——plan 阶段不注入任何创作方法正文。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "396-426",
+      "behavior": "systemPrompt.context 在 plan 阶段返回「阶段协议 + renderPlannerContract(root)」；阶段协议写「本阶段的创作方法已随上下文提供；不需要再调用技能工具加载」。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "241-253",
+      "behavior": "plan 阶段协议：先 story_context_candidates(purpose=planner)，再 subagent 选择，再 story_context_package，再写 memo 并调 story_plan_chapter；并声明「只规划下一章；该章已有章纲时不覆盖」。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "212-225",
+      "behavior": "previousChapterExcerpt 读上一章文件并在 chapterBodyForChapter 后 slice(-2000)；用于 planner pass 的 `runtime/previous_chapter#N-1` 条目。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "308-318",
+      "behavior": "purpose=planner 时把上一章结尾（2000 字）作为 protected 条目加入 planner-context；plannerInputs 因此含 runtime/previous_chapter#N-1（与源 source 字符串一致）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-plan.ts",
+      "line": "100-115",
+      "behavior": "renderIntentMarkdown 与源同形（# Chapter Intent／## Goal／## Chapter Memo／### Thread Refs／### Body，空 refs 为 - (none)），但 memo.body 已 trim。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-plan.ts",
+      "line": 144,
+      "behavior": "intent.md 写入时额外追加换行（源 planner.ts:108 的 writeFile(intentMarkdown) 无尾换行）；plan.json 与 intent.md 在同一 commitFoundation 中原子写入，源是 planner 先写 intent.md、pipeline 再写 plan.json 两次独立写入。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/write-command.ts",
+      "line": "61-67",
+      "behavior": "/story-write 明确「No arguments.」并以 startChapter(root) 调用，instruction 只能取默认「开始第 N 章」；startChapter 的 instruction 参数没有调用方传入作者说明。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/write-tool.ts",
+      "line": "82-84",
+      "behavior": "story_write_chapter 只在没有 workflow start 时补写 instruction='开始写作'；workflow-start.instruction 全仓只被写入、从未被 planner／writer 契约读取（读路径只用章号）。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-plan.test.mjs（4 例）：写入 plan.json 与 intent.md 的投影字节、空 threadRefs 渲染、读取往返／章号 identity／缺 intent.md 回退 memo.body、空 goal／body 与非字符串 refs 拒绝且不落盘",
+    "packages/see-dsh-novel/test/plan-tool.test.mjs（1 例）：首次写入 reused:false，第二次同章返回 reused:true 且 plan.json 字节不变",
+    "packages/see-dsh-novel/test/planner-contract.test.mjs（3 例）：中文契约含方法句／memo 请求／当前用户指令（brief）／上一章正文／字数遥测／hook id 列表；英文契约；缺省段省略",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:258-262：plan 阶段上下文含 `## planner 契约` 与 `# 第1章 memo 请求`",
+    "real-run 记录 pnpm run verify 295 passed（planner-contract 3、plan-tool 1、chapter-plan 4），本次审计未重跑；冻结提交 e3b7886 当前测试规模已增至 437"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/plan.chapter.json：date=2026-11-09，sessionId=session-e96508fc-aff4-48b4-a934-5b70e4519e06（非 process:*），tests 与 4 条 receipts 齐全；该会话的 DSH 事件流存在于 .artifacts/session-e96508fc-latest.jsonl（第 13 行 runtime context 显示 `## 当前阶段：章前规划`＋`## planner 契约`；第 103 行 tool/result 为「第 1 章章纲已落盘：source/story/runtime/chapter-0001.plan.json、chapter-0001.intent.md」；第 82-83 行显示 planner-context 文件与 47 条 selectedContext），属真实 DSH 会话证据。回执日期早于冻结提交，且未重跑后续 D14/D15 变更。",
+  "deviations": [
+    "复用语义与源相反：源只在 reuseExistingIntentWhenContextMissing 且 externalContext 为空时复用持久 plan，有新章级指令时重跑 planner 并覆盖 plan（runner.ts:2168-2186）；复刻 story_plan_chapter 对任何已存在 plan 无条件 reused:true、不覆盖、不校验入参（plan-tool.ts:109-118），没有「有新章级指令就重规划」的入口；唯一能重新生成 plan 的路径是先 reopen 最新已发布章（reopen.ts:245 清掉该章 runtime 含 plan），它不是新指令重规划而是把已发布章退回重审。2026-11-06-plan-planner-prompt.md:29 的否决理由「源工程只在没有持久 plan 时生成」与源不符。",
+    "source 不调用、复刻自创的两块提示输入：①「当前用户指令」在源只放 externalContext（planner.ts:93／planner-prompts.ts:27-28,36-37），复刻放 brief＋current_focus＋author_intent（stages/planner.ts:52-55），章级作者指令既不产生（/story-write No arguments，write-command.ts:61-66）也不读取（workflow-start.instruction 只写不读）；②源没有单独的 hook id 列表段，复刻从 hooks.json 注入全量 hook id（stages/planner.ts:69-76,89,97），可能列出未进入 governed context 的 id，与方法句「只使用输入中存在的 hook id」冲突。",
+    "「上一章正文」渠道与体量不同：源把整章正文（去首行标题）作为 protected 上下文条目（planning-materials.ts:37-46＋planner.ts:70-83），其 user message 从不渲染该段（planner.ts:129-138 未传 previousChapter）；复刻把摘要截成末尾 2000 字（context-package.ts:224）同时再以独立提示段注入（stages/planner.ts:56-67），既改变了体量也新增了源提示里没有的段落。",
+    "plan 阶段没有创作方法：源 planner 由 BaseAgent 注入已激活技能（base.ts:52-78；longform-novel requiredSkillIds=[inkos-long-writing]，builtin-profiles.ts:18；技能要求规划时加载 references/reader-contract-and-progression.md）；复刻 craftSkillsFor('plan') 返回 []（stages/index.ts:356-361），且冻结树里没有 story-plan 技能（skills/ 只有 longform-writing／story-proposal／story-review），阶段协议却声称「本阶段的创作方法已随上下文提供」。",
+    "进度来源不同：源下一章取 chapters/index.json 的连续前缀 +1，索引与文件不一致即抛错（state-bootstrap.ts:4-47）；复刻取 current_state.chapter+1（plan-tool.ts:56-64,108；stages/planner.ts:44-51）。扣下/重开等状态与索引不一致时两者分叉，该差异只被 chapter.settle 的映射行间接覆盖，plan.chapter 自身没有 dsh-mapping 偏差行。",
+    "校验被收紧：复刻拒绝 trim 后为空的 goal/body（chapter-plan.ts:128-131），源 ChapterMemoSchema/tool schema 只要求 minLength(1)，纯空白可通过（input-governance.ts:3-8；planner-tool.ts:3-7）。",
+    "投影字节差异：复刻 intent.md 末尾多一个换行、memo.body 存 trim 后的值（chapter-plan.ts:128-129,144），源 intent.md 无尾换行、plan.json 的 memo.body 保存模型原文（planner.ts:108,167-184；persisted-governed-plan.ts:39-46）；测试把复刻的字节形状固化了。",
+    "plan.json＋intent.md 一次 commitFoundation 原子写入（chapter-plan.ts:141-146）替代源的两次 writeFile（planner.ts:108 与 persisted-governed-plan.ts:45），属 DSH 原子提交机制；plan 工具新增的基础设定六件套／workflow start／只允许 current+1 三道闸门（plan-tool.ts:66-77,106,108）是 DSH 阶段与授权机制的落点，其中前两道未逐条登记。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "plan 阶段缺创作方法、章级作者指令与全文上一章；plan 复用语义与源条件缓存相反；进度按 current_state 而非章节索引；hook id 列表为自创输入",
+    "owner": "plan.chapter",
+    "closure": "1) 恢复/补齐 plan 阶段创作方法注入（craftSkillsFor('plan') 指向长文写作技能或新增规划技能，并用测试断言 plan 阶段上下文含方法正文）；2) 为本章产生并读取章级作者指令（workflow-start.instruction 进 planner「当前用户指令」，或恢复带 instruction 的 start 入口），方法句与段落顺序按源 planner-prompts.ts；3) previous_chapter 改用全文并删掉自创的 prompt 段（或登记为偏差）；4) plan 工具按源 resolveGovernedPlan 语义：有新上下文/新指令时重规划并覆盖、无上下文才 reused，并补「带新指令重规划覆盖 plan.json」用例；5) 进度改用章节索引连续前缀（或把 current_state 口径写进 docs/dsh-mapping.md 并说明分叉后果）；6) 删除 hook id 全量列表或改为只列 governed context 内的 id；7) 同批更新 fidelity-audit.md:376-382 的判定与 dsh-mapping 偏差行。"
+  },
+  "limitations": [
+    "S 级证据只有 2026-11-09 一次会话，且回执写 295 tests；冻结提交 e3b7886 的当前测试规模、判定与实现已变化（D14/D15、planner 契约、plan 工具 reused），没有针对当前代码的真实会话证据；复用与重规划路径没有真实回执。",
+    "测试断言的是复刻自己的形状：intent.md 尾换行、hook id 列表段、上一章 2000 字截断、无条件 reused——测试全绿不能证明源等价。",
+    "源 planner 的 memo 由独立 PlannerAgent 以 temperature=0.7、maxTokens=min(8192, defaults.maxTokens) 生成（planner.ts:153）；复刻由主会话模型按阶段契约撰写，模型参数由 DSH 预设决定，这一调用形状差异属已登记的 Agent 循环／方法注入映射，不在本行取值。",
+    "源 planner 的上下文选择在 planner 内部调 composer.selectTaskContext（planner.ts:64-69）；复刻拆成 story_context_candidates／package 工具调用，属 plan.context-select 的登记范围，本行只裁决 memo 输入与落盘。",
+    "docs/fidelity-audit.md:378 把「user message 分段（指令／上下文／上一章／字数遥测）」列为源证据，但 planner.planChapter 不传 previousChapter，该段在 planner 路径不存在；docs/fidelity-audit.md:382「与源缓存语义一致」「hook id／上一章结尾是源契约」也不成立。",
+    "2026-11-06-plan-chapter.md 引用的 `skills/story-plan/SKILL.md` 在冻结树中不存在（skills/ 只有 longform-writing、story-proposal、story-review），该 Note 的『方法用 DSH 原生 Skill』一项与实现不符。",
+    "对照：capabilities.yaml:267-274 标 verified；docs/fidelity-audit.md:376-382 判机制等价（D14／D15 已偿还）并自认「上一章 2000 字／进度来源」为残余，但残余没有被登记成 scope 债，也没有 dsh-mapping 偏差行；本行按未登记行为差异裁决。"
+  ]
+}

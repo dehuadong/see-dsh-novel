@@ -1,0 +1,91 @@
+{
+  "id": "foundation.truth-projections",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/state/state-projections.ts",
+      "line": 24,
+      "behavior": "renderHooksProjection 复制 hooks 后按 startChapter → lastAdvancedChapter → hookId 排序，输出 7 列；标题、空行、表头、分隔行、数据行与末尾空行由 [title, \"\", ...headers, ...rows, \"\"] 生成。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-projections.ts",
+      "line": 60,
+      "behavior": "renderChapterSummariesProjection 按 chapter 升序，输出 8 列（章节／标题／出场人物／关键事件／状态变化／伏笔动态／情绪基调／章节类型）。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-projections.ts",
+      "line": 93,
+      "behavior": "renderCurrentStateProjection 先过滤 validUntilChapter 为 null 或不早于 state.chapter 的事实，再按 subject／predicate／object localeCompare 排序，并输出 `> 当前章节: N`。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-projections.ts",
+      "line": 119,
+      "behavior": "escapeTableCell 把 `|` 转义为反斜杠加竖线、把换行转成 `<br>`，并 trim 单元格。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/runtime-state-store.ts",
+      "line": 152,
+      "behavior": "saveRuntimeStateSnapshot 把四份 state JSON 与三份 Markdown 投影放进同一次 commitAtomicFileSet，投影由同一份快照渲染。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": 46,
+      "behavior": "cell 与源 escapeTableCell 同规则：竖线转义、换行转 `<br>`、trim。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": 51,
+      "behavior": "table 生成 title、空行、表头、`---` 分隔行、数据行与一个末尾换行，与源的数组拼接布局一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": 63,
+      "behavior": "renderHooksProjection 的 7 列表头与 startChapter→lastAdvancedChapter→hookId 排序同源。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": 82,
+      "behavior": "renderChapterSummariesProjection 按 chapter 升序、8 列同源。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": 100,
+      "behavior": "renderCurrentStateProjection 的 validUntilChapter 过滤、subject／predicate／object 排序与 `> 当前章节: N` 同源。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": 90,
+      "behavior": "stateJsonWrites 生成 manifest／current_state／hooks／chapter_summaries 四份 JSON，每份 2 空格缩进并在末尾带一个换行。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": 102,
+      "behavior": "stateProjectionWrites 由同一份 StateSnapshot 渲染三份投影。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": 375,
+      "behavior": "stateWritesIfMissing 把 JSON 与投影并入同一次 commit；源 JSON 损坏时跳过对应投影，不拿默认值覆盖作者数据。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/state-projections.test.mjs：排序、竖线与换行转义、末尾单换行、中英标题与表头、validUntil 过滤、八列摘要、空状态表头、错形状拒绝",
+    "packages/see-dsh-novel/test/foundation.test.mjs：story_foundation_details 同批写四份 JSON、三份投影与 snapshots/0 副本，并断言伏笔行与空表"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "session-a2b71b7b-b5e4-4f80-a86f-b8fd9bb19c90 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-proj--；解压 session.v4.jsonl.zstd 可见 story_foundation_details 回执『写入 9 个文件』与 story_hooks 的 # 伏笔池 表格，日期 2026-11-05。证据缺口：当前 details 还写 source/story/snapshots/0 与 source/chapters/index.json，9 文件回执是旧写入集；real-run 中三次 repairWorkspace 对照不在 session 日志内。",
+  "deviations": [],
+  "debt": {
+    "needed": true,
+    "title": "projection realRun 描述旧写入集，回执过期",
+    "owner": "foundation.truth-projections",
+    "closure": "重录 artifacts/real-runs/foundation.truth-projections.json，按当前写入集（含 snapshots/0 与 chapters/index.json）记录文件数与真实会话；或在回执中明确旧写入集限制。"
+  },
+  "limitations": [
+    "源 renderHooksProjection 接受并 void 掉 options.currentChapter；复刻签名没有该参数，无可观察行为差异。",
+    "复刻渲染器对 {hooks:null}、缺 facts、缺 rows 显式抛中文错误；源在同样输入上抛 TypeError。两者都拒绝，错误文本不同。",
+    "realRun 的『落盘共 9 份』文件计数与当前实现不一致（现在还会写 snapshots/0 与 chapters/index.json），回执描述旧行为；需按当前写入集重录。"
+  ]
+}

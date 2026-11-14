@@ -1,0 +1,100 @@
+{
+  "id": "panel.gate-resume",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/system-prompt.ts",
+      "line": "24-33",
+      "behavior": "确认动作轮带 confirmedAction：『本轮动作已由宿主确认…立即调用匹配的 capability action，不要再次确认』；宿主执行完确认 action 的后续轮带 resumeAfterAction：『宿主已完成一个确认 action，其真实 toolResult 位于上下文末尾。继续执行用户已确认请求中仍未满足的部分；不要只把未完成动作列为下一步建议。』"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-session.ts",
+      "line": "1220-1267",
+      "behavior": "resumeAction 轮把上一条确认 action 的 assistant tool-call 与真实 toolResult 重放进模型消息（默认 visibility=model，不显示给作者），再进入新一轮；systemPrompt 同时带 resumeAfterAction（:1061-1071）。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-session.ts",
+      "line": "1279-1282",
+      "behavior": "resumeAction 的真实 result 被 observe 进本轮的 artifact delivery 与 hasDelivery；『继续』不是空通知，它带着上一动作的交付结果。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "4931-4935",
+      "behavior": "只有结构化 action 请求（button/slash/quick-action）能启动生产任务；自由文本始终留在 agent loop，宿主不解释文本意图。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "5013-5027",
+      "behavior": "确认请求由宿主执行 executeConfirmedProductionAction，随后同一会话继续后续轮次；确认与执行不在模型的自由决定里。"
+    },
+    {
+      "file": "inkos/packages/studio/src/components/chat/ToolExecutionSteps.tsx",
+      "line": "789-815",
+      "behavior": "确认卡在未决时给『继续执行』与『取消』；确认/取消都锁定卡片（one-shot），取消不发生产任务，也没有后续唤醒。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": "56-58",
+      "behavior": "RESUME_TEXT 说明作者刚在面板确认 foundation，要求 agent 调 story_gate 复核摘要：成立就调 story_foundation_signoff 定稿并继续下一步，不成立就报告；『不要再次请作者确认』。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": "89-94,122",
+      "behavior": "promptQueue 取 session binding，用 binding.session.prompt([{type:'text',text}], 'queue') 投一条排队消息；没有绑定返回 failed，resume 失败不会回写确认状态。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "200-245",
+      "behavior": "面板先执行 /story-approve（runCommand）；只有命令回执 ok 且 resumeAfter=true 才调用 resume(sessionId)；resume 失败只显示『已确认；会话没能自动继续…』，确认本身仍成立。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "294-305",
+      "behavior": "handleAction 把『确认基础设定』映射到 /story-approve + resumeAfter，把『退回』映射到 /story-reject 且不 resume；『稍后』只写 notice，不调用命令。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/commands.ts",
+      "line": "61-85",
+      "behavior": "/story-approve 成功执行即写 story-approval stage=foundation digest=… via=receipt 的标记行；/story-reject 记一条会作废旧确认的决定；命令生命周期就是作者决定的持久回执。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/gate.ts",
+      "line": "99-114,128-165",
+      "behavior": "gate 从会话事件读最近一次决定，只有 approve 且 digest 与当前工件一致才算确认；签核工具只读该回执，缺失/退回/摘要变化都拒绝，不自行重试确认。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/client.test.mjs:494 认可先写回执再 resume，并显示『已确认，正在继续…』",
+    "packages/see-dsh-novel/test/client.test.mjs:503 resume 失败时保留确认并提示作者手动说『继续』",
+    "packages/see-dsh-novel/test/client.test.mjs:511 退回/查看不唤醒会话、不写索引",
+    "packages/see-dsh-novel/test/client.test.mjs:662 连点只派发一次命令与一次 resume",
+    "packages/see-dsh-novel/test/client.test.mjs:794-829 resume 注入面只发一条 queue 消息；失败/无绑定返回 failed",
+    "packages/see-dsh-novel/test/approval.test.mjs:256-327 面板 receipt 可签核、工件变化使回执失效、退回作废之前的确认、原生确认条也可签核",
+    "packages/see-dsh-novel/test/approval.test.mjs:394-435 /story-approve 写标记与备注、/story-reject 记退回",
+    "artifacts/real-runs/panel.gate-resume.json 记录 2026-11-05 的 pnpm run verify 94 passed"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/panel.gate-resume.json：date=2026-11-05，sessionId=session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*）；tests.passed=true。本机 C:\\Users\\MyPC\\.dsh\\sessions\\--E-see-dsh-novel-.artifacts-work-demo--\\session-974fa00e-...\\session.v4.jsonl.zstd 复核：seq 380 command/run story-approve（seq 381 command/done 成功并写 story-approval stage=foundation digest=3b5f41e9… files=14 via=receipt）；seq 382 agent/inbox/spliced（target next-turn，内容即 RESUME_TEXT，带 rpcId）；seq 383 turn/start turn 13；seq 386 user/message 是那条『作者刚在面板确认了 foundation…』；seq 392/393 story_gate 返回『已被作者确认（策略 never）』；seq 398/399 story_foundation_signoff 返回『已定稿 foundation：14 个文件，摘要 3b5f41e9（作者在面板确认）』；seq 417 turn/end reason=completed。",
+  "deviations": [
+    "源的续作上下文是宿主重放的隐藏 assistant tool-call + 真实 toolResult（agent-session.ts:1220-1267，visibility=model）加 systemPrompt 的 resumeAfterAction 行；复刻是在 `/story-approve` 命令成功后由 client 投一条可见的 user 消息（client/index.ts:89-94,122），agent 没有上一动作的真实 ActionResult，只能按 RESUME_TEXT 再调 story_gate 复核。『确认后被叫醒并继续』等价，注入通道与证据位置不同。",
+    "源确认与续作在同一个宿主确认请求内完成（server.ts:4931-5013）；复刻是命令（写回执）与 prompt（叫醒）两次会话动作，命令成功而 resume 失败时确认仍成立并给作者回退文案（client.test.mjs:503）。这条降级路径源没有。",
+    "源卡片是 Studio 的 Continue/Cancel；复刻的『认可』是宿主命令 /story-approve，『退回』是 /story-reject，『稍后』不调命令。确认面由 approval/命令双通道承接，已在 docs/dsh-mapping.md:20,35-40 的作者确认行登记。",
+    "docs/dsh-mapping.md 没有单列『源隐藏 replay + resumeAfterAction → DSH queue user 消息 + gate 复核』这条偏差；现有作者确认/面板行只覆盖确认通道。",
+    "源在确认后只继续『用户已确认请求中仍未满足的部分』；复刻的 RESUME_TEXT 在 foundation 闸门场景只要求复核+签核+继续下一步，随后由阶段上下文接管。产物上等价，但续作指令更窄。",
+    "源把『确认后继续』接在 confirmed workflow start 上（create_book/write_next，确认后宿主执行 action 再续作）；复刻把它接在 foundation 定稿闸门上——这个闸门本身是源没有的附加面（见 foundation.approval 审计与 docs/dsh-mapping.md:35-40 的作者确认双通道）。续作机制同源，触发对象不同。"
+  ],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "真实会话的续作轮在签核后调 story_next 得到『阶段 unbound』并结束（seq 404-417），所以『签核后接着干』的下一个阶段没有被这轮真实回执证明；回执证明到『复核+签核+正常收轮』。工作绑定属 runtime.session-binding/runtime.commands，不在本行。",
+    "复刻的续作消息在会话日志里是一条 user/message（seq 386），作者会看到自己没打过的句子；源的 replayed toolResult 默认 visibility=model 不显示。",
+    "确认通道与会话策略耦合：策略 never 时原生确认条不会出现，签核工具明确拒绝并指向 /story-approve（gate.ts:141-146；真实会话 seq 267/268 的工具错误即此文案）；本行的认可链路必须走 receipt 通道。这是 approval/gate 行的机制，见 docs/dsh-mapping.md:35-40。",
+    "2026-11-09/11-13/11-14 的 panel.workbench/D58 改动改了 StoryView 的外围结构，但 RESUME_TEXT、resume 注入与 confirm-foundation 映射未变，11-05 回执仍对应本行的核心行为。"
+  ]
+}

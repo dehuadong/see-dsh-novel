@@ -1,0 +1,100 @@
+{
+  "id": "runtime.telemetry",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/execution-evidence.ts",
+      "line": "4-15",
+      "behavior": "执行证据 sink：withExecutionEvidence 建立作用域，recordExecutionEvidence(type,payload) 把带类型的事件交出去；usage、耗时与失败不做独立存储，而是作为事件内容。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/runtime.ts",
+      "line": "133-147",
+      "behavior": "每个 action 执行都把 sink 收到的事件连同 capabilityId/actionId/actionExecutionId 追加到 episode store；action-started/completed 也作为 episode 事件写入（:114-121、:163-177）。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/pi-stream.ts",
+      "line": "246-255",
+      "behavior": "model-call-completed 事件带 status 与完整 response（含 usage）；错误路径带 error 与 partialOutput，重试写 model-call-retry。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/worker-agent.ts",
+      "line": "291-300",
+      "behavior": "每次 worker 调用把 prompt/completion/total token 用量返回给调用方，由上层决定是否随交付持久化。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/episode-store.ts",
+      "line": "58-78",
+      "behavior": "episode 事件按 seq 与 timestamp 追加，耗时可由事件时间差读取；episode 与事件落 SQLite，可按 workId 查询。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "2829-2866",
+      "behavior": "Studio 暴露 /api/v1/episodes 与 /api/v1/episodes/:id 读取某个作品的 episode 列表与事件明细，作为执行回执面。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/plugin/telemetry-tool.ts",
+      "line": "186-250",
+      "behavior": "story_telemetry 只读：subagents.listDescendants 取当前会话的整棵委派树，逐个 child 用 sessionQuery.observeSession 读 tokenUsage 与 subagentTiming 投影，生成 childSessionId/label/mode/depth/state/durationMs/usage；读不出或损坏的 child 记 diagnostics。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/telemetry-tool.ts",
+      "line": "161-167",
+      "behavior": "状态判定按源可观察信号：驻留且有未闭合轮次才是 running；否则按 lastTurnCompleted 给 completed/incomplete，两个信号都没有是 unknown；不靠耗时是否可读来猜状态。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/telemetry-tool.ts",
+      "line": "252-279",
+      "behavior": "合计只覆盖返回的行：delegations/incomplete/diagnostics/partial/durationMs/usage；usage 或 duration 任缺一行就计 partial，不用 0 填充。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/telemetry-tool.ts",
+      "line": "307-316",
+      "behavior": "工具注册为只读回执，没有写文件或监听事件的副作用；回执由会话投影直接读出。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/session-usage.ts",
+      "line": "37-48",
+      "behavior": "tokenUsage 四桶必须齐全才视为可读，否则整份用量视为不可得（与回执的 partial 语义一致）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/chapter-usage-tool.ts",
+      "line": "72-93",
+      "behavior": "story_record_chapter_usage 把本章 writer/review 直接子会话的四桶汇总成 prompt/completion/total，写 source/story/runtime/chapter-NNNN.usage.json；这是按章持久化的用量回执，结算时写进章节索引（D60）。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/telemetry.test.mjs:54 空树返回空回执与可读卡片",
+    "packages/see-dsh-novel/test/telemetry.test.mjs:79 completed child 的 usage/duration/state 与观察释放",
+    "packages/see-dsh-novel/test/telemetry.test.mjs:102 running 需驻留+未闭合轮次；驻留空闲与崩溃残留不算 running",
+    "packages/see-dsh-novel/test/telemetry.test.mjs:138 incomplete 计入 summary.incomplete",
+    "packages/see-dsh-novel/test/telemetry.test.mjs:165 读不出的 child 记 null + partial，不补零",
+    "packages/see-dsh-novel/test/telemetry.test.mjs:198-239 缺 mode/depth 与 corrupt/unavailable 诊断、坏行不占 limit",
+    "packages/see-dsh-novel/test/telemetry.test.mjs:240-287 limit 取最近、非法 limit 与缺服务报错、取消照常抛出",
+    "packages/see-dsh-novel/test/chapter-usage.test.mjs:69-155 直接子会话汇总、越界子会话拒绝、缺四桶拒绝、同章覆盖",
+    "artifacts/real-runs/runtime.telemetry.json 记录 2026-11-05 的 pnpm run verify 135 passed"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.telemetry.json：date=2026-11-05，sessionId=session-d8617ae4-7867-49eb-ac7c-351e70492b7c（非 process:*）；tests.passed=true，receipts 描述 seq 62 派出子会话 f227722a-e71a-4b0e-9abb-c3e2b905f668、seq 78/79 第一次 story_telemetry 返回「委派 1 笔…3967ms…输入 3075 / 输出 491…[running]」、seq 85/86 第二次返回 completed 4798ms/输入 3255/输出 559。本机 C:\\Users\\MyPC\\.dsh\\sessions\\--E-see-dsh-novel-.artifacts-work-empty-4--\\session-d8617ae4-...\\session.v4.jsonl.zstd 可解出同样的事件与工具文本，回执可逐条复核。",
+  "deviations": [
+    "源把 usage/耗时/失败写进 episode store（SQLite），Studio 通过 episodes API 读取；复刻不建 episode store，由 DSH session log 保存同一批证据，story_telemetry 从 subagents/sessionQuery 投影读成回执。映射表 docs/dsh-mapping.md:14『会话／事件』行承接此替换。",
+    "源的证据粒度是每次 model-call/action（pi-stream.ts:246-255、runtime.ts:114-177）；复刻的 story_telemetry 粒度是每个 child session 的合计。一个委派包含多次模型调用，合计与源的单事件回执不是同一形状，但 capability 行的『每次委派』对应到子会话合计。",
+    "源按 workId 的 episode 跨会话可查（server.ts:2829-2866）；复刻的 story_telemetry 作用域是调用它的会话的当前委派树，不能跨会话查历史委派。按章用量由 story_record_chapter_usage 持久化，是另一条回执路径。",
+    "失败在复刻回执里体现为 state=incomplete/unknown 与 diagnostics 的 corrupt/unavailable；源 model-call-completed 还带 error/status 文本，复刻没有把错误原因读进回执。"
+  ],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "失败回执只有状态与诊断，没有错误文本/错误码；源 model-call-completed 的 status/error 可在 episode 事件里读到。需要错误原因时要读 DSH 会话日志本身，story_telemetry 不提供。",
+    "回执只覆盖当前会话的 descendants；主会话自己的模型调用、非委派的 action（如导出、恢复）不在 story_telemetry 里，也不存在与源 episodes 等同的按作品查询入口。",
+    "capabilities.yaml:75-82 的 source 只写 execution-evidence.ts；真实的用量/耗时/失败记录还分布在 pi-stream.ts、worker-agent.ts 与 episode-store.ts，账本证据位置不完整。",
+    "realRun 的测试记录是 2026-11-05 的 135 例；当前 telemetry.test.mjs 已扩到 14 例、chapter-usage 4 例，回执里的数字不代表当前套件规模。2026-11-14 的 D60 只把 usage/release 抽到 session-usage.ts，telemetry-tool.ts 是纯重构，未改变本行回执语义。",
+    "DSH 的 subagentTiming/tokenUsage 投影由宿主生成；回执的正确性依赖宿主投影存在，缺投影时只能给 partial/unknown，不能从模型输出反推。"
+  ]
+}

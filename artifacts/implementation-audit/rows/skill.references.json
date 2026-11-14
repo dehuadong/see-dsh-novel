@@ -1,0 +1,86 @@
+{
+  "id": "skill.references",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": "17-27",
+      "behavior": "use_skill 参数同时提供 resourcePath（精确取一个参考文件）与 query（对技能参考做自然语言检索）；描述明确 query 用于路径未知时。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": "59-98",
+      "behavior": "激活技能后按 resourcePath 精确读参考：safeChildPath 限界、逐级 lstat 拒绝符号链接、必须是文件、≤512KB、含 NUL 视为非 UTF-8 文本并拒绝；否则按 query 走 retrieveSkillResources。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": "100-118",
+      "behavior": "激活结果携带 resource 或检索到的 references（path/heading/body/charStart/charEnd），并自动加载 SKILL.md 里字面链接的 references/examples 文件。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": "167-214",
+      "behavior": "retrieveSkillResources：递归收集技能下 md/txt（跳过 SKILL.md、符号链接、>512KB、非文本），按标题切段后建 LocalSearchIndex，scope 为该技能，query 检索返回 top 4（可调 limit）带 char 区间与 score 的段落。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": "249-261",
+      "behavior": "loadLinkedSkillResources：SKILL.md 中字面引用的 references/examples 文件必须存在且可读，否则以 SKILL_REFERENCE_UNAVAILABLE／SKILL_REFERENCE_INVALID 失败。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": "305-319",
+      "behavior": "use_skill 的激活结果只对原始轮次有效，后续轮次被替换为过期说明；另有 hydrateActivatedSkillGuidance 按任务 query 重新取参考段（:221-246）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/skills.ts",
+      "line": "151-163",
+      "behavior": "installStorySkills 只把随包 SKILL.md 注册到 DSH skills 服务，并附 provider 与 resourceBase: { kind: 'directory', path: <packageRoot>/skills/<name> }；没有资源读取、query 检索或激活工具。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "363-381",
+      "behavior": "renderCraft 在阶段上下文里把该阶段的 SKILL.md 与 references/*.md 全部整份拼入 prompt；不存在按 query 取段或按需读取。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/skill-references.test.mjs",
+      "line": "26-63",
+      "behavior": "测试只断言每条技能带 provider 与目录基址，以及 review/longform 的参考文件在磁盘上可读；没有 query、边界校验或失败回执用例。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/host.test.mjs",
+      "line": "136",
+      "behavior": "宿主测试只断言 skills 列表为 longform-writing/story-proposal/story-review。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/skill-references.test.mjs:26 每条随包技能带 provider 与 resourceBase 目录",
+    "packages/see-dsh-novel/test/skill-references.test.mjs:40 story-review 的 references/review-matrix.md 可读",
+    "packages/see-dsh-novel/test/skill-references.test.mjs:54 longform-writing 的 references 文件可读",
+    "packages/see-dsh-novel/test/host.test.mjs:136 预设技能清单",
+    "本次审计运行 node --import tsx --test（含 skill-references.test.mjs）共 92 例通过；通过只覆盖资源基址，不覆盖 query 或边界校验"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/skill.references.json：date=2026-11-10，sessionId=process:skill.references，tests.passed=true（pnpm run verify，350 passed），receipts 说明只注册 resourceBase 并按路径读取、源 query 在 DSH 无对应 API；文件自述『该回执是 process-level 注册/文件测试，不是 DSH 会话』。",
+  "deviations": [
+    "账本标题要求 use_skill.query 按需检索参考、而非整份注入；复刻没有 query 入口（skills.ts:151-159），且阶段上下文把 SKILL.md 与 references/*.md 整份注入（stages/index.ts:363-381），与标题相反。",
+    "源 resourcePath 的越界、符号链接、非文件、512KB、NUL/UTF-8 校验与失败回执（skill-tool.ts:77-92,288-303）未复刻；DSH 的路径读取由模型侧工具负责，复刻没有等价校验。",
+    "源自动加载 SKILL.md 中字面链接的 references/examples 并在缺失/损坏时报 SKILL_REFERENCE_UNAVAILABLE／INVALID（skill-tool.ts:100-101,249-261）；复刻无此行为。",
+    "源激活结果按轮次过期并按任务 query 再水合（skill-tool.ts:221-246,305-319）；复刻没有『激活』概念，技能正文由阶段注入，生命周期不同。",
+    "源检索按标题切段并在内存 LocalSearchIndex 内以技能 scope 检索 top 4（skill-tool.ts:167-214）；复刻没有对应检索实现（search.unified 行仍 missing）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "D23 use_skill.query 参考检索未实现；D54 参考边界校验与失败回执未实现",
+    "owner": "skill.references",
+    "closure": "注册一个按技能取参考的工具/入口：收集 md/txt、按标题切段、对 query 检索 top N 并返回带区间与来源的段落；同时复刻 resourcePath 的 safe-child、符号链接、非文件、512KB、UTF-8 与失败回执。停止把整份 references 注入当作 query 的等价；补检索与拒绝用例。"
+  },
+  "limitations": [
+    "DSH skills 服务只声明资源基址，没有 query API（docs/dsh-mapping.md 映射表『技能』行）；但项目可以注册工具提供检索，因此缺失是保真债而不是 DSH 机制强制。",
+    "真实回执是进程级注册/文件测试，不是 DSH 会话；3 例只证明基址与文件可达。",
+    "账本 status 仍为 verified，但本行标题要求的参考检索没有交付；测试通过不等于源等价。",
+    "技能正文当前由阶段注入（systemPrompt.context）而非模型主动 use_skill，加载时机也不同；这一层已登记在映射表『方法注入』，本行只裁决参考检索。"
+  ]
+}

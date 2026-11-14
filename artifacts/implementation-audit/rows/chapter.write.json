@@ -1,0 +1,112 @@
+{
+  "id": "chapter.write",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 100,
+      "behavior": "writeChapter 先写正文（structured tool 返回 title／content），再在同一调用里结算状态；wordCount 用 countChapterLength 按 countingMode 计算。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer-prompts.ts",
+      "line": 19,
+      "behavior": "writer system prompt 首段带作品题材与平台（英文 :19、中文 :28），并注入权威／字数／人称／主角／书规／文风六段。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 453,
+      "behavior": "buildGovernedUserPrompt 组装：本章用户指令（最高优先级）、用户方向（author_intent／current_focus）、memo 叙事块、selected context 与篇幅要求。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 513,
+      "behavior": "buildChapterContextBlock 把 externalContext（章级作者指令）作为「本章用户指令（最高优先级）」原文放进 user prompt；指定标题必须原样使用。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 551,
+      "behavior": "buildLengthRequirementBlock 把目标字数与显式 min／max 章长写进 prompt。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": 364,
+      "behavior": "saveChapter 一次提交写章节文件、三份投影、四份状态 JSON、snapshots/<N> 七份与 chapters/index.json；:374 文件名只做 sanitize；:381／:449 删除同章号旧标题的 superseded 文件。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/length-metrics.ts",
+      "line": 15,
+      "behavior": "countChapterLength 先 stripMarkdownMetadata（去 frontmatter／代码围栏／标题／分隔线），中文数全部非空白字符，英文按 [A-Za-z0-9]+(?:'...)? 分词。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 1469,
+      "behavior": "写了 chapterWordCount 之外的显式 min／max 时，pipeline 回执带 chapterLengthDelivery（needs_revision／checks_passed），不拒稿。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/write-tool.ts",
+      "line": 58,
+      "behavior": "story_write_chapter 只写 .drafts/chapter-NNNN.md：要求 workflow start、章纲、未发布；:63 拒绝标题带章号前缀；:66 已发布章拒绝；:85 只返回 charCount／target。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-draft.ts",
+      "line": 22,
+      "behavior": "draftPath 固定为 .drafts/chapter-${NNNN}.md；:82 writeChapterDraft 单文件原子提交。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": 199,
+      "behavior": "detectStage 用 .drafts/<NNNN>.md 判断草稿存在（与 draftPath 不一致）；:200 据此把阶段留在 write。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/writer.ts",
+      "line": 45,
+      "behavior": "renderWriterContract 注入六段：权威／字数／人称／主角／规则与风格／本章章纲 + 已选上下文；:63 无题材／平台首段，:88 只给目标字数，无 min／max，也无 externalContext／章级用户指令。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/length.ts",
+      "line": 27,
+      "behavior": "stripMarkdownMetadata 与源逐行同形；:53 countChapterLengthByMode 同源口径。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-document.ts",
+      "line": 102,
+      "behavior": "writeChapterDocument 写 source/chapters + artifact，并在 :115 拒绝同章号已有正文；该函数只被测试引用，生产写作只走草稿 + 结算。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/settle-tool.ts",
+      "line": 231,
+      "behavior": "发布时由结算渲染 source/chapters/<NNNN>_<标题>.md；没有删除同章号旧标题文件的分支。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-document.test.mjs（5 例：标题／正文剥离、非法标题、字数口径、二次写入拒绝、artifact 快照）",
+    "packages/see-dsh-novel/test/writer-contract.test.mjs（3 例：中文六段、缺省段省略、英文契约）",
+    "packages/see-dsh-novel/test/write-tool.test.mjs（3 例：workflow start 闸门、草稿落盘、草稿审稿后改稿路径）",
+    "packages/see-dsh-novel/test/stage-context.test.mjs（阶段夹具；write 夹具没有草稿，未测写入后的阶段）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.write.json：date=2026-11-14，sessionId=process:chapter.write；receipts 明说「本次口径切换后未重新跑真实会话；旧会话回执的 2363 是 CJK 口径，已失效」，属 process-level 证据。",
+  "deviations": [
+    "草稿写入后阶段不前进：writeChapterDraft 写 .drafts/chapter-0001.md，而 detectStage 检查 .drafts/0001.md；实测同一工作区在存在 .drafts/chapter-0001.md 时 detectStage 仍返回 write，改写成 .drafts/0001.md 才返回 review。写工具此时允许覆盖草稿（仅在已有审稿记录时拒绝），写→审阅的交接不成立。",
+    "writer 契约缺源的两块输入：题材／平台首段（writer-prompts.ts:19／:28）与本章用户指令（writer.ts:513 的 externalContext）；复刻全仓没有读取 chapter-NNNN.user-brief.md 或 workflow-start.instruction 的写作路径。",
+    "显式 min／max 章长既没有进入 writer prompt（源 writer.ts:551），也没有 delivery 回执（源 runner.ts:1469）；work.metadata.minChapterLength／maxChapterLength 被严格校验后无人使用。",
+    "标题拒绝章号前缀是复刻新增限制（write-tool.ts:63）；源只做文件名 sanitize（writer.ts:374／:695），不因标题内容拒稿。",
+    "D61：源 saveChapter 在标题变化时删除同章号旧 .md（writer.ts:381-382／:449）；复刻没有改标题的写入路径，分支不可触发；scope.md 的 owner 已改回 chapter.write，触发是 import_chapters；fidelity-audit 同。",
+    "账本 implementation 指向 core/chapter-document.ts，但它只在测试里被调用；生产写入是 core/chapter-draft.ts + pipelines/long/settle-tool.ts，账本映射与实际入口不一致。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "草稿写入后阶段停在 write（.drafts 路径不一致）；writer 缺章级用户指令与 min／max 区间回执；D61 标题删除分支不可达",
+    "owner": "chapter.write（阶段判定代码在 runtime.stage-context）",
+    "closure": "统一 draftPath 与 detectStage 的路径（或直接复用 draftPath()），补「story_write_chapter 后 detectStage=review」用例；把 workflow-start.instruction 与 work.metadata.min／max 注入 writer 契约并返回 delivery；修正 scope.md 的 D61 owner 与账本 implementation；D61 随改标题写入路径（import_chapters）关闭。"
+  },
+  "limitations": [
+    "只有 process-level 证据；字数口径切换后没有重跑真实 DSH 会话，旧会话回执已失效。",
+    "没有覆盖「写草稿后阶段变为 review」的测试；stage-context 的 write 夹具直接构造 plan + start，不经过 story_write_chapter。",
+    "源 writer 在同一调用内完成正文 + 结算；复刻拆成草稿 + 结算两阶段（已登记 chapter.publish／chapter.settle 偏差），本行只审首版正文。",
+    "writer 子代理的提示由主编临场组装，阶段契约注入只保证主会话看到六段；测试断言契约文本，不断言子代理实际收到。",
+    "对照：capabilities.yaml:275-282 标 verified；docs/fidelity-audit.md:386-392 判「机制等价（D16 已偿还）+ D61 残余」；D16 的 writer 契约只覆盖六段，未覆盖章级指令／min-max／草稿阶段推进，故本行记 false-equivalence。"
+  ]
+}

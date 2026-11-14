@@ -1,0 +1,78 @@
+{
+  "id": "runtime.client-ui",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/studio/package.json",
+      "line": 2,
+      "behavior": "源 Studio 是独立的 web workbench 包 @actalk/inkos-studio，前端用 React 19（62 行）与 Vite 6（72 行），由自己的 API 服务提供页面。"
+    },
+    {
+      "file": "inkos/packages/studio/src/App.tsx",
+      "line": 5,
+      "behavior": "Studio 前端按 hash route 切页：Dashboard、BookDetail、TruthFiles、ProjectSettings、ImportManager、StoryPlayer 等（5-26 行），是多页面 SPA。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": 120,
+      "behavior": "Studio 的删除等动作使用 ConfirmDialog 加 fetch 调服务端 API（120-131、567-568 行），页面自己拥有确认与提交。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": 85,
+      "behavior": "apply() 安装样式、建立 prompt 队列与命令回执面、按 preset 哨兵与槽位声明条件注册“作品”视图（85-176 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/styles.ts",
+      "line": 56,
+      "behavior": "installStyles 把一个 <style> 挂到 document.head，dispose 时移除（56-63 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": 99,
+      "behavior": "StoryView(props: ConvViewProps & InjectFace<ViewInjected>) 使用类型化 props；Workbench.tsx:40 同样是有类型的组件。"
+    },
+    {
+      "file": "packages/see-dsh-novel/scripts/bundle.mjs",
+      "line": 61,
+      "behavior": "buildClientEntry 用 esbuild 产出 CJS module-loader factory，jsx: automatic，react/react-jsx-runtime 外部化（61-83 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/client.test.mjs",
+      "line": 340,
+      "behavior": "apply 安装样式、声明两个槽位、仅在预设匹配时注册视图，卸载后全部清理（340-377 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/client.test.mjs",
+      "line": 857,
+      "behavior": "构建产物保留模块加载器 handoff，factory 只依赖 react/react-jsx-runtime，产物 apply 可运行（857-886 行）。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/client.test.mjs：34 例，含 apply 装样式与两个槽位条件注册（340-377）、预设读取三态、索引驱动渲染、面板动作派发、命令四态回执、START_TEXT 与 resume 注入面、产物读取分页、构建产物 loader（857-886）",
+    "packages/see-dsh-novel/test/boundaries.test.mjs：4 例，含 client 层只允许宿主 client 包/react/自身相对导入且宿主必须 import type（54-79）",
+    "packages/see-dsh-novel/test/workbench.test.mjs：工作台渲染与动作面（本行只承担客户端基线，工作台内容归 panel.workbench）"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.client-ui.json：date 2026-11-04，sessionId session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*）；receipts 记录 lib/client.js 9325 字节与 sha256、模块表提供 react、面板提交 story-review/approve/reject 的 seq 371-376、面板本地回执与四态测试。注意该回执是 Workbench 加入前的旧客户端：当前 lib/client.js 为 43507 字节，client.test.mjs 34 例而非回执里的 8 例。",
+  "deviations": [
+    "源是独立 HTTP 服务＋多页 SPA（studio/package.json、App.tsx:5-26）；复刻是 DSH client 插件＋slots 的单一“作品”视图（client/index.ts:139-176），没有自己的服务端与路由。该替换已登记在 docs/dsh-mapping.md:22 的面板映射与 :49-54 的面板偏差。",
+    "Studio 的页面集合（Dashboard、BookDetail、TruthFiles、ProjectSettings、ImportManager、StoryPlayer 等）没有逐一迁移；复刻只保留 conversation.view 的一个视图，其余面板能力分散到 panel.workbench／panel.logs／panel.analysis，后两行仍 missing。",
+    "Studio 的确认与文件浏览是独立组件加服务端 API（BookDetail.tsx:120-131 的 DELETE /api/v1/books/:id）；复刻改为宿主命令/提示与 workspaceFiles 读面（client/index.ts:97-131），确认语义归 panel.confirm。",
+    "真实回执过期：9325 字节/8 例描述的是旧客户端，当前产物 43507 字节、client.test.mjs 34 例；旧回执不能继续作为当前客户端行为的证据。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "客户端 real-run 回执过期（9325B/8 例 → 43507B/34 例）",
+    "owner": "runtime.client-ui",
+    "closure": "重录 artifacts/real-runs/runtime.client-ui.json：当前 lib/client.js 大小与 sha256、client.test.mjs 与 workbench.test.mjs 的通过数、真实会话里面板注册与命令回执的 seq。"
+  },
+  "limitations": [
+    "DSH client 只能按路径读 panel.index.json 与 workspaceFiles，不能列目录；阶段与产物清单因此由宿主投影提供（docs/dsh-mapping.md:183-188）。",
+    "没有独立前端服务；面板从会话进入，与对话、轨迹并列。",
+    "按作者裁决 D31 不做桌面/系统级回执，证据只到进程级测试与真实会话回执。",
+    "构建产物用 vm＋document stub 验证 loader handoff，不是真实浏览器 E2E；浏览器证据只来自 real-run 的文字回执。"
+  ]
+}

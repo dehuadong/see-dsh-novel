@@ -1,0 +1,69 @@
+{
+  "id": "foundation.ready-check",
+  "verdict": "faithful",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/utils/outline-paths.ts",
+      "line": "15-41",
+      "behavior": "isBookFoundationComplete(bookDir)：required 依次为 book.json、story/outline/story_frame.md、volume_map.md、story/book_rules.md、story/book_rules.json、story/pending_hooks.md；任一路径 access 失败（ENOENT）立即 false，其它错误抛出。六项齐全后遍历 主要角色、major、次要角色、minor 四个目录，任一目录的 readdir 结果里有条目以 .md 结尾即 true；四个目录都缺/无 .md 才 false。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/outline-paths.ts",
+      "line": "4-14",
+      "behavior": "该判据用于 create-status 回答 ready：磁盘上五段基础设定齐全才算完成，半成品不算；注释明确『complete mirrors the five sections（story_frame/volume_map/book_rules/pending_hooks/roles）』，book.json 是作品身份。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/work.ts",
+      "line": "225-240",
+      "behavior": "workProbes：并行探测 work.json、story/outline/story_frame.md、volume_map.md、story/book_rules.md、book_rules.json、story/pending_hooks.md 六项（stat 存在即真）；只有六项全真才继续 roleCardExists，否则 hasRoleCard=false（与源『缺必需文件先 false』的可观察结果一致）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/work.ts",
+      "line": "242-255",
+      "behavior": "roleCardExists：遍历 ROLE_TIER_DIRS 四个目录，readdir 任一目录里有以 .md 结尾的条目即 true；ENOENT 跳过，其它错误抛出；与源的四目录/.md 判据逐条对应。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/story-paths.ts",
+      "line": "51-58",
+      "behavior": "ROLE_DIR_NAMES={major:'主要角色',minor:'次要角色'}；ROLE_TIER_DIRS=[主要角色, major, 次要角色, minor] 四个目录，路径在 source/story/roles 下。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/story-next.ts",
+      "line": "50-70",
+      "behavior": "storyNext：七项探针全假→unbound；缺 outline 两份→foundation（下一步 outline）；缺 book_rules.md/json 或 pending_hooks→draft（下一步 details）；只剩缺角色卡→draft（下一步 cast_index）；七项全真→ready。阶段判定只消费 workProbes，不额外读状态文件。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/story-next.ts",
+      "line": "11-28",
+      "behavior": "PHASES=['unbound','foundation','draft','ready']；NEXT_STEPS.ready='panel.confirm'（2026-11-09 由 story_gate 改成 panel.confirm）；就绪判据本身不依赖阶段实现。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/ready-check.test.mjs:34 ready needs seven files and at least one card in any tier directory",
+    "packages/see-dsh-novel/test/ready-check.test.mjs:63 the English tier directories are accepted, and an empty directory is not",
+    "packages/see-dsh-novel/test/ready-check.test.mjs:79 a manifest alone is not readiness, and readiness does not need a manifest",
+    "packages/see-dsh-novel/test/ready-check.test.mjs:107 a card is not probed while a required file is missing",
+    "packages/see-dsh-novel/test/ready-check.test.mjs:119 draft points at details while rules or hooks are missing",
+    "packages/see-dsh-novel/test/host.test.mjs:150 story_next 按工作区文件判定 unbound/foundation/draft/ready",
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 ready-check.test.mjs 5 例；host.test.mjs 未在本次运行内"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/foundation.ready-check.json：date=2026-11-07，sessionId=session-9b39af0e-8b8b-410f-a9c0-df61c99891c0（非 process:*），tests.passed=true（pnpm run verify，276 passed）。receipts：work-ready 会话里基础设定齐全、无章纲无正文时调 story_next 回执『阶段 ready · 夜行测试』；临时移除 source/story/book_rules.json 后回执『阶段 draft · 夜行测试』，说明规则数据仍是就绪门槛；workProbes 七项（work.json、story_frame、volume_map、book_rules.md、book_rules.json、pending_hooks、至少一张角色卡），current_state.md/chapter_summaries.md 不参与；stages 与 story_next 已统一同一组文件。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-ready--/session-9b39af0e-.../session.v4.jsonl.zstd 存在（53477 字节，2026-11-07 13:28 写入）。",
+  "deviations": [],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "源的身份文件是 works/<id>/book.json，复刻用工作区根 work.json 替代；这是已登记的『一个工作区即一部作品』结构映射（docs/dsh-mapping.md 映射表『作品存储』、runtime.session-binding 行），就绪判据本身（存在性）不变。",
+    "复刻把就绪判定交给 story_next 工具并扩展成 unbound/foundation/draft/ready 四阶段（story-next.ts:50-70）；源没有阶段状态机，阶段语义归 runtime.stage-context，本行只裁决『就绪 = 六项文件 + 至少一张卡』。",
+    "realRun 是 2026-11-07 的会话；story-next.ts 在 2026-11-09（commit ac7c618）把 ready 的下一步从 story_gate 改成 panel.confirm，回执只引用『阶段 ready』没有引用 next，因此判据仍成立，但回执没有覆盖改动后的输出。",
+    "workProbes 在必需文件缺失时把 hasRoleCard 置 false（不探测角色目录）；源在这种情况下直接返回 false，可观察的布尔结果相同，复刻的七项探针对象会多一个 false 信息。",
+    "源 isBookFoundationComplete 也被 Studio create-status 使用；复刻的消费者是 story_next/阶段投影，消费者机制不同但判定函数等价。",
+    "测试命令与通过数在 realRun 里是当时的套件（276 passed），当前套件已扩大；本次只复跑了 ready-check/related 六文件，未重跑全量 verify。"
+  ]
+}

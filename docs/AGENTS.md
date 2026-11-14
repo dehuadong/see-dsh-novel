@@ -27,6 +27,7 @@
 | Agent Note | 已启用；长期技术提案、设计、决定、备选与理由 | 记录根 `.agents/notes/`（`proposed/`、`implemented/`、`rejected/`、`archived/`）；格式与生命周期遵循 `write-agent-notes` Skill；工作项链接到 Note |
 | 领域术语表 | 已启用；单上下文 | 根目录 `GLOSSARY.md`；术语需要收敛时由 `domain-modeling` Skill 建立，当前不存在 |
 | 独立 RFC／ADR | 新工作未启用 | 相应技术设计与决定归 Agent Note |
+| 实现审计证据 | 按需启用；审计矩阵、逐行证据、finding 复核与限制 | [`../artifacts/implementation-audit/`](../artifacts/implementation-audit/)；判定归 [`fidelity-audit.md`](fidelity-audit.md)，不建第二状态表 |
 | 独立 Spec | 按需启用；跨工作项持续生效的行为合同 | 首次需要时先登记属主、适用范围、位置与规则，再创建正文 |
 
 已启用的类型即使还没有记录，也按上表登记位置或创建规则；记录目录在首份记录需要时创建。

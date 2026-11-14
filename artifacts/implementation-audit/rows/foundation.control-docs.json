@@ -1,0 +1,125 @@
+{
+  "id": "foundation.control-docs",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 59,
+      "behavior": "defaultAuthorIntent 中英文模板逐字定义：中文 `# 作者意图\\n\\n（在这里描述这本书的长期创作方向。）\\n`，英文 `# Author Intent\\n\\n(Describe the long-horizon vision for this book here.)\\n`。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 65,
+      "behavior": "defaultCurrentFocus 中英文模板逐字定义：中文 `# 当前聚焦\\n\\n## 当前重点\\n\\n（描述接下来 1-3 章最需要优先推进的内容。）\\n`，英文 `# Current Focus\\n\\n## Active Focus\\n\\n(Describe what the next 1-3 chapters should prioritize.)\\n`。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 76,
+      "behavior": "ensureControlDocumentsAt 先建 source/story、story/runtime、story/outline、roles/主要角色、roles/次要角色，再对 author_intent.md 与 current_focus.md 走 writeIfMissing。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 93,
+      "behavior": "author_intent.md 缺失时，若外部指令 trim 后非空则写 `trimEnd + \"\\n\"`，否则写默认模板；current_focus.md 缺失时写默认模板。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 107,
+      "behavior": "loadControlDocuments 先 ensureControlDocuments，再读 author_intent.md 与 current_focus.md，返回 authorIntent／currentFocus／runtimeDir；它本身不读 brief。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 677,
+      "behavior": "writeIfMissing 只用 stat 判断存在；ENOENT 时直接 writeFile 写入，已有文件不覆盖。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 1299,
+      "behavior": "每次 _executeNextChapterLocked 在装配章节输入之前调用 ensureControlDocuments(bookId)，因此方向文档被手删或缺失时会在下一次章节执行前补默认模板。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/planning-materials.ts",
+      "line": 57,
+      "behavior": "实际章前读取 author_intent.md、current_focus.md 与 story/brief.md 用 readFileOrDefault；缺失返回空串而不是抛错，前提是 runner 已经 ensure 过方向文档。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/control-docs.ts",
+      "line": 26,
+      "behavior": "defaultAuthorIntent 与源中英文模板逐字一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/control-docs.ts",
+      "line": 32,
+      "behavior": "defaultCurrentFocus 与源中英文模板逐字一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/control-docs.ts",
+      "line": 45,
+      "behavior": "controlDocumentWrites 建 source/story、runtime、outline、两种角色目录，返回缺失的 author_intent／current_focus 写入项；只补缺失，不覆盖已有文件。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/control-docs.ts",
+      "line": 60,
+      "behavior": "author_intent.md 缺失时，非空指令写 `trimEnd + \"\\n\"`，否则默认模板；current_focus.md 缺失时写默认模板。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/control-docs.ts",
+      "line": 77,
+      "behavior": "readControlDocs 先取 controlDocumentWrites，有缺失则 commitFoundation 补写，再读 brief（source/brief.md）与两份方向文档；brief 缺失返回空串。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/init-work.ts",
+      "line": 25,
+      "behavior": "建书 initWork 把方向文档兜底与 source/story/brief.md（作者确认的 instruction）并入创建 work.json 的同一次提交。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": 217,
+      "behavior": "foundation details 第一次写真值时会补方向文档；outline 与 cast_documents 也补。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/truth-tool.ts",
+      "line": 83,
+      "behavior": "story_truth_file 每次写入前补方向文档，校验失败时也先提交补齐的控制文档。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": 143,
+      "behavior": "章前读取用 readText：ENOENT 返回空串，不补默认模板。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": 227,
+      "behavior": "plannerGoal 直接读 CURRENT_FOCUS_FILE、AUTHOR_INTENT_FILE 与 STORY_EXTERNAL_BRIEF；文件缺失只会少拼一段，不会写默认。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": 298,
+      "behavior": "fixedContext 直接读 current_focus／author_intent／style guide／canon；复刻的 plan／write action 入口没有等价的 ensureControlDocuments 调用。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/control-docs.test.mjs：intent 原样与 brief 同批落盘、只补缺失、目录骨架、中英模板、brief 缺失返回空、foundation details 播种",
+    "packages/see-dsh-novel/test/foundation.test.mjs：outline 与 details 的写入集合包含两份方向文档"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "session-cf185c39-8525-4bcc-89c3-ee93756c51ad 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-control--；session 日志含 story_work_create（回执『已立项《夜行控制文档测试》』）与 story_foundation_details（回执『写入 11 个文件』），日期 2026-11-06。证据缺口：当前 details 还会写 snapshots/0 与 chapters/index.json，11 文件回执是旧写入集；real-run 中『移走 brief 后调用 readControlDocs』的对照不在 session 日志内。",
+  "deviations": [
+    "章前读取不补方向文档：源在每次 _executeNextChapterLocked 前 ensureControlDocuments（runner.ts:1299），复刻的 plan／write action 入口不调用 controlDocumentWrites；context-package 对缺失文件返回空串（context-package.ts:143、298），被手删的 author_intent／current_focus 不会像源那样在下一次章节执行前补默认模板。复刻的 readControlDocs 会补，但只有测试调用，没有产品消费者。",
+    "方向文档语言解析：源 ensureControlDocuments 从 book.json 解析 language；复刻由调用方 projectionLanguage 按 manifest → work.json → zh 解析（docs/dsh-mapping.md 已登记）。这是机制差异，不是本行判 false 的主因。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "章节执行前不补方向文档：源在每个章节执行前 ensureControlDocuments，复刻只有 foundation／truth 写入路径补，章前读取缺文件即空",
+    "owner": "foundation.control-docs",
+    "closure": "在 plan／write 入口（或 context 装配前）调用 controlDocumentWrites 或 readControlDocs；新增测试：删除 author_intent.md／current_focus.md 后构建 planner／writer 上下文，文件应被补默认模板且上下文包含该模板。"
+  },
+  "limitations": [
+    "源 loadControlDocuments 在源仓库也没有调用点；源的活行为是 runner 每次章节执行前 ensureControlDocuments。复刻对应的是 foundation／truth 写入时补，两者在『从缺失恢复到有默认』这一点上路径不同。",
+    "复刻 readControlDocs 额外读 source/brief.md（立项 intent）；源的 loadControlDocuments 不读 brief，source/story/brief.md（外部上下文）由 context-package 单独读取。两者是两个 brief，语义没有合并。",
+    "源 ensureControlDocumentsAt 用 writeFile 直接落盘；复刻返回写入项交给同一次 commitFoundation。崩溃安全与提交边界不同，但模板内容逐字一致。",
+    "realRun 的 11 文件回执未覆盖 2026-11-10 之后加入的 snapshots/0 与 chapters/index.json，需按当前 details 写入集重录。"
+  ]
+}

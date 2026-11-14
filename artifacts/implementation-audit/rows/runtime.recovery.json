@@ -1,0 +1,114 @@
+{
+  "id": "runtime.recovery",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "68-93",
+      "behavior": "recoverRoot 只扫根下的 .inkos-file-txn-* 目录：没有 journal 的保留不动；属主 pid 还活着的跳过；phase=prepared 用 backup 回滚、phase=committed 直接删；journal 读不出来（非 ENOENT）直接抛出。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "96-104",
+      "behavior": "recoverAtomicFileSets 在根上按提交队列串行回收，recursive=true 时再扫非隐藏子目录；CLI 的 preAction 与 Studio 启动都用 recursive 版本。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "141-146",
+      "behavior": "commitAtomicFileSet 在每次提交前先 recoverRoot 同一根：写路径上的死事务先被回滚/清理，再开始新事务。"
+    },
+    {
+      "file": "inkos/packages/cli/src/program.ts",
+      "line": "103-114",
+      "behavior": "runProgram 在 commander 的 preAction 钩子里，对找到的项目根执行 recoverAtomicFileSets(root, true)；每个命令 action 执行前都已完成崩溃事务回收。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "6669",
+      "behavior": "Studio 服务启动同样先 recoverAtomicFileSets(root, true)，面板与只读接口看到的是已回滚的文件集。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/episode-store.ts",
+      "line": "251",
+      "behavior": "CreativeEpisodeStore.recoverInterruptedEpisodes 把属主已死的 running episode 标成中断；runtime.ts:59 在启动 episode 前调用。"
+    },
+    {
+      "file": "inkos/packages/core/src/index.ts",
+      "line": "445",
+      "behavior": "源对外导出的恢复面只有 commitAtomicFileSet/recoverAtomicFileSets；检索 core/src 没有 workspace 自检、state 索引重建或章节发布补齐的恢复入口。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "176-202",
+      "behavior": "recoverDeadTransactions 复刻源规则：只扫作品根的事务目录；无 journal 跳过；活属主跳过；prepared 按 backup 与 existed 恢复；committed 删目录；journal 解析失败抛错。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "223",
+      "behavior": "commitBatch 在每次多文件提交前调用 recoverDeadTransactions(base)；单文件 commitFile 不调用（:320-333）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/panel-projection.ts",
+      "line": "61-83",
+      "behavior": "会话发布时的面板预热只重建面板索引（withWorkAction + projectPanelIndex），不调用 recoverDeadTransactions；story_next/detectStage 等只读入口也不回收。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/recovery.ts",
+      "line": "84-137",
+      "behavior": "stagingFindings 扫描事务目录并按 pid/phase 给出 staging-rollback/staging-cleanup/staging-active/staging-unknown；修复在 :396-414 按备份还原或删目录。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/recovery.ts",
+      "line": "189-264",
+      "behavior": "contentFindings 额外把 source/story/state 下缺失的 manifest/current_state/chapter_summaries JSON 与三份投影列为 state-missing，把源 JSON 读不出列为 state-invalid；hooks 缺失只报告不补。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/recovery.ts",
+      "line": "312-353",
+      "behavior": "scanWorkspace 还比对章节文件、snapshots、chapters/index 与 artifact，产出 chapter-unsettled-published 与 chapter-publish-incomplete；后者在 apply 时调用 finalizeChapter（:390-395）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/recovery.ts",
+      "line": "368-421",
+      "behavior": "repairWorkspace 会写回缺失的状态 JSON/投影（commitFile）、补齐最新章发布、回滚/清理死事务、删除属主已死的 .tmp-*；这是源不存在的写修复面。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/recovery-tool.ts",
+      "line": "80-110",
+      "behavior": "story_recover 先扫描，apply=true 时在 withWorkAction 锁内修复并再扫一次，用会话里最近一次 approve 摘要比较并报告 needsReconfirm。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/recovery.test.mjs:79-162 空工作区/空 source/坏 work.json/只有 work.json 的发现集，apply 不写",
+    "packages/see-dsh-novel/test/recovery.test.mjs:165-189 缺失索引按默认内容重建且摘要回到原值；缺 hooks 只报告",
+    "packages/see-dsh-novel/test/recovery.test.mjs:215-268 投影按源 JSON 重建、无源投影只报告、坏形状状态不覆盖",
+    "packages/see-dsh-novel/test/recovery.test.mjs:270-451 prepared/committed/活属主/空 staged/删除型/坏 journal 的事务处理",
+    "packages/see-dsh-novel/test/recovery.test.mjs:478-583 story_recover 扫描/修复/needsReconfirm 与输出 schema",
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs:640-654 最新章缺快照被扫描为 fixable 并由 repairWorkspace 补齐",
+    "packages/see-dsh-novel/test/txn-format.test.mjs 事务格式；packages/see-dsh-novel/test/commit-safety.test.mjs 提交安全",
+    "artifacts/real-runs/runtime.recovery.json 记录 2026-11-08 的 pnpm run verify 291 passed"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.recovery.json：date=2026-11-08，sessionId=session-be199bcf-db91-4deb-ae75-6da15a44a06f（非 process:*）；tests.passed=true，receipts 描述 .artifacts/work-txn-format 上 story_recover(apply:true) 发现 5 项（hooks-missing、三条 state-missing 投影、staging-rollback fixture）、修复 3 项、摘要 a022a236→a8dcdbf3。本机 C:\\Users\\MyPC\\.dsh\\sessions\\--E-see-dsh-novel-.artifacts-work-txn-format--\\session-be199bcf-...\\session.v4.jsonl.zstd 的 seq 24-41 可复核同样的工具调用与回执。注意：d0ae436（2026-11-13，D37）之后 recovery.ts 新增 chapter-publish-incomplete/chapter-unsettled-published 与 finalizeChapter 修复，11-08 的回执没有覆盖这部分当前行为。",
+  "deviations": [
+    "源在 CLI 每个命令 action 前（program.ts:103-114）与 Studio 启动时（server.ts:6669）先回收死事务，因此任何只读入口看到的是回收后的状态；复刻只在多文件提交（commit.ts:223）与备份（backup.ts:132）前回收，story_next/detectStage/panel.index/readArtifact 与 session/created 预热都不回收。崩溃后、下一次提交前，只读路径可能看到半套文件；这与源的可观察时序不同。",
+    "源没有 workspace 自检、状态索引重建或章节发布补齐的恢复入口（index.ts:445 只导出 atomic-file-set 恢复）；复刻新增 story_recover 扫描/修复、缺失状态 JSON 与投影重建、chapter-* 发现与 finalizeChapter 补齐（recovery.ts:189-421）。这些是源没有的写修复面，docs/dsh-mapping.md 没有对应偏差行。",
+    "复刻会把缺失的 canonical 状态 JSON 按默认内容重建（recovery.ts:377-389，stateJsonWrites），源把这些文件当作品真值，没有等价的自动重建；复刻用 needsReconfirm 缓解，但重建本身仍是源不可能的写行为。",
+    "源另有 interrupted episode 的恢复（episode-store.ts:251）；复刻没有 episode store，DSH 会话生命周期承接中断轮次，这部分没有可对照的副本。",
+    "源按 CLI preAction / Studio 启动递归回收项目根（atomic-file-set.ts:96-104、program.ts:103-114、server.ts:6669）；复刻只回收工作区根，事务也只写在工作区根，故在当前布局下等价，但一旦事务出现在子目录不会被回收发现。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "启动/读取边界不回收死事务；自检与索引/章节重建面没有偏差登记；realRun 停在 2026-11-08，未覆盖 D37 后的 chapter-* 行为",
+    "owner": "runtime.recovery",
+    "closure": "在宿主入口（session/created 或 workingDirectory.ensure/读阶段前）调用 recoverDeadTransactions，使只读路径与源启动回收时序一致并补用例；在 docs/dsh-mapping.md 增偏差行，记录源无自检/重建面、复刻新增 story_recover 与 chapter-* 补齐的原因与验证；重录 artifacts/real-runs/runtime.recovery.json，用非 process:* 会话覆盖 chapter-publish-incomplete/chapter-unsettled-published 与启动回收。"
+  },
+  "limitations": [
+    "fidelity-audit.md:136-142 写『源 state 重建索引与故障恢复』，但源的 state 恢复是章节级重算（pipeline/chapter-state-recovery.ts），不是 workspace/work 索引重建；该句把复刻新增的自检面写成了源行为。",
+    "realRun 的 5 项发现与 3 项修复只覆盖 11-08 的扫描集；D37 后的 chapter-* 行为由 chapter-settle.test.mjs:640-654 覆盖扫描与 apply（recovery.test.mjs 未覆盖），但没有真实会话回执。",
+    "story_recover 的修复会写作品文件（状态 JSON、投影、章节发布补齐），不是只读工具；作者调用 apply=true 前要理解这一点。",
+    "DSH 没有独立进程启动钩子可保证在任何命令前回收；若不在仓内自建入口，只能靠提交/备份/显式 story_recover 触发。"
+  ]
+}

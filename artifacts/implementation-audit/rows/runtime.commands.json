@@ -1,0 +1,126 @@
+{
+  "id": "runtime.commands",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": 35,
+      "behavior": "book create 用 requiredOption --title；--genre 默认 xuanhuan、--platform 默认 tomato、--target-chapters 默认 200、--chapter-words 默认 3000，另有 --brief、--lang（35-42 行）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": 47,
+      "behavior": "bookId = deriveBookIdFromTitle(opts.title)，取不到时用 book-<timestamp>（47 行）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": 49,
+      "behavior": "workDir=works/<id>、bookDir=workDir/source；已存在时用 isCompleteBookDirectory 判：完整则拒绝，不完整则 rm(workDir) 后重建（49-60 行）。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": 528,
+      "behavior": "isCompleteBookDirectory 要求 7 项：book.json、story_frame.md、volume_map.md、book_rules.md、current_state.md、pending_hooks.md、chapters/index.json（528-547 行）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": 70,
+      "behavior": "targetChapters/chapterWordCount 用 parseInt(…,10)；language=resolveCliLanguage(opts.lang ?? config.language)（70-72 行）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": 80,
+      "behavior": "--brief 从进程 cwd 读文件；instruction=brief?.trim() || `Create <title>`（80-82、105 行）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": 87,
+      "behavior": "action 里用 executeExplicitCapabilityTool 同步跑 create_book，基础设定完成之后才打印完成行（87-113 行）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/localization.ts",
+      "line": 38,
+      "behavior": "resolveCliLanguage：显式值按 zh*/en* 归一 → INKOS_LOCALE → LC_ALL/LC_MESSAGES/LANG → 缺省 zh（38-53 行）。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/book-id.ts",
+      "line": 3,
+      "behavior": "deriveBookIdFromTitle：trim、lower、非字母数字转 -、去首尾 -、截 30 字（3-10 行）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 469,
+      "behavior": "initBook 只在 externalContext 非空时写 story/brief.md，内容为 externalContext 原文（469-473、491-494 行）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/plugin/work-command.ts",
+      "line": 151,
+      "behavior": "parseWorkCreate：位置参数标题；--lang/--target-chapters/--chapters/--chapter-words/--words/--genre/--platform/--brief/--brief-text、-- 终止符；缺省 200/3000/xuanhuan/tomato（151-191 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/work-command.ts",
+      "line": 201,
+      "behavior": "resolveCommandLanguage：显式 --lang → inkos.json → INKOS_LOCALE/LC_*/LANG → zh（201-236 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/work-command.ts",
+      "line": 238,
+      "behavior": "completeWork=身份＋story_frame＋volume_map＋book_rules.md＋book_rules.json＋pending_hooks；不完整则 prepareCommandRoot 删除 source/ 与根 work.json 后重建（238-254 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/work-command.ts",
+      "line": 261,
+      "behavior": "installInitCommand：initWork 写身份/brief/方向文档，然后 agent.followup 投基础设定指令并立即返回成功（261-313 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/work.ts",
+      "line": 308,
+      "behavior": "work.id = basename(root)，不是标题派生的 slug。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/init-work.ts",
+      "line": 20,
+      "behavior": "initWork 把 instruction 写 source/story/brief.md，并与身份/方向文档同一次提交（20-33 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/work-command.test.mjs",
+      "line": 258,
+      "behavior": "--brief= 仍把“Create <标题>”写进 source/story/brief.md（258-268 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/work-command.test.mjs",
+      "line": 395,
+      "behavior": "重新立项用复刻的 6 项判据：完整拒绝；不完整删除 source/ 与 work.json、保留根上其它文件（395-418 行）。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/work-command.test.mjs：21 例（参数解析与别名/parseInt/语言矩阵/空值/标题原样/写身份/缺省规模/--brief 相对根/--brief=/重新立项/followup 一次与失败/坏 work.json 重建）",
+    "packages/see-dsh-novel/test/work.test.mjs：身份与探针（命令落盘的上游契约）",
+    "packages/see-dsh-novel/test/language.test.mjs：语言归一的公共函数（若命令侧复用）"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.commands.json：date 2026-11-09，sessionId session-ed36c90b-a1dc-4767-b47e-58dbd72eb705（非 process:*）；receipts 记录 /story-init 真机收尾 --lang en --target-chapters 1 --chapter-words 300 的 command/run args、followup 的 agent/inbox/spliced（source kind story-command）、command/done 文本、随后自动 foundation→plan→writer、D20 语言单测与 D21 重新立项清理。当时 309 passed，当前 500+；回执未覆盖后来加入的 --brief-text 等选项。",
+  "deviations": [
+    "标题入口：源 --title 是 requiredOption（book.ts:35）；复刻是位置参数（work-command.ts:151-191），并新增 --brief-text 与 -- 终止符。",
+    "别名不是源行为：源 book create 只定义 --target-chapters/--chapter-words（book.ts:38-39）；--chapters/--words 只出现在 write/auto/short-fiction 等其它命令。docs/fidelity-audit.md:103 把两者写成源别名不成立，测试却按复刻行为固定（work-command.test.mjs:73-81）。",
+    "完整判据不同：源 isCompleteBookDirectory 针对 source/ 目录要 7 项（manager.ts:528-547，含 book.json、current_state.md 与 chapters/index.json、不含 book_rules.json）；复刻 completeWork 针对工作区根要 6 项（work-command.ts:238-241，含 work.json、book_rules.json、不含 current_state.md 与 chapters/index.json）。这不是同一组文件：一份带 source/book.json、story_frame、volume_map、book_rules.md、pending_hooks，但缺 current_state.md/chapters/index.json 的工作区，源判完整→拒绝，复刻判不完整→删除 source/＋work.json 重建；反向缺 book_rules.json 而源 7 项齐全时，源可能判完整而拒绝，复刻判不完整并删除。",
+    "work id：源 deriveBookIdFromTitle(title)（book.ts:47、utils/book-id.ts:3-10）；复刻 basename(root)（work.ts:308）。",
+    "brief.md 写入不同：源只在 externalContext 非空时写 story/brief.md，且写原文（runner.ts:469-473,491-494）；复刻总是把 trim 后的 instruction 写进去，--brief= 时写“Create <标题>”（init-work.ts:20-33；work-command.test.mjs:258-268）。源在无 --brief 时不产 brief.md，复刻产带占位内容的 brief.md。",
+    "审计文档自相矛盾：docs/fidelity-audit.md:116 写“已有 work.json 一律拒绝”，同文 :123 与实现/测试写不完整作品删除重建（work-command.ts:248-254；work-command.test.mjs:395-418）。",
+    "已登记偏差：源删整个 workDir（book.ts:57）→复刻删 source/＋work.json（docs/dsh-mapping.md:232-237）；源同步跑基础设定（book.ts:87-113）→复刻 followup 异步启动（docs/dsh-mapping.md:225-230）；--brief 相对进程 cwd（book.ts:80-81）→相对工作区根（docs/dsh-mapping.md:239-244）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "重新立项判据、work id、brief.md 写入与源不一致，且审计文档自相矛盾",
+    "owner": "runtime.commands",
+    "closure": "按源 isCompleteBookDirectory 的 7 项改预检（含 current_state.md 与 chapters/index.json）或登记差异；id 改 deriveBookIdFromTitle 或登记；brief.md 只在有简报时写且写原文（或登记）；修正 docs/fidelity-audit.md:116 与 :123 的矛盾并去掉 --chapters/--words 为源别名的说法；重录 artifacts/real-runs/runtime.commands.json。"
+  },
+  "limitations": [
+    "DSH 命令处理器不能同步跑模型；基础设定在后续回合完成（D19 已登记）。",
+    "只有会话内命令，没有 headless CLI 入口与参数解析测试；账本标题允许 init/export 至少一条。",
+    "真实回执是 2026-11-09 的；当前命令新增 --brief-text 等选项，回执未覆盖。",
+    "语言回退在 LC_ALL 存在但无法归一、而 LC_MESSAGES 可归一时的细节与源不同：源取第一个已定义变量，复刻逐个尝试。"
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "id": "runtime.stage-context",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/base.ts",
+      "line": "107-165",
+      "behavior": "每次 worker 调用（architect/writer/planner/settler 都经 submitStructured）都按 profile.requiredSkillIds 与 work required skills 解析技能，hydrate 出技能正文与关联/检索到的参考段，并在 professionalGuidance=true 时注入系统提示；上下文编译也用同一份 guidance。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/base.ts",
+      "line": "167-190",
+      "behavior": "appendActivatedSkillGuidance 把 ## Activated professional skills + 技能正文 + 每个 reference 的 path/charStart/charEnd/heading/body 合进第一条 system message；不是整份参考目录，而是 linked + 任务 query 检索段。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/builtin-profiles.ts",
+      "line": "18-19",
+      "behavior": "longform-novel 的 requiredSkillIds 是 inkos-long-writing，recommendedSkillIds 是 inkos-story-review；因此每个长篇角色调用默认都会拿到 long-writing 方法。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer-prompts.ts",
+      "line": "7-37",
+      "behavior": "buildWriterSystemPrompt 在调用点按 book/bookRules/styleGuide/lengthSpec 拼六段：写作指令、权威顺序、字数、叙事人称、主角权威、本书规则与文风指南；中英两套文案。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/planner-prompts.ts",
+      "line": "4-43",
+      "behavior": "planner 的 system prompt 只有方法句，明确「专业规划方法只来自已激活 Skill」；章号、用户指令、governed context、上一章正文、字数遥测都在 user message。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "61-78,112-141",
+      "behavior": "architect 在调用点按作品语言选 buildEnglish/ChineseFoundationPrompt，system prompt 带作品元信息、外部指令、审核反馈与提交要求；语言覆盖在 en 时前置 LANGUAGE OVERRIDE。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/system-prompt.ts",
+      "line": "65-68,100-102,105-146",
+      "behavior": "主 agent 提示规定 Skill 只提供方法、用户强制技能必须用、其它技能只在语义确有需要时用 use_skill 加载；强制技能正文追加到 system prompt，可选技能只给目录元数据。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "462,997,2118,2176",
+      "behavior": "阶段由 pipeline 代码选择角色并实例化对应 agent（architect/writer/composer/planner）；没有把阶段协议注入同一个主 agent 会话的机制。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "384-441",
+      "behavior": "installStageContext 注册 story:stage（order 90）与 story:craft（order 95）两个 systemPrompt.context；只对 composedPreset 等于本预设、且能解析 workingDirectory 的 agent 注入。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "122-204",
+      "behavior": "detectStage 按 work.json、基础设定五件套、workflow-start、plan、正文/草稿、审稿记录、修订提案与审稿判定 proposal/foundation/foundation-ready/plan/write/review/chapter-done，并算出 reviewTarget/revisionProposed/revisionReviewed。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "206-334",
+      "behavior": "renderStageBase 为七个阶段写中文流程协议：本阶段目标、按顺序调哪些工具、产出与停点；chapter-done 含两阶段结算、重开、删除、state-check 与重算入口。全文没有语言分支。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "355-361",
+      "behavior": "craftSkillsFor 只在 proposal 注入 story-proposal、review/chapter-done 注入 story-review、foundation/write 注入 longform-writing；plan 与 foundation-ready 返回空数组。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "363-381",
+      "behavior": "renderCraft 读取该技能 SKILL.md 全文，并把 references/ 下所有 .md 排序后整份拼入；没有 query 检索或按文档内 Load references 指令选择。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/planner.ts",
+      "line": "29-98",
+      "behavior": "renderPlannerContract 把方法句、memo 请求骨架、当前用户指令、上一章（slice(-2000)）、字数遥测与全部 hook id 拼成 planner 契约；方法句说「规划方法只来自随阶段提供的创作方法」，但 plan 阶段 craft 为空。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/writer.ts",
+      "line": "45-104",
+      "behavior": "renderWriterContract 输出六段中英契约（权威顺序/字数/叙事人称/主角/本书规则/风格指南），另把本章章纲与 context.json 的 selectedContext 一并放进系统契约（## 本章章纲/## 已选上下文），没有把 author_intent/current_focus 提升为独立的用户方向块。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/architect.ts",
+      "line": "29-67",
+      "behavior": "renderArchitectContract 读 work.json 与 brief，按语言输出元信息与提交要求；是 foundation 阶段 story:stage 的一部分。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/review.ts",
+      "line": "87-108",
+      "behavior": "renderReviewContract 输出审稿要求 + 编号章正文 + 编号章纲；chapter-done 复用编号来源，不带审稿要求。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/stage-context.test.mjs",
+      "line": "200-285",
+      "behavior": "阶段/技能切换测试；其中 :264 明确断言 plan 阶段 craftText 为空。:300-318 的英文用例只断言 contract 是英文，没有断言阶段协议本地化。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/stage-context.test.mjs:80 detectStage 七态与 reviewTarget",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:93 已发布章恢复后成为 review 目标并给旧稿提示",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:109 有章时注入重算块（含索引存在/状态损坏两态）",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:150 重算块按章存在而非阶段名注入",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:170 扣下态 vs 遗留态两条修复行",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:200 七阶段协议与 craft 切换；:264 断言 plan 无 craft",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:287 其它预设不注入",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:300 英文作品只验证 architect/writer 契约，不验证阶段协议",
+    "packages/see-dsh-novel/test/planner-contract.test.mjs:23-51 planner 契约方法、memo 骨架、上一章、hook id 与英文",
+    "packages/see-dsh-novel/test/writer-contract.test.mjs:45-88 writer 六段、缺省省略与英文",
+    "packages/see-dsh-novel/test/review-contract.test.mjs:33-83 审稿要求、双来源、缺章纲降级",
+    "本次审计运行 node --import tsx --test stage-context/planner-contract/writer-contract/review-contract 全过（测试通过不等价）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/runtime.stage-context.json：date=2026-11-14，sessionId=process:runtime.stage-context（process:*），receipts 自述「该回执是 process-level 工具/状态测试，不是 DSH 会话」。补充会话证据：2026-11-09 的 session-e96508fc（.artifacts/work-context）真实 runtime-context 消息含「## 当前阶段：章前规划/正文写作」与旧的 planner 契约；同日 session-e68354ce 含「章后审阅」，同日 work-init 的 session-5a588638 含「本章完成」，2026-11-14T06:15Z 的 repo-root session-4e5e6e81 含「提案」。这些证明 systemPrompt.context 注入在真实会话中生效，但文本是变更前的版本；当前的两阶段修订、reviewTarget、用量步骤、storyFrame/volumeMap 任务等协议文本没有会话回执，故本行按 process-level 记 P。",
+  "deviations": [
+    "plan 阶段没有创作方法：源 planner 经 base.ts:131-164 拿到 longform-novel 的 requiredSkill inkos-long-writing 及其参考段；复刻 craftSkillsFor(plan) 返回 []（stages/index.ts:355-361），测试还断言 plan 的 craftText 为空（stage-context.test.mjs:264）。planner 契约仍写「专业规划方法只来自随阶段提供的创作方法」（stages/planner.ts:80），而 staging 的通用行又说「本阶段的创作方法已随上下文提供；不需要再调用技能工具加载」（stages/index.ts:210），与实际注入矛盾。",
+    "chapter-done 的结算方法缺失：源 settler/reviser 也经 submitStructured 拿 long-writing 方法（writer.ts:298-313；base.ts:131-164），其中 state-projection.md 是结算参考；复刻 chapter-done 只注入 story-review（stages/index.ts:358），协议第 1 步要求派 settler 却没有给出结算方法。",
+    "阶段协议只有中文：renderStageBase 与 CHAPTER_REPAIR 全文硬编码中文（stages/index.ts:207-345）；源 writer/architect/planner 的 system prompt 与主 agent 提示都是中英双套（writer-prompts.ts:17-35；architect.ts:61-70；planner-prompts.ts:4-8；system-prompt.ts:14-101）。英文作品得到英文 contract（stages/writer.ts:63-82 等）但阶段协议仍是中文，测试只覆盖 contract（stage-context.test.mjs:300-318）。",
+    "整份注入 vs 按需参考：复刻 renderCraft 把 SKILL.md 与 references/*.md 全部拼入（stages/index.ts:363-381）；源按 SKILL.md 字面链接 + 任务 query 检索 top 4 段再注入（skill-tool.ts:221-261；base.ts:167-190）。整份注入本身已登记在 skill.references 行，本行只把它作为阶段上下文的行为差异引用，不重复记债。",
+    "planner 契约把全部 hook id 当可用集合：renderPlannerContract 从 state/hooks.json 列出所有 hookId（stages/planner.ts:69-76,89-97）；源 planner user message 没有 hook 列表，只声明「use only supplied hook ids」（planner-prompts.ts:25-42），id 的权威来自 governed context。复刻可能让 memo 引用不在 context package 里的 hook。",
+    "writer/planner 的章纲、上一章与已选上下文从源的 user message 移进了系统契约：源 writer 的 buildGovernedUserPrompt 把 user direction、memo、selected context、length requirement 放 user message（writer.ts:453-513），planner 的 user message 同样（planner.ts:129-146）；复刻把它们放进 story:stage 注入的系统文本（stages/writer.ts:81-102；stages/planner.ts:83-97）。内容大体在场，但提示层级与权威位置不同，尤其是源把 author_intent/current_focus 提升成绑定块（writer.ts:463-478），复刻只平铺在已选上下文。",
+    "「不需要再调用技能工具加载」是复刻自创的全局禁令（stages/index.ts:210）；源主 agent 的规则是技能只在语义确有需要时用 use_skill，强制技能才必须用（system-prompt.ts:65-68,100-101）。阶段主动注入是项目裁决（AGENTS.md），但把「不要再调技能工具」写成所有阶段的一律规则，没有源依据。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "plan 阶段没有创作方法、chapter-done 结算没有 state-projection 方法、英文作品仍注入中文阶段协议；planner 契约把全部 hook id 当可用集合，且 stage 文本的提示层级与源 user message 不同",
+    "owner": "runtime.stage-context（plan 的规划方法交叉 plan.chapter；settlement 方法交叉 chapter.settle；参考检索整份注入归 skill.references）",
+    "closure": "按源每个角色调用点的 requiredSkillIds 映射阶段→技能：plan 注入 longform-writing（或新建 story-plan 方法）并带 planning 参考，chapter-done 注入 longform-writing 的 state-projection；把 renderStageBase/CHAPTER_REPAIR 做成中英双语并补英文协议用例；删除或收窄「不需要再调用技能工具加载」；planner 的可用 hook id 改为 planner 包/selectedContext 中的集合；把 writer 的 author_intent/current_focus 绑定块放回注入；每项用文本断言 + 真实回执关闭。"
+  },
+  "limitations": [
+    "realRun 是 process-level；补充的真实会话（2026-11-09/10、2026-11-14 repo-root）只证明注入生效，文本早于当前代码；当前协议文本没有会话回执。",
+    "阶段上下文机制（同一会话按工作区状态注入）是 DSH 机制等价，已登记 docs/dsh-mapping.md:21,42-47 的「阶段停点」与 :18 的「方法注入」；本行的 plan/chapter-done 方法缺失、英文协议缺失不是 DSH 强制，属保真债。",
+    "模型的对话历史里仍可能保留前一阶段注入的技能正文（runtime context 快照会 supersede，但旧 user message 仍在），因此 plan 阶段无 craft 的影响可能被历史文本部分掩盖；不能把这种残留当作等价实现。",
+    "阶段协议里的工具顺序、停点与各步判据是复刻自创的流程文本，其逐步正确性由 plan.chapter/write/review/settle 等行裁决；本行只审计注入机制、方法与语言。",
+    "源角色 prompt 是「角色调用点的 system prompt + 独立 user message」；复刻把契约放进 system context、把数据放进工具回执，提示层级差异见 deviations 第 6 项，本行不能证明两种放置对模型行为等价。",
+    "对照：capabilities.yaml:219-226 标 verified；docs/fidelity-audit.md:298-306 判「等价 — 阶段注入机制等价」；本审计确认机制等价，但因 plan/chapter-done 方法缺失、英文协议缺失与 planner hook id 集合不同，判 false-equivalence。"
+  ]
+}

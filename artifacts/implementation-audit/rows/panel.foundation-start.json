@@ -1,0 +1,94 @@
+{
+  "id": "panel.foundation-start",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": "84-110",
+      "behavior": "book create 在一个命令里构造 createBookFoundationTool，用 actionPayload 带 title/genre/platform/language/targetChapters/chapterWordCount 与 instruction，工具跑完基础设定才打印完成行；创建与基础设定不是两个作者动作。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-production.ts",
+      "line": "117-160",
+      "behavior": "create_book 确定身份与规模后调用 pipeline.initBook(book,{externalContext: instruction})；工具返回 book_created。基础设定由这次 action 直接生成，没有单独的『开始基础设定』工具或面板入口。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "453-489",
+      "behavior": "initBook 先 prepareDraftBook、判完整目录；不完整时用 ArchitectAgent.generateFoundation 生成四段，再 writeFoundationFiles 与 ensureControlDocumentsAt 写入暂存目录；失败保留现场。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "1175-1191",
+      "behavior": "Studio 的 confirmed create_book 同样构造 createBookFoundationTool 并立即执行，和 CLI 共用同一条『创建即写基础设定』路径；这是面板/对话创作入口在源工程的落点。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/system-prompt.ts",
+      "line": "24-33",
+      "behavior": "system prompt 只提供『本轮动作已由宿主确认』与『宿主已完成一个确认 action，继续未满足部分』两行；没有『开始基础设定』按钮或指令的文案。账本把本行 source 指向该文件，但开工入口不在其中。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": "67-79",
+      "behavior": "START_TEXT(cwd)：说明作者在面板点了『开始基础设定』、面板看到的工作区路径，要求先 story_work_show 读身份并核对工作目录、再 story_next 核对阶段；阶段是 foundation 才按 outline→details→cast_index→cast_documents 写；写完停在确认闸门前，不自行签核。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "339-350",
+      "behavior": "没有索引且已立项、还没有基础设定的界面提供『开始基础设定』按钮；按钮只调 startFoundation()，不写文件。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "247-265",
+      "behavior": "startFoundation 调 inject 面的 start(sessionId, cwd)，成功回执『已开始基础设定，这一轮结束后这里会按实际文件重新判定』，失败/抛错给作者可见的回退文案。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/panel-index.ts",
+      "line": "207-218",
+      "behavior": "有索引后 foundation 阶段的主按钮是 start-foundation（『开始基础设定』），foundation-ready 时换成 confirm-foundation；动作由宿主投影给出，面板只派发。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "296-306",
+      "behavior": "handleAction 把 start-foundation 交给 startFoundation，不把开工降级成命令；start-chapter/plan/write/review/revise 各有独立入口。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/work-command.ts",
+      "line": "279-308",
+      "behavior": "/story-init 在写身份后用 agent.followup 投一条『已完成立项。请按 story_next 的指示完成基础设定…』；followup 失败返回『基础设定未启动』并保留身份。这是主开工人路，面板按钮是索引不可用/未开工时的兜底。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/client.test.mjs:454 没有索引的已立项作品仍提供『开始基础设定』",
+    "packages/see-dsh-novel/test/client.test.mjs:469 有完整基础设定但没索引时不显示开工按钮，提示投影待建",
+    "packages/see-dsh-novel/test/client.test.mjs:674 START_TEXT 要求先核对身份/目录/阶段再写四段",
+    "packages/see-dsh-novel/test/client.test.mjs:697 start 注入面只发一条 queue 消息并带面板看到的 cwd",
+    "packages/see-dsh-novel/test/panel-index.test.mjs:155 foundation 阶段带一个主动作；foundation-ready 的主动作是确认并带次级动作",
+    "packages/see-dsh-novel/test/work-command.test.mjs:341 一次成功立项只排一轮基础设定",
+    "packages/see-dsh-novel/test/work-command.test.mjs:361 followup 失败仍是错误但保留已写身份",
+    "artifacts/real-runs/panel.foundation-start.json 记录 2026-11-05 的 pnpm run verify 108 passed"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/panel.foundation-start.json：date=2026-11-05，sessionId=session-233e1dfd-f99a-4a60-a212-b2a315627e9b（非 process:*）；tests.passed=true。本机 C:\\Users\\MyPC\\.dsh\\sessions\\--E-see-dsh-novel-.artifacts-work-empty-2--\\session-233e1dfd-...\\session.v4.jsonl.zstd 复核：seq 44 agent/inbox/spliced 内容即 START_TEXT（带工作区路径），seq 45 turn/start turn 2，seq 48 user/message 同文，seq 53-63 story_work_show/working_directory/story_next 的核对发生，seq 68-88 依序写 outline/details/cast_index/cast_documents，seq 94-99 story_gate「16 个文件，尚未确认（策略 ask）」与 story_next「阶段 ready」，seq 111 turn/end completed。",
+  "deviations": [
+    "源把基础设定放在 create_book 的同一次 action 里由宿主执行（book.ts:84-110、longform-production.ts:151-153、runner.ts:453-489）；复刻拆成成立项后再由面板/命令起一轮，让 agent 按阶段协议调用 story_* 写。开工入口从宿主 action 变成 DSH 会话消息 + 阶段上下文，源于 /story-init 的拆分已在 docs/dsh-mapping.md:225-230 登记；面板兜底入口没有单列偏差行。",
+    "源的基础设定由 ArchitectAgent 单 child 生成（runner.ts:462,477-489），复刻由主智能体按 foundation 阶段协议直接调四个 story_foundation_* 工具（START_TEXT 明写四步）；角色/模型调用路径不同，产物集合相同。该差异属 foundation.architect 行，本行只判『能起一轮并写到闸门前』。",
+    "源的创建命令同步等 ArchitectAgent 完成才返回，复刻的 startFoundation 立即返回『已开始基础设定，这一轮结束后这里会按实际文件重新判定』；完成回执在后续 turn 的磁盘状态，不在本次点击的回执里。",
+    "面板按钮的可见条件来自 panel.index.json（无索引时看 work.json + 基础设定探针；有索引时看 detectStage），源没有对应的『开工前/后』按钮；这是 DSH 面板/阶段机制引入的入口，不是源产品面。"
+  ],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "capabilities.yaml:107-114 把本行 source 指向 inkos/packages/core/src/harness/system-prompt.ts；该文件只有确认/续作两行，没有开工入口。真实源行为在 cli/src/commands/book.ts:84-110、harness/tools/longform-production.ts:151-153 与 pipeline/runner.ts:453-489，账本 source 需要修正。",
+    "fidelity-audit.md:176-182 的源证据只写『Studio 的创作入口在立项后启动基础设定』；真实是 create_book 工具内同步执行 initBook（ArchitectAgent），不是 Studio 页面上的独立按钮，审计段需要写清。",
+    "面板开工只负责把指令投回会话；真正写四段依赖 foundation 阶段上下文与四个工具，若阶段上下文/工具注册缺失，开工消息会停在报错而不是补写。",
+    "真实会话的 11-05 回执走的是无索引兜底按钮；2026-11-09/11-13 后新增的 panel.index 有索引路径（start-foundation 动作）在同一 startFoundation 函数上，但该路径没有本行的真实会话回执。",
+    "复刻的主智能体写基础设定，源是 ArchitectAgent（temperature 0.8、四段 schema、自带 system prompt）；生成质量与上下文契约属 foundation.architect 行，本行不能证明 architect 行为等价。"
+  ]
+}

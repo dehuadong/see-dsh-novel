@@ -1,0 +1,103 @@
+{
+  "id": "export.work",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/interaction/export-artifact.ts",
+      "line": "27-69",
+      "behavior": "ChapterExportSourceError 带 code=CHAPTER_EXPORT_SOURCE_MISMATCH 与 details（missing/duplicate chapter、duplicate index、unindexed files）；buildChapterFileLookup 先核对索引与 chapters/ 下的 .md（任意位数数字前缀），任一不一致在写目标文件前拒绝。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/export-artifact.ts",
+      "line": "90-164",
+      "behavior": "buildExportArtifact：无章节拒绝；txt 以书名开头、md 以 # 书名 开头；每章按 renderChapterDocument 重渲染；总字数为索引 wordCount 之和；EPUB 用 epub-gen-memory，章标题取渲染后的 # 标题，语言按 book.language（en→en，否则 zh-CN）；默认输出 bookDir/exports/<id>.<format>。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/export-artifact.ts",
+      "line": "166-183",
+      "behavior": "writeExportArtifact：mkdir 父目录后直接 writeFile 覆盖，不写临时文件、不 rename。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "5606-5675",
+      "behavior": "GET /export 返回内存 payload 下载；POST /export-save 把 outputPath 设为作品根 <id>.<fmt>，经 export_book 能力工具直写并返回 path/format/chapters；源文件不一致时 409 返回 code 与 details。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": "389-401",
+      "behavior": "导出按钮 POST /export-save；成功 alert『已导出到项目目录\\n<path>\\n(N 章)』，失败 alert(e.message)。"
+    },
+    {
+      "file": "inkos/packages/core/src/__tests__/work-export.flow.test.ts",
+      "line": "14-40",
+      "behavior": "源导出测试：先交付一次 md，再制造缺失/重复/未入索引文件，断言 CHAPTER_EXPORT_SOURCE_MISMATCH 的 details 且原交付文件与索引不变。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/export.ts",
+      "line": "55-92",
+      "behavior": "lookupChapterFiles：排序后核对 source/chapters 下 .md 与索引，返回四类不一致 details，任一非空即抛 CHAPTER_EXPORT_SOURCE_MISMATCH。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/export.ts",
+      "line": "211-241",
+      "behavior": "buildWorkExport：格式校验、读 work.json、读章节索引、无章节拒绝；按索引顺序用 renderChapterDocument 重渲染；txt/md 以书名开头；总字数为索引 wordCount 之和；EPUB 交本地最小打包器。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/export.ts",
+      "line": "248-261",
+      "behavior": "writeWorkExport：输出到工作区根 <workId>.<format>，mkdir 父目录后直接 writeFile 覆盖，返回路径、章数、字数、字节数。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/export-command.ts",
+      "line": "13-37",
+      "behavior": "/story-export [txt|md|epub] 宿主命令：默认 txt，非法格式报错；withWorkAction 锁内导出，回执含路径、章数、字数、字节数。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "326",
+      "behavior": "面板导出动作走 command('导出', '/story-export <format>')，runner 用 executeCommand 取命令处理器回执并显示在动作条 notice。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": "103-121",
+      "behavior": "executeCommand 经 remote.commands.execute 取 {kind,text}；无绑定/无通道/未匹配/缺回执分别折成 unbound/error/unmatched/error。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/export.test.mjs:51 txt/md 以书名与章标题开头、章数与字数",
+    "packages/see-dsh-novel/test/export.test.mjs:70 缺失/未入索引/重复文件/重复索引四项 details",
+    "packages/see-dsh-novel/test/export.test.mjs:107 直写覆盖不换 inode、无临时文件",
+    "packages/see-dsh-novel/test/export.test.mjs:136-211 EPUB mimetype 首项、渲染标题、语言、Table of Contents",
+    "packages/see-dsh-novel/test/export.test.mjs:213 目标不可写 EISDIR 失败且不改作品与章节",
+    "packages/see-dsh-novel/test/export.test.mjs:243 空索引标题不回落文件名",
+    "packages/see-dsh-novel/test/export.test.mjs:268 空索引拒绝",
+    "packages/see-dsh-novel/test/export.test.mjs:279 命令解析格式与回执路径",
+    "packages/see-dsh-novel/test/client.test.mjs:299-338 导出成功/失败/unbound/unmatched 的 notice 文本",
+    "packages/see-dsh-novel/test/client.test.mjs:736 executeCommand 到 remote.commands.execute 的八分支映射",
+    "本次审计运行 node --import tsx --test（含 export.test.mjs 与 client.test.mjs）共 92 例通过"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/export.work.json：date=2026-11-13，sessionId=process:export.work，tests.passed=true（pnpm run verify，446 passed），receipts 覆盖命令、四种索引不一致、直写、EPUB 标题/语言/导航、面板回执；文件自述『该回执是 process-level 命令／文件测试，不是 DSH 会话；作者裁定不做桌面回执』。",
+  "deviations": [
+    "面板回执从源原生 alert 改为页面内 notice：BookDetail.tsx:392-399 → StoryView.tsx:326 与 client/index.ts:103-121；已登记 docs/dsh-mapping.md:176-181。",
+    "复刻只保留 Studio /export-save 的落点：工作区根 <workId>.<format>（export-command.ts:27 → export.ts:250），与源 export-save 的作品根一致（server.ts:5637-5639）；源 core 默认还写 bookDir/exports/（export-artifact.ts:109），CLI 默认写 <root>/<id>_export.<fmt>（inkos/packages/cli/src/commands/export.ts:18-20），复刻没有这两个入口。",
+    "复刻导出用宽松 readChapterIndex（export.ts:221），只校验 number/title；源 loadChapterIndex 用 ChapterMetaSchema 严格校验全部字段（inkos/packages/core/src/state/manager.ts:450-466）。坏索引条目在复刻可能带病导出。",
+    "复刻章节文件编号正则限定 4 位数字前缀（export.ts:50），源为任意位数（export-artifact.ts:52）；章号 ≥10000 或非 4 位命名的章节会被复刻判为 unindexed。",
+    "复刻 EPUB 是最小 EPUB3，源码用 epub-gen-memory（export-artifact.ts:119-143），包结构差异记 D57（style.css、toc.ncx、完整 OPF 元数据、章文件名、DEFLATE、container.xml、包级 xml:lang）。",
+    "源 book.language 可缺省并从章标题推断语言（export-artifact.ts:115-116）；复刻 work.json 强制 language 为 zh/en（work.ts:197），该分支不可达，输出一致但来源不同。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "D57 EPUB 包结构未贴源；导出索引未严格校验；章节文件编号正则收紧为 4 位",
+    "owner": "export.work",
+    "closure": "另立工作项逐模板复刻 EPUB（D57，是否引入打包库届时裁决）；导出改用 readChapterIndexStrict；chapterNumberOf 改回任意位数数字前缀并补失败用例。"
+  },
+  "limitations": [
+    "源还有 GET /export 的内存下载（不落盘）与 CLI 导出入口；复刻只有宿主命令/面板写文件一个入口，按能力行与面板回执交付。",
+    "复刻 EPUB 的 ZIP 全 store、无 style.css/ncx，导航/章 XHTML 结构也与源不同；字节级输出不可比，D57 已登记。",
+    "源导出成功/失败用原生 alert；复刻 notice 不跨视图保留，切走再回来回执消失（dsh-mapping.md:179）。",
+    "真实回执是进程级测试，不是 DSH 会话；作者裁定不做桌面回执。"
+  ]
+}

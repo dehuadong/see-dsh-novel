@@ -1,0 +1,90 @@
+{
+  "id": "runtime.agent-tools",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/builtin-profiles.ts",
+      "line": 15,
+      "behavior": "longform-novel WorkProfile 只声明 capabilityIds、requiredSkillIds（inkos-long-writing）、recommendedSkillIds（inkos-story-review）与 artifactKinds（15-21 行）；该文件没有工具清单，不能作为“写作预设工具面”的源证据。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/production-capabilities.ts",
+      "line": 232,
+      "behavior": "写作 profile 的实际工具面在这里组装（232-295 行）：foundation、write_chapters、review_chapter、revise_chapter、style guide、export、write_truth_file、rename、patch/replace chapter text、resync、delete_latest_chapter、import、fanfic、forecast、grep、ls；主智能体直接持有这些写工具。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/system-prompt.ts",
+      "line": 13,
+      "behavior": "buildHarnessSystemPrompt（13-103 行）生成主智能体 persona 与行为边界：只有 capability action 产生副作用、按 artifactId 读当前产物、确认策略、Skill 加载规则；不是复刻的“主编”短前缀。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": 3054,
+      "behavior": "源 read 工具（3054-3129 行，name: read 在 3066）既按 artifactId/revisionId 读注册产物，也读外部路径；复刻的 DSH read 只按路径读文件。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/skill-tool.ts",
+      "line": 50,
+      "behavior": "createUseSkillTool（50-60 行，name: use_skill 在 55）按需加载技能与参考资源；复刻由 DSH skill 工具替代。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/cordis.patch.yml",
+      "line": 25,
+      "behavior": "preset-see-dsh-novel 列出 persona、agent-instructions、time-context、只读 fs、fs-search、skill、web、subagent-control/subagent、ask-user、todo、jobs、schedule、compaction 与 see-dsh-novel/agent（25-96 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/cordis.patch.yml",
+      "line": 44,
+      "behavior": "tool-fs 配置 write:false、edit:false、applyPatch:false（44-49 行），不挂 shell 工具。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/agent.ts",
+      "line": 69,
+      "behavior": "apply() 注册 story_next/story_hooks 与全部 story_* 工具、命令、阶段上下文与随包技能（69-143 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/skills.ts",
+      "line": 151,
+      "behavior": "installStorySkills 把包内 SKILL.md 注册到预设作用域，并带 resourceBase 目录（151-160 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/host.test.mjs",
+      "line": 102,
+      "behavior": "host 用例固定注册结果：31 个 story_* 工具（含 STORY_NEXT_NAME）、9 条命令、三个 context 与三项技能（102-136 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/agent-tools.test.mjs",
+      "line": 35,
+      "behavior": "预设测试只断言 YAML 插件清单、persona 里的自造词、只读 fs、web/技能/子代理/压缩与随包技能（35-185 行）。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/agent-tools.test.mjs：12 例（预设插件逐行、persona、只读、无 shell、web/技能/子代理/压缩、随包技能正文、注册注销、frontmatter、坏文件/坏目录/包名不符）",
+    "packages/see-dsh-novel/test/host.test.mjs：注册 31 个 story_* 工具（含 STORY_NEXT_NAME）＋9 条命令＋3 个 context＋3 个技能；story_next 读工作区（97-197 行）",
+    "packages/see-dsh-novel/test/skill-references.test.mjs：resourceBase 与 references 读取"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.agent-tools.json：date 2026-11-04，sessionId session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*）；receipts seq 348-362 记录 persona 首行、request/header 31 个工具、skill-catalog、use_skill 正文、glob/read 角色卡。注意该回执早于当前预设：host.test.mjs 期望 31 个 story_* 工具加 DSH 工具，31 个工具的表里没有点名任一 story_* 工具，不能证明当前写作工具集。",
+  "deviations": [
+    "源证据误引：builtin-profiles.ts:15-21 是 WorkProfile 元数据（capabilityIds/skills/artifactKinds），没有工具列表；实际工具面在 production-capabilities.ts:232-295。",
+    "工具面替换未登记：源主智能体直接持有 write_chapters、write_truth_file、revise_chapter、delete_latest_chapter 等长文写工具（production-capabilities.ts:232-295）；复刻换成 DSH 只读文件工具＋story_* 工具（cordis.patch.yml:44-49、plugin/agent.ts:69-143）。docs/dsh-mapping.md 只有“工具: tools.register”的泛化映射，没有这条替换。",
+    "artifact 读面缺失：源 read 支持 artifactId/revisionId（agent-tools.ts:3054-3129），复刻的 DSH read 只按路径读文件。",
+    "persona 不等价：源 persona/行为边界由 buildHarnessSystemPrompt 生成（system-prompt.ts:13-103），复刻是手写短前缀（cordis.patch.yml:29-37）；agent-tools.test.mjs:59-64 只断言复刻自造的“主编/不亲自写正文/只作参考”，没有对照源文本或源行为。",
+    "复刻额外挂载源没有的 DSH 工具（ask_user/todo/jobs/schedule/subagent），属于机制新增，未登记。",
+    "真实回执与当前工具集不一致：31 tools 对应不到当前 31 个 story_*＋DSH 工具。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "写作工具面与 persona 的源证据指向错文件，工具面替换与 artifact 读面缺失未登记",
+    "owner": "runtime.agent-tools",
+    "closure": "把 capabilities.yaml 与 docs/fidelity-audit.md 的源证据改到 inkos/packages/core/src/harness/production-capabilities.ts:232-295 与 system-prompt.ts:13-103；在 docs/dsh-mapping.md 登记工具面替换（含未搬的源工具、read 的 artifactId/revision 模式、persona 文本）；补运行时工具集与 persona 行为对照测试；重录 artifacts/real-runs/runtime.agent-tools.json。"
+  },
+  "limitations": [
+    "测试只解析预设 YAML 并用假 ctx 验证注册函数，没有断言 DSH 运行时真正暴露的工具表。",
+    "仓库没有可复核的会话日志；real-run 只有文字回执，无法独立验证 seq 350 的 31 个工具。",
+    "源还有 rename_entity、patch_chapter_text、replace_chapter_text、import、fanfic、forecast 等工具，复刻没有对应工具行；部分能力归其它账本行或仍未实现。",
+    "两侧都不开放通用 shell；这一点由 cordis.patch.yml 无 shell 条目与 agent-tools.test.mjs:66-72 共同保证。"
+  ]
+}

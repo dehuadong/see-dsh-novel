@@ -1,0 +1,116 @@
+{
+  "id": "plan.retrieval",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/retrieval/local-search.ts",
+      "line": "226-251",
+      "behavior": "tokenizeSearchText：NFKC + toLocaleLowerCase；Intl.Segmenter word；丢弃非 word-like 与单字符拉丁/数字/下划/连字符；相邻单汉字补 bigram；再补含 -/_ 的复合词。"
+    },
+    {
+      "file": "inkos/packages/core/src/retrieval/local-search.ts",
+      "line": "253-256",
+      "behavior": "buildMatchQuery 去重 token 后逐个用双引号包住、以 OR 连接，不加前缀通配符。"
+    },
+    {
+      "file": "inkos/packages/core/src/retrieval/local-search.ts",
+      "line": "153-198",
+      "behavior": "retrieval_documents 表（document_id/scope/kind/source/title/body/title_tokens/body_tokens/metadata_json/content_hash，UNIQUE(scope,document_id)）+ external-content FTS5 + ai/ad/au 三个触发器；replaceScope 在 BEGIN IMMEDIATE 内按 content_hash 跳过未变文档、删除消失文档，失败 ROLLBACK。"
+    },
+    {
+      "file": "inkos/packages/core/src/retrieval/local-search.ts",
+      "line": "97-147",
+      "behavior": "search：MATCH + scope + 可选 kinds；ORDER BY bm25(retrieval_documents_fts, 5.0, 1.0) ASC, d.document_id ASC；limit 夹在 1..200 默认 24；score = -rank；返回 metadata 对象。"
+    },
+    {
+      "file": "inkos/packages/core/src/retrieval/local-search.ts",
+      "line": "258-273",
+      "behavior": "normalizeDocument：title_tokens/body_tokens 来自 tokenizer；content_hash 是 kind/source/title/body/metadataJson 以 \\0 连接的 sha256。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/memory-retrieval.ts",
+      "line": "59-133",
+      "behavior": "retrieveMemorySelection：读 volume_summaries.md、state/hooks.json、state/chapter_summaries.json（后两者用 zod schema.parse）；searchableHooks 过滤 resolved/superseded（:83）；story/memory.db 上 replaceScope + search(limit 200)（:87-98）；hits + 未命中文档（score=-1e6）作为全部候选（:99-106）；semantic selector 必填，未知 id 抛错（:107-112,137-161）；selected summaries 强制包含第 N-1 章（:116,256-266）；retrievalTrace 为 engine/query/selectionMode/candidates/semanticSelectedIds（:122-128）。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/memory-retrieval.ts",
+      "line": "180-233",
+      "behavior": "三类检索文档：chapter-summary（id summary:<chapter>、kind chapter-summary、source story/chapter_summaries.md#<chapter>、body 六字段、metadata chapter）；hook（id hook:<hookId>、source story/pending_hooks.md#<hookId>、body status/expectedPayoff/notes、metadata hookId）；volume-summary（id volume-summary:<index>、source story/volume_summaries.md#<anchor>、metadata index）。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/memory-retrieval.ts",
+      "line": "235-254",
+      "behavior": "卷摘要按 ^## 分节，heading 为标题行 trim，content 为后续行 trim；两者任一为空的分节丢弃；anchor 由 slugify（小写、非字母数字/汉字变 -、去首尾 -、空则 volume-summary）。"
+    },
+    {
+      "file": "inkos/packages/core/src/__tests__/local-search.test.ts",
+      "line": "8-103",
+      "behavior": "源测试覆盖中英 BM25、旧投影行替换、同名 id 跨 scope 隔离、Markdown 段与 char 区间。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/search-index.ts",
+      "line": "35-58",
+      "behavior": "tokenizeSearchText 与源逐行同构：NFKC/lower、Segmenter、单字符拉丁过滤、汉字 bigram、连字符复合词。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/search-index.ts",
+      "line": "65-68,75-98",
+      "behavior": "buildMatchQuery 去重加引号 OR；splitMarkdownForSearch 保留 heading/charStart/charEnd，规则与源一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/search-index.ts",
+      "line": "115-128,142-194,196-241,247-291",
+      "behavior": "normalizeDocument 的 content_hash、replaceScope 的 hash 跳过/删除、search 的 bm25(5.0,1.0)/-rank/limit 1..200、external-content FTS5 与三个触发器均与源一致；错误文案改为中文。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/story-index.ts",
+      "line": "85-152",
+      "behavior": "storyDocuments 读 source/story/state/hooks.json（validateHooks）并过滤 resolved/superseded、读 chapter_summaries.json（validateChapterSummaries）、解析 volume_summaries.md，source 锚点为 source/story/...；额外把 source/story/materials 下所有 .md 作为 material 文档（body 截 4000 字）加入同一批文档。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/story-index.ts",
+      "line": "155-178",
+      "behavior": "rebuildStoryIndex 在 source/story/memory.db 上 replaceScope('story-memory')；searchStory 先重建再检索并返回 SearchHit。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/search-tool.ts",
+      "line": "47-77",
+      "behavior": "story_search 只读入口：query 非空；kinds/limit 透传；输出 source/kind/title/excerpt（200 字截断）/score；render 每行「kind · source · title」。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/search-index.test.mjs:21 匹配/BM25/kind 过滤/limit/metadata/空 query",
+    "packages/see-dsh-novel/test/search-index.test.mjs:41 分词、汉字 bigram、NFKC、引号 OR、无通配符",
+    "packages/see-dsh-novel/test/search-index.test.mjs:61 标题权重高于重复正文",
+    "packages/see-dsh-novel/test/search-index.test.mjs:74 replaceScope 更新已改文档并删除消失文档",
+    "packages/see-dsh-novel/test/search-index.test.mjs:88 Markdown 段与 char 区间",
+    "packages/see-dsh-novel/test/story-index.test.mjs:32 三类故事记忆 + 过渡 material 的 source/metadata；resolved hook 不索引",
+    "packages/see-dsh-novel/test/story-index.test.mjs:62 删除素材后重建索引不再命中",
+    "本次审计运行 node --import tsx --test search-index/story-index 共 7 例全过（测试通过不等价）"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/plan.retrieval.json：date=2026-11-09，sessionId=session-6474765f-8537-4577-b53c-94b5a2eab9fd（非 process:*）。本机 session（.artifacts/work-retrieval，2026-11-09T01:10Z 创建）可读：seq 22/24/26/28 的 story_search 还是旧索引（悬案命中 hook+outline；修表匠命中 role+material）；同一会话在移除 role/outline 后 seq 47-54 重查为「悬案」→ hook source/story/pending_hooks.md#H1，「卷摘要」→ volume-summary + hook，「修表匠」「账本」→ material source/story/materials/素材.md，「已解」→ 没有命中；索引库 source/story/memory.db 存在。real-run 记录的是后者，与当前代码一致。",
+  "deviations": [
+    "D22 素材过渡候选仍在 story-memory scope：复刻 storyDocuments 把 materials/*.md 作为 kind=material 加入同一批文档（story-index.ts:140-149），story_search 会返回 material（story-index.test.mjs:32-59；真实回执 seq 27/52）；源 story memory 只有 chapter-summary/hook/volume-summary（memory-retrieval.ts:180-221），素材是独立 scope（materials/retrieve.ts）。该债已登记 docs/scope.md:143 与 fidelity-audit.md:356 的 D22，计划 P6 偿还。",
+    "检索层不再提供源的 MemorySelection 合约：没有 lookupSummaries/lookupHooks、semantic selector、retrievalTrace 的返回（memory-retrieval.ts:59-133,256-266）；这些被拆到 plan.context-select 的 context-package.ts:323-345,723-756。对调用方而言，row 标题里的「章前检索」只剩 search，选择与 trace 在另一行；本行不把拆层本身记债，但源的「检索+选择」单入口没有一一对上。",
+    "严格校验不一致：源用 HooksStateSchema/ChapterSummariesStateSchema 的 zod strict（memory-retrieval.ts:73-74,163-169）；复刻 validateHooks 拒绝重复 hookId（比源严），validateChapterSummaries 放过未知字段/非整数 chapter（比源松）。源可索引的重复 hook 工作区在复刻会抛错，源会拒绝的坏摘要在复刻可能进索引；严格读校验的债分别归 foundation.hooks 与 chapter.settle。",
+    "material 文档正文截断到 4000 字（story-index.ts:147）；源的素材摄取/检索有自己的大小与切段策略（materials/retrieve.ts），过渡候选不是源行为。",
+    "trace 的候选 id 命名不同：源用 summary:<chapter>/hook:<hookId>/volume-summary:<index>（memory-retrieval.ts:223-233）；复刻 context-package 的 memory 候选用 memory:<source>（context-package.ts:328,750），写进 ChapterTrace 后 id 前缀与源不同。该差异属 plan.context-select 的 trace 组装，但根源是本行 story-index 的文档 id 不含 kind 前缀。",
+    "源检索会把第 N-1 章摘要强制放进选定摘要（memory-retrieval.ts:256-266）；复刻检索只返回命中/候选，强制包含由调用方的 selection 决定且没有实现（context-package.ts:323-345,612-628）。该行为债归 plan.context-select。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "D22 素材过渡候选仍在 story-memory scope；检索读取用自写校验（hook 重复拒绝、摘要未知字段/非整数章放行）与源 zod strict 不一致；trace 文档 id 命名不同；源 MemorySelection 单入口被拆到 context-select",
+    "owner": "plan.retrieval（strictness 交叉 foundation.hooks/chapter.settle；forced previous summary 与 trace id 交叉 plan.context-select）",
+    "closure": "P6 把素材移出 story-memory（materials scope / search.unified）并补跨 scope 用例；检索入口改用与源等价的 strict schema（拒未知字段、chapter 为 int≥1、title 非空；hook 唯一性按作者裁决）；trace candidates/semanticSelectedIds 使用源 document id；或补一个与源同形的 retrieveMemorySelection 入口承接选择与 trace；重录真实回执覆盖三类型与素材分离。"
+  },
+  "limitations": [
+    "S 级回执来自开发中的同一会话：seq 22-28 还是旧索引，role/outline 在会话中途被移出，seq 47-54 才是当前行为；没有冻结后重新开的独立会话。",
+    "素材过渡候选是已登记的 D22/P6 债，不是永久设计；本行把它计入不等价，是因为当前 story_search 的可见结果确实包含 material。",
+    "源没有对外的 story_search 工具，story-memory 检索是 composer 内部的 retrieveMemorySelection；复刻用 tools.register 暴露只读入口，这是 DSH 机制（docs/dsh-mapping.md:19 的「工具」行），但工具面的查询参数与输出形状由复刻自定。",
+    "本行不覆盖语义选择：源 retrieveMemorySelection 的 selector 与 trace 由 plan.context-select 的候选/子代理流程承接，本行只审计检索内核、故事记忆类型与来源标注。",
+    "对照：capabilities.yaml:243-250 标 verified；docs/fidelity-audit.md:348-356 判「保真债」（D22/D23）；本审计确认保真债，并把 strictness 与 trace id 命名补进本行。"
+  ]
+}

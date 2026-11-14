@@ -1,0 +1,94 @@
+{
+  "id": "runtime.load",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/runtime.ts",
+      "line": "43-82",
+      "behavior": "CreativeHarnessRuntime 持有 projectRoot、CapabilityRegistry、WorkProfileRegistry 与 episode store；startEpisode 先回收中断 episode，require(profileId)，校验作品 profile 匹配，创建 running episode 并追加 episode-started（含 baseline artifact revisions）。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/runtime.ts",
+      "line": "84-191",
+      "behavior": "executeAction 解析 capability/action、校验 profile 的 capabilityIds、做 isActionAuthorized 授权判定，按 risk 进入 work mutation queue 与 StateManager book lock，随后写 action-started/completed/failed/cancelled episode 事件并返回 ActionResult。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/runtime.ts",
+      "line": "221-234",
+      "behavior": "isActionAuthorized：read 恒允许；confirmed 恒允许；requiresConfirmation 或 destructive-write 未确认拒绝；其余按 profile.confirmation 的 explicit/inferred 策略决定。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/profile-registry.ts",
+      "line": "6-32",
+      "behavior": "WorkProfileRegistry.register 用 WorkProfileSchema 校验并拒绝重复 id；require 对未知 profile 抛错；list 按 id 排序。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/builtin-profiles.ts",
+      "line": "93-95",
+      "behavior": "createBuiltInWorkProfileRegistry 把内置工作 profile 注册进 registry。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/production-capabilities.ts",
+      "line": "175-230,464-477",
+      "behavior": "registerToolCapability 把 profile 的工具面注册为 capability/actions（workspace、longform 等）；capability 是工具注册的源工程等价物。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/cordis.patch.yml",
+      "line": "16-96",
+      "behavior": "bundle patch 在组合根插入 see-dsh-novel 根行（负责 client 发现）与 preset-see-dsh-novel 预设行；预设 plugins 列出 persona、只读文件、搜索、技能、web、子代理、ask-user、todo、jobs、schedule、压缩与 see-dsh-novel/agent。"
+    },
+    {
+      "file": "packages/see-dsh-novel/package.json",
+      "line": "7-33",
+      "behavior": "exports 暴露根/agent/client；dsh.bundle.patch 指向 cordis.patch.yml，dsh.client 声明 web 平台与 conversation 注入。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/agent.ts",
+      "line": "69-173",
+      "behavior": "预设挂载的 agent half：注册 story_next 与全部 story_* 工具、命令、系统提示上下文与随包技能，并返回统一 disposer；工具只经预设插件行可见。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/index.ts",
+      "line": "24-26",
+      "behavior": "根插件 apply 只安装 panel warmup（会话发布时补建缺失索引），使根行可被 client manifest 发现。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": "85-177",
+      "behavior": "client 插件安装样式、声明 slots 注入，并用 eligibility sentinel 与槽位声明条件注册『作品』视图；命令/提示/文件读取走 sessions、remote.commands、remote.workspaceFiles。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/host.test.mjs:62 根行 apply 安装 panel warmup 与 session/created 监听",
+    "packages/see-dsh-novel/test/host.test.mjs:79 agent half 的 loader 元数据（name/inject/apply）",
+    "packages/see-dsh-novel/test/host.test.mjs:85 story_next 未绑定阶段与四阶段阶梯",
+    "packages/see-dsh-novel/test/host.test.mjs:97 apply 注册工具、命令、上下文、技能并可全部 dispose",
+    "packages/see-dsh-novel/test/host.test.mjs:150 story_next 按工作区文件判定 unbound/foundation/draft/ready",
+    "packages/see-dsh-novel/test/schema-subset.test.mjs:17-58 story_next 与基础设定/审批/角色卡 schema 在运行时子集内",
+    "packages/see-dsh-novel/test/client.test.mjs:340 apply 安装样式、接两个 slot 且仅资格满足时注册视图",
+    "本次审计运行 node --import tsx --test（含 host.test.mjs、schema-subset.test.mjs、client.test.mjs）共 92 例通过"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.load.json：date=2026-11-04，sessionId=session-9bd27abf-7fe2-4103-ae89-b05500138e97（非 process:*），tests.passed=true（npm test，12 passed），receipts 含 install_bundle application=applied、config 列出 preset-see-dsh-novel、客户端出现『作品』视图、预设外 story_next 未知、会话内 story_next 调用 isError=false。本机 DSH_HOME/sessions/--E-see-dsh-novel--/session-9bd27abf-.../session.v4.jsonl.zstd 存在且创建于 2026-11-04，会话头记录 agentPreset=see-dsh-novel；但日志只有 session 头，没有 turn/tool 事件。",
+  "deviations": [
+    "源用 CreativeHarnessRuntime + CapabilityRegistry/WorkProfileRegistry 在进程内注册 profile、capability、工具与 episode（runtime.ts:43-49,84-191；profile-registry.ts；production-capabilities.ts:464-477）；复刻由 DSH bundle patch/preset 装载插件，工具经 tools.register 注册（cordis.patch.yml:16-96；agent.ts:69-173）。已由 docs/dsh-mapping.md 映射表『Agent 循环／工具／面板』承接。",
+    "源 client 是独立 Studio 前端；复刻是 DSH client 插件 + slots 的条件视图（client/index.ts:85-177），从会话进入并与对话/轨迹并列。已由映射表『面板』行承接。",
+    "复刻根插件只装面板预热（plugin/index.ts:24-26），agent 工具面由预设子行 see-dsh-novel/agent 挂载（cordis.patch.yml:96），工具只在选中预设的会话可见；源按 WorkProfile/capability 限定工具面，作用域意图一致但作用域机制不同。",
+    "源 runtime 先建 episode 再执行 action，并把 action 生命周期写进 episode store（runtime.ts:74-191）；复刻把会话/调用证据交给 DSH session log，不建 episode store。已由映射表『会话／事件』行承接。"
+  ],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "fidelity-audit.md:27 把源证据描述为『runtime.ts 装载 profile／bundle、注册工具与 client』；runtime.ts 实际是 episode/action 运行时，profile 注册在 profile-registry.ts/builtin-profiles.ts，工具注册在 production-capabilities.ts，client 在 studio/。审计按实际源文件定位，该句需要修正。",
+    "realRun 的会话日志只有 session 头（agentPreset=see-dsh-novel），没有 turn/tool 事件；install_bundle、『作品』视图与 story_next isError=false 只存在于 real-runs 的 receipts 文本，无法从会话日志逐条复核。",
+    "receipts 的测试记录是 npm test 12 passed（2026-11-04 的早期套件）；当前 host.test.mjs 6 例、schema-subset 6 例、client 布局用例，测试清单已变化。",
+    "client 视图与预设作用域需要真实 DSH 宿主；进程内测试用 stub 服务，不能证明安装后的 loader 行为。",
+    "DSH bundle/preset 的加载顺序与作用域由 DSH 决定；复刻只声明 patch 与 manifest，不控制 loader。"
+  ]
+}

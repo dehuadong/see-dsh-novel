@@ -1,0 +1,121 @@
+{
+  "id": "plan.compression",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/composer.ts",
+      "line": "162-300",
+      "behavior": "applyContextBudgetIfNeeded：预算来自 client 的 contextWindow 与 defaults.maxTokens；total<=available 不压；protected>available 抛错并报 onContextCompression(error)；compressible 为空只记 context-over-budget-no-compressible-entries；无 compiler 抛错；否则 compileBudget=available-protected，调用 compiler，compiled.trim() 为空抛错，成功后 selectedContext 换成 protected + runtime/compiled-compressible-context，notes 记 compiled-compressible-context，trace.compression 六字段为 compiledSource/protectedSources/compressedSources/protectedTokens/compressibleTokens/budgetTokens。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/composer.ts",
+      "line": "580-589",
+      "behavior": "contextBudgetFromClient：client._piModel.contextWindow 为正数时返回 {contextWindowTokens, reservedOutputTokens: max(0, client.defaults.maxTokens)}；无窗口返回 undefined。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/semantic-context-compiler.ts",
+      "line": "19-84",
+      "behavior": "SemanticContextCompilerAgent.compile：只接受 compressible fragments；renderFragment 每段含 ## source、Source id、Source pointer、content；semanticInputBudget 的 reservedOutput=min(defaults.maxTokens, max(1024, input.maxTokens))、promptOverhead=3072；按该预算 splitTextByEstimatedTokens；每块 system+user（Current intent、Source chunk i/N、chunk）调用一次，maxTokens=min(defaults.maxTokens, max(512, ceil(maxInputTokens/chunks.length)))；空输出抛错；合并后若 estimateTextTokens(content)>maxTokens，再用 recompile system prompt 重压一次（maxTokens=min(defaults.maxTokens, max(256, input.maxTokens))），仍超则抛错；返回 content+sourceIds。"
+    },
+    {
+      "file": "inkos/packages/core/src/llm/semantic-input.ts",
+      "line": "4-12,15-61",
+      "behavior": "semanticInputBudget = max(1, contextWindow - reservedOutputTokens - overhead)；splitTextByEstimatedTokens 按行/超大行二分切成不超预算的 chunk，拼回时保持原文。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/composer.ts",
+      "line": "386-417,523-567",
+      "behavior": "memory 语义选择按 semanticInputBudget(client,{reservedOutputTokens:2048,promptOverheadTokens:2048}) 分组；每条候选按 metadata（id/kind/source/title）+64 预留切 excerpt；组内按 selectionId/kind/source/title/excerpt 的 token 和累加，超预算换组；每个组单独调模型。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/composer.ts",
+      "line": "313-332,334-366",
+      "behavior": "压缩只发生在 writer 的 composeChapter（applyContextBudgetIfNeeded）；planner 的 selectTaskContext 只做 complete/collect，没有 applyContextBudgetIfNeeded，不压缩 planner 包。"
+    },
+    {
+      "file": "inkos/packages/core/src/models/input-governance.ts",
+      "line": "49-56",
+      "behavior": "ChapterTraceSchema.compression 为 strict 对象：compiledSource 非空，protectedSources/compressedSources 数组，protectedTokens/compressibleTokens/budgetTokens 为 int>=0。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "594-675",
+      "behavior": "assembleContext：budget=availableTokens；total>budget 时 protected>budget 抛错；compressible 为空记 context-over-budget-no-compressible-entries；无 compression.text 返回 compressionTask；有 text 时 maxInputTokens=max(1, budget-protected)，trim 后空抛错、estimateTokens(compiled)>maxInputTokens 抛错；成功后 selectedContext 换成 protected + runtime/compiled-compressible-context，trace.compression 六字段与源同名。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "677-721",
+      "behavior": "buildCompressionTask：maxInputTokens=max(1, budget-protected)；semanticBudget=(contextWindow ?? budget) - min(reservedOutputTokens, max(1024, maxInputTokens)) - 3072；把 compressible 渲染成 ## source／reason／excerpt 后 splitByEstimatedTokens；perChunk=max(512, ceil(maxInputTokens/parts.length))；每块 instruction=system 句 + 当前意图 + 来源分块 i/N + 该块原文；chunks 的 fragments 携带全部 compressible entries。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "723-756",
+      "behavior": "buildTrace 写 protectedSources/compressibleSources/三 token 数/retrieval/notes；有压缩时写 compression 六字段（compiledSource、protectedSources、compressedSources、protectedTokens、compressibleTokens、budgetTokens）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "477-514",
+      "behavior": "semanticInputBudget = max(1, available - 3072)；groupMemoryCandidates 按 metadata+64 切 excerpt、按 token 累加分组的算法与源同形，只是预算基数不同（D25）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/context-tool.ts",
+      "line": "108-138,208-234,286-289",
+      "behavior": "deriveBudget 从最近 request/header 的 provider/model/maxTokens + llm.resolveModelInfo 的 contextWindow 派生预算，拿不到就不传 budget；story_context_compression_task 每次读一个压缩块；package 遇到 compressionTask 时写 spool 并只返回句柄。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-spool.ts",
+      "line": "156-200",
+      "behavior": "saveCompressionSpool 把每个 chunk 写 chapter-XXXX.<purpose>.compress-N.json，并写 .compress.json manifest（含 maxInputTokens 与句柄）；loadCompressionChunk 按 chunkId 读一个。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "245-247,286-288",
+      "behavior": "plan/write 阶段协议：package 返回 compressionTask 时，对每个 chunk 派 subagent 压缩，合并后超预算重压一次，把最终文本作为 compressedText 重调 package。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/context-package.test.mjs",
+      "line": "175-231",
+      "behavior": "测试超预算返回 compressionTask、maxInputTokens/chunks/language、compressedText 应用后的 trace 六字段与 compiled 条目；另测 D25 memory 分组与 :part-N 切块。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/context-spool.test.mjs",
+      "line": "48-66",
+      "behavior": "测试压缩 manifest 与 chunk 文件写入及按句柄读取。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/context-package.test.mjs:175 超预算返回 compressionTask；compressedText 通过后写 trace 六字段与 compiled 条目",
+    "packages/see-dsh-novel/test/context-package.test.mjs:218 D25 memory 候选按 semantic 预算切块分组",
+    "packages/see-dsh-novel/test/context-package.test.mjs:233 complete 分支不产生压缩任务",
+    "packages/see-dsh-novel/test/context-spool.test.mjs:48 压缩 manifest 与 chunk 写入/按句柄读取",
+    "packages/see-dsh-novel/test/context-package.test.mjs:73-269 其余 context-select 用例",
+    "本次审计运行 node --import tsx --test context-package/context-spool 全过（测试通过不等价）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/plan.compression.json：date=2026-11-09，sessionId=session-e96508fc-aff4-48b4-a934-5b70e4519e06（非 process:*），但该会话的 candidates 调用在参数里显式传了 contextWindowTokens=128000（seq 22）与 12000（seq 167），不是 real-run 所说的「从 request/header + llm 模型信息派生窗口（1,048,576，reserved 256,000）」；该会话两次都是 complete（0 个任务），没有 compressionTask 回执。另一份压缩夹具会话 session-e68354ce-05bc-47e2-8eae-4a4f6279689b（2026-11-09T04:46Z，.artifacts/work-compression）的两次 story_context_candidates 都是 Error: tool call aborted，没有成功回执；夹具里只有 chapter-0001.writer.task-1/2/3…json（2.37MB/2.37MB/0.40MB 等）与 tasks.json，没有 compress-*.json。故压缩分支目前只有 process-level 测试与 spool 文件证据，记 P。",
+  "deviations": [
+    "重压一次的实现位置不同：源在 SemanticContextCompilerAgent.compile 内由宿主再发一次模型调用，仍超预算就抛错（semantic-context-compiler.ts:60-82）；复刻把这个动作只写进阶段协议文本（stages/index.ts:247,288），宿主不执行第二次压缩，只在 package 收到 compressedText 后检查是否超 maxInputTokens（context-package.ts:644-650）。模型若跳过或做不好重压，行为就与源不同；没有宿主级保证。",
+    "复刻把压缩也作用于 planner pass：context-tool.ts 对 purpose=planner 同样 assembleContext 并可返回 compressionTask（context-tool.ts:271-289；stages/index.ts:245-247）；源 planner 的 selectTaskContext 从不调用 applyContextBudgetIfNeeded（composer.ts:334-366），只有 writer composeChapter 压缩（composer.ts:313-332）。",
+    "压缩分块输入缺源的 Source id/Source pointer：源 renderFragment 每段写 ## source、Source id、Source pointer、content（semantic-context-compiler.ts:87-94）；复刻 buildCompressionTask 只渲染 ## source／reason／excerpt（context-package.ts:695），却仍要求模型保留来源指针，输入里没有对应的 id/pointer 行。",
+    "缺 onContextCompression 进度回执：源在 start/end/error 三个时点回调（composer.ts:191-275），Studio 能显示压缩状态；复刻没有等价的回调或面板/遥测回执，只有 trace.compression 与阶段协议文本。",
+    "预算派生缺省时静默降级：源只要 client 有 contextWindow 就有预算（composer.ts:580-589）；复刻在没有 request/header、无 llm 服务或 resolveModelInfo 失败时返回 undefined（context-tool.ts:108-138），assembleContext 会当作「无预算」直接 complete，不压缩也不报错。",
+    "D25 的 memory 分组预算差异已登记：源 2048/2048（composer.ts:386-391），复刻 contextWindow-reservedOutput-3072（context-package.ts:477-480；docs/dsh-mapping.md:204-209）；本行只引用，不重复记债。",
+    "D26 证据缺口：夹具只写出候选 task 文件（2.3MB 级），主模型读取时卡死，没有 selection→compression→package 的真实回执；真实压缩的算法、重压、六字段 trace 都没有会话级证据。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "D26 真压缩没有会话回执；重压一次只在阶段协议文本、宿主不执行；压缩也作用于 planner pass；压缩分块缺 Source id/pointer；缺 onContextCompression 回执；预算派生缺失时静默跳过",
+    "owner": "plan.compression",
+    "closure": "补一条真实会话回执覆盖 selection→compression→package（小窗口模型或专用夹具），记录 sessionId 与回执；把重压一次做成宿主可验证的下一步（例如 package 返回 recompress 指令或压缩任务），并断言超预算拒绝；与源对齐只对 writer 压缩，或把 planner 压缩登记为偏差；分块输入补 Source id/Source pointer；补压缩进度回执或登记为不可观测；预算不可得时按源记录/报错而不是静默 complete；重录 real-run，并在 docs/dsh-mapping.md 增加压缩编排（非 D25）的偏差行，否则不满足机制等价的门槛。"
+  },
+  "limitations": [
+    "real-run 的 sessionId 是真实的，但压缩分支的回执不可用：同会话的窗口是 caller 传参，两个夹具调用被 abort，夹具没有 compress-* 文件；因此本行只能把压缩记为 process-level（P），不能按 S 放行。",
+    "源压缩是进程内同步子代理；复刻是主模型按阶段协议派 subagent 读 spool。这是 DSH 的 subagent/工具机制，但 docs/dsh-mapping.md:204-209 只登记了 D25 的分组预算，没有登记重压/编排差异，所以本行判保真债而不是机制等价。",
+    "context-package.test.mjs 的压缩用例是手工构造 fixed/candidate/budget，直接调用 assembleContext；它不经过真实模型，也不覆盖 chunk 派发与合并后的重压。",
+    "大夹具 .artifacts/work-compression 有 139 个 hook、6 个 writer task 文件（task-1 2.37MB、task-2 2.37MB、task-3 0.40MB…），但没有 compress manifest/chunk，也没有 package 回执；D26 的阻塞证据是「主模型读取 task-1 卡死」，不是行为已等价。",
+    "source 的 onContextCompression 是 Studio 侧可观察的状态；复刻没有等价消费者，无法在本行证明压缩开始/结束/失败对作者可见。",
+    "对照：capabilities.yaml:259-266 标 verified；docs/fidelity-audit.md:368-374 判「保真债」（D13/D25 行为已偿还，D26 证据缺口）；本审计确认保真债，并补入重压、planner 压缩、Source id/pointer、预算静默降级的证据。"
+  ]
+}

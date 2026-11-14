@@ -1,0 +1,89 @@
+{
+  "id": "foundation.rule-contract",
+  "verdict": "faithful",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/models/book-rules.ts",
+      "line": "3-25",
+      "behavior": "BookRulesSchema：version 为字面量 '2'；protagonist（name/personalityLock/behavioralConstraints）与 genreLock（primary/forbidden）是可选严格对象；narrativePerson 与 fanficMode 为 trim 后非空的可选字符串；prohibitions/allowedDeviations 为字符串数组；enableFullCastTracking 布尔；顶层与嵌套对象都 strict，未知字段拒绝。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/rules-reader.ts",
+      "line": "11-17",
+      "behavior": "readBookRules(bookDir)：并行读 story/book_rules.md 与 story/book_rules.json，对 JSON 做 BookRulesSchema.parse，body 为 md 内容 trim；任一文件读不出则整个读取失败。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "306",
+      "behavior": "写路径第 1 步：BookRulesSchema.parse({version:'2', ...details.bookRulesData})——模型不提供 version，写前注入并严格校验。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "148-153",
+      "behavior": "写路径第 2 步：story/book_rules.md 为 bookRules.trim() 加换行；story/book_rules.json 为 JSON.stringify(bookRulesData, null, 2) 加换行（版本在最前，字段按 schema 声明顺序）。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect-tool.ts",
+      "line": "8-23",
+      "behavior": "BookRulesDataToolSchema 与 source schema 同形但不含 version；prohibitions/enableFullCastTracking/allowedDeviations 必填，protagonist/genreLock/narrativePerson/fanficMode 可选。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": "120-175",
+      "behavior": "PROTAGONIST/GENRE_LOCK 用 nestedObject 生成严格 schema 与读函数（未知字段、缺必填拒绝）；FIELDS 表：protagonist/genreLock 可选严格对象，narrativePerson/fanficMode trim 后非空，prohibitions/allowedDeviations 字符串数组，enableFullCastTracking 布尔；bookRulesDataSchema 由同一字段表生成且不含 version。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": "183-213",
+      "behavior": "parseBookRules：顶层未知字段拒绝；version !== '2' 报『字段 version 必须是 \"2\"』；缺必填字段报字段名；按 FIELDS 顺序读出并二次自检（装配后的对象再过同一字段表）；返回值字段顺序为 version→protagonist→genreLock→narrativePerson→prohibitions→enableFullCastTracking→fanficMode→allowedDeviations，与源 BookRulesSchema 声明顺序一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": "228-230",
+      "behavior": "withVersion：parseBookRules({version:'2', ...input})——模型输入不提供 version，写前注入并校验。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": "246-258",
+      "behavior": "readBookRules：并行读 source/story/book_rules.md 与 .json；读失败点名文件；JSON 语法错误报『不是合法 JSON』；解析后过 parseBookRules；body 为 md trim。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/book-rules.ts",
+      "line": "216-221",
+      "behavior": "bookRulesWrites：md 用调用方给的正文（details 传 bookRules.trim()+换行），json 用 JSON.stringify(rules, null, 2)+换行——与源两处写入格式一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "204-226",
+      "behavior": "story_foundation_details 先 withVersion(args.bookRulesData)（失败即不写），再 bookRulesWrites 与状态/快照/索引/控制文档同一次 commitFoundation。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/book-rules.test.mjs:27 withVersion injects the version and keeps the field order",
+    "packages/see-dsh-novel/test/book-rules.test.mjs:38 missing required fields and unknown fields are rejected",
+    "packages/see-dsh-novel/test/book-rules.test.mjs:47 bare strings and arrays follow the source schema, not stricter rules",
+    "packages/see-dsh-novel/test/book-rules.test.mjs:79 readBookRules returns the rules and the trimmed body",
+    "packages/see-dsh-novel/test/book-rules.test.mjs:92 readBookRules fails loud on missing, broken or unversioned files",
+    "packages/see-dsh-novel/test/book-rules.test.mjs:114 the tool schema and the validator share one field list",
+    "packages/see-dsh-novel/test/foundation.test.mjs:100 invalid book rules are rejected before anything is written",
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 book-rules.test.mjs 6 例"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/foundation.rule-contract.json：date=2026-11-05，sessionId=session-5856f2b8-8c5c-465b-b00a-61674176d2fc（非 process:*），tests.passed=true（pnpm run verify，202 passed）。receipts：work-rules 会话里主编调 story_foundation_details，bookRulesData={prohibitions:['不写现实政治'],enableFullCastTracking:false,allowedDeviations:[],narrativePerson:'第三人称'}，回执『写入 6 个文件』；落盘 book_rules.json 首项 version:'2'，字段序 version→narrativePerson→prohibitions→enableFullCastTracking→allowedDeviations，readBookRules 读回一致、body 为『# 本书规则\\n\\n不写现实政治。』；删除 version 后重跑读取退出非零，stderr 为『source/story/book_rules.json: 字段 version 必须是 \"2\"，实际是 undefined』，恢复后通过。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-rules--/session-5856f2b8-.../session.v4.jsonl.zstd 存在（30119 字节，2026-11-05 17:59 写入）。",
+  "deviations": [],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "错误文案不同：源抛 zod 的英文校验错误，复刻抛带文件/字段名的中文错误；拒绝与不写盘的行为一致，但文本不是源文案。源没有错误码，复刻也没有，因此没有错误码映射问题。",
+    "源 BookRulesSchema 用 zod 的 .trim() 转换后比较；复刻显式 trim 后返回；两者对纯空白 narrativePerson/fanficMode 都拒绝，对 name/prohibitions 等裸字符串都允许空串，逐项一致（book-rules.test.mjs:47 固定了这些边界）。",
+    "fidelity-audit.md:224 只说『版本与字段一致；测试覆盖严格解析』，没有写出字段顺序、trim、prototype 键与读失败的行为；本次审计按代码与回执补全。",
+    "realRun 是 2026-11-05 的会话；同日 commit 6898dbc 在 book-rules.ts 里补了 prototype 键拒绝与装配后自检（不改变版本注入、字段顺序、读取/拒绝行为），回执描述的路径仍成立，但没有覆盖 prototype 键分支。",
+    "字段顺序依赖源 zod parse 的 schema 声明顺序；若源升级 zod 版本改变对象键顺序，两份文件的字节顺序可能分叉。这不是当前偏差，但复刻的字段表需要跟随源 schema 顺序维护。"
+  ]
+}

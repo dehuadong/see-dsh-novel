@@ -1,0 +1,105 @@
+{
+  "id": "panel.workbench",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": 110,
+      "behavior": "「写下一章」按钮 POST /books/:id/write-next，直接启动下一章生产（按钮在 :320-327）。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": 206,
+      "behavior": "作品设置可改 chapterWordCount／targetChapters／status 并经 PUT /books/:id 保存（表单在 :410-453）。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": 120,
+      "behavior": "删除作品 DELETE /books/:id；:239 重修基础设定；:137／:160／:183 的章节重写、修订、按正文同步 truth/state 都可带 brief。"
+    },
+    {
+      "file": "inkos/packages/studio/src/components/ChapterWorkspacePanel.tsx",
+      "line": 119,
+      "behavior": "章节工作台提供版本列表、预览与恢复（POST /versions/:id/restore），以及保存本章 brief（:78）、重写（:88）、灵感（:98）、删除本章（:132）。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/TruthFiles.tsx",
+      "line": 54,
+      "behavior": "真值文件浏览／编辑：Edit 后 PUT /truth/:file 保存（server.ts:5761）；只有 runtime-diagnostic 是只读。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": 3228,
+      "behavior": "真值文件白名单 = 9 个 flat 文件 + 2 个 outline + runtime 诊断 + roles/**；:4189-4203 列表按同一白名单。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": 389,
+      "behavior": "导出走 /export-save，成功／失败用原生 alert 回执。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": 457,
+      "behavior": "章节表提供阅读、重写、同步 truth/state 的行内动作（:477-528）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/panel-index.ts",
+      "line": 81,
+      "behavior": "白名单展示集合：11 份真值文件 + 角色卡 + 章节正文 + 章纲／审稿／诊断；:198 全部 readonly:true。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/panel-index.ts",
+      "line": 207,
+      "behavior": "阶段动作只产出 confirm-foundation／start-foundation／plan-chapter／write-chapter／review-chapter；:226 次动作只有 start-chapter／reject-foundation／review-foundation／later；:275 chapter-done 只有 revise-chapter。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/Workbench.tsx",
+      "line": 194,
+      "behavior": "动作条渲染索引给出的动作；:234-252 产物详情只用 <pre>／JsonView 只读显示；:70 行内标「只读」。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": 294,
+      "behavior": "handleAction 只派发 8 个 action id（start-foundation／later／confirm／reject／review／delete／start-chapter／plan、write、review、revise）；:268 阶段动作只把提示投回会话；:326 导出经 executeCommand。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/panel-projection.ts",
+      "line": 37,
+      "behavior": "宿主从文件重建 panel.index.json；:94 会话创建时补建缺失／旧版索引，面板自身不触发投影。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/panel-index.ts",
+      "line": 240,
+      "behavior": "buildPanelIndex 由 readWork／workProbes／detectStage／readArtifacts 重建阶段、产物、确认与根动作。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/workbench.test.mjs（11 例：动作条、阶段导航、诊断折叠、JSON 键值树、删除内联确认、完成后根修订动作）",
+    "packages/see-dsh-novel/test/panel-index.test.mjs（6 例：索引 v6、白名单／摘要分离、latestChapter 与坏索引、foundation-ready 动作、空作品、恢复后 review target）",
+    "packages/see-dsh-novel/test/client.test.mjs（索引驱动、动作派发、导出回执、审阅目标、索引重载）",
+    "packages/see-dsh-novel/test/panel-projection.test.mjs（v6 重建与预热）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/panel.workbench.json：date=2026-11-14，sessionId=process:panel.workbench，receipts 明说「该回执是 process-level 工具/状态测试，不是 DSH 会话」；没有真实 DSH 会话 id 或会话回执。",
+  "deviations": [
+    "真值文件只读：源 TruthFiles 可 Edit/Save（TruthFiles.tsx:54、server.ts:5761），复刻所有产物 readonly（panel-index.ts:198），已登记 D39。",
+    "源 BookDetail 的作品设置、删除作品、重修基础设定、章节重写、按正文同步 truth/state、章节版本恢复与本章 brief 编辑，在复刻面板没有控件或命令；账本与 fidelity-audit 未把这些记为债或偏差。",
+    "源工作台由 BookDetail + TruthFiles + ChapterWorkspacePanel 三个面组成；复刻用阶段轨道把它们折成一页（DSH 阶段机制，已登记），但阶段／结算节点在源不存在，不能据此宣称动作集合相同。",
+    "源导出用原生 alert，复刻改页面内 notice（已登记 export.work 偏差）；源面板直接调 Studio API，复刻依赖 remote.commands／remote.workspaceFiles，读不到时只能显示失败（已登记面板只读投影）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "面板未复刻源工作台的设置编辑、删书、基础设定重修、章节重写／同步／版本恢复与本章 brief 入口；真值文件编辑仍只读（D39）",
+    "owner": "panel.workbench",
+    "closure": "为上述每个动作补宿主命令／提示 + 面板控件 + workbench/client 测试；或由作者裁决为不可见并在 docs/dsh-mapping.md 逐条登记偏差；D39 按 scope.md 的后继面板写通道偿还。"
+  },
+  "limitations": [
+    "只有进程级证据；真实 DSH 会话中的布局、remote.commands 与文件资源通道未由 real-run 覆盖。",
+    "workbench 测试用 react-test-renderer + 注入假索引，不断言宿主投影与客户端在同一真实会话中的联动。",
+    "panel.logs 与 panel.analysis 仍是 missing 行，源工作台的日志／分析入口不在本行交付。",
+    "面板从不重建索引（设计如此）；索引未生成时只显示兜底卡片，源面板每次请求实时读 API。",
+    "对照：capabilities.yaml:379-386 标 verified；docs/fidelity-audit.md:500-506 判「机制等价 + 保真债 D39」；该判定只承认真值编辑一项，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据，故本行记 false-equivalence。"
+  ]
+}

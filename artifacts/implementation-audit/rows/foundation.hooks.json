@@ -1,0 +1,136 @@
+{
+  "id": "foundation.hooks",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": "15-35",
+      "behavior": "HookStatus 五态（open/progressing/deferred/resolved/superseded）；HookRecordSchema 严格对象：hookId/type min 1、startChapter/lastAdvancedChapter 非负整数、expectedPayoff/notes 字符串、dependsOn 为非空字符串数组、paysOffInArc 字符串；HooksStateSchema 只含 hooks 数组。"
+    },
+    {
+      "file": "inkos/packages/core/src/models/runtime-state.ts",
+      "line": "99-122",
+      "behavior": "HookOpsSchema 为 upsert/mention/resolve/defer；newHookCandidates 每项 type/expectedPayoff 非空；RuntimeStateDelta 含 chapter/factOps/hookOps/newHookCandidates。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/hook-arbiter.ts",
+      "line": "17-90",
+      "behavior": "arbitrateRuntimeStateDeltaHooks：upsert 引用未知 hookId 直接抛错并提示改用 newHookCandidates；候选由宿主分配 canonical id（hook、hook-2…），startChapter/lastAdvancedChapter 记为当前章、status open；mention 去空去重并剔除 upsert/resolve/defer 中出现者；resolvedDelta 的 upsert 按 start/last/hookId 排序。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-reducer.ts",
+      "line": "75-122",
+      "behavior": "applyHookOps：upsert 与已有记录合并（superseded 记录原样保留；incoming superseded 时 resolved 抛 HOOK_RESOLVED_HISTORY、notes 为空抛 HOOK_WITHDRAWAL_REASON_REQUIRED、否则追加 notes 并置 superseded）；resolve 拒绝未知与 superseded、status=resolved、lastAdvanced=max(旧,章号)；defer 拒绝未知与 superseded、status=deferred、不推进 lastAdvanced；结果按 startChapter/lastAdvancedChapter/hookId 排序。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/runtime-state-store.ts",
+      "line": "25-44",
+      "behavior": "createInitialRuntimeState：manifest={schemaVersion:2,language,lastAppliedChapter:0,projectionVersion:1}，currentState chapter 0，hooks 用入参，chapterSummaries 空；交给 saveRuntimeStateSnapshot 落盘。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/runtime-state-store.ts",
+      "line": "152-170",
+      "behavior": "saveRuntimeStateSnapshot 先 validateLoadedSnapshot（validateRuntimeState）再写：四份 state JSON 与三份投影；非法 hooks（含重复 hookId）会在写入前抛错，不会留下坏状态。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-validator.ts",
+      "line": "52-63",
+      "behavior": "validateRuntimeState 对 hooks 报 duplicate_hook_id；saveRuntimeStateSnapshot 与 load 都调用它，因此重复 id 在保存/读取时都是错误。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "306-316",
+      "behavior": "details 提交后：BookRulesSchema.parse({version:'2',...})；pendingHooks 映射为 HookRecord（hookId/type/expectedPayoff/notes trim、startChapter 0、status deferred、lastAdvancedChapter 0），再渲染 pending_hooks 投影。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-projections.ts",
+      "line": "7-50",
+      "behavior": "renderHooksProjection：标题『# 伏笔池』/『# Pending Hooks』，固定七列表头，按 startChapter→lastAdvancedChapter→hookId 排序，单元格 escapeTableCell 转义，末尾一个换行；options.currentChapter 被显式忽略。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": "7-43",
+      "behavior": "HOOK_STATUSES 五态；HookRecord 含 dependsOn/paysOffInArc；HOOK_FIELDS 白名单；TRANSITIONS 表（deferred/open→progressing/superseded、progressing→resolved/superseded），TERMINAL={resolved,superseded}。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": "53-89",
+      "behavior": "validateHooks：state 顶层只允许 hooks；逐条检查对象、hookId 非空、未知字段、重复 hookId、status 合法、type 非空、expectedPayoff/notes 字符串、章节非负整数、dependsOn 非空字符串数组、paysOffInArc 字符串；与源 zod strict 的检查集合一致。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/hooks.ts",
+      "line": "95-105",
+      "behavior": "transitionHook 按 TRANSITIONS 表推进并要求章节不倒退、终态拒绝；源 reducer 没有这张表（源允许 deferred 直接 resolve、也允许 resolved 被 defer 改回 deferred）。该函数在本仓库无产品调用方，只被 hooks.test.mjs 使用。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settle.ts",
+      "line": "139-174",
+      "behavior": "applyHookOps：先 admitCandidates（宿主分配 hook/hook-N，start/lastAdvanced=当前章、status open）；upsert 引用未知 id 抛错；mention 只做空/重复校验、不改状态；resolve 拒绝未知/superseded 并推进 lastAdvanced；defer 拒绝未知/superseded、不推进；结果按 start/lastAdvanced/hookId 排序。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settle.ts",
+      "line": "80-105",
+      "behavior": "mergeHook：superseded 记录原样保留；incoming superseded 时 resolved 拒绝、notes 为空拒绝、否则追加 notes；普通合并 startChapter 取 min、type/expectedPayoff/notes trim 后取新值、resolved 保持 resolved、lastAdvanced 取 max——逐条对应源 mergeHookRecord（state-reducer.ts:124-142）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": "67-87",
+      "behavior": "hookRecord：pendingHooks 映射为 startChapter 0/status deferred/lastAdvancedChapter 0，四个字符串字段 trim（notes 允许 undefined→''）；defaultStateSnapshot 直接组装 manifest/currentState/hooks/chapterSummaries，不调用 validateHooks。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": "375-389",
+      "behavior": "stateWritesIfMissing：只写不存在的状态文件；JSON 坏掉时跳过对应投影；全流程没有写前状态校验，详情工具可以把非法 pendingHooks 直接落盘。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state-projections.ts",
+      "line": "63-77",
+      "behavior": "renderHooksProjection：与源相同的标题、七列表头（中英）、startChapter→lastAdvancedChapter→hookId 排序、table() 的单元格转义与末尾换行。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "207-227",
+      "behavior": "story_foundation_details 用 args.pendingHooks 调 stateWritesIfMissing/inspectState 播种状态，同批写章 0 快照与（条件满足时的）初始章节索引。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/hooks.test.mjs:17 validation rejects duplicate ids, unknown status and bad chapters",
+    "packages/see-dsh-novel/test/hooks.test.mjs:26 the hook ledger accepts dependsOn and paysOffInArc, and rejects unknown fields",
+    "packages/see-dsh-novel/test/hooks.test.mjs:48 transitions follow the table and stop at terminal states（断言的是复刻自造的 TRANSITIONS 表，源没有此表）",
+    "packages/see-dsh-novel/test/hooks.test.mjs:61 counts group by status",
+    "packages/see-dsh-novel/test/state-projections.test.mjs:21 the hooks projection sorts, escapes and ends with one newline",
+    "packages/see-dsh-novel/test/state-projections.test.mjs:37 the hooks projection localizes its title and headers",
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs:167 settle writes facts, hooks, summary, manifest and projections",
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs:459 hook ops: mention and defer do not advance, resolve does, superseded is protected",
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs:499 withdrawal and history protection follow the merge rules",
+    "packages/see-dsh-novel/test/foundation.test.mjs:51 details writes book rules and seeds the four state files plus three projections",
+    "packages/see-dsh-novel/test/foundation.test.mjs:115 a second details run does not overwrite existing state",
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过（hooks 4、chapter-settle 未在本次运行内；foundation 12 含播种）"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/foundation.hooks.json：date=2026-11-04，sessionId=session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*），tests.passed=true（pnpm test，28 passed），receipts 记录 agentPreset=see-dsh-novel、cwd=.artifacts/work-demo、story_hooks isError=false 返回七列伏笔池、state/hooks.json 有 story_foundation_details 播种的 H-001/H-002 两条 deferred、投影按 startChapter/lastAdvancedChapter/hookId 排序。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-demo--/session-974fa00e-.../session.v4.jsonl.zstd 存在（286136 字节，2026-11-05 10:00 写入；仓库内另有 .artifacts/session-974fa00e.jsonl 导出）。",
+  "deviations": [
+    "写前校验缺失：源 createInitialRuntimeState → saveRuntimeStateSnapshot 在写四份 JSON/三份投影前 validateRuntimeState（runtime-state-store.ts:25-44,152-170），重复 hookId、空 type 等非法 pendingHooks 会让基础设定失败；复刻 stateWritesIfMissing 直接把未校验的 pendingHooks 写盘（state.ts:67-87,375-389），坏状态要等下一次读取才报错。复刻的 hook 校验只在 validateHooks 的读路径（hooks.ts:53-89）。",
+    "自造迁移表：复刻导出 TRANSITIONS/transitionHook（hooks.ts:37-43,95-105），禁止 deferred→resolved 与 resolved→deferred，并要求章节单调；源 reducer 没有这张表（state-reducer.ts:88-113），resolve/defer 只拒绝 superseded/未知。该函数目前无产品调用方，但 hooks.test.mjs:48 把它当行为契约，属于未登记的额外规则。",
+    "mention 语义：源 arbiter 会去掉在 upsert/resolve/defer 中出现的 mention 并排序（hook-arbiter.ts:71-83）；复刻只对 mention 做空/重复校验（settle.ts:149-150），不改写入的 delta。状态结果一样，但落盘的结算增量不同（`.drafts/settlement-*.json` 里的 mention 列表会保留被覆盖的 id）。",
+    "种子写入条件：源 init 路径 createInitialRuntimeState 无条件覆盖状态；复刻 details 只在状态文件缺失时补（state.ts:375-389，foundation.test.mjs:115）。源产品路径只在建书时 init 一次，所以差异只在模型重复调用 details 时出现，但此路径源不可观测、复刻也未登记。",
+    "notes 兜底：源映射时 notes 必填字符串并 trim（architect.ts:314）；复刻 notes ?? '' 允许缺失（state.ts:75）。",
+    "复刻另有只读 story_hooks 工具（plugin/agent.ts:59-70）输出 count+投影；源没有同名工具，hooks 通过 read/ls 读文件。该工具归 foundation.hook-ledger，但本行 realRun 用它作为证据。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "播种路径不做源等价的写前校验；自造且未使用的 TRANSITIONS/transitionHook 与源 reducer 语义相反；mention 过滤与 notes 兜底未登记",
+    "owner": "foundation.hooks",
+    "closure": "1) 在 story_foundation_details 播种前对 hooks 状态跑 validateHooks（或在 stateWritesIfMissing 增加保存前校验），使非法 pendingHooks 与源一样不落盘；2) 删除 TRANSITIONS/transitionHook 或改为只实现源 reducer 允许的语义，并把 hooks.test.mjs:48 改成源迁移行为（deferred→resolved 允许、resolved 不能被 defer 改回）；3) mention 按源过滤或登记落盘 delta 的结构偏差；4) notes 缺省按源必填处理；关闭判据=非法播种拒绝用例、迁移用例与源 reducer 对齐、真实回执重录。"
+  },
+  "limitations": [
+    "realRun 是 2026-11-04 的会话，hooks.ts 在 2026-11-06 的 commit 9f141ed 里收紧过校验顺序；回执描述的播种/投影行为仍然成立，但没有覆盖收紧后的拒绝路径。",
+    "fidelity-audit.md:196 说『hooks 池与六动作』，源 HookOps 实际是 upsert/mention/resolve/defer 四个操作（加 newHookCandidates 与 superseded 合并），'六动作'没有源码依据。",
+    "docs/dsh-mapping.md『伏笔 id』偏差行称源只校验数组形状、不要求 hookId 唯一；state-validator.ts:52-63 与 saveRuntimeStateSnapshot 实际会以 duplicate_hook_id 拒绝重复 id，该偏差描述不准确（复刻的重复校验与源一致）。",
+    "state-reducer.ts:78-86 的 reducer 本身会新增未知 upsert，与 hook-arbiter.ts:34-43 的拒绝相反；源的产品路径先过 arbiter，因此复刻跟随 arbiter 是可达行为，但源的内部路径存在不一致，本行按产品路径裁决。",
+    "chapter-settle.test.mjs 的 hook ops 用例未在本次六文件运行内；本次只运行了 hooks/foundation 等六个文件（65 例）。",
+    "story_hooks 读工具、hook-ledger 行与投影行有重叠，本行只裁决播种、id/status 语义与投影一致，不重复裁决读工具的 UI 行为。"
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "id": "foundation.approval",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/interaction/session.ts",
+      "line": "13-24",
+      "behavior": "PendingProposedActionSchema：action/targetSessionKind/instruction 必填、title/summary（min 1）可选、playMode/requestedSkills/actionPayload 可选，strict；这是待作者确认的 action envelope。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/session.ts",
+      "line": "70-84",
+      "behavior": "InteractionSessionSchema 携带 pendingProposedAction；确认前的提案挂在会话上，不是作品工件上的摘要回执。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/action-envelope.ts",
+      "line": "14-48",
+      "behavior": "RequestedIntent 枚举含 write_next；createBook/writeNext 等结构化 payload schema 用 strict 校验，确认请求与 payload 在 host 侧重新验证。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": "178-206",
+      "behavior": "propose_action 参数：action 只允许 15 个 workflow start（create_book/short_run/play_start/generate_cover/fanfic_init/continuation_import/spinoff_create/style_imitation/script_create/storyboard_create/interactive_film_create/translation_create/draft_structure/connect_choice/remove_node；枚举里没有 write_next）、instruction/title/summary 必填、createBook 等结构化执行参数。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": "653-694",
+      "behavior": "propose_action.execute：校验 title/summary/instruction 非空、校验并归一化 actionPayload、检查该 action 是否可执行，返回 {kind:'proposed_action', action, targetSessionKind, sameSession, title, summary, instruction, requestedSkills?, actionPayload?} 作为确认卡内容；不写作品。"
+    },
+    {
+      "file": "inkos/packages/studio/src/shared/confirmed-production.ts",
+      "line": "3-33",
+      "behavior": "CONFIRMED_PRODUCTION_INTENTS 含 write_next 等 16 项；isConfirmedProductionAction 只有 button/slash（write_next 另接受 quick-action）才算确认，自由文本没有执行权。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "4559-4567",
+      "behavior": "host 在进入 agent 前用 isConfirmedProductionAction(actionSource, requestedIntent) 判定确认；确认后的 action 由 host 执行，未确认的请求不获得执行授权。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-session.ts",
+      "line": "717-725",
+      "behavior": "isHostConfirmedAction：只有 requestedIntent 存在且 actionSource 为 button/slash 才算 host 确认；984-993 用确认结果绑定唯一可执行 capability/action，1016/1067 把 confirmed 与 confirmedAction 带进执行环境——确认是执行授权，不是作品工件回执。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/contract.ts",
+      "line": "121-163",
+      "behavior": "GATE_TOOL='story_gate'、SIGNOFF_TOOL='story_foundation_signoff'、三条命令常量；GATE_OUTPUT 含 stage/files/digest/confirmed/decision/channel/receiptAt/policy/canPrompt/hint，SIGNOFF_OUTPUT 含 signed/channel/digest/files。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/gate.ts",
+      "line": "82-106",
+      "behavior": "confirmationPolicy=overrideOf ?? config.policy ?? 'ask'；confirmedBy 要求工件非空、最近决定为 approve、且 decision.digest 等于当前工件 digest。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/gate.ts",
+      "line": "128-165",
+      "behavior": "evaluateSignoff：无工件 → no-artifacts；已有匹配的 panel/原生回执 → signed；无 approval 服务 → no-approval-service 并指引面板；策略 never → policy-never 并指引面板；否则 approval.request，非 allowed-once 按 rejected/cancelled/unavailable 拒绝；确认后工件摘要变化则 changed。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/gate.ts",
+      "line": "168-262",
+      "behavior": "注册 story_gate（只读：读工件、最近决定、策略与可否弹确认条）与 story_foundation_signoff（只取确认，不写作品；成功返回 signed/channel/digest/files，拒绝以工具错误返回）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/receipts.ts",
+      "line": "15-62",
+      "behavior": "回执标记固定形状 story-approval stage=<stage> digest=<64hex> files=<n> via=receipt|approval；parseApprovalMarker 取最后一处匹配，stage/digest 缺失或 via 非法忽略。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/receipts.ts",
+      "line": "84-129",
+      "behavior": "latestDecision 从 command/run+command/done 与 tool/call+tool/result 配对读取：/story-reject 成功记为 reject 并作废更早 approve；/story-approve 与 story_foundation_signoff 的标记行记为 approve（digest/channel）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/commands.ts",
+      "line": "61-101",
+      "behavior": "/story-approve 读当前工件并写回执标记（空作品报错）；/story-reject 记退回并说明作废更早确认；/story-review 列出工件、摘要、最近决定与策略。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/index.ts",
+      "line": "56-58",
+      "behavior": "面板『认可』后投回会话的 RESUME_TEXT：要求模型调用 story_gate 复核，确认成立再调用 story_foundation_signoff 定稿并继续；不成立则说明原因，不再次请作者确认。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/approval.test.mjs:87 the digest tracks content, not just the file set",
+    "packages/see-dsh-novel/test/approval.test.mjs:106 an empty work has no digest and refuses to be signed off",
+    "packages/see-dsh-novel/test/approval.test.mjs:125 a never policy never reaches the approval prompt and points at the panel",
+    "packages/see-dsh-novel/test/approval.test.mjs:143 a missing approval service refuses and points at the panel",
+    "packages/see-dsh-novel/test/approval.test.mjs:155 an ask policy prompts and signs on allowed-once",
+    "packages/see-dsh-novel/test/approval.test.mjs:179 a session without an override falls back to the composed default policy",
+    "packages/see-dsh-novel/test/approval.test.mjs:199 a rejection stops here and does not point at the panel",
+    "packages/see-dsh-novel/test/approval.test.mjs:216 cancelled and unavailable deny with their own reasons",
+    "packages/see-dsh-novel/test/approval.test.mjs:238 a work that changes while the author is deciding voids the confirmation",
+    "packages/see-dsh-novel/test/approval.test.mjs:256 a matching panel receipt signs without asking",
+    "packages/see-dsh-novel/test/approval.test.mjs:274 a receipt goes stale when the work changes under it",
+    "packages/see-dsh-novel/test/approval.test.mjs:291 a receipt for another stage does not count",
+    "packages/see-dsh-novel/test/approval.test.mjs:310 a rejection after an approval voids the earlier receipt",
+    "packages/see-dsh-novel/test/approval.test.mjs:328 a native signoff in the log counts as a confirmation",
+    "packages/see-dsh-novel/test/approval.test.mjs:377 /story-review lists the work and the review state",
+    "packages/see-dsh-novel/test/approval.test.mjs:394 /story-approve writes the marker and records the note",
+    "packages/see-dsh-novel/test/approval.test.mjs:409 /story-approve refuses an empty work",
+    "packages/see-dsh-novel/test/approval.test.mjs:422 /story-reject records a rejection without a marker",
+    "packages/see-dsh-novel/test/approval.test.mjs:436 the gate reports a confirmed version and the signoff tool signs it",
+    "packages/see-dsh-novel/test/approval.test.mjs:468 the signoff tool fails loud when the confirmation is missing",
+    "packages/see-dsh-novel/test/approval.test.mjs:485 the gate reports a rejection instead of hiding it",
+    "packages/see-dsh-novel/test/approval.test.mjs:510 the gate tools refuse an execution without an owning agent",
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 approval.test.mjs 22 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/foundation.approval.json：date=2026-11-04，sessionId=session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*），tests.passed=true（pnpm run verify，60 passed）。receipts 给出策略 never 下面板 /story-approve（seq 324，via=receipt）→ seq 306 签核返回『已定稿 foundation：14 个文件，摘要 3b5f41e9（作者在面板确认）』并带 story-approval 标记；ask 策略下 seq 161 asked → 162 allowed-once → 163 signed；同会话先拒（197/198/199）后放行（214/215/216）；退回作废更早确认（132/134/146）；面板真实渲染落在「对话」command/done seq 324。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-demo--/session-974fa00e-.../session.v4.jsonl.zstd 存在（286136 字节，2026-11-05 写入）。",
+  "deviations": [
+    "源没有 foundation 定稿闸门：作者确认只针对 workflow start（propose_action 的 15 个 action 与 confirmed-production 的 button/slash 判定），确认后 host 执行 action；复刻新增 story_gate/story_foundation_signoff 与 /story-approve、/story-reject 的『基础设定这一版定稿』确认面（gate.ts:168-262、commands.ts:61-101），并把 receipt 写进会话日志供后续读取。源无对应行为，也没有作者对基础设定产物的确认步骤。",
+    "确认对象不同：源确认 PendingProposedAction（action/targetSessionKind/instruction/title/summary/actionPayload，session.ts:13-22），确认时重新校验并执行；复刻确认 source/story/ 工件的 stage/files/digest（readArtifacts + receipt），签核只返回 signed，不执行任何 workflow。",
+    "权威入口不同：源用 requestedIntent + actionSource（button/slash/quick-action）判定确认，自由文本没有执行权（confirmed-production.ts:23-32、server.ts:4563）；复刻用 approval 服务策略（override/config）、/story-approve 命令结果与日志标记行（receipts.ts:84-129），没有 actionSource 概念，也没有『自由文本不获得授权』的等价拒绝。",
+    "退回语义不同：源没有『退回确认面』；pending action 由后续提案替换或取消。复刻 /story-reject 成功即记 reject，并使更早 approve 回执作废（receipts.ts:107-118、commands.ts:75-85），新增了一条源不存在的决定通道。",
+    "本行 source 指向 interaction/session.ts，但 session.ts 的核心是 PendingProposedAction 与 InteractionSession；复刻 gate.ts 没有 pending action，也不负责 workflow start 的确认-执行（那部分在 panel.confirm/proposal.creative）。因此本行不能证明 session.ts 的确认语义被等价复刻。",
+    "闸门强度不同：源 propose_action 返回 proposed_action 后必须由 host 带确认执行；复刻 signoff 不阻断阶段推进（阶段仍由文件探针判定），只是模型被 RESUME_TEXT 提示去调用，拒绝时以工具错误结束本轮，不改变工作区。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "新增的 foundation 定稿闸门无源行为、无作者裁决、无偏差登记；本行未复刻 pendingProposedAction 的确认-执行语义；退回决定通道为源所无",
+    "owner": "foundation.approval",
+    "closure": "1) 作者裁决：保留 foundation 定稿面则按『源行为（无该闸门）→ DSH 落点（approval/commands/receipt）→ 原因（DSH 无法表达 host 执行 pending action 的授权切换？需给出机制证据）→ 验证』登记 deviation，并修正 capabilities.yaml 的 source（不是 session.ts）或把 PendingProposedAction 的确认-执行并入 panel.confirm/proposal.creative；2) 不保留则移除 story_gate/story_foundation_signoff、/story-approve、/story-reject 与 RESUME_TEXT 中的签核要求，让 workflow start 确认只走 panel.confirm；3) 把『自由文本无执行权』与 actionSource 拒绝作为 panel.confirm 的验收项；关闭判据=偏差行或移除提交 + 更新测试与真实回执（当前回执是 2026-11-04，gate.ts 在 2026-11-05 有重构）。"
+  },
+  "limitations": [
+    "真实回执是 2026-11-04 的单会话（session-974fa00e），gate.ts 在 2026-11-05 的 commit 2b8528f 里改过 DECISION_SOURCES 的位置（行为文本未变）；之后 approval.test.mjs 未再改动，因此回执与当前行为基本一致，但没有覆盖 2026-11-06 之后的提交。",
+    "同一会话被 foundation.hooks/foundation.approval/cast.single-authority 三行共用为 realRun；每行的回执段落不同，但会话级证据不能独立证明每行的当前实现。",
+    "approval.test.mjs 用 approvalStub 代替 DSH approval 服务，『ask 策略弹原生确认条』只在桩上成立；真实 DSH 下原生确认条是否出现取决于会话权限策略。",
+    "src/client/index.ts:56-58 的 RESUME_TEXT 是唯一把面板认可接到 signoff 的提示；如果模型不调用 signoff，闸门不生效（没有宿主强制）。",
+    "fidelity-audit.md:202-208 把本行判为『机制等价 — foundation 签核是 DSH 侧附加面』，但『附加面』没有被登记为偏差，且与本行 source 指向的 session.ts 的 pending action 语义不对应。",
+    "docs/dsh-mapping.md『作者确认：原生确认条与面板命令双通道』只登记 receipt 双通道，未登记『新增 foundation 定稿闸门』；按 AGENTS.md 偏差只有 DSH 机制强制或源不可观测两种合法来源，本行的新增闸门两者都不满足。"
+  ]
+}

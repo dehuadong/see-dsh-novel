@@ -1,0 +1,82 @@
+{
+  "id": "chapter.move-delete",
+  "verdict": "faithful",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/state/chapter-delete.ts",
+      "line": "36-120",
+      "behavior": "deleteLatestChapter：索引为空拒绝；latest 取索引最大章号；requested 必须等于 latest；删前先 stat 第 N-1 章快照的 current_state.md 与 pending_hooks.md；章节文件按 ^(\\d+)[_-]?.*\\.md$ 移到 chapters/.trash/（重名加 -2…）；回滚失败把 trash 文件倒序搬回，搬回失败抛 AggregateError；返回 deletedChapter/title/trashedFiles/rolledBackTo/discarded。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": "557-607",
+      "behavior": "prepareStateRestore：必需 current_state.md 与 pending_hooks.md；state/ 必须非空；chapter_summaries.md 缺失时加入删除；活 state/ 里快照没有的文件一并删除。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": "612-676",
+      "behavior": "rollbackToChapter：按 target 过滤索引（<=target 保留，>target 记 discarded）；删除章号大于 target 的章节文件、快照、runtime、drafts 与 memory.db*；一次 commitAtomicFileSet 写回恢复项与保留索引。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "3180-3192",
+      "behavior": "DELETE /books/:id/chapters/:num 在作品锁内把路由章号交给 deleteLatestChapter，返回其字段；失败 400，不提供移章/重排端点。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/delete-chapter.ts",
+      "line": "58-105",
+      "behavior": "snapshotRestore：只要求上一章 current_state.md 与 pending_hooks.md；state/ 必须存在且非空；chapter_summaries.md 缺失则删投影；活 state/ 多出的文件加入删除。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/delete-chapter.ts",
+      "line": "108-143",
+      "behavior": "staleDeletes：删除 source/chapters、source/story/snapshots、runtime、drafts 中章号大于 target 的文件，以及存在的 memory.db*。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/delete-chapter.ts",
+      "line": "150-214",
+      "behavior": "deleteLatestChapter：严格读索引，空拒绝；latest 取最大章号，requested 必须等于 latest；前置读上一章快照；章节文件按 ^(\\d+)[_-]?.*\\.md$ 进 .trash（重名加后缀）；一次 commitFoundation 写恢复状态、三份投影、保留索引并删除 >target 产物；失败倒序搬回 trash。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/delete-tool.ts",
+      "line": "33-50",
+      "behavior": "story_delete_chapter 在 withWorkAction 锁内调用 deleteLatestChapter，输出 deletedChapter/title/trashedFiles/rolledBackTo/discarded。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/delete-command.ts",
+      "line": "17-49",
+      "behavior": "/story-delete 从索引取最大章号后调用同一核心删除，成功/失败回执文本进入对话；面板按钮只显示『已提交，结果在对话里』。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:103 初始快照七份文件",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:120 删除最新章、原文进 trash、状态/索引/快照/运行时/plan/memory.db 回滚、阶段回到 foundation-ready",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:149 只允许删最新章",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:159 缺上一章快照在移动前拒绝",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:171 trash 重名加后缀且旧稿保留",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:184 最小快照（两份投影＋一份 state）可删除，缺 summaries 删投影，活 state 多余文件删除",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:207-263 空 state 目录、缺失/非法索引、未知键、非法日期、嵌套未知键、空 sourceRefs 均在移动前拒绝",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:265-294 空作品、缺单份必需投影拒绝；坏 work.json 不阻止删除",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:296-348 非数组索引、空 sourceRefs、中章、坏 work.json",
+    "packages/see-dsh-novel/test/chapter-delete.test.mjs:350 乱序索引取最大章、保留项原样写回、>target 章节与 drafts 删除",
+    "packages/see-dsh-novel/test/delete-command.test.mjs:94 命令成功删除并回滚；:110 空作品返回失败不写盘"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.move-delete.json：date=2026-11-12，sessionId=process:chapter.move-delete，tests.passed=true（pnpm run verify，413 passed），receipts 覆盖前置、严格索引、trash、回滚与不读 work.json；文件自述『该回执是 process-level 核心/工具/阶段测试，不是 DSH 会话』。",
+  "deviations": [],
+  "debt": {
+    "needed": false,
+    "title": "",
+    "owner": "",
+    "closure": ""
+  },
+  "limitations": [
+    "memory.db 删除：源无条件加入删除集（manager.ts:658-660），复刻只在文件存在时加入（delete-chapter.ts:139-141）；可观察结果相同。",
+    "复刻把章节目录、快照、运行时与 drafts 放在工作区根的 source/ 下；源的对应目录在作品根的 chapters/、story/ 下。这是本仓库『工作区即作品根』的整体布局映射，不是删除语义差异。",
+    "源删除由 Studio DELETE 端点触发并广播；复刻由 /story-delete 命令或 story_delete_chapter 工具触发。命令回执与面板提示分离，面板不判断成败（见 panel.workbench）。",
+    "源没有移章/重排能力；复刻同样只删最新章，标题、判据与拒绝行为一致。",
+    "真实回执是进程级测试，不是 DSH 会话。"
+  ]
+}

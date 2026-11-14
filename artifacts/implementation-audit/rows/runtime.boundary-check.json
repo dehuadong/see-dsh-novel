@@ -1,0 +1,83 @@
+{
+  "id": "runtime.boundary-check",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "capabilities.yaml",
+      "line": 53,
+      "behavior": "source: none:项目护栏（AGENTS.md 前言与铁律 3）；inkos 没有对应的源码 import 复查能力，本行以仓库护栏为规格。"
+    },
+    {
+      "file": "AGENTS.md",
+      "line": 16,
+      "behavior": "源工程行为是规格，但运行机制要整改为 DSH 机制；不 import、不运行 inkos 的代码，也不引入它自带的运行时。"
+    },
+    {
+      "file": "AGENTS.md",
+      "line": 31,
+      "behavior": "铁律 3：只用 DSH 运行时（Provider/agent loop/command/storage/schedule/skills/systemPrompt.context）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/tools/boundary.ts",
+      "line": 32,
+      "behavior": "HOST_ALLOWED_LAYERS = ['client/', 'plugin/']，只允许预设前后两半 type-only 引用宿主。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/tools/boundary.ts",
+      "line": 35,
+      "behavior": "SOURCE_SEGMENTS = ['inkos', 'deepseek-harness']；裸包名、子路径与相对路径里的该段都算源工程。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/tools/boundary.ts",
+      "line": 109,
+      "behavior": "classifyDependency：源工程→source-import；宿主不在允许层/值导入/动态导入分别报 host-import-outside-allowed-layers/host-value-import/dynamic-host-import（109-118 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/tools/boundary.ts",
+      "line": 184,
+      "behavior": "boundaryProblems 剥注释、收集静态依赖与 require/import() 调用，逐条分类（184-199 行）；staticDependencies 处理跨行 import 列表（127-177 行）。"
+    },
+    {
+      "file": "scripts/check-boundary.mjs",
+      "line": 17,
+      "behavior": "默认扫描 packages/see-dsh-novel/src，递归收 .ts/.tsx；有问题逐条写 stderr 并以退出码 1 结束，否则输出 ok/files（17-53 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/source-boundary.test.mjs",
+      "line": 14,
+      "behavior": "10 例：干净文件、四种源写法、宿主值/副作用/require、动态、层外 type-only、注释与字符串、跨行 import、说明符、分类器。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/boundaries.test.mjs",
+      "line": 54,
+      "behavior": "client 层只允许宿主 client 包、react 与同目录相对导入，且宿主必须 import type（54-79 行）；另 3 例管 pipeline 分层。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/source-boundary.test.mjs：10 例（本行的 consumer）",
+    "packages/see-dsh-novel/test/boundaries.test.mjs：4 例（client 层 type-only、pipelines 不横向依赖/不依赖 plugin/不依赖 tools）",
+    "根 package.json:18,20：verify 链执行 pnpm run check-boundary（node --import tsx scripts/check-boundary.mjs）"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.boundary-check.json：date 2026-11-05，sessionId session-3995b578-1e73-4260-9d5a-7af0924f20fd（非 process:*）；receipts 记录 check-boundary 在真实源码树通过 {ok:true, files:33}、--root 指向四条坏导入目录时的失败码、真实源码 15 条 @deepseek-ai 导入全在 client/ 且都是 import type、verify 链顺序。注意 files:33 已过期：2026-11-14 当前 src 下 .ts/.tsx 为 100 个；15 条 client type-only 导入经本次 grep 复核仍成立。",
+  "deviations": [
+    "源工程无对应能力（capabilities.yaml:53 的 none:项目护栏）；这是仓库护栏，不是 inkos 产品行为，fidelity-audit.md:63 也这样记载。",
+    "只扫 packages/see-dsh-novel/src（check-boundary.mjs:17-19,30）；tests/、scripts/、package.json 不在扫描内，测试或清单引用源工程不会被拦。",
+    "允许层是 client/ 与 plugin/ 的 type-only 宿主导入（boundary.ts:32），与账本标题“预设与前端半边”一致；client 层的值导入另有 boundaries.test.mjs:54-79 的独立断言。",
+    "真实回执 files:33 与当前 100 个源文件不符。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "check-boundary 回执过期（33→100 文件），扫描范围未覆盖 tests/scripts/清单",
+    "owner": "runtime.boundary-check",
+    "closure": "重录 artifacts/real-runs/runtime.boundary-check.json 的 files 数；在文档写明扫描范围仅限 src，或把 tests/、scripts/、package.json 纳入检查并补测试。"
+  },
+  "limitations": [
+    "文本扫描而非 TS 解析器；注释与字符串剥离、跨行 import 有测试覆盖，但正则边界仍可能误判。",
+    "不扫 .mjs/.js 配置与生成物。",
+    "AGENTS.md 的规则没有机器可读绑定；规则变化须同步改 boundary.ts 与测试。",
+    "忽略 node: 内置模块，不判断依赖是否声明（那是 package-check 的范围）。"
+  ]
+}

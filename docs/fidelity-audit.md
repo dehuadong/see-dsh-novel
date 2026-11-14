@@ -4,6 +4,62 @@
 
 审计范围：账本中全部 `verified` 行与待验行；按 P0 → P1 → P2 → P3 → P4 → P5 → P6 分批。`###` 段必须覆盖 v1 P0–P6 的每一行；`missing` 行也写源证据与阻塞。
 
+## 2026-11-14 实现审计（45 条 verified）
+
+- 工件：[`../artifacts/implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)，逐行证据在 `artifacts/implementation-audit/rows/<id>.json`。
+- 冻结：仓库 `e3b7886`，源 `inkos` `8433323`。
+- 结论：等价 6、机制等价 13、保真债 26；realRun S 27、P 18、N 0；34 行有未关闭差异（见 [`scope.md`](scope.md) 的“2026-11-14 实现审计债” AU-01–AU-35）。
+- 审计只读，不改 `capabilities.yaml` 状态；本节的 45 行判定表取代下方同名 `###` 段的旧判定；冲突以本表为准，旧段待按 AU 债修复。
+
+| id | 判定 | AU | 逐行证据 |
+| --- | --- | --- | --- |
+| runtime.load | 机制等价 |  | [json](../artifacts/implementation-audit/rows/runtime.load.json) |
+| runtime.agent-tools | 保真债 | AU-01 | [json](../artifacts/implementation-audit/rows/runtime.agent-tools.json) |
+| skill.references | 保真债 | AU-02 | [json](../artifacts/implementation-audit/rows/skill.references.json) |
+| runtime.client-ui | 机制等价 | AU-03 | [json](../artifacts/implementation-audit/rows/runtime.client-ui.json) |
+| runtime.package-check | 机制等价 | AU-04 | [json](../artifacts/implementation-audit/rows/runtime.package-check.json) |
+| runtime.boundary-check | 机制等价 | AU-05 | [json](../artifacts/implementation-audit/rows/runtime.boundary-check.json) |
+| runtime.session-binding | 保真债 | AU-06 | [json](../artifacts/implementation-audit/rows/runtime.session-binding.json) |
+| runtime.commands | 保真债 | AU-07 | [json](../artifacts/implementation-audit/rows/runtime.commands.json) |
+| runtime.telemetry | 机制等价 |  | [json](../artifacts/implementation-audit/rows/runtime.telemetry.json) |
+| runtime.recovery | 保真债 | AU-08 | [json](../artifacts/implementation-audit/rows/runtime.recovery.json) |
+| proposal.creative | 保真债 | AU-09 | [json](../artifacts/implementation-audit/rows/proposal.creative.json) |
+| panel.gate-resume | 机制等价 |  | [json](../artifacts/implementation-audit/rows/panel.gate-resume.json) |
+| panel.foundation-start | 机制等价 |  | [json](../artifacts/implementation-audit/rows/panel.foundation-start.json) |
+| panel.confirm | 机制等价 | AU-11 | [json](../artifacts/implementation-audit/rows/panel.confirm.json) |
+| foundation.architect | 保真债 | AU-12 | [json](../artifacts/implementation-audit/rows/foundation.architect.json) |
+| foundation.hooks | 保真债 | AU-13 | [json](../artifacts/implementation-audit/rows/foundation.hooks.json) |
+| foundation.approval | 保真债 | AU-14 | [json](../artifacts/implementation-audit/rows/foundation.approval.json) |
+| cast.single-authority | 保真债 | AU-15 | [json](../artifacts/implementation-audit/rows/cast.single-authority.json) |
+| foundation.rule-contract | 等价 |  | [json](../artifacts/implementation-audit/rows/foundation.rule-contract.json) |
+| foundation.ready-check | 等价 |  | [json](../artifacts/implementation-audit/rows/foundation.ready-check.json) |
+| foundation.truth-projections | 保真债 | AU-32 | [json](../artifacts/implementation-audit/rows/foundation.truth-projections.json) |
+| foundation.truth-write | 保真债 | AU-34 | [json](../artifacts/implementation-audit/rows/foundation.truth-write.json) |
+| foundation.control-docs | 保真债 | AU-16 | [json](../artifacts/implementation-audit/rows/foundation.control-docs.json) |
+| foundation.hook-ledger | 等价 |  | [json](../artifacts/implementation-audit/rows/foundation.hook-ledger.json) |
+| runtime.commit-safety | 保真债 | AU-33 | [json](../artifacts/implementation-audit/rows/runtime.commit-safety.json) |
+| runtime.work-lock | 保真债 | AU-17 | [json](../artifacts/implementation-audit/rows/runtime.work-lock.json) |
+| runtime.stage-context | 保真债 | AU-18 | [json](../artifacts/implementation-audit/rows/runtime.stage-context.json) |
+| runtime.txn-format | 等价 |  | [json](../artifacts/implementation-audit/rows/runtime.txn-format.json) |
+| proposal.execution-brief | 等价 |  | [json](../artifacts/implementation-audit/rows/proposal.execution-brief.json) |
+| plan.retrieval | 保真债 | AU-19 | [json](../artifacts/implementation-audit/rows/plan.retrieval.json) |
+| plan.context-select | 保真债 | AU-20 | [json](../artifacts/implementation-audit/rows/plan.context-select.json) |
+| plan.compression | 保真债 | AU-21 | [json](../artifacts/implementation-audit/rows/plan.compression.json) |
+| plan.chapter | 保真债 | AU-22 | [json](../artifacts/implementation-audit/rows/plan.chapter.json) |
+| chapter.write | 保真债 | AU-23 | [json](../artifacts/implementation-audit/rows/chapter.write.json) |
+| chapter.review | 保真债 | AU-24 | [json](../artifacts/implementation-audit/rows/chapter.review.json) |
+| chapter.revise | 保真债 | AU-25 | [json](../artifacts/implementation-audit/rows/chapter.revise.json) |
+| chapter.summary | 保真债 | AU-35 | [json](../artifacts/implementation-audit/rows/chapter.summary.json) |
+| chapter.settle | 机制等价 | AU-26 | [json](../artifacts/implementation-audit/rows/chapter.settle.json) |
+| chapter.reopen | 机制等价 | AU-27 | [json](../artifacts/implementation-audit/rows/chapter.reopen.json) |
+| chapter.move-delete | 等价 |  | [json](../artifacts/implementation-audit/rows/chapter.move-delete.json) |
+| state.check | 机制等价 |  | [json](../artifacts/implementation-audit/rows/state.check.json) |
+| artifact.identity | 保真债 | AU-28 | [json](../artifacts/implementation-audit/rows/artifact.identity.json) |
+| export.work | 机制等价 | AU-29 | [json](../artifacts/implementation-audit/rows/export.work.json) |
+| backup.restore | 机制等价 | AU-30 | [json](../artifacts/implementation-audit/rows/backup.restore.json) |
+| panel.workbench | 保真债 | AU-31 | [json](../artifacts/implementation-audit/rows/panel.workbench.json) |
+
+
 ## 跨能力不变量
 
 行级判定之外，以下不变量必须由阶段出口同时验证；每条绑定源工程证据、DSH 落点与验证位置。
@@ -389,7 +445,7 @@
 
 **复刻现状**：`story_write_chapter` 只校验章纲、标题、正文并落盘；标题由模型传入；writer 子代理的提示由主编临场拼，缺少上述契约块。字数改用源口径：去 frontmatter／围栏／标题后，中文数全部非空白字符，英文按源正则分词；`charCount` 与索引 `wordCount` 同口径。
 
-**判定：机制等价（D16 已偿还）+ D61 残余** — 六段 writer 契约（权威／字数／人称／主角／规则／风格）与本章章纲由 `stages/writer.ts` 注入 write 阶段；writer pass 的 `context.json` selectedContext 也已注入；标题拒绝章号前缀。字数已切源口径（去元数据；中文非空白字符、英文正则分词）。D61：源 `saveChapter` 在标题变化时删除同章号旧文件，复刻当前没有改标题的写入路径，删除分支不可触发（owner `chapter.write`，触发=`materials.import` 类改名路径）。
+**判定：机制等价（D16 已偿还）+ D61 残余** — 六段 writer 契约（权威／字数／人称／主角／规则／风格）与本章章纲由 `stages/writer.ts` 注入 write 阶段；writer pass 的 `context.json` selectedContext 也已注入；标题拒绝章号前缀。字数已切源口径（去元数据；中文非空白字符、英文正则分词）。D61：源 `saveChapter` 在标题变化时删除同章号旧文件，复刻当前没有章节导入/改名写入路径，删除分支不可触发（owner `chapter.write`，触发=`import_chapters`）。
 
 ### chapter.review
 
@@ -423,7 +479,7 @@
 
 **复刻现状**：`story_settle_chapter` 与 `story_resettle_chapter` 都是两阶段：不带 `validation` 的调用只写 `.drafts/settlement-<NNNN>.json`（旧/新 `current_state` 与 `pending_hooks` 卡片、旧摘要投影、增量、正文与基线摘要）；带 `{proposalDigest, outcome, reportMarkdown}` 的收据才提交，且不再重发增量。提交时重读正文与基线、用 `payload.delta` 重跑 reducer 与三份渲染并逐字段比对，摘要任一方不一致即拒绝；第一次 `reconciliation-required` 只把报告写进提案并返回源文案反馈，第二次仍不通过或 `unavailable` 时发布章节但状态停在 N-1（`stateJsonWrites`／`snapshotWrites` 写当前真值副本，索引观察记 `state-reconciliation`／`state-validation-unavailable`），由重算修复。发布（含扣下）的索引条目写 `lengthTelemetry`（target／countingMode／writerCount／postReviseCount=0／finalCount／repairApplied=false，字数用源口径）；若本章记录了 usage 文件（`story_record_chapter_usage` 把 writer／review 直接子会话的四桶汇总为三字段），索引同时写 `tokenUsage`，并在发布成功的同一提交删除 usage 文件；坏文件按无用量处理。源的无变化短路在新章结算与基线重算都不可达（卡片含章节行、`applySettlement` 必推进章号），不复刻。结算前要求四份状态文件存在且跨文件一致（`currentState.chapter > lastAppliedChapter`、摘要重复章拒绝）；章号只拒倒退，允许跳章；已结算章与已有 `snapshots/<N>` 的章在写盘前拒绝并指向重算。`story_resettle_chapter` 只接受最新章（`max(章节索引最大章号, lastAppliedChapter, 已有快照最大章号)`），从第 N-1 章快照重新应用增量；第二次对账失败或不可用时拒绝且不写任何作品文件；不改正文/索引/`workflow-start.json`。重算不自动复审：源 `resyncChapterStateAndAudit` 在重算后调 `reviewChapter` 刷新索引观察，复刻只重建状态、不自动复审（DSH 工具内不能跑审稿模型，重审走 D58 入口；`dsh-mapping.md` 偏差行）。chapter-done 等已开章的阶段注入两阶段协议。
 
-**判定：机制等价（提案落 `.drafts` + 重试由协议驱动）+ D34 注销** — 结算与重算的行为按源对齐（校验先于发布、一次重算、扣下不推进状态、不可用不重试、重算失败不写盘）；`dsh-mapping.md` 有新偏差行（提案文件、重试由主编再派 settler、收据真实性、扣下态不能直接开下一章、重算不自动复审）。D33 基线重算、D34 状态对账至此注销；D35 的索引长度遥测已交付并注销；D60 的按章 `tokenUsage` 已交付并注销（只记 writer／review，settler／state-check 归因差见 `dsh-mapping.md`）；残余是标题变化删除 superseded 文件（D61）、扣下态不进 `story_recover` 的盲点（作者已裁决）。D61 的 owner 是 `chapter.write`，将来由 `materials.import` 触发，关闭判据是改标题写入路径删除同章号旧文件并有测试。
+**判定：机制等价（提案落 `.drafts` + 重试由协议驱动）+ D34 注销** — 结算与重算的行为按源对齐（校验先于发布、一次重算、扣下不推进状态、不可用不重试、重算失败不写盘）；`dsh-mapping.md` 有新偏差行（提案文件、重试由主编再派 settler、收据真实性、扣下态不能直接开下一章、重算不自动复审）。D33 基线重算、D34 状态对账至此注销；D35 的索引长度遥测已交付并注销；D60 的按章 `tokenUsage` 已交付并注销（只记 writer／review，settler／state-check 归因差见 `dsh-mapping.md`）；残余是标题变化删除 superseded 文件（D61）、扣下态不进 `story_recover` 的盲点（作者已裁决）。D61 的 owner 是 `chapter.write`，触发是 `import_chapters`；关闭判据是导入写入/改名路径删除同章号旧文件并有测试。
 
 ### chapter.finalize
 

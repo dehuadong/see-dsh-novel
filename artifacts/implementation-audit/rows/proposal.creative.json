@@ -1,0 +1,120 @@
+{
+  "id": "proposal.creative",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": "178-227",
+      "behavior": "propose_action 的 action 枚举含 create_book；instruction/title/summary 必填；createBook 是可选的嵌套对象，含 title、genre、platform、language、targetChapters、chapterWordCount、minChapterLength、maxChapterLength；min/max 是 integer minimum 1。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": "435-457",
+      "behavior": "action 被收窄时，proposeParameters 把对应的 payload（create_book → createBook）变成必填，并 additionalProperties:false；因此 create_book 提案必须带 createBook 对象。"
+    },
+    {
+      "file": "inkos/packages/core/src/agent/agent-tools.ts",
+      "line": "653-694",
+      "behavior": "execute 先 trim title/summary/instruction 并要求非空，再解析/校验 actionPayload，最后返回 kind=proposed_action 的卡片 details（action、targetSessionKind、title、summary、instruction、actionPayload）；确认后由宿主执行，不在工具里落盘。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-production.ts",
+      "line": "117-153",
+      "behavior": "确认后的 create_book：title 取 payload/params，id 由 title 派生；genre 缺省 'other'、platform 缺省 'other'、language 依次取 payload/params/options.language/'zh'、targetChapters 缺省 200、chapterWordCount 缺省 defaultChapterLength(language)；min/max 只传不默认；instruction 作为 externalContext；随后 pipeline.initBook 写基础设定。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "1175-1191",
+      "behavior": "Studio 的 confirmed create_book 路径从 actionPayload.createBook 取 title/genre/platform/language/targetChapters/chapterWordCount 传入 createBookFoundationTool，并把 actionPayload 一起交给工具，保证 min/max 也生效。"
+    },
+    {
+      "file": "inkos/packages/studio/src/components/chat/ToolExecutionSteps.tsx",
+      "line": "749-818",
+      "behavior": "确认卡渲染 title、summary、instruction 与 Continue/Cancel；卡片只在模型提交 propose_action 后出现，Continue 才执行 workflow start，Cancel 不执行。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/length-metrics.ts",
+      "line": "42-62",
+      "behavior": "buildLengthSpec 把 min/max 作为 hard bounds 放进 LengthSpec，chapterLengthDelivery 越界返回 CHAPTER_LENGTH_OUT_OF_RANGE，状态 needs_revision。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/writer.ts",
+      "line": "113-114,551-555",
+      "behavior": "writer 用 book 的 min/max 构造 LengthSpec，并把 Minimum/Maximum 写进长度要求块；reviser.ts:109-113 在局部修订时把边界换成替换预算。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/plugin/proposal-tool.ts",
+      "line": "36-61",
+      "behavior": "story_propose 的参数为顶层 title/summary/instruction + 必填 createBook；createBook 含 title/genre/platform/language/targetChapters/chapterWordCount/minChapterLength/maxChapterLength，additionalProperties:false，与前缀相同的必填/可选关系。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/proposal.ts",
+      "line": "91-112",
+      "behavior": "normalizeProposalInput 要求 createBook 是对象；language 取 book.language ?? 'zh'；genre/platform 原样透传；卡片标题取顶层 title，作品标题取 createBook.title。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/proposal.ts",
+      "line": "120-162",
+      "behavior": "parseProposal 校验 title/summary/instruction/language 与 min/max（各自 ≥1、不校验顺序），proposalCard 拼『立项《卡片标题》｜题材 · 平台 · 语言 · 规模』+ summary + Instruction；instruction 原样保留。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/proposal-tool.ts",
+      "line": "95-123",
+      "behavior": "提案先在已立项时拒绝（:92-93），再校验/出卡；approval 缺失或策略 never 返回 unavailable；allowed-once 才 initWork；缺省 targetChapters=200、chapterWordCount=defaultChapterLength(language)；genre/platform 原样传入，未给就 undefined。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/work.ts",
+      "line": "295-304",
+      "behavior": "createWork 只把已提供的 metadata 字段落盘：genre/platform/min/max 为 undefined 时不写键；没有 'other' 兜底。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/init-work.ts",
+      "line": "20-33",
+      "behavior": "initWork 在 withWorkAction 锁内校验身份，并同批写 work.json、story/brief.md（instruction 原文）、author_intent 与 current_focus；不启动基础设定（后续步骤靠阶段上下文继续）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/architect.ts",
+      "line": "35-55",
+      "behavior": "foundation 阶段把 Genre/Platform 读自 work.metadata；缺 genre 时 prompt 里是空串，不是源的 'other'。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/writer.ts",
+      "line": "45-55,62-104",
+      "behavior": "writer 契约只消费 chapterWordCount（或语言默认）作为目标字数；全仓检索 CHAPTER_LENGTH_OUT_OF_RANGE/lengthSpec/minChapterLength 无消费方，min/max 只存储在 work.json，未进入写作或修订的长度契约。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/proposal.test.mjs:80-97 缺字段/非法 language/0 值拒绝；min>max 不拒绝；instruction 保留原文；缺省规模 undefined",
+    "packages/see-dsh-novel/test/proposal.test.mjs:104-116 卡片展示已给字段、缺省时不编造数字",
+    "packages/see-dsh-novel/test/proposal.test.mjs:118-160 允许后同一次提交写 work.json（含 min/max）、brief、author_intent、current_focus，story_next=foundation",
+    "packages/see-dsh-novel/test/proposal.test.mjs:162-183 缺省规模 200/3000；instruction 原样进 brief",
+    "packages/see-dsh-novel/test/proposal.test.mjs:185-227 拒绝/取消/不可用/无服务/never 不落盘",
+    "packages/see-dsh-novel/test/proposal.test.mjs:229-245 已立项先于字段校验拒绝",
+    "packages/see-dsh-novel/test/proposal.test.mjs:273-305 缺 createBook、缺 title、min=0 拒绝；卡片标题与作品标题分离",
+    "artifacts/real-runs/proposal.creative.json 记录 2026-11-08 的 pnpm run verify 278 passed"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/proposal.creative.json：date=2026-11-08，sessionId=session-0cfd90b2-1bd2-46ad-b129-9cc9fcfabf96（非 process:*）；tests.passed=true，receipts 描述卡片标题『夜行提案』与作品标题『夜行长街』分离、确认条 allowed 后回执『已立项《夜行长街》…目标 120 章，单章 2500 字』、work.json metadata 含 genre/platform/min/max、brief 为 instruction 原文。本机 C:\\Users\\MyPC\\.dsh\\sessions\\--E-see-dsh-novel-.artifacts-work-proposal2--\\session-0cfd90b2-...\\session.v4.jsonl.zstd 的 seq 26-29 复核 story_propose→approval/asked→allowed-once→工具回执；seq 32 起运行时上下文已切到『基础设定』，同一 turn 继续写 outline/details/cast；seq 201 写入第 1 章 2147 字，而同一提案的 minChapterLength=2200，没有越界拒绝——这是 min/max 未消费的真实会话证据。",
+  "deviations": [
+    "源确认后的 create_book 对缺省 genre/platform 落 'other'（longform-production.ts:140-141）；复刻在未提供时完全不写 metadata 键（work.ts:295-304 只写已给字段），architect 阶段读到的是空串（architect.ts:41,48）。确认卡与 work.json 都看不到这个源默认。",
+    "源 create_book 的 language 默认依次为 payload → params → 确认动作的 surfaceLanguage → 'zh'（longform-production.ts:132）；复刻在提案解析时就把缺省固定为 'zh'（proposal.ts:106,121），英文界面的会话即使不给 language 也不会得到英文作品。",
+    "源 writer/reviser 把 book 的 min/max 变成 hard bounds 并返回 CHAPTER_LENGTH_OUT_OF_RANGE（writer.ts:113-114,551-555；reviser.ts:109-113；length-metrics.ts:56-62）；复刻只在提案/身份里存储 min/max（work.ts:303-304），writer 契约（writer.ts:55,88）与全仓都没有消费方。同一真实会话提案时 min=2200/max=2800，seq 201 写入的正文是 2147 字（低于 min），没有越界拒绝。fidelity-audit.md:336 说『min/max 债记在 proposal.creative』，但本行审计段与 docs/scope.md 的债务表都没有这一债号。",
+    "源 propose_action 的卡片是结构化 details（action/targetSessionKind/title/summary/instruction/actionPayload）由 Studio 渲染 Continue/Cancel；复刻把同一批文字塞进 DSH approval 的 reason，确认通道换成 approval/命令。该替换已在 docs/dsh-mapping.md:20,35-40 的作者确认/面板行登记。",
+    "复刻只支持 create_book，源的 propose_action 枚举 15 个 workflow start（agent-tools.ts:178-195）；其余动作属 v1 之外的 short/play/script/import 等能力行，本行不要求，但账本标题的范围需要按 create_book 理解。",
+    "源确认卡把 instruction trim 后展示并交给 create_book（agent-tools.ts:660-661）；复刻卡上保留原文空白（proposal.ts:132 用 verbatim，proposalCard:161 原样拼），brief 也是原文——brief 与源一致，卡片展示有空白差异。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "确认后的源默认（genre/platform='other'、language 取会话语言）未复刻；确认的 min/max 只存不消费，且该债未在 fidelity-audit 本行或 scope.md 立号",
+    "owner": "proposal.creative（min/max 的消费点落在 chapter.write 的 writer/reviser 长度契约）",
+    "closure": "在 proposal 的批准路径补源默认：未给 genre/platform 时写 'other'，language 未给时取会话语言再回退 zh，并补测试；让 writer 长度契约与修订替换预算消费 work.metadata.minChapterLength/maxChapterLength，越界返回 CHAPTER_LENGTH_OUT_OF_RANGE（或明确记录不做的作者裁决），补越界用例；在 docs/scope.md 立 debt 号并在 docs/fidelity-audit.md 本行引用，重录 proposal.creative 的真实回执覆盖 min/max 拒绝与默认值。"
+  },
+  "limitations": [
+    "源 propose_action 的 action 枚举有 15 项并有 targetSessionKind；复刻只实现 create_book 一项，其它动作属于 v1 之外的 short/play/script/import 等行。",
+    "复刻确认在同一会话继续（另起下一 turn），源的 confirmed production action 也在当前 bookSession 执行（server.ts:5013-5016），差别在宿主执行 vs agent 下一步执行；create_book→基础设定在真实会话里由阶段上下文接着跑（seq 32 起）。targetSessionKind 只出现在源的卡片 details，复刻不携带该字段。",
+    "min/max 的真实影响是后续写作/修订的长度验收与 prompt，本行只能证明字段落盘；消费方的证据在 writer.ts 契约与 chapter.write 行。",
+    "proposal.creative 的 realRun 是 2026-11-08 的 278 passed；2026-11-09 f5ae592 之后 initWork 在 work lock 内执行，提案语义未变但回执早于锁变更。"
+  ]
+}

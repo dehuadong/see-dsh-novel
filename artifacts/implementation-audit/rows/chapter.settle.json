@@ -1,0 +1,130 @@
+{
+  "id": "chapter.settle",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/settler-tool.ts",
+      "line": 43,
+      "behavior": "SettlementToolSchema：postSettlement／factOps（upsert／expire）／hookOps（upsert／mention／resolve／defer）／newHookCandidates／chapterSummary 的必要形状；:57 新伏笔不分配 id，:65 allowNewHooks=false 时禁止新候选。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-reducer.ts",
+      "line": 23,
+      "behavior": "applyRuntimeStateDelta：章节只前进（allowReapply 只允许同章）、摘要章号必须等于 delta、非重结算拒重复摘要、hooks／facts 合并后整份 validateRuntimeState（:67-70）。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/hook-arbiter.ts",
+      "line": 17,
+      "behavior": "伏笔仲裁：upsert 未知 id 拒绝；候选由宿主分配 hook／hook-2 递增 id（:108-122）；mention 去重并与 resolve／defer 互斥。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/state-validator.ts",
+      "line": 14,
+      "behavior": "validateRuntimeState 校验四份状态 schema、hook id 唯一、摘要章号唯一、currentState.chapter ≤ manifest.lastAppliedChapter。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/chapter-truth-validation.ts",
+      "line": 43,
+      "behavior": "写章前校验：validator.validate 抛错则合成 state-validation-unavailable 并保留当前真值（:54-67）；不一致或 reconciliationRequired 时调用一次重算（:80-103），仍不行则 preserveCanonicalRuntimeState（:111-127）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/chapter-state-recovery.ts",
+      "line": 50,
+      "behavior": "reconcileChapterStateAfterReview：带 validationFeedback 重跑 settleChapterState（allowReapply=true），再校验一次；仍失败返回 unresolved 观察（:123-130）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 1382,
+      "behavior": "writeNext 在校验通过后才 persistChapterArtifacts（:1430）：一次写章节、状态、投影、快照、索引；:1374-1380 生成 lengthTelemetry，:2032-2047 是其形状。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/chapter-persistence.ts",
+      "line": 11,
+      "behavior": "persistChapterArtifacts 构造索引条目（title／wordCount／observations／provenance=generated／lengthTelemetry／tokenUsage），已有同章条目保留 createdAt。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 1238,
+      "behavior": "resyncChapterStateAndAudit：只支持最新章、从 N-1 基线重算、失败一次重算、成功后写章节/状态/快照并把索引 observations 去掉 state-sync-required；:1250 在重算后自动 reviewChapter 刷新索引观察（实际重算与保存在 :1475-1603）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 2106,
+      "behavior": "发布后 markBookActiveIfNeeded：只在 book.status === \"outlining\" 时改成 active，其它状态不动。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/settle-tool.ts",
+      "line": 143,
+      "behavior": "story_settle_chapter 提案形态：读四份状态、assertStateConsistent、要求草稿与审稿记录、拒绝已发布/已结算/已有快照，只写 .drafts/settlement-NNNN.json（:128-194）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/settle-tool.ts",
+      "line": 197,
+      "behavior": "提交形态：重读正文与基线，verifySettlementProposal 逐字段重算并校验 receipt；:223-226 attempt 1 的 reconciliation-required 记失败并拒绝；:227-228 第二次失败或 unavailable 时 held（写当前真值副本）；:239-284 一次 commitFoundation 写章节/状态/投影/快照/索引/artifact/review，删草稿与提案。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settlement-proposal.ts",
+      "line": 69,
+      "behavior": "读提案并校验 version/kind/chapter/status/digest/payload；:93-97 失败提案必须带 failureReport；:166-180 同键 attempt 1→2、第三次 SETTLEMENT_PROPOSAL_BUDGET_EXHAUSTED；:200-226 提交前重算正文/基线/提案/收据摘要，漂移即 SETTLEMENT_PROPOSAL_STALE。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settlement.ts",
+      "line": 105,
+      "behavior": "assertStateConsistent 读跨文件不变量；:140-160 settlementObservations 把 consistent 报告映射成 state-projection-review、reconciliation-required 映射成 state-reconciliation、unavailable 映射成 state-validation-unavailable；:163-176 反馈文案。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/settle.ts",
+      "line": 231,
+      "behavior": "applySettlement：非重结算只允许 chapter>last、重结算 chapter=last；hooks 未知 id 拒绝、候选 id 由 canonicalHookId 分配；facts 先失效再插；摘要按章号排序并拒重复。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/resettle-tool.ts",
+      "line": 194,
+      "behavior": "story_resettle_chapter：只接受最新可重算章（max(index,lastApplied,snapshot)，:108-119）、从 N-1 严格读基线（:137）、一致收据才一次写状态/投影/快照（:232-239）；第二次不通过或不可用抛错且不写作品文件（:227-231）；不改正文/索引/start。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-usage.ts",
+      "line": 64,
+      "behavior": "按章 usage 文件读取：缺文件/坏 JSON/非法字段返回 null；结算发布时写索引 tokenUsage 并在同一提交删除 usage 文件（settle-tool.ts:236-247、:283）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/settle-tool.ts",
+      "line": 261,
+      "behavior": "发布时把 work.status 从 draft 改为 active（其它状态不动），与源只在 outlining→active 的条件不同。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-settle.test.mjs（41 例：提案只写 .drafts、收据绑定、正文/基线/提案/收据漂移、attempt 1/2 与预算、扣下发布、不可用不重试、重算失败不写盘、严格基线、扣下后重算与删除出口、排序摘要、lengthTelemetry、tokenUsage 写入/删除/坏文件）",
+    "packages/see-dsh-novel/test/chapter-usage.test.mjs（4 例：四桶求和与文件、直接 child 校验、四桶缺失、同章覆盖）",
+    "packages/see-dsh-novel/test/state-check.test.mjs（对账报告的布尔／报告必填）",
+    "packages/see-dsh-novel/test/stage-context.test.mjs（结算两阶段协议、扣下态修复行、重算协议）",
+    "packages/see-dsh-novel/test/chapter-revision-commit.test.mjs（修订 C1/C2 一次提交与状态推进）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.settle.json：date=2026-11-14，sessionId=process:chapter.settle；receipts 覆盖两阶段、扣下、重算、用量与严格基线，并注明「该回执是 process-level 工具/状态测试，不是 DSH 会话」。",
+  "deviations": [
+    "结算拆成提案 + 收据两阶段：源在内存里把 settleChapterState 输出交给 validator 后同一次 saveChapter 落盘；复刻先写 .drafts/settlement-NNNN.json，由 state-check 子代理读，再带收据提交。已登记 dsh-mapping「chapter.settle：结算提案落 .drafts」；提交时重算并逐字段比对，漂移拒绝。",
+    "一次重算由主编再派 settler：源 chapter-state-recovery.ts:50 自动带 feedback 重跑一次；复刻第一次 reconciliation-required 只记报告并拒绝，主编重派后再提案。已登记 dsh-mapping「reconcile 重试由主编再派 settler」；attempt 1→2→预算耗尽。",
+    "校验结论真实性由收据承接：源由结构化工具提交布尔与报告；复刻宿主只校验摘要、报告必填与 attempt，不能证明子代理读过证据。已登记 dsh-mapping「校验结论由收据真实性假设承接」。",
+    "扣下态不能直接开下一章：源扣下后索引已有 N，下一次写入是 N+1；复刻 detectStage 以 current_state.chapter+1 找下一章，先修复再推进。已登记 dsh-mapping「扣下态不能直接开下一章」。",
+    "重算不自动复审：源 resyncChapterStateAndAudit 在重算后调 reviewChapter 刷新索引观察；复刻只重建状态，不改正文/索引/start，复审走 story_review_chapter。已登记 dsh-mapping「重算不自动复审」。",
+    "tokenUsage 归因与省略：源把 writer+settler+review 用量累加并恒写索引（无用量写 0）；复刻只接受 writer／review 直接子会话四桶、映射三字段、无 usage 文件则省略字段、发布成功删除文件。已登记 dsh-mapping 三条「按章用量记账／省略 tokenUsage／usage 文件生命周期」；settler／state-check 不计入是已登记差异。",
+    "work.status 激活条件不同：源只在 outlining→active（runner.ts:2106-2115）；复刻把 draft→active（settle-tool.ts:261）。未在 dsh-mapping 登记，属 work.json 身份简化的残余。",
+    "重算目标章的判定比源宽：源 resync 只按章节索引的最后一章；复刻取 max(index, lastApplied, snapshot)（resettle-tool.ts:108-119），用于修复索引落后或状态回退。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "四份状态读取放宽（摘要行未知字段／非整数 chapter 不拒，源 zod strict 拒绝）；work.status 的 draft→active 与源 outlining→active 不一致",
+    "owner": "chapter.settle",
+    "closure": "为四份状态 JSON 补与源等价的 strict schema（拒未知字段、chapter 为 int≥1、标题非空）并在 inspectState／readStateSnapshot 使用，补 corrupt-row 测试；把 work.status 激活条件对齐源或在 runtime.session-binding 登记身份状态差异；重算目标章判定与源差异写进 dsh-mapping。"
+  },
+  "limitations": [
+    "只有 process-level 证据；真实 DSH 会话里 state-check 子代理的传递与会话用量未由 real-run 覆盖。",
+    "settler 与 state-check 的模型调用在复刻是独立子代理，源在 writer 侧累计；按章 tokenUsage 因此少算这两个调用（已登记）。",
+    "扣下态的索引观察与快照是当前真值副本；源同样以 runtimeStateApplied=false 落当前真值，但源没有「扣下后先修复再开下一章」的阶段判定。",
+    "重算不自动复审，作者需要显式重审；源在重算后自动刷新索引观察。",
+    "对照：capabilities.yaml:307-314 标 verified；docs/fidelity-audit.md:420-426 判「机制等价 + D34 注销」；本审计确认机制等价，新增债仅严格读取与 status 激活条件。"
+  ]
+}

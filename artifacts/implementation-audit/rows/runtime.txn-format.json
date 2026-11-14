@@ -1,0 +1,125 @@
+{
+  "id": "runtime.txn-format",
+  "verdict": "faithful",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "18-25",
+      "behavior": "事务目录前缀 PREFIX = .inkos-file-txn-；JournalSchema 为 {version:1,pid:int>=0,phase:prepared|committed,entries:[{path,existed}]}，对象与条目都 strict，未知键拒绝。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "37-43",
+      "behavior": "日志先写 journal.next（0600）、fsync、关闭，再 rename 成 journal.json，崩溃不会留下半份日志。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "167-175",
+      "behavior": "提交前 mkdir 作品根，在 rootDir 下用 mkdtemp(PREFIX) 建事务目录；entries 在任何替换前按 path/existed 计算，顺序是 writes 再 deletes。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "179-203",
+      "behavior": "写入先落 staged/<path>；日志写 prepared；对每个 touched path，存在则 mkdir 后 rename 到 backup/<path>（删除项由搬进 backup 生效）；再把 staged 文件 rename 到位；最后写 committed 日志。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "204-216",
+      "behavior": "日志已写时失败回滚：有 backup 复制回来，existed=false 且无 backup 删除半套产物；回滚也失败则 cleanup=false、写 pid 0 日志、保留事务目录并抛 AggregateError；否则 finally 删除事务目录。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "68-93",
+      "behavior": "recoverRoot 只扫作品根下以 PREFIX 开头的目录；无 journal.json（ENOENT）保留；日志坏掉抛错；活属主跳过；prepared 先 rollback，然后删除事务目录；committed 只删除。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": "96-104",
+      "behavior": "recoverAtomicFileSets 默认根扫描，recursive=true 时递归非点、非 node_modules 子目录；CLI 启动与 Studio 启动都以 recursive=true 调用。"
+    },
+    {
+      "file": "inkos/packages/core/src/__tests__/atomic-file-set.test.ts",
+      "line": "39-138",
+      "behavior": "源测试覆盖整套提交、注入 rename 失败后的回滚、子进程被杀后 recover 返回 1 并还原、重叠路径日志的回滚、无日志/活属主不动。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "24-42",
+      "behavior": "JOURNAL_FILE=journal.json、TXN_PREFIX=.inkos-file-txn-；CommitJournal 为 {version:1,pid,phase,entries}，CommitEntry 为 {path,existed}。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "56-77",
+      "behavior": "parseJournal 拒绝非对象、未知键、version≠1、非法 phase、非整数或负 pid、entries 非数组、条目未知键或字段类型不对；坏日志返回 undefined 由调用方抛错。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "129-139",
+      "behavior": "writeJournal 用 journal.next（0600）、writeFile、fsync、关闭、rename 成 journal.json，与源同形。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "236-263",
+      "behavior": "commitBatch 先 recoverDeadTransactions，再 mkdir 作品根、mkdtemp 事务目录；按 writes+deletes 计算 entries；创建 staged/ 与 backup/；把写入项落 staged；随后写 prepared 日志。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "264-283",
+      "behavior": "对 entries：目标存在就 rename 到 backup/<path>（目录先建），再 rename staged 到位，最后写 committed 日志；日志写入先于备份。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "284-307",
+      "behavior": "失败且日志已写则 restoreFromBackups；回滚失败把日志 pid 改 0 并保留现场、抛 AggregateError；成功失败都清理事务目录（回滚失败除外）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "176-202",
+      "behavior": "recoverDeadTransactions 只扫作品根前缀目录；无日志保留；日志解析失败抛错；活属主跳过；prepared 按 entries 还原后删除、committed 只删除。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": "147-169",
+      "behavior": "restoreFromBackups：有 backup 就复制回目标（目录用 cp -r），没有 backup 且 existed=false 就 rm 目标。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/recovery.ts",
+      "line": "84-137,271-315,396-412",
+      "behavior": "story_recover 的扫描把根事务目录分成 staging-active/staging-rollback/staging-cleanup/staging-unknown；修复阶段对 rollback 调 restoreFromBackups 并删目录，对 cleanup 只删目录。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/txn-format.test.mjs",
+      "line": "15-138",
+      "behavior": "覆盖提交后无残留、运行中的根事务包含 staged/backup/journal 且 entries 数量与紧凑日志、rename 备份旧内容、死 prepared 回滚、死 committed 清理、旧 .staging-* 不扫描。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/txn-format.test.mjs:15 提交成功后作品根无 .inkos-file-txn-*、source 下无旧 .staging-*",
+    "packages/see-dsh-novel/test/txn-format.test.mjs:27 运行中的提交暴露根目录事务、staged/＋backup/、entries 日志与紧凑 JSON（2000 个写入项）",
+    "packages/see-dsh-novel/test/txn-format.test.mjs:79 死 prepared 事务按 entries/existed 用 backup 还原并清理",
+    "packages/see-dsh-novel/test/txn-format.test.mjs:103 死 committed 事务只删除目录、不动目标",
+    "packages/see-dsh-novel/test/txn-format.test.mjs:125 旧 source/.staging 格式不扫描",
+    "本次审计运行 node --import tsx --test txn-format.test.mjs 5 例全过；同批 stage-context/proposal/search-index/story-index/context-package/context-spool 共 46 例全过（测试通过不等价）"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.txn-format.json：date=2026-11-08，sessionId=session-be199bcf-db91-4deb-ae75-6da15a44a06f（非 process:*）。本机 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-txn-format--/session-be199bcf-db91-4deb-ae75-6da15a44a06f/session.v4.jsonl.zstd（2026-11-08T08:15Z 创建）可读：seq 30 调 story_recover(apply:true)，seq 31 回执列出 staging-rollback .inkos-file-txn-fixture（属主 999999 已退出），已修复 3 项包含该事务；seq 36-37 story_truth_file 写 author_intent.md 返回 Updated。工作区 .artifacts/work-txn-format 的 story_frame.md 现为「# 旧大纲」，根目录无 .inkos-file-txn-* 残留，证明死事务按 backup 还原且提交成功即清理。",
+  "deviations": [],
+  "debt": {
+    "needed": false,
+    "title": "无未偿还保真债",
+    "owner": "runtime.txn-format",
+    "closure": "不适用；旧 .staging-* 与旧日志不迁移，预发布格式不做兼容层。"
+  },
+  "limitations": [
+    "复刻对非空提交无条件创建 staged/ 与 backup/（commit.ts:255-256）；源只在有写入时建 staged/、只在有目标被搬走时建 backup/（atomic-file-set.ts:179-197）。运行中的目录布局对空写入或纯删除提交会多出空目录；恢复只读 journal+backup，不影响判据。",
+    "空 writes+deletes 批次复刻直接返回（commit.ts:213）；源仍会建事务、写空 entries、写 committed 并清理（atomic-file-set.ts:167-216）。外部无可观察残留，只有瞬时目录差异。",
+    "源 AtomicFileWrite.content 允许 string|Uint8Array（atomic-file-set.ts:106-109）；复刻 FileWrite.content 只有 string（commit.ts:13-16）。当前作品写入全是文本，二进制写入没有调用方。",
+    "回滚 existed=false 时复刻用 rm(target,{force:true,recursive:true})（commit.ts:167）；源用 rm(target,{force:true})（atomic-file-set.ts:63）。目标被外部换成目录时源回滚失败并留日志，复刻会删目录；与 runtime.commit-safety 的限制同源。",
+    "recoverDeadTransactions 只扫作品根（commit.ts:176-202）；源的 recoverAtomicFileSets 另有 recursive=true 版本供 CLI/Studio 启动（atomic-file-set.ts:96-104，cli/program.ts:112，studio/server.ts:6669）。复刻一个工作区就是一部作品，没有跨作品层级。",
+    "源允许注入 renameFile 供调用方/测试替换 rename（atomic-file-set.ts:115-116,149）；复刻固定用 rename，只影响测试注入方式。",
+    "txn-format.test.mjs:125 断言旧 source/.staging 格式不扫描，但冻结源版本只有 .inkos-file-txn- 前缀，该旧格式是复刻采用根事务前的沿革，不是源行为；两种实现都不扫它，不构成偏差。",
+    "对照：capabilities.yaml:227-234 标 verified；docs/fidelity-audit.md:308-316 判「等价」；本审计对提交格式、日志阶段、备份与死事务回收确认该判定。"
+  ]
+}

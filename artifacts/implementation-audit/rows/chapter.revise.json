@@ -1,0 +1,106 @@
+{
+  "id": "chapter.revise",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/reviser.ts",
+      "line": 13,
+      "behavior": "五种模式 polish／rewrite／rework／anti-detect／spot-fix，默认 rewrite；:167-178 每种模式一句协议，要求按已激活 Skill 与 governed context 修订。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/reviser.ts",
+      "line": 96,
+      "behavior": "spot-fix 由模型选原文行范围（或 targetText），逐段替换；:107-114 计算替换预算，受保护文本本身超出最大章长时抛 CHAPTER_EDIT_SCOPE_CONFLICT。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/reviser.ts",
+      "line": 123,
+      "behavior": "spot-fix 候选在 validate 中 assertChapterLength；越界以 CHAPTER_LENGTH_OUT_OF_RANGE 拒绝并回传 replacementBudget／scope，可让同一次工具调用重试（:124-129）。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/reviser.ts",
+      "line": 152,
+      "behavior": "整章 rewrite 在 validate 中：空正文 CHAPTER_BODY_EMPTY，正文超出显式 min／max 抛 CHAPTER_LENGTH_OUT_OF_RANGE（:154-155）。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/length-metrics.ts",
+      "line": 56,
+      "behavior": "chapterLengthDelivery／assertChapterLength 只在作品有显式 minChapterLength／maxChapterLength 时生效，越界抛带 delivery 的错误。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 914,
+      "behavior": "显式修订请求 = 有 externalContext／targetText／rewrite／rework；否则先复审（:918-930），观察为空就直接返回 changed:false，不改稿（:931-941）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 1043,
+      "behavior": "修订后复审 + 状态校验观察一起写索引；:1064-1070 生成 lengthTelemetry；:1092-1118 当前章 edited／replace observations，后代加 upstream-revision。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 1122,
+      "behavior": "最新章走 saveChapter（正文／状态／快照一次落盘），更早章只写章节文件与 index；:1156 changedRegion 用 chapterDocumentBody 与修订正文比较。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/revise-tool.ts",
+      "line": 164,
+      "behavior": "story_revise_chapter 执行入口：要求正文与章纲；:179-188 校验 ranges 只在 spot-fix、不能与 targetText 混用；:191-203 用 ranges 构造正文并与 content 逐字节比对；:205 targetText 唯一性；:211-255 最新章只写提案 + 复审 start；:257-274 草稿；:276-296 更早章即时写。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/revise.ts",
+      "line": 61,
+      "behavior": "changedRegion 与源 source-text.ts 同形；:104 normalizeRangeEdits 校验范围（1 基、含端点、不重叠）；:168 assertTargetText 要求唯一片段且范围外逐字节不变。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-document.ts",
+      "line": 161,
+      "behavior": "reviseChapterDocument 归档旧正文到 source/chapters/.versions/NNNN、追加 artifact revision、更新 index 与 lengthTelemetry；:182 只在正文变化时归档／写 revision。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-index.ts",
+      "line": 182,
+      "behavior": "revisedChapterIndex 当前章 observations 清空、provenance=edited、写 lengthTelemetry；后代替换 upstream-revision。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/revision-commit-tool.ts",
+      "line": 148,
+      "behavior": "最新章 C2：用 N-1 基线重跑 applySettlement，一次提交正文／索引／artifact／状态／快照，观察合并复审与结算观察。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/revise-tool.ts",
+      "line": 197,
+      "behavior": "CHAPTER_EDIT_SCOPE_CONFLICT 仅用于「content 与 ranges／replacements 构造结果不一致」，不是源 reviser 的替换预算／受保护文本超章长条件。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-revise.test.mjs（23 例：范围配对／越界／重叠、targetText、归档与 revision 读取、索引 edited 与后代 upstream-revision、更早章即时路径、长度遥测、en_words、tokenUsage 保留、无索引行追加）",
+    "packages/see-dsh-novel/test/chapter-revision-commit.test.mjs（1 例：最新章提案→revisionDigest 审稿→C1→C2 一次提交）",
+    "packages/see-dsh-novel/test/stage-context.test.mjs（修订路由与 C1／C2 协议文本）",
+    "packages/see-dsh-novel/test/artifact-store.test.mjs（修订 revision 快照与错误码）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.revise.json：date=2026-11-14，sessionId=process:chapter.revise；receipts 覆盖提案／审稿／C1／C2 与更早章路径，并注明「该回执是 process-level 工具/状态测试，不是 DSH 会话」。",
+  "deviations": [
+    "缺显式章长区间硬校验：源 reviser 在 rewrite 与 spot-fix 候选上 assertChapterLength，越界抛 CHAPTER_LENGTH_OUT_OF_RANGE（带 replacementBudget 反馈，可重试）；复刻全仓没有 assertChapterLength／CHAPTER_LENGTH_OUT_OF_RANGE，min／max 从 work.metadata 读出后无人使用，越界修订会被接受。",
+    "缺 spot-fix 替换预算冲突：源 reviser.ts:107-114 在受保护文本已超出最大章长时抛 CHAPTER_EDIT_SCOPE_CONFLICT；复刻只在 content 与 ranges 构造结果不一致时复用同名错误码（revise-tool.ts:197），不是同一条件。",
+    "没有「非显式修订先复审、观察为空就返回 changed:false」的短路（源 runner.ts:918-941）；复刻直接接受模型给出的正文，是否先复审由主编自治。",
+    "更早章即时修订把索引 observations 清空并另写复审 start（chapter-index.ts:198、revise-tool.ts:214），源在同一事务内复审并写 postRevisionObservations（runner.ts:1043-1101）；机制上由审稿闸门承接，但 dsh-mapping 未单独登记这条观察差异。",
+    "源修订回执有 wordCount 与 length delivery（runner.ts:1156-1159）；复刻 charCount／target 没有区间状态。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "修订缺显式章长区间校验（CHAPTER_LENGTH_OUT_OF_RANGE）与 spot-fix 替换预算冲突（CHAPTER_EDIT_SCOPE_CONFLICT）；更早章修订的复审时点与源不同",
+    "owner": "chapter.revise",
+    "closure": "按 work.metadata.min／max（或条目 lengthTelemetry.target）构造 LengthSpec，在 rewrite 与 spot-fix 候选上校验并返回源错误码；spot-fix 计算 fixedContentLength／replacementBudget，受保护文本超限时返回 CHAPTER_EDIT_SCOPE_CONFLICT；补 rewrite／spot-fix／多段范围测试；在 docs/dsh-mapping.md 登记更早章复审延后。"
+  },
+  "limitations": [
+    "只有 process-level 证据，没有真实 DSH 会话；修订提案与 C1／C2 是 DSH 机制拆分（已登记），源在同一事务内跑 settler／validator／review。",
+    "ranges 由主编把 reviser 子代理的选择原样提交，宿主只负责构造与逐字节比较；无法验证子代理是否遵守模式协议。",
+    "长度硬校验只对作品显式 min／max 生效，源也是如此；本章账本未把 min／max 的读取列成消费者。",
+    "更早章即时修订不推进状态（源一致），但复刻要求随后走复审 start 才能继续。",
+    "对照：capabilities.yaml:291-298 标 verified；docs/fidelity-audit.md:402-408 判「机制等价 + D59 注销」，只讲事务拆分，未覆盖 reviser 的长度硬校验与预算冲突，故本行记 false-equivalence。"
+  ]
+}

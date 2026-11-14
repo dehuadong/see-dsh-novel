@@ -1,0 +1,95 @@
+{
+  "id": "chapter.reopen",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/state/chapter-workspace.ts",
+      "line": "20-122",
+      "behavior": "版本归档 id 为 <13 位时间戳>_<manual|agent|revision|regeneration|restore>_<uuid>，写在 chapters/.versions/<NNNN>/；listChapterVersions 只认合法 id 并按 createdAt 倒序；readChapterVersion 先校验 id 再读全文。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/edit-controller.ts",
+      "line": "335-378",
+      "behavior": "chapter-replace：fullText 先 trim，空串拒绝；与当前正文相同拒绝；归档当前正文（来源 restore）；写替换正文并在末尾补换行；清该章 chapter-NNNN.* 运行时文件（保留 user-brief）；索引写 provenance=edited、rough wordCount、替换 manual-edit-review 观察，保留其它观察。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/edit-controller.ts",
+      "line": "279-333",
+      "behavior": "clearChapterRuntimeFiles 删除 chapter-NNNN.* 但保留 chapter-NNNN.user-brief.md；recordManualEditObservation 只改 updatedAt/wordCount/provenance/observations。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "3132-3178",
+      "behavior": "版本读取端点与恢复端点：恢复先读版本全文，再以 chapter-replace + versionSource=restore 执行；只改章节文件、运行时与索引，不回退运行时状态、不写 artifact revision、不写复审 start。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "1497-1591",
+      "behavior": "编辑后重同步只在最新章显式执行：以 N-1 快照作基线加载 oldState/oldHooks，重算后校验并保存章节与索引；不是恢复动作的自动后果。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-versions.ts",
+      "line": "15-87",
+      "behavior": "版本 id 正则、目录与源一致；listChapterVersions 过滤非法 id、按 createdAt 倒序（同秒再按 id 倒序），readChapterVersion 校验 id 后读全文。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/reopen.ts",
+      "line": "127-194",
+      "behavior": "restoreChapter：读当前正文与版本；版本末尾补换行后与当前正文比较；当前正文归档为 <ts>_restore_<uuid>.md；清该章运行时但保留 user-brief 与 chapter-NNNN.plan.json；同批写章节、artifact revision、索引人工编辑观察；按当前章号写/沿用复审 start（状态不可读或更晚章则 startSkipped）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/reopen.ts",
+      "line": "201-258",
+      "behavior": "reopenChapter：仅最新已发布且最后已结算章；要求本章 snapshots/<N>、索引条目与 artifact 三件套；校验 N-1 快照 lastAppliedChapter=N-1；保留正文、清运行时，写回 N-1 的四份状态与三份投影，写/沿用 start，一次 commitFoundation 提交。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/reopen-tool.ts",
+      "line": "79-150",
+      "behavior": "story_chapter_versions 列版本；story_reopen_chapter 按 versionId 分流恢复/重开，返回提交后的 stage 与 stateRewoundTo。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/workflow-start.ts",
+      "line": "105-118",
+      "behavior": "reviewStartWrites 同章沿用原 start，没有或指向其它章时写本章 start 并报告 replacedStartChapter。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:112 版本列表倒序、来源与非法 id 忽略",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:129 重开保留正文、清运行时、回退状态指针、写 start",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:172 恢复归档当前正文、替换章节、保留 user-brief 与章纲、写索引观察、追加 artifact revision",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:227 恢复早期章不回退状态并进入该章复审",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:268 同内容/坏 id/更早章重开拒绝",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:302 同章 start 指令沿用",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:331-365 更晚章已发布、缺 N-1 快照拒绝",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:367-414 恢复后复审、无章纲复审",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:416 重开回退 facts/hooks/摘要到 N-1 快照",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:451 缺本章快照/索引/artifact 拒绝",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs:521-569 替换他人 start、state-unreadable/later-chapter 跳过 start",
+    "packages/see-dsh-novel/test/stage-context.test.mjs、test/review-contract.test.mjs、test/chapter-review.test.mjs、test/panel-index.test.mjs：已发布章 start 的 reviewTarget、复审契约、审稿写回与面板投影回归",
+    "本次审计运行 node --import tsx --test（含 chapter-reopen.test.mjs）共 92 例通过"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.reopen.json：date=2026-11-14，sessionId=process:chapter.reopen，tests.passed=true（pnpm run verify，484 passed／1 skipped），receipts 覆盖版本列表、恢复/重开、拒绝与阶段；文件自述『该回执是 process-level 工具/状态测试，不是 DSH 会话』，故只有进程级证据。",
+  "deviations": [
+    "恢复未复刻源的输入归一化：源对版本全文 trim 并拒绝空正文（inkos/packages/core/src/interaction/edit-controller.ts:340-349），复刻直接使用版本全文，仅在缺末尾换行时补一个换行（packages/see-dsh-novel/src/core/reopen.ts:131-133），空版本会被写成单个换行。",
+    "恢复同批追加 artifact revision 并回填旧 current（reopen.ts:137-150）；源恢复端点不写 artifact revision（inkos/packages/studio/src/api/server.ts:3157-3170）。",
+    "重开回退分支（reopen.ts:201-258）是 DSH 阶段判定引入的动作，源没有『重开』；已登记 docs/dsh-mapping.md:162-167。",
+    "恢复保留章纲 chapter-NNNN.plan.json（reopen.ts:136），源清全部 chapter-NNNN.*（inkos/packages/core/src/interaction/edit-controller.ts:288-291）；已登记 docs/dsh-mapping.md:166。",
+    "恢复/重开写或替换复审 start（reopen.ts:178-183,247-248），源没有 workflow start；由 DSH 审稿闸门承接，已登记 docs/dsh-mapping.md:165-167。",
+    "恢复与重开都走 commitFoundation 一次原子提交（reopen.ts:185,249），源逐步直接写章节/索引并 unlink 运行时（edit-controller.ts:350-365）；失败可见性不同，但无部分写状态。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "恢复分支未复刻源 chapter-replace 的 trim／空正文拒绝；恢复新增 artifact revision 仍是未登记偏差",
+    "owner": "chapter.reopen",
+    "closure": "在 core/reopen.ts 按源 trim 版本全文并拒绝空正文，补两个失败用例；在 docs/dsh-mapping.md 的 chapter.reopen 偏差行补记恢复同批写 artifact revision 与原子提交。"
+  },
+  "limitations": [
+    "版本排序在 createdAt 相同的一毫秒内不同：源只按 createdAt 倒序（chapter-workspace.ts:109），复刻再按 id 倒序（chapter-versions.ts:75）。",
+    "源恢复端点经 Studio 的 edit-controller 执行，除读取章节索引外不检查 artifact 或快照；复刻恢复额外写 artifact revision，重开额外要求本章快照、索引条目与 artifact 三件套。",
+    "复审 start、阶段回退与 stateRewoundTo 是 DSH 机制，源没有对应可观察状态，不能用源输出直接比对。",
+    "真实回执是进程级测试，不是 DSH 会话。"
+  ]
+}

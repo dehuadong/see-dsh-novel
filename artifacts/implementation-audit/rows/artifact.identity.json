@@ -1,0 +1,146 @@
+{
+  "id": "artifact.identity",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/harness/artifact-revisions.ts",
+      "line": "16-78",
+      "behavior": "stageArtifactRevision：artifactId／kind／revisionId 先过 WorkResourceIdSchema／HarnessIdSchema；路径固定为 artifacts/<artifactId>/revisions/<revisionId><ext>（ext 来自 fileName 且须安全）；parentRevisionId=当前 current；promote 时把旧 current 置 superseded；revision 文件与 work manifest 一次 commitAtomicFileSet 写入。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/artifact-revisions.ts",
+      "line": "80-113",
+      "behavior": "createCurrentArtifact：初始 artifact 的 revisionId 缺省为 \"initial\"，status=current、parent=null、无 snapshotPath，checksum 为 sha256 全文、byteLength 为字节数；用于作品初始写入。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/artifact-revisions.ts",
+      "line": "115-152",
+      "behavior": "promoteArtifactRevision：只切 current（未知 artifact／revision 分别抛 Unknown artifact／Unknown artifact revision），把目标 revision 置 current、原 current 置 superseded，只写 manifest。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/source-sync.ts",
+      "line": "100-198",
+      "behavior": "syncWorkSourceArtifacts 是长文流水线的宿主登记路径：遍历 source 下全部文件，为每个文件生成 artifact／revision。artefactId 由 artifactIdFor(basename+sha256(path).slice(0,10)) 生成（:314-320），revisionId = `rev-${checksum.slice(0,16)}`（:310-312）；当前 revision checksum 与文件相同时不追加 revision，只为旧 current 补 snapshotPath（:144-156）；旧 current 无 snapshotPath 且内容变化时，先读盘校验旧字节 checksum，不符抛 ARTIFACT_REVISION_CONFLICT（:157-163）；文件消失时把 current 置 null、revision 置 superseded 并写 removedAt／removedPath（:200-214）。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/source-sync.ts",
+      "line": "269-279",
+      "behavior": "snapshotPath = revisions/<artifactId>/<revisionId><ext>，相对作品根（works/<workId>/），与正文文件分离；snapshot 与 revision 同批提交。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/source-sync.ts",
+      "line": "338-361",
+      "behavior": "artifactKindFor：source/chapters/<N>_<标题>.md 归一为 kind=chapter，其余按文件名／扩展名归类；contentTypeFor：.md→text/markdown、.json→application/json、图片按扩展名等；复刻章节产物也写 kind=chapter／contentType=text/markdown。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/artifact-reader.ts",
+      "line": "8-39",
+      "behavior": "readArtifactRevision：revisionId 可省略（缺省取 current）；作品根 realpath 后按 revision.snapshotPath ?? revision.path 解析并校验仍在作品内；缺失快照、越界、checksum 不符分别返回 ARTIFACT_SNAPSHOT_UNAVAILABLE／ARTIFACT_PATH_OUTSIDE_WORK／ARTIFACT_REVISION_CONFLICT，未知 artifact/revision 返回 ARTIFACT_NOT_FOUND；所有失败带 recovery.action=workspace__inspect_work；读取只比对 checksum（:35）。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/contracts.ts",
+      "line": "7-92",
+      "behavior": "HarnessId：1-128 字符、^[a-z0-9][a-z0-9._-]*$；WorkResourceId：1-120、无首尾空白、不含 ..、无路径危险字符；RelativeArtifactPath：不以 /、\\、盘符开头且不含 ..；ArtifactRevision 逐字段 strict，ArtifactManifest 用 superRefine 保证只有一个 current、currentRevisionId 必须存在且指向 status=current 的 revision。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/work-store.ts",
+      "line": "48-51",
+      "behavior": "loadWorkManifest 每次读取 work.json 都用 WorkManifestSchema.parse 逐字段校验（含 artifacts／revisions 的 strict schema 与 current 不变量），因此损坏的 revision 记录在读取阶段就失败，不会带进读取／写入路径。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/continuity.ts",
+      "line": "49-69",
+      "behavior": "审稿用作品 current 章节 revision 生成 reviewedArtifact={workId,artifactId,revisionId}；scope 审计用 parentRevisionId（或基线 episode 的 current）与 current revision 组成 before／after 两个编号来源，并把 revisionId／checksum 写进 comparison；:102 把 reviewedArtifact 写进审稿结果。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "14-41",
+      "behavior": "manifest 独立落在 source/artifacts/manifest.json，形状为 {version:1, workId, artifacts:[{id,kind,currentRevisionId,revisions,metadata}]}；revision 字段 id／parentRevisionId／path／snapshotPath／contentType／status／checksum／byteLength／episodeId／createdAt 与源同名。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "43-63",
+      "behavior": "assertWorkResourceId／assertHarnessId／assertRelativePath 与源 WorkResourceIdSchema／HarnessIdSchema／RelativeArtifactPathSchema 的判据基本一一对应（长度、空白、..、危险字符、盘符、绝对路径）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "69-110",
+      "behavior": "loadArtifactStore：JSON 解析后只校验 version、workId 与 artifacts 数组，再跑 assertManifest；assertManifest 只校验 id／kind 形状、revision id 集合、单一 current 一致性、path 与 snapshotPath 留在作品内——不校验 revision 的 status 枚举、contentType、checksum 形状、byteLength、createdAt、parentRevisionId。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "151-213",
+      "behavior": "chapterArtifactWrite（章节产物的宿主登记路径）：artifactId 固定 chapter-<NNNN>，revisionId 用 nextRevisionId 生成 r1/r2/…，snapshotPath 固定 source/artifacts/<artifactId>/revisions/<rid>.md；每次调用都追加一个新 revision，不比较当前正文 checksum；仅当调用方传入 previousContent 且旧 current 无 snapshotPath 时可回填旧快照（checksum 不符抛 ARTIFACT_REVISION_CONFLICT）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "216-281",
+      "behavior": "stageArtifactRevision／promoteArtifactRevision 复刻源的通用 revision API（路径 source/artifacts/<id>/revisions/<rid><ext>、parent、current/superseded、revision＋manifest 一次 commitFoundation），但全仓生产代码没有任何调用方，只有 test/artifact-store.test.mjs 使用。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "283-311",
+      "behavior": "readArtifactRevision：revisionId 必填（无「缺省取 current」）；realpath 限界后返回 ARTIFACT_NOT_FOUND／ARTIFACT_SNAPSHOT_UNAVAILABLE／ARTIFACT_PATH_OUTSIDE_WORK／ARTIFACT_REVISION_CONFLICT；错误对象只有 {code}，不带源的 recovery 负载；读取同时校验 checksum 与 byteLength（:307）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/artifact-store.ts",
+      "line": "314-327",
+      "behavior": "currentChapterArtifact：按 path 前缀 source/chapters/<NNNN>_ 找 current revision，返回 {workId, artifact, revision}；这是复刻对「缺省取 current」的替代入口。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-document.ts",
+      "line": "102-130",
+      "behavior": "writeChapterDocument 首次写章时同批写 source/chapters 文件、manifest 与 r1 快照；reviseChapterDocument（:214-232）仅在正文变化时追加 revision，可带 previousContent 回填；这两处是章节 artifact 的主要生产者。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/settle-tool.ts",
+      "line": 260,
+      "behavior": "结算发布时调用 chapterArtifactWrite 写当前章 revision；首次发布与后续发布都走同一入口，发布时没有 current checksum 相同的短路。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-review.ts",
+      "line": "89-98",
+      "behavior": "reviewChapter 用 currentChapterArtifact 取当前章 current revision，再 readArtifactRevision 读字节，与被审正文逐字节比对后才写 reviewedArtifact={workId,artifactId,revisionId}；没有 artifact 的旧工作区省略该字段。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/reopen.ts",
+      "line": 137,
+      "behavior": "恢复旧版正文时调用 chapterArtifactWrite 追加一个 revision（快照为恢复后的正文），不比较恢复正文与 current 是否同字节。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/artifact-store.test.mjs（6 例）：stage／promote／current 与 checksum／parent；章节 r1／r2 快照可读＋旧 current 缺 snapshotPath 回填＋回填 checksum 冲突不写；章节 revision.path 指向章节文件；符号链接越界读取被拒（Windows 跳过）；manifest 中 path／snapshotPath 越界被拒；非法 artifact/revision id 被拒",
+    "packages/see-dsh-novel/test/chapter-document.test.mjs：首次写章生成 artifact 快照",
+    "packages/see-dsh-novel/test/chapter-review.test.mjs：reviewedArtifact 走 current revision",
+    "packages/see-dsh-novel/test/chapter-revise.test.mjs（19 例）：r1／r2 快照、缺 snapshotPath 回填、删章后旧 revision 可读、缺失／损坏／未知错误码",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs（7 例）：恢复追加 revision、快照保留",
+    "real-run 记录 pnpm run verify 437 tests；本次审计只读代码与测试，未重跑"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/artifact.identity.json：date=2026-11-13，sessionId=process:artifact.identity；tests.passed=true（pnpm run verify 437 tests，Linux 全过／Windows 跳过一个 symlink 用例）；receipts 覆盖 r1／r2 snapshotPath、旧 current 回填、错误码与 manifest 路径校验，并自述「该回执是 process-level 测试」——只有进程级文件测试证据，没有 DSH 会话回执。",
+  "deviations": [
+    "宿主生成的 artifactId／revisionId 方案与源不同：源 = artifactId `basename-<sha256(path)[:10]>`、revisionId `rev-<sha256(content)[:16]>`（source-sync.ts:310-320）；复刻 = `chapter-<NNNN>`、`r1/r2/…`（artifact-store.ts:132-139,162,178-179）。两者都写进 manifest，也经 reviewedArtifact 暴露给审稿记录与作者；该差异未登记在 docs/dsh-mapping.md:211-223（那里只登记 manifest 独立与快照布局）。",
+    "缺少按内容去重：源在当前 revision checksum 与新内容相同时不追加 revision，并可复用同 id 的 prior revision（source-sync.ts:144-156,164-196）；复刻 artifact 层没有 checksum 短路，chapterArtifactWrite 每次调用都追加新 revision（artifact-store.ts:178-197），只有 reviseChapterDocument 在正文未变时跳过（chapter-document.ts:214）、restoreChapter 对同字节恢复直接拒绝（reopen.ts:133）；绕过这两个入口的同字节写入会产生与旧 revision 字节相同的 rN，源的内容地址 id 语义无法复现。",
+    "登记范围缩小：源在每次 sync 时为 source 下全部文件（基础设定、outline、state、chapters、index 等）建 artifact 与 revision，并处理文件删除（source-sync.ts:94-214）；复刻生产代码只登记章节（chapter-document／settle／revise／reopen／finalize），通用 stage／promote 没有任何产品消费者，源的全量 artifact 面与 removedAt／removedPath 行为无对应实现。",
+    "manifest 校验被放宽：源 loadWorkManifest 每次读取都用 zod 逐字段校验 revision／manifest（work-store.ts:48-51；contracts.ts:41-92）；复刻 loadArtifactStore 只校验 version/workId/数组与部分不变量，status 枚举、contentType、checksum 形状、byteLength、createdAt、parentRevisionId 均不校验（artifact-store.ts:69-110），损坏 manifest 可能被接受。",
+    "读取面差异：源 revisionId 可省略并取 current（artifact-reader.ts:17），失败带 recovery.action=workspace__inspect_work（:18-23），只比 checksum（:35）；复刻 revisionId 必填、错误只有 code、额外校验 byteLength（artifact-store.ts:290,146-148,307）。",
+    "manifest 独立于作品身份文件、快照目录 source/artifacts/<id>/revisions 替代源的 revisions/<id>/（docs/dsh-mapping.md:211-223）：属 DSH 单工作区／作品身份与产物索引分离的机制落点，不计为债；但它同时掩盖了 artifactId／revisionId 方案与登记范围的差异。",
+    "来源侧 createCurrentArtifact 的初始 revision id \"initial\" 在复刻没有对应：复刻首版章节 revision 也从 r1 开始（artifact-store.ts:178）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "artifactId／revisionId 方案、按 checksum 去重、全量 source 文件登记与 manifest 严格校验未贴源；通用 stage／promote 无消费者",
+    "owner": "artifact.identity",
+    "closure": "1) 按源方案生成宿主 artifactId（basename＋路径 hash）与 revisionId（内容 hash），或把 id 方案与可观察影响写进 docs/dsh-mapping.md 偏差行并说明 reviewedArtifact／manifest 的变化；2) chapterArtifactWrite 与 reopen 恢复在 current checksum 相同时不追加 revision，并补「同字节重发布不新增 revision」用例；3) 把基础设定／状态／索引纳入 artifact 登记（或把本行明确缩到 chapter artifact 并把范围差登记为债），并补文件删除时的 superseded／removedAt 行为；4) loadArtifactStore 按源 schema 校验 revision 字段，读取错误补 recovery 负载，把 byteLength 额外校验登记或去掉；5) 让 stage／promote 有产品入口或删除死代码；6) 同批更新 docs/fidelity-audit.md:460-466 的判定与 dsh-mapping 偏差行。"
+  },
+  "limitations": [
+    "只有 P 级证据：artifacts/real-runs/artifact.identity.json 自述是 process-level 测试，没有 DSH 会话；作者在 D31 只对看板回执做了裁定，不覆盖本行。",
+    "测试固化的是复刻自己的 id 方案（artifact-store.test.mjs:73,126 断言 chapter-0001／r1），因此测试通过不能证明与源的 identity 等价。",
+    "测试工作区都是「一个工作区＝一部作品」，跨作品隔离只验证到 manifest.workId 与 realpath 限界，没有两个作品目录同处一个根时的对照用例（源是 projectRoot/works/<id> 多作品结构）。",
+    "Windows 上跳过符号链接越界读取用例（artifact-store.test.mjs:135-138），该失败路径只在 Linux 有证据；manifest 越界用例在两平台都跑。",
+    "源 artifactId 里含路径 hash，revisionId 里含内容 hash，二者在源内是稳定的内容地址；复刻若将来修改 id 方案需要迁移已有 manifest，测试与真实工作区都没有迁移用例。",
+    "对照：capabilities.yaml:339-346 标 verified；docs/fidelity-audit.md:460-466 判「等价（D42 注销）」并称「读取错误码与源对齐」、dsh-mapping.md:211-223 只登记 manifest 独立与快照布局；本行发现的 id 方案／去重／登记范围／校验严格度差异均未登记，按虚假等价裁决。"
+  ]
+}

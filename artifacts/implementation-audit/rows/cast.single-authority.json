@@ -1,0 +1,109 @@
+{
+  "id": "cast.single-authority",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/utils/outline-paths.ts",
+      "line": "57-75",
+      "behavior": "readRoleCards：从 story/roles 下 主要角色、次要角色、major、minor 四个目录收集 .md（缺目录跳过），返回 {tier, name, content}；每张卡读文件，内容 trim 后为空则抛错『Role card is empty: <path>』；name 为文件名去 .md。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/outline-paths.ts",
+      "line": "103-127",
+      "behavior": "readCharacterContext：把卡片按 major/minor 分组，渲染『## 主要角色 / Major characters』『## 次要角色 / Minor characters』与每卡『### <name>』逐字内容（content.trim()）；一张卡都没有时抛错『Canonical role cards are missing from: <roles 目录>』。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/composer.ts",
+      "line": "780-826",
+      "behavior": "selectRoleCardEntries：四个档位目录的全部 .md 都成为候选（source='story/roles/<tier>/<file>'、heading=文件名、excerpt=文件 trim），候选非空但缺 selector 时抛错『Role-card semantic selector is required.』；selector 返回未知 source 抛错；选中项 reason='Role canon selected for the current chapter task.'、protection='protected'，进入 ContextPackage。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "154-161",
+      "behavior": "写角色卡：safeName=名字替换 /\\:*?\"<>| 后 trim，为空抛错；路径 story/roles/主要角色|次要角色/<safeName>.md，内容 trim 后加换行——主要/次要两个档位是唯一写入权威。"
+    },
+    {
+      "file": "inkos/packages/core/src/state/manager.ts",
+      "line": "84-91",
+      "behavior": "建作品骨架时同时 mkdir story/roles/主要角色 与 story/roles/次要角色 两个目录（另有 ensureControlDocumentsAt 的 author_intent/current_focus）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/cast.ts",
+      "line": "36-65",
+      "behavior": "readTier 只读 ROLE_DIRS（主要角色/次要角色）两个目录；ENOENT 按空，其它读失败记 problem；非 .md 跳过；空卡记『是空卡』并跳过；卡片记录 name/tier/content/path。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/cast.ts",
+      "line": "94-115",
+      "behavior": "readCast：同名出现在两个档位时记 conflict，两张卡都从结果里剔除并在 problems 点名；正常卡按 Unicode 码位排序（major/minor 分开）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/cast.ts",
+      "line": "124-140",
+      "behavior": "renderCastContext：标题『## 人物档案（唯一来源：source/story/roles/）』＋『[roles:index]』名册（主要角色：…、次要角色：…）＋每卡『[role:<name>]』逐字内容（仅去掉末尾换行）＋『[cast-problem]』问题块＋结尾规则行『以上人物档案是唯一来源：已有角色不得改设定，新人物先建档再写。』；没有卡也没有问题时返回空串。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/cast.ts",
+      "line": "150-163",
+      "behavior": "installCastContext：注册 systemPrompt.context（name=story:cast、order=130、interpolate=false、required=true），先校验 assembly.agent.ctx 的 composedPreset 等于本预设，再把整份 cast 渲染进上下文；非本预设返回空串。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/context-package.ts",
+      "line": "347-377",
+      "behavior": "roleCandidates：只遍历 ROLE_DIR_NAMES（主要角色/次要角色）两个目录，只收 isFile 的 .md，id/source 形如 role:<相对路径>，excerpt 为文件全文；不读 major/minor 目录。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "93-125",
+      "behavior": "movedRoleCards：写入时为每个索引角色检查另一档位同名卡存在则删除；normalizeCastIndex：空名、重名、安全化后同文件名都拒绝。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/cast.test.mjs:46 readCast groups both tiers and sorts them by name",
+    "packages/see-dsh-novel/test/cast.test.mjs:64 readCast reports a missing roles directory as just an empty cast",
+    "packages/see-dsh-novel/test/cast.test.mjs:74 renderCastContext writes the index, one block per card, and the closing rule",
+    "packages/see-dsh-novel/test/cast.test.mjs:93 an empty cast renders nothing at all",
+    "packages/see-dsh-novel/test/cast.test.mjs:102 the same name in both tiers is reported and neither card is rendered",
+    "packages/see-dsh-novel/test/cast.test.mjs:124 an empty card is reported instead of being injected",
+    "packages/see-dsh-novel/test/cast.test.mjs:138 a work whose only card is empty still reports the problem block",
+    "packages/see-dsh-novel/test/cast.test.mjs:150 a tier path that is not a directory is reported instead of failing the assembly",
+    "packages/see-dsh-novel/test/cast.test.mjs:163 the context contribution carries the agreed placement flags",
+    "packages/see-dsh-novel/test/cast.test.mjs:191 without the preset registry the contribution stays empty",
+    "packages/see-dsh-novel/test/cast.test.mjs:207 a directory without a cast contributes nothing",
+    "packages/see-dsh-novel/test/cast.test.mjs:223 the cast index refuses empty, repeated and collision-prone names",
+    "packages/see-dsh-novel/test/cast.test.mjs:241 re-tiering a role deletes the card it leaves behind, even in init mode",
+    "packages/see-dsh-novel/test/cast.test.mjs:260 re-tiering during revise deletes the old card exactly once",
+    "packages/see-dsh-novel/test/cast.test.mjs:280 init still keeps unrelated cards that are not re-submitted",
+    "packages/see-dsh-novel/test/cast.test.mjs:300 an empty card body is refused before anything is written",
+    "packages/see-dsh-novel/test/foundation.test.mjs:190 cast index rebuilds the card schema and cards land in tier directories",
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 cast.test.mjs 16 例；没有英文档位目录、源渲染格式或空卡抛错的用例"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/cast.single-authority.json：date=2026-11-04，sessionId=session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*），tests.passed=true（pnpm run verify，76 passed）。receipts：seq 332 runtime-context 快照（source=runtime-context，5419 字符）包含『## 人物档案（唯一来源：source/story/roles/）』与 [roles:index]（主要角色 崔无咎/沈砚/苏芜/裴照；次要角色 小满/韩九），同一快照含 6 个 [role:*] 块与『以上人物档案是唯一来源』规则行；写入侧 cast_index 拒绝空名/重复名/安全化同名，cast_documents 拒绝空卡并删除换档旧卡。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-demo--/session-974fa00e-.../session.v4.jsonl.zstd 存在（286136 字节，2026-11-05 写入）。",
+  "deviations": [
+    "目录覆盖：源 readRoleCards 与 composer 都读四个目录（主要角色/major/次要角色/minor，outline-paths.ts:60-75、composer.ts:787-791）；复刻 readCast 只读两个中文目录（cast.ts:37），context-package.ts:349 的 roleCandidates 也只读两个中文目录。结果是：放在 major/minor 目录的手写角色卡会被 workProbes 算作『有角色卡』（story-paths.ts:54-58 的四目录），但不进任何上下文或计划候选——就绪判定和模型看到的权威不一致。",
+    "同名跨档位：源把两个档位的卡都当候选/都渲染（readRoleCards 合并、readCharacterContext 两档都输出）；复刻把同名判为冲突，两张卡都不注入并写 [cast-problem]（cast.ts:94-115）。源没有这条『合并成一张再继续』的规则，也没有 problem 块。",
+    "空卡处理：源任何一张空卡都会让 readRoleCards 抛错，整次上下文装配失败（outline-paths.ts:93）；复刻跳过该卡、把『是空卡：补上内容或删掉它』渲染进模型上下文（cast.ts:58-61,124-139）。",
+    "上下文格式：源是『## 主要角色 / Major characters』『## 次要角色 / Minor characters』＋每卡『### <name>』＋逐字内容（outline-paths.ts:112-123）；复刻自造 [roles:index] 与 [role:<name>] 标记、结尾规则行与 [cast-problem]，格式在源码里没有对应。",
+    "语言：复刻 renderCastContext 恒为中文标题与中文规则行（cast.ts:128-139），没有按作品 language 切换；源 readCharacterContext 为中英双语标题，composer 的候选片段由计划语言决定。",
+    "注入范围：源角色卡经 composer 的 per-chapter 语义选择进入 ContextPackage（composer.ts:780-826）；复刻额外把整份 cast 常驻注入 systemPrompt.context（cast.ts:150-163），同一份卡既整体注入又作为 plan.context-select 的候选，模型窗口内容与源不同。",
+    "读取失败语义：源读目录非 ENOENT 错误直接抛出；复刻把读目录/读文件失败降级成 problem 文本并把其余卡继续注入（cast.ts:41-57）。",
+    "复刻缺少源 readCharacterContext 的『没有卡就抛错』行为（cast.ts:126 返回空串）；该差异被客户端预设守卫掩盖，但函数级行为不同。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "人物权威的目录覆盖、同名冲突、空卡与上下文格式均未贴源；英文档位目录的卡不计入上下文，唯一权威在就绪判定与模型侧不一致",
+    "owner": "cast.single-authority",
+    "closure": "1) readCast/roleCandidates 读四个档位目录（或把 major/minor 迁移/别名成中文目录并拒绝并存），保证『就绪有卡』与『上下文有卡』同一集合；2) 同名跨档位、空卡、读失败的处置按源行为（合并/抛错）复刻，或由作者裁决后登记为偏差并写清源行为→DSH 落点→原因→验证；3) 上下文格式与结尾规则行改贴源 readCharacterContext，或登记为方法注入偏差；4) 补英文作品、英文目录、空卡三类测试与真实回执。关闭判据=上述用例通过且 capabilities.yaml 的 source 从 reference-context.ts 改为 outline-paths.ts/composer.ts 后重录回执。"
+  },
+  "limitations": [
+    "capabilities.yaml 的 source 指向 inkos:packages/core/src/references/reference-context.ts；该文件实际是书籍参考资料（materials）的分节选择（reference/<materialId>#<anchor>），与人物档案无关。真正的源证据在 utils/outline-paths.ts 与 agents/composer.ts。fidelity-audit.md:212 同样把本行源证据写成 reference-context.ts，需要修正。",
+    "realRun 是 2026-11-04 的会话，cast.ts 自 2026-11-04 起未再改（commit 883ef9f），cast.test.mjs 在 2026-11-06 因提交范围/分隔符改过；回执描述的 [roles:index]/[role:*] 是复刻自造格式，只能证明复刻当前行为，不能证明与源格式等价。",
+    "复刻的 [cast-problem] 会把内部问题文本注入模型提示词；源没有该通道，问题要么抛错要么不出现。该文本对模型行为的影响未被测试覆盖。",
+    "角色卡的选择与预算已另有 plan.context-select 行；本行只裁决『唯一权威 + major/minor 进入 context』，没有复核语义选择器与预算裁剪。",
+    "写入侧换档删卡（tools.ts:93-125）在 init 模式也删，与 foundation.architect 的偏离同源；本行注意点只在读侧。",
+    "本次审计没有运行 DSH 宿主；cast 的 preset 守卫与 systemPrompt.context 装配由 cast.test.mjs 的 stub 覆盖。"
+  ]
+}

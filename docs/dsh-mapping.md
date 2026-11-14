@@ -242,3 +242,10 @@
 - 复刻做法：`/story-init --brief <path>` 相对当前工作区根解析，路径必须留在工作区内。
 - 原因：DSH 命令没有独立的进程 cwd，命令能拿到的稳定根只有会话工作区；用工作区根解析也让「简报属于作品」这件事可预期。
 - 验证：`packages/see-dsh-novel/test/work-command.test.mjs` 的 `--brief` 用例（含 `../x.md` 被拒绝）。
+
+### panel.gate-resume：确认后的续作通道
+
+- 源工程做法：Studio 确认请求由宿主执行 pending action，并在同一会话里重放隐藏 assistant tool-call 与真实 toolResult（`agent-session.ts:1220-1267`），后续 system prompt 带 resumeAfterAction 行；确认与续作在一次宿主请求内完成（`server.ts:4931-5013`）。
+- 复刻做法：`/story-approve` 命令写确认回执后，由 client 向同一会话投一条可见的 queue user 消息（`client/index.ts:89-94,122`），agent 再调 `story_gate` 复核并继续下一阶段；确认与续作是两次会话动作。
+- 原因：DSH approval 在 agent 工具之外，不能在模型上下文里注入隐藏 toolResult；命令与提示是宿主可用的等价确认/叫醒面。
+- 验证：`client.test.mjs:494-511,794-829` 覆盖确认后 queue 消息与 gate 复核；真实会话 seq 380-417。

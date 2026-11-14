@@ -1,0 +1,118 @@
+{
+  "id": "backup.restore",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/cli/src/book-backup.ts",
+      "line": "34-37",
+      "behavior": "备份目录 bookBackupsDir = <projectRoot>/.inkos/backups/<bookId>，在 works/ 之外，因此备份目录不会把其它备份再装进去。"
+    },
+    {
+      "file": "inkos/packages/cli/src/book-backup.ts",
+      "line": "39-63",
+      "behavior": "createBookBackup：只要求作品目录 works/<bookId> 存在且是目录（不存在抛 Book Work not found），不读 book.json；id = formatStamp(UTC 到秒) + 可选 -suffix，冲突时依次追加 -2、-3…（pathExists 循环）；用 cp(bookDir, backupPath, {recursive:true}) 整目录复制，所以备份包含 work.json、source/ 与 revisions/ 快照目录。"
+    },
+    {
+      "file": "inkos/packages/cli/src/book-backup.ts",
+      "line": "65-87",
+      "behavior": "listBookBackups：readdir 备份目录（ENOENT 返回 []），只取目录项，createdAt=mtime ISO，按 id 倒序（时间戳前缀保证最新在前）。"
+    },
+    {
+      "file": "inkos/packages/cli/src/book-backup.ts",
+      "line": "89-122",
+      "behavior": "restoreBookBackup：backupId 必须是单个安全目录名（^[A-Za-z0-9._-]+$ 且非 .／..）；备份目录缺失抛错；作品目录存在时先做 pre-restore 备份（suffix=pre-restore，时钟可注入，返回 preRestoreBackupId），否则返回 null；随后 rm(bookDir,{recursive:true,force:true}) 再 cp(backupPath, bookDir,{recursive:true})，恢复的是整目录。"
+    },
+    {
+      "file": "inkos/packages/cli/src/book-backup.ts",
+      "line": "124-130",
+      "behavior": "formatStamp 为 UTC ISO 到秒后去掉 -／: 并把 T 换成 -；pathExists 用 access 判断。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": "301-342",
+      "behavior": "book backup 子命令：--list 走 listBookBackups（空列表有专门文案），否则 createBookBackup；失败打印并 exit(1)。注释说明备份必须能在 book.json 损坏时工作，因此语言取 CLI 环境而非作品配置。"
+    },
+    {
+      "file": "inkos/packages/cli/src/commands/book.ts",
+      "line": "344-374",
+      "behavior": "book restore 子命令：restoreBookBackup(bookId, backupId)，成功打印恢复 id 与 pre-restore id，失败打印并 exit(1)。"
+    },
+    {
+      "file": "inkos/packages/cli/src/__tests__/book-backup.test.ts",
+      "line": 1,
+      "behavior": "源测试覆盖备份创建／列表／恢复与 id 规则（文件存在，作为源侧测试证据）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/backup.ts",
+      "line": "13-17",
+      "behavior": "备份根 = 工作区 .backups/；备份集合排除 source/.write.lock 与 story/runtime/panel.index.json；DEAD_TXN_PREFIX=.dead-txn-。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/backup.ts",
+      "line": "36-38",
+      "behavior": "formatStamp 与源逐字同形：UTC 到秒、去 -／:、T→-。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/backup.ts",
+      "line": "55-96",
+      "behavior": "copyOwnedItems 只复制作品拥有项 work.json 与 source/（cp filter 排除锁与 panel.index）；createBackup 只 stat 工作区根是否存在，mkdir 备份 id（时间戳＋可选 suffix，冲突 -2、-3…），再复制拥有项；不读 work.json。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/backup.ts",
+      "line": "99-114",
+      "behavior": "listBackups：readdir（ENOENT→[]），只取目录，createdAt=mtime ISO，按 id 倒序。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/backup.ts",
+      "line": "117-155",
+      "behavior": "hasWorkContent 的恢复前判据：work.json 存在，或 source/ 里存在除活动锁外的条目；recoverOrIsolateTransactions 先 recoverDeadTransactions，失败时把根下 .inkos-file-txn-* 逐个 rename 成 .dead-txn-*（带序号），全部隔离失败才 AggregateError 中止。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/backup.ts",
+      "line": "158-210",
+      "behavior": "restoreBackup：id 单段安全校验与源一致；备份目录必须存在；存在作品内容时先做 pre-restore 备份（空工作区为 null）；回收／隔离死事务；clearOwnedItems 删除 work.json 与 source/ 下除 .write.lock 外的条目；再复制备份的 work.json 与 source/；最后删除 .drafts/（未发布草稿不属于拥有项）；返回 restoredFrom／preRestoreBackupId／isolatedTransactions。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/backup-command.ts",
+      "line": "12-56",
+      "behavior": "/story-backup [create|list|restore <id>]：宿主命令，create／restore 在 withWorkAction 锁内；create 拒绝多余参数、list 空列表文案、restore 回执含 pre-restore id 与死事务隔离数量及「.drafts 已丢弃」提示；未知子命令与错误都回 kind:error 文本。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/agent.ts",
+      "line": "30,126",
+      "behavior": "installBackupCommand 在插件装配时注册，命令面在产品内有消费者。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/backup.test.mjs（9 例）：create 复制拥有项并排除锁／panel.index／根文件／备份目录；id 冲突 -2 与 formatStamp；list 最新在前、空工作区返回 []；restore 替换 work.json＋source、保留根文件与活动锁、删 .drafts、pre-restore 目录存在；坏 work.json 仍能备份与恢复；只带锁的空工作区 preRestoreBackupId=null；坏事务日志隔离为 .dead-txn-bad-0 且恢复成功；非法／缺失 id 拒绝且不动作品；命令 create／list／restore、锁释放与未知子命令／参数边界",
+    "real-run 记录 pnpm run verify 396 passed；本次审计只读代码与测试，未重跑"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/backup.restore.json：date=2026-11-10，sessionId=process:backup.restore；tests.passed=true（pnpm run verify 396 passed，backup 9 例）；receipts 覆盖拥有项复制与排除、id／list 倒序、恢复替换与根文件保留、坏 work.json、空工作区 preRestoreBackupId=null、死事务隔离、非法 id、命令参数边界，并自述「该回执是 process-level 命令／文件测试，不是 DSH 会话；作者裁定不做桌面回执，该回执即交付证据」——只有进程级文件测试证据。",
+  "deviations": [
+    "备份根不同：源 <projectRoot>/.inkos/backups/<bookId>/<id>，复刻 <workspace>/.backups/<id>（core/backup.ts:13,41-43）。DSH 没有「项目根 + works/」层级、工作区是命令唯一稳定根，已登记 docs/dsh-mapping.md:169-174。",
+    "恢复范围不同：源 rm 整目录再 cp 整目录；复刻只替换 work.json＋source/，保留根上 .git、作者文件、导出文件、.backups/ 与活动锁（core/backup.ts:158-210）。工作区根可能同时是仓库根，已登记 docs/dsh-mapping.md:169-174；导出文件不回滚是 D38。",
+    "恢复前先回收／隔离死事务（core/backup.ts:130-155,194）：源恢复是裸 fs 写入、没有事务概念；复刻的事务目录在作品根，不先回收会让下一次 commit 用旧事务备份覆盖恢复内容。已登记 docs/dsh-mapping.md:169-174。",
+    "create 缺「作品存在」校验：源要求作品目录存在（book-backup.ts:44-48 抛 Book Work not found）；复刻只 stat 工作区根（core/backup.ts:84-86），空工作区也能创建空备份。该行为差异未登记，也没有失败用例。",
+    "备份集合的排除项未逐条登记：复刻排除 source/.write.lock 与 story/runtime/panel.index.json（core/backup.ts:16-17,62-65），源整目录复制（若当时有锁也会复制）；恢复成功后 withWorkAction 会按恢复后的文件重建 panel.index（core/work-mutation.ts:84-88），所以被排除的索引不会停留在备份时投影，但排除本身只写在 real-run receipts 与测试里，不在 dsh-mapping。",
+    "恢复时删除 .drafts/（core/backup.ts:203-204）：源没有草稿目录；复刻的 .drafts 是 chapter.publish 的机制落点（docs/dsh-mapping.md:91-96），不在拥有项内。该清理未被 dsh-mapping 的 backup.restore 偏差行覆盖，只在命令文案与测试里体现。",
+    "恢复前判据不同：源以「作品目录是否存在」决定 pre-restore（book-backup.ts:111-116）；复刻以「work.json 或 source/ 除锁外有内容」判断（core/backup.ts:117-127,191-193）。这是工作区＝作品根、活动锁落在 source/ 的机制后果；空工作区 null 的回执与源的可观察结果一致。",
+    "CLI 被 DSH 命令替代：源 `inkos book backup/restore` 子命令（cli/src/commands/book.ts:301-374）改为 `/story-backup [create|list|restore <id>]`（plugin/backup-command.ts），命令映射已在 docs/dsh-mapping.md 的 CLI 行登记。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "导出文件不回滚（D38 遗留）；create 缺作品存在校验；panel.index 排除与 .drafts 清理未登记为偏差",
+    "owner": "backup.restore",
+    "closure": "1) 按 docs/scope.md D38 的偿还位置处理导出：恢复时用恢复前 id 删当前导出、恢复后 id 兜底删，作者重新导出，并补「恢复后导出不残留」用例；2) create 前按 work.json／source 判作品存在，空工作区回「没有可备份的作品」并补失败用例（与源 Book Work not found 对齐）；3) 把 panel.index.json 排除与 .drafts 清理写进 docs/dsh-mapping.md 的 backup.restore 偏差行，说明恢复后索引由宿主重建；4) 同批更新 docs/fidelity-audit.md:476-482 的判定与 scope D38 行。"
+  },
+  "limitations": [
+    "只有 P 级证据：real-run 自述是 process-level 命令／文件测试；作者裁定不做桌面回执（D31 关闭），进程级测试即交付证据，但没有真实 DSH 会话回执来证明作者在会话里走过 create→list→restore 全链路。",
+    "测试没有覆盖「空工作区 create 应当失败」（复刻当前成功）、导出文件回滚（D38 未偿还），也没有断言恢复成功后 panel.index 由 withWorkAction 重建（代码路径存在，见 core/work-mutation.ts:84-88；backup.test.mjs 未检查索引）。",
+    "备份集合的等价依赖「源 bookDir(source)＝复刻 source/」这一路径映射：源整目录 cp 还包含 revisions/ 快照，复刻快照在 source/artifacts/ 内，所以等价；但根上的导出／作者文件按 DSH 机制不回滚（D38），不能据此说备份集完全同形。",
+    "源在同一 projectRoot 下多作品、备份按 bookId 分目录；复刻一工作区一作品，跨作品隔离只有单作品用例，没有多作品同根对照。恢复锁在 withWorkAction 内、源 CLI 无锁，这一层是已登记的锁机制差异，不在本行重复裁决。",
+    "real-run 记录 396 tests，冻结提交 e3b7886 当前测试规模为 437；本次只读代码与测试，未重跑 verify。",
+    "对照：capabilities.yaml:355-362 标 verified；docs/fidelity-audit.md:476-482 判「机制等价（备份位置、恢复范围、死事务隔离三条偏差）+ 保真债 D38」。三条偏差确实来自 DSH 机制，核心行为（id 规则与冲突号、列表顺序、pre-restore、恢复替换、坏 work.json 可备份、空工作区 null）与源对齐，故判机制等价；未登记的 create 校验缺口与排除项记债。"
+  ]
+}

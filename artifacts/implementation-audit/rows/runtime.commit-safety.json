@@ -1,0 +1,87 @@
+{
+  "id": "runtime.commit-safety",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": 26,
+      "behavior": "serialize 以 resolve(root) 为键维护模块级 Promise 队列；前一批失败被 catch 掉，后一批继续执行，保证同一根上的提交串行。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": 118,
+      "behavior": "safeRelativePath normalize 后拒绝空路径、绝对路径、恰好 `..` 或 `../` 前缀，越界路径在写任何文件前失败。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": 155,
+      "behavior": "提交前拒绝重复写路径、同一路径既写又删、以及目录与子路径同时被触达；重叠错误带 ATOMIC_PATH_OVERLAP 码。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": 51,
+      "behavior": "rollback 对每条 journal entry：有 backup 就 copy 回来；没有 backup 且 existed=false 就 rm 半套产物；existed=true 且没有 backup 时保留原文件。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": 141,
+      "behavior": "commitAtomicFileSet 在 serialize 内先 recoverRoot 再提交；recoverRoot 对属主已死的 prepared 事务回滚、committed 事务清理，活属主不动。"
+    },
+    {
+      "file": "inkos/packages/core/src/utils/atomic-file-set.ts",
+      "line": 204,
+      "behavior": "提交失败且 prepared 时回滚；回滚也失败则 cleanup=false，把 journal 的 pid 改成 0 并保留事务目录，抛 AggregateError。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": 108,
+      "behavior": "withCommitQueue 以 resolve(root) 为键串行；前一批失败不阻塞后一批，任务结束后删除队列项。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": 95,
+      "behavior": "safeRelativePath 与源同样拒绝空路径、绝对路径、`..` 与 `../` 前缀，错误文本为中文。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": 226,
+      "behavior": "commitBatch 拒绝重复写、写删同一路径、目录与子路径重叠；重叠错误码 ATOMIC_PATH_OVERLAP。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": 147,
+      "behavior": "restoreFromBackups 对每条 entry：有 backup 就复制回来；没有 backup 且 existed=false 就 rm 半套产物；existed=true 且没有 backup 时保留目标。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": 218,
+      "behavior": "commitBatch 在提交前调用 recoverDeadTransactions：prepared 且属主已死按 entries／existed 恢复，committed 只清理事务目录，活属主不动。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/commit.ts",
+      "line": 284,
+      "behavior": "提交失败且 journal 已写时回滚；回滚失败写 pid 0 的 journal 并保留事务目录，抛 AggregateError。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/commit-safety.test.mjs：路径越界、越界批次不落盘、重复／写删／目录子路径冲突、同根队列顺序与前批失败不阻塞、死 prepared 按 entries/existed 恢复、死 committed 清理、无 backup 且 existed=true 保留、journal 形状解析",
+    "packages/see-dsh-novel/test/txn-format.test.mjs：事务目录布局、staged/backup、committed 阶段、旧目标进 backup、根事务只含 staged/backup/journal"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "session-be199bcf-db91-4deb-ae75-6da15a44a06f 存在于 C:/Users/MyPC/.dsh/sessions/--E-see-dsh-novel-.artifacts-work-txn-format--；session 日志含 story_recover（回收死事务）与 story_truth_file 成功写入 author_intent.md，日期 2026-11-08。real-run 的 escape／queue 回执来自 check-commit-safety.mjs 进程级脚本，不在该 session 内；session 证明的是原子提交与死事务回收路径。",
+  "deviations": [],
+  "debt": {
+    "needed": true,
+    "title": "回滚目录替换语义与源不同",
+    "owner": "runtime.commit-safety",
+    "closure": "对齐源 rollback 的 rm(target,{force:true}) 语义（目录替换时失败而非递归删除），补目录替换用例；或登记偏差行。"
+  },
+  "limitations": [
+    "复刻 restoreFromBackups 在 existed=false 且无 backup 时用 rm(target,{recursive:true})；源 rollback 用 rm(target,{force:true})。若目标位置被外部替换成目录，源会回滚失败并保留日志，复刻会直接删除目录。",
+    "源 commitAtomicFileSet 返回 void；复刻 commitFoundation 返回 {written,deleted}，是调用层附加信息，不影响写入与回滚。",
+    "源 recoverRoot 有递归扫描版本（CLI／Studio 启动时 recoverAtomicFileSets(root,true)）；复刻 commit 自检只扫作品根。作品根即工作区，跨作品递归不在本行范围。",
+    "realRun 中路径越界与队列顺序是进程级脚本证据；S 级来自 session 的原子提交／回收回执，不是这两条脚本的会话回执。"
+  ]
+}

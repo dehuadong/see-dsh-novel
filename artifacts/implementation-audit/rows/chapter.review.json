@@ -1,0 +1,104 @@
+{
+  "id": "chapter.review",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 820,
+      "behavior": "reviewChapter 可审任意章：读正文与章级 brief 后准备 governed 上下文，收集观察，再把索引该章 updatedAt 置 now、observations 替换为本次结果（:850-860）；没有「已有审稿记录」前置。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/continuity.ts",
+      "line": 43,
+      "behavior": "审稿来源固定为 governed-context（selectedContext 渲染）与 chapter-N；:47 建 Map，:74 以编号行发给模型。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/continuity.ts",
+      "line": 50,
+      "behavior": "修订审稿额外取 before revision 作为来源 chapter-N@<rev>，并计算 changedRegion 的 before／after 对照（:62-69）；:79 明确要求「范围外改动归 scope」。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/continuity.ts",
+      "line": 90,
+      "behavior": "categoryRequired（有对照时）后校验：scope 类 issue 必须引用 before 与 current 两个不同 revision，否则 REVIEW_SCOPE_EVIDENCE_REQUIRED（:91-94）。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/chapter-review.ts",
+      "line": 51,
+      "behavior": "reviewChapterDraft 调 auditor；:64-77 auditor 抛错时合成 unavailable 观察（code=review-unavailable，summary=审稿暂不可用）并继续，不中断章节流程。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/review-tool.ts",
+      "line": 24,
+      "behavior": "SourcedReviewIndexToolSchema：observation 必填 code／summary／assessment／sourceRefs，category 可选；sourceRefs 支持 {sourceId,startLine,endLine} 或 {sourceId,quote}。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": 862,
+      "behavior": "审稿完成后发 webhook，并 sync chapters/index.json；:869 返回 wordCount 的 chapterLengthDelivery。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/review-tool.ts",
+      "line": 13,
+      "behavior": "story_review_chapter 参数：chapter／revisionDigest／summary／observations；:29 assessment 枚举含 unavailable，:32 sourceRefs 只允许 sourceId／quote／startLine／endLine；:90-109 直接落盘，没有 auditor 失败回退。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-review.ts",
+      "line": 49,
+      "behavior": "reviewSources = 章节正文（已发布优先、草稿兜底）+ plan.memo.body 作为 governed-context；:64 已发布章无章纲时只给正文；:85 同章已有审稿记录直接拒绝；:117-127 已发布章同批写回索引。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/review.ts",
+      "line": 87,
+      "behavior": "renderReviewContract 注入审稿要求 + chapter-N 编号正文 + plan memo 编号来源；:82／:107 把 plan memo 标成 governed-context。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/observation.ts",
+      "line": 51,
+      "behavior": "resolveObservationSources 只校验 code／summary 非空、空 sourceRefs（unavailable 除外）、quote／行范围与来源包含关系；不校验 scope 类别需要 before／current 对照。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-review.ts",
+      "line": 90,
+      "behavior": "reviewedArtifact 只在非 revision 审稿、且 current revision 正文与被审正文逐字相等时记录；修订提案审稿不写索引。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/chapter-index.ts",
+      "line": 221,
+      "behavior": "reviewedChapterIndex 只更新该章 updatedAt 与 observations；索引无该章条目不补行，返回 null。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/chapter-review.test.mjs（10 例：观察／计数、二次拒绝、reviewedArtifact 同版本、无稿／无章纲、已发布章无章纲、索引写回、草稿不写索引、索引缺失／坏／无行、空字段、空白引文）",
+    "packages/see-dsh-novel/test/review-contract.test.mjs（4 例：双来源编号、英文、缺正文、缺章纲只按正文）",
+    "packages/see-dsh-novel/test/review-tool.test.mjs（1 例：sourceRefs 对象形状与 assessment 枚举）",
+    "packages/see-dsh-novel/test/chapter-reopen.test.mjs（恢复后复审替换 manual-edit-review）",
+    "packages/see-dsh-novel/test/chapter-revision-commit.test.mjs（revisionDigest 摘要不符拒绝、提案审稿）"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/chapter.review.json：date=2026-11-14，sessionId=process:chapter.review；receipts 明说新增索引写回等路径由工具／状态测试覆盖，并注明「该回执是 process-level 工具/状态测试，不是 DSH 会话」。",
+  "deviations": [
+    "修订审稿缺 before／current 对照来源与 scope 证据校验：源 continuity.ts:50-95 把 before revision 作为编号来源、要求 scope issue 同时引用两个版本，否则 REVIEW_SCOPE_EVIDENCE_REQUIRED；复刻的审稿来源只有提案正文 + 章纲，observation.ts 对 category=scope 不做任何额外校验。",
+    "审稿失败没有 review-unavailable 观察：源 chapter-review.ts:64-77 在 auditor 抛错时仍写一条 unavailable 观察并继续；复刻把审稿交给子代理，失败就没有记录，也没有同等的自动回退。",
+    "governed-context 的来源不同：源是 composer 选出的 selectedContext 渲染；复刻把章纲 memo 当作 governed-context（review-contract.test 明确断言了这一点），权威上下文只剩章纲。",
+    "源 reviewChapter 可重复审并替换索引 observations（runner.ts:850-860 无存在检查）；复刻一章一条审稿记录，第二次直接拒绝（chapter-review.ts:85），只能先 reopen／revise 删记录。",
+    "源审稿返回 length delivery（runner.ts:868-870）；复刻只返回 counts，没有区间回执。",
+    "已发布章无章纲仍可审是复刻新增的放宽（chapter-review.ts:64）；源始终有 governed context，不需要这条降级。",
+    "审稿观察的 evidence 不同：源在 submitSourcedReview 里强制把 evidence 清空（base.ts:91），复刻保留模型提交的 evidence 并写入审稿记录／索引（observation.ts:71）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "修订审稿缺对照来源与 scope 证据校验；审稿失败无 unavailable 回退；一章只能审一次（源可重复审并替换索引观察）",
+    "owner": "chapter.review",
+    "closure": "把修订前 revision 作为第二个编号来源交给审稿子代理，并在 review 工具校验 scope 类 issue 同时引用 before+current（错误码 REVIEW_SCOPE_EVIDENCE_REQUIRED）；实现 review-unavailable 落盘；允许重审（记录版本化或替换并写明语义）；补对照、失败、重审测试。"
+  },
+  "limitations": [
+    "只有 process-level 证据；正常路径的旧会话回执沿用，新增索引写回与草稿路径没有真实 DSH 会话。",
+    "审稿由主编派子代理完成，宿主只能校验提交的观察，无法证明子代理读过全部来源；源同一进程内由 auditor 直接提交。",
+    "reviewedArtifact 的字节匹配依赖 artifact manifest；没有 artifact 的旧工作区仍可审稿但记录无 identity（与源一致）。",
+    "索引观察写回只在已发布章；草稿审稿不写索引，与源 reviewChapterDraft 的行为一致。",
+    "对照：capabilities.yaml:283-290 标 verified；docs/fidelity-audit.md:394-400 判「等价（D17／D18 已偿还）」，却把 plan memo 当 governed-context、未提 scope／对照与 unavailable，故本行记 false-equivalence。"
+  ]
+}

@@ -1,0 +1,98 @@
+{
+  "id": "runtime.package-check",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "capabilities.yaml",
+      "line": 45,
+      "behavior": "source 指向 dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs；该工程不在冻结的 inkos 8433323 树内，也没有 pin 自己的 commit，AGENTS.md:12 要求 source 记 inkos 证据位置。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 20,
+      "behavior": "无参数时真的跑 pnpm pack，解包后按 package/ 前缀展开，再读包内 manifest 与 patch（20-36 行）。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 39,
+      "behavior": "硬绑定包名 @linfengqaqtat/dsh-scriptor、GPL-3.0-only、双 patch、client/preset exports（39-50 行）。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 51,
+      "behavior": "安装期 hook（preinstall/install/postinstall/prepare）必须缺席（51 行）。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 52,
+      "behavior": "运行时依赖不得是未发布或本地依赖，并逐条对照 manifest 的 dependencies/peerDependencies（52-55 行）。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 56,
+      "behavior": "技能脚本必须各有 standalone 验收，技能与参考文档集合必须与 artifact-contract 一致（56-67 行）。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 68,
+      "behavior": "发布条目白名单；禁止工作区绝对路径、私钥/token、本地运行时路径（68-79 行）。"
+    },
+    {
+      "file": "dsh-webnovel-writer:packages/bundle/scripts/pack-check.mjs",
+      "line": 81,
+      "behavior": "用 esbuild 校验 host 自包含（inputs=1）且 imports 已在 peer/dependency 声明；CLI 入口单独校验（81-87 行）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/tools/packaging.ts",
+      "line": 112,
+      "behavior": "packagingProblems 校验 files 条目、exports 目标、patch 条目、preset 行、允许条目、安装 hook、bundle 自包含与 client id（112-166 行）。"
+    },
+    {
+      "file": "scripts/check-package.mjs",
+      "line": 67,
+      "behavior": "pnpm pack 到临时目录，读 tar、解析 patch、用 esbuild 看入口，再交给 packagingProblems；问题走 stderr 并以退出码 1 结束（67-178 行）。"
+    },
+    {
+      "file": "scripts/pack-tar.mjs",
+      "line": 31,
+      "behavior": "tar 条目安全读取：只接受普通文件/目录，拒绝链接、绝对路径、../、重复条目与空归档（31-100 行）。"
+    },
+    {
+      "file": "packages/see-dsh-novel/test/packaging.test.mjs",
+      "line": 49,
+      "behavior": "8 例对账：健康包、files 目录/单文件缺失、exports/patch 目标、允许集合、patch 行与 preset、install hook、bundle 自包含、client id（49-124 行）。"
+    },
+    {
+      "file": "scripts/pack-tar.test.mjs",
+      "line": 36,
+      "behavior": "3 例 tar 读取器：普通文件与目录、GNU 长名与 pax path、链接/越界/绝对路径/同名/空归档（36-100 行）。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/packaging.test.mjs：8 例（packagingProblems 的逐项失败）",
+    "scripts/pack-tar.test.mjs：3 例（tar 读取器安全与长名）",
+    "根 package.json:18-19：verify 链包含 pnpm run check-package，命令为 node --import tsx scripts/check-package.mjs"
+  ],
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.package-check.json：date 2026-11-05，sessionId session-3995b578-1e73-4260-9d5a-7af0924f20fd（非 process:*）；receipts 记录真实 pnpm pack 产物 ok:true、package see-dsh-novel、version 0.1.0、tarball、sha256 688a9855…、files:7、exports:4、patchRows:21，另有改坏 files 后的五条失败码与 esbuild metafile。注意 files:7/patchRows:21 描述的是当时的包；当前包已有 3 个 lib 入口＋8 份技能 md＋patch＋manifest，回执未重录。",
+  "deviations": [
+    "源不在冻结的 inkos 树：capabilities.yaml:45 与 docs/fidelity-audit.md:51 把外部工程 dsh-webnovel-writer 的脚本当源证据；该工程未 pin commit，本次只读到工作副本。",
+    "源断言与源包硬绑定（@linfengqaqtat/dsh-scriptor、GPL-3.0-only、presets/writing.patch.yml）；这些对复刻包不适用，但文档没有区分“不适用”与“未复刻”，也没有登记。",
+    "真实回执 files:7/patchRows:21 与当前 tarball 内容不一致（3 lib＋8 技能 md＋patch＋manifest）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "package-check 的 source 不属冻结源工程、检查集合只覆盖标题要求且回执过期",
+    "owner": "runtime.package-check",
+    "closure": "把 source 改为 `none:仓库工具` 或 pin dsh-webnovel-writer@<commit>；逐条登记源脚本里不适用的检查与未复刻的通用检查；重录 artifacts/real-runs/runtime.package-check.json 的 files/patchRows。"
+  },
+  "limitations": [
+    "能力标题只要求 files/exports/patch 与 manifest 一致，复刻覆盖了这组；源脚本的其余检查（包名/license/双 patch/CLI 契约、依赖声明、技能脚本与参考、发布白名单与凭据/绝对路径扫描）没有复刻，也不在本行标题内。",
+    "check-package 需要 pnpm pack；本次只读审计没有重新打包，回执不可独立复核。",
+    "源脚本只存在于工作副本 E:/novelist/dsh-webnovel-writer，未随仓库冻结，无法对该工程的历史版本负责。",
+    "复刻包没有 CLI 入口，源脚本的 CLI 自包含检查不适用。",
+    "packagingProblems 只吃已读出的事实，tar 读取与 patch 解析的失败路径在脚本层；packaging.test 不覆盖真实打包失败。"
+  ]
+}

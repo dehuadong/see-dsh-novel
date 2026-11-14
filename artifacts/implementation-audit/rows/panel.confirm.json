@@ -1,0 +1,110 @@
+{
+  "id": "panel.confirm",
+  "verdict": "mechanism-equivalent",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/interaction/action-envelope.ts",
+      "line": "14-32",
+      "behavior": "RequestedIntent 枚举含 write_next/create_book 等 15 个 workflow start；write_next 是一个明确的确认意图，不是一个普通工具调用。"
+    },
+    {
+      "file": "inkos/packages/core/src/interaction/action-envelope.ts",
+      "line": "46-48",
+      "behavior": "WriteNextActionPayloadSchema：chapterCount 是 int≥1，缺省 1，strict；确认 write_next 时结构化参数可以要求一次连续写 N 章。"
+    },
+    {
+      "file": "inkos/packages/studio/src/shared/confirmed-production.ts",
+      "line": "22-32",
+      "behavior": "只有 button/slash/quick-action 的 actionSource 才算 confirmed production action；write_next 还额外要求 button/slash/quick-action（free-text 不算）。"
+    },
+    {
+      "file": "inkos/packages/studio/src/pages/BookDetail.tsx",
+      "line": "110-118",
+      "behavior": "BookDetail 的『写下一章』按钮 POST /books/:id/write-next；这是作者手动确认一章的入口。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "3328-3367",
+      "behavior": "POST /books/:id/write-next 用 confirmedCapabilityBinding('write_next') 的 executeExplicitCapabilityTool 直接跑 createWriteChaptersTool，参数 chapterCount 固定 1；立即返回 {status:'writing'}，完成通过 SSE 广播。"
+    },
+    {
+      "file": "inkos/packages/studio/src/api/server.ts",
+      "line": "1209-1226",
+      "behavior": "chat quick-action 的 confirmed write_next 从 actionPayload.writeNext.chapterCount 取章数（缺省 1），交给 createWriteChaptersTool；因此确认 payload 的 chapterCount 是有执行语义的。"
+    },
+    {
+      "file": "inkos/packages/core/src/harness/tools/longform-production.ts",
+      "line": "189-227",
+      "behavior": "write_chapters 按 startChapterNumber 与 count 连续跑 pipeline.writeChapters，回执带 requestedCount/startChapterNumber/endChapterNumber/completedCount 与 delivery；这是确认后由宿主执行的 workflow start。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/plugin/write-command.ts",
+      "line": "33-51",
+      "behavior": "/story-write 在作品锁内判阶段：只有 foundation-ready 才允许；读 current_state.chapter 得 chapter=N+1；已有该章审稿或已有 workflow start 都拒绝；通过后写 workflow-start.json。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/write-command.ts",
+      "line": "62-88",
+      "behavior": "命令处理器写成功后用 agent.followup 投『作者已确认开始第 N 章；按 story_next 进入 plan，不跳过审阅。』（source={kind:'story-command',command:'story-write'}）；followup 失败返回『已确认并写入 workflow start，但没能启动下一轮』，不撤销确认。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/workflow-start.ts",
+      "line": "18-24,47-60",
+      "behavior": "workflow-start.json 的形状是 version/action='write_next'/chapter/instruction/createdAt；同一时间只允许一条 start，没有 chapterCount 字段。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/panel-index.ts",
+      "line": "226-234,279-298",
+      "behavior": "foundation-ready 节点给出『开始下一章』『稍后』『退回』『查看待确认』；work.nextChapter=currentChapter+1，reviewChapter 由 reviewTarget 决定；确认状态在 stage=chapter-done 时是 done、plan/write/review 是 started。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/client/StoryView.tsx",
+      "line": "294-305",
+      "behavior": "『开始下一章』派发 /story-write（不传章号，命令自己算 N+1）；『稍后』只写 notice、不调命令、不写 start；『退回』走 /story-reject 且不 resume。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/work-mutation.ts",
+      "line": "76-89",
+      "behavior": "startChapter 的写动作在 withWorkAction 内，命令失败/锁竞争（BOOK_BUSY）不写 start；成功后才重建面板索引。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/plugin/proposal-tool.ts",
+      "line": "83-123",
+      "behavior": "create_book 的确认语义不在 write-command，而在 story_propose 的 approval（allowed-once 才 initWork）；panel.confirm 的 implementation 只覆盖 write_next。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/write-command.test.mjs:34 确认一章并写 workflow-start，重复 start 被拒",
+    "packages/see-dsh-novel/test/write-command.test.mjs:46 另一个持锁者存在时命令报 BOOK_BUSY 且不写 start",
+    "packages/see-dsh-novel/test/write-command.test.mjs:63 followup 一条 user 消息、source={kind:'story-command',command:'story-write'}",
+    "packages/see-dsh-novel/test/panel-index.test.mjs:155 foundation-ready 的主动作与次级动作（开始下一章/退回/查看/稍后）",
+    "packages/see-dsh-novel/test/client.test.mjs:525 『稍后』不写、start-chapter 只写 workflow start",
+    "packages/see-dsh-novel/test/workflow-start.test.mjs 生命周期与读取",
+    "packages/see-dsh-novel/test/workbench.test.mjs:77 动作条只带当前动作",
+    "artifacts/real-runs/panel.confirm.json 记录 2026-11-09 的 pnpm test 322 passed"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/panel.confirm.json：date=2026-11-09，sessionId=process:panel.confirm（process:* 前缀，不是 DSH 会话 id），tests.command=pnpm test、passed=true；receipts 全部是进程级命令/面板测试的断言（/story-write 写 start、重复与未到 foundation-ready 拒绝、BOOK_BUSY 不写、followup source、面板稍后不写、开始下一章可见条件、P1 固定第 1 章）。本机 C:\\Users\\MyPC\\.dsh\\sessions 下所有 --E-see-dsh-novel* 会话日志（含 work-demo、work-empty 等）解压后检索 '/story-write' 为空：没有该行的非 process 会话回执，可复核的 11-05/11-09 会话只有 /story-approve 与工具调用。",
+  "deviations": [
+    "源确认 write_next 后由宿主直接执行 pipeline.writeChapters（server.ts:3328-3367、1209-1226；longform-production.ts:189-227），章节流水线在这一次宿主 action 调用内跑完（HTTP 端先回 status=writing，完成走 SSE）；复刻 /story-write 只写 workflow-start.json 并 followup，让 DSH 的 agent 在下一轮按阶段协议跑 plan/write/review/settle。『确认一次 start』等价，执行者与提交边界不同，已由 docs/dsh-mapping.md:20,42-47 的作者确认/阶段停点行登记。",
+    "源 write_next 的结构化 payload 有 chapterCount（缺省 1，可 >1，action-envelope.ts:46-48；server.ts:1213）；复刻的 workflow-start 与命令都没有章数字段（workflow-start.ts:18-24；write-command.ts:33-51），一次确认永远只跑第 N 章。Studio 自带按钮固定 1 章（BookDetail.tsx:113 + server.ts:3349），所以普通 UI 路径观察不到差异；带 actionPayload 的 chat/API 确认路径会观察到。",
+    "源的确认面是 write_next 的 button/slash/quick-action 或 propose_action 确认卡；复刻把写下一章做成宿主命令 /story-write，面板动作只派发该命令。命令通道是 DSH 的机制，确认语义与回执留在会话，已在 dsh-mapping 作者确认行登记。",
+    "账本标题写『workflow start（create_book／write_next）的确认、拒绝与回执』，但本行 implementation 只覆盖 write_next；create_book 的确认在 proposal.creative 的 story_propose approval 里，两行分担了标题。",
+    "fidelity-audit.md:342-344 说『P1 面板固定第 1 章、动态章节由 panel.workbench 承接』；现在 panel.index 的 nextChapter/reviewChapter 与 client 的 start-chapter 都由 detectStage/索引给出（panel-index.ts:279-298；StoryView.tsx:302），该句已过时，固定第 1 章只剩『无索引兜底时由命令算 N+1』这一层。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "write_next 的 chapterCount（N>1）未复刻；状态 verified 只有 process:panel.confirm 的进程级回执，没有真实 DSH 会话证据",
+    "owner": "panel.confirm",
+    "closure": "给 workflow-start 与 /story-write 增加 chapterCount（缺省 1，strict，int≥1），阶段协议按连续 N 章推进并保留每章审阅停点，补 N>1、重复 start、锁竞争的测试；在真实 DSH 会话里从面板『开始下一章』/ /story-write 走一次并录非 process:* 的 sessionId、命令回执与 workflow-start 文件，替换 artifacts/real-runs/panel.confirm.json；若作者裁决不做 N>1，需在 capability 标题与审计行删掉该语义并记 limitation。"
+  },
+  "limitations": [
+    "本行的真实证据是进程级的：sessionId=process:panel.confirm，tests.command=pnpm test；按任务定义只能是 P。capabilities.yaml:115-122 仍写 verified，是因为 check-capabilities.mjs:97-101 只校验 sessionId 非空字符串，没有拒绝 process:*。",
+    "P1 的面板与命令只确认『一章』的 workflow start；多章确认、逐章停点与连续生产没有实现，也没有测试。",
+    "create_book 的确认不在本行实现里；本行的『开始下一章』按钮只出现在 foundation-ready，create_book 由 proposal.creative 的 approval 承接。跨行看确认语义没有三套 decision，但按行看本行覆盖不全。",
+    "workflow-start 的 instruction 是固定的『开始第 N 章』，面板不传作者备注；源 POST /write-next 也不传备注，等价；chat 确认路径的 instruction 由对话给，复刻的命令入口没有对应参数。",
+    "2026-11-09 之后 panel.workbench/D58 改了 StoryView 的外围结构，但 write-command.ts 与 write-command.test.mjs 自 cfa290d 起没有改动（git diff 为空），11-09 的进程级证据仍对应当前命令行为。"
+  ]
+}

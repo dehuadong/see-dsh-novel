@@ -1,0 +1,139 @@
+{
+  "id": "foundation.architect",
+  "verdict": "false-equivalence",
+  "sourceEvidence": [
+    {
+      "file": "inkos/packages/core/src/agents/architect-tool.ts",
+      "line": "3-47",
+      "behavior": "四段工具 schema：outline（storyFrame/volumeMap 均 minLength 1）、details（bookRules 非空、bookRulesData、pendingHooks 每项 hookId/type/expectedPayoff minLength 1、notes 字符串）、cast index（roles minItems 1，tier 仅 major/minor）、动态 cast documents（每个索引角色一个 role_N_content、minLength 1、additionalProperties false）。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "36-79",
+      "behavior": "generateFoundation：外部指令 contextBlock 带『以下是来自外部系统的创作指令，请将其融入设定中』引导句；拼 reviewFeedbackBlock 与 revisePrompt；英文作品在 system prompt 前加 LANGUAGE OVERRIDE（一切基础设定、角色名、地名、正文必须英文）；temperature 固定 0.8。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "128-141",
+      "behavior": "buildFoundationProtocol：作品元信息（平台／题材／目标章数／每章字数／标题）＋外部指令＋上一轮审核反馈＋『通过指定工具提交可读基础资产和少量结构化规则』；中英两套文案。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "142-184",
+      "behavior": "writeFoundationFiles：写 story/outline/story_frame.md、volume_map.md、story/book_rules.md、story/book_rules.json（JSON 2 空格＋换行）；每个角色按 major/minor 写主要角色/次要角色目录，名字替换不安全字符后为空即抛错，内容 trim 后加换行；revise 模式删除两个档位里本次未重写的 .md；init 模式随后 createInitialRuntimeState 写初始状态。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "262-344",
+      "behavior": "generateFoundationInStages 由代码固定顺序调用四段：outline → details（入参带 storyFrame/volumeMap）→ cast_index（入参带 storyFrame/volumeMap/bookRules）→ cast_documents（每条索引一个字段）；temperature 沿用 0.8，maxTokens 分别 min(8192)/min(2048)/min(8192)；bookRulesData 注入 version:'2' 后 BookRulesSchema.parse；pendingHooks 映射为 HookRecord（startChapter 0、status deferred、lastAdvancedChapter 0，字段 trim）并渲染 pending_hooks 投影。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "345-363",
+      "behavior": "buildReviewFeedbackBlock：有审核反馈时拼『## 上一轮审核反馈』块，英文同名块；无反馈返回空串。"
+    },
+    {
+      "file": "inkos/packages/core/src/agents/architect.ts",
+      "line": "188-260",
+      "behavior": "generateFoundationFromImport（导入重建基础设定，temperature 0.5，导入模式续写/系列）与 generateFanficFoundation（同人模式，temperature 0.7，原作正典块）两条变体。"
+    },
+    {
+      "file": "inkos/packages/core/src/pipeline/runner.ts",
+      "line": "562-611",
+      "behavior": "reviseFoundation：备份 outline/roles/book_rules，读旧 storyFrame/volumeMap/bookRules/roles 作为 reviseFrom，调 ArchitectAgent.generateFoundation（带用户反馈），再 writeFoundationFiles(mode='revise')；对应源工具 revise_foundation（harness/tools/longform-production.ts:171-190）。"
+    }
+  ],
+  "replicaEvidence": [
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/contract.ts",
+      "line": "47-106",
+      "behavior": "OUTLINE/DETAILS/CAST_INDEX/CAST_DOCUMENTS 四个工具 schema；受 DSH schema 子集限制只有 type/oneOf/properties/required/additionalProperties/items/enum，没有 minLength/minItems；cast documents 额外加 mode（init/revise）参数。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "174-193",
+      "behavior": "story_foundation_outline：写 source/story/outline/story_frame.md 与 volume_map.md，内容 trim 后加换行；不校验空串。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "195-230",
+      "behavior": "story_foundation_details：withVersion + parseBookRules 校验后写 book_rules.md/.json，写四份 state JSON 与三份投影，状态正常时写章 0 快照，且在没有章节文件与索引时写 source/chapters/index.json='[]'，再补控制文档，全部同一次 commitFoundation。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "232-268",
+      "behavior": "story_foundation_cast_index：不落盘，normalizeCastIndex 拒绝空名、重名与安全化后同文件名；空 roles 数组直接通过并注册零字段的 cast_documents schema。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/tools.ts",
+      "line": "141-170",
+      "behavior": "story_foundation_cast_documents：每个索引角色写一张卡（内容 trim 后加换行，空内容拒绝）；mode='revise' 时删除未重写的卡；movedRoleCards 在 init 与 revise 都删除另一档位的同名旧卡。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/architect.ts",
+      "line": "29-67",
+      "behavior": "renderArchitectContract：读 work.json 与 source/story/brief.md，渲染『按随阶段提供的创作方法和输入权威生成作品基础设定』＋外部指令块（只有标题与 brief 原文）＋作品元信息＋提交要求；没有审核反馈块、没有 LANGUAGE OVERRIDE、没有导入/同人变体。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/pipelines/long/stages/index.ts",
+      "line": "221-229",
+      "behavior": "foundation 阶段协议用提示词列出四步及入参依赖（第 2 步带 outline、第 3 步带 outline+bookRules、第 4 步每卡 150-250 字/80-120 词），顺序不由宿主代码校验。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": "67-87",
+      "behavior": "hookRecord：pendingHooks 映射为 startChapter 0/status deferred/lastAdvancedChapter 0，hookId/type/expectedPayoff/notes trim；defaultStateSnapshot 直接组装，不调用 validateHooks。"
+    },
+    {
+      "file": "packages/see-dsh-novel/src/core/state.ts",
+      "line": "368-389",
+      "behavior": "snapshotWrites 复制四份 JSON 与三份投影；stateWritesIfMissing 只补缺失文件，写前不做状态校验。"
+    }
+  ],
+  "tests": [
+    "packages/see-dsh-novel/test/foundation.test.mjs:31 outline writes both outline documents",
+    "packages/see-dsh-novel/test/foundation.test.mjs:51 details writes book rules and seeds the four state files plus three projections",
+    "packages/see-dsh-novel/test/foundation.test.mjs:100 invalid book rules are rejected before anything is written",
+    "packages/see-dsh-novel/test/foundation.test.mjs:115 a second details run does not overwrite existing state",
+    "packages/see-dsh-novel/test/foundation.test.mjs:140 details skips the initial index when chapter files already exist",
+    "packages/see-dsh-novel/test/foundation.test.mjs:156 the initial index rolls back with the commit batch",
+    "packages/see-dsh-novel/test/foundation.test.mjs:173 details skips the initial index when the state is corrupt",
+    "packages/see-dsh-novel/test/foundation.test.mjs:190 cast index rebuilds the card schema and cards land in tier directories",
+    "packages/see-dsh-novel/test/foundation.test.mjs:212 init keeps stale cards while revise deletes them",
+    "packages/see-dsh-novel/test/foundation.test.mjs:234 a failed commit restores what it had already written",
+    "packages/see-dsh-novel/test/foundation.test.mjs:255 role names are sanitized and empty names are rejected",
+    "packages/see-dsh-novel/test/foundation.test.mjs:263 details seeds the chapter-0 snapshot for deletion rollback",
+    "packages/see-dsh-novel/test/schema-subset.test.mjs:22 foundation schemas stay inside the runtime subset（子集检查通过说明四段 schema 就是放弃 minLength/minItems 的版本）",
+    "packages/see-dsh-novel/test/stage-context.test.mjs:212 foundation 阶段文本列出 story_foundation_outline/details/cast_index/cast_documents 四步依赖",
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过（foundation 12、cast 16、approval 22、hooks 4、book-rules 6、ready-check 5）；schema-subset 与 stage-context 未在本次运行内重跑"
+  ],
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/foundation.architect.json：date=2026-11-13，sessionId=process:foundation.architect-index（process:*），tests.passed=true（pnpm run verify，418 passed）。receipts 引用真实会话 session-eca3b568-4aa7-45a9-ba0b-4f6f2a0d609b（work-proposal，架构契约问答）、session-974fa00e-310f-4224-adcf-e752e8b513f6（work-demo，2026-11-06 四段工具真实调用）、session-dd0dd9c1-9b44-491a-880c-25dac12db2b8（work-control，无 brief 分支）；三个会话目录都存在于本机 DSH_HOME/sessions 下，974fa00e 的 session.v4.jsonl.zstd（286136 字节，2026-11-05 写入）也在；但本行自己的 sessionId 是 process:*，按 S/P/N 定义记 P。",
+  "deviations": [
+    "四段顺序：源由 generateFoundationInStages 的代码顺序强制（architect.ts:269-333）；复刻把四段做成主代理可调工具，只用 stages/index.ts:221-229 的提示词要求顺序与入参依赖，宿主不校验前置（没有『先 outline 再 details』的拒绝），模型可以跳过、重跑或乱序提交。",
+    "缺少 foundation 修订与审核反馈：源有 revise_foundation 工具（harness/tools/longform-production.ts:171）、reviseFoundation 管线（runner.ts:562-611）与 buildReviewFeedbackBlock/buildRevisePrompt（architect.ts:81-106,345-363）；复刻 grep 不到 reviewFeedback/reviseFrom，也没有任何 foundation 修订工具；cast_documents 的 mode='revise' 只是一次写卡参数，没有『带反馈重建整份基础设定』的流程。",
+    "导入/同人变体缺失：源 generateFoundationFromImport（temperature 0.5，续写/系列）与 generateFanficFoundation（temperature 0.7，原作正典块，architect.ts:188-260）；复刻没有导入正典或同人模式入口。",
+    "英文强制缺失：源对 language='en' 在 system prompt 前加 LANGUAGE OVERRIDE 并给英文 userMessage（architect.ts:65-70）；复刻 stages/architect.ts:54-60 只输出英文契约文案，不强制输出语言。",
+    "schema 下限未在运行时补偿：DSH 工具 schema 子集（test/support/schema-subset.mjs:10-16）不能表达 source 的 minLength/minItems，但复刻也没有在工具入口检查：空 storyFrame/volumeMap 会被写成只有换行的文件（tools.ts:186-187），空 roles 数组通过 cast_index（tools.ts:111-125，循环体不执行），空 hookId/type/expectedPayoff 会被写进 hooks.json（state.ts:67-76,375-389）。源的 architect-tool.ts:3-41 会直接拒绝这些输入。",
+    "cast_documents 多出 mode 参数（contract.ts:96-106，tools.ts:160）；源没有这个模型可见参数，init/revise 由管线调用 writeFoundationFiles(mode) 决定（architect.ts:146）。这使模型可以自行选择『删除未重写的角色卡』。",
+    "init 模式换档删除：复刻 movedRoleCards 不受 mode 限制，init 写入也会删掉另一档位的同名旧卡（tools.ts:160-165、tests:241）；源只在 revise 删除未重写卡（architect.ts:164-175），init 保留旧卡。",
+    "多出 chapters/index.json：复刻 details 在初始快照同批写 source/chapters/index.json='[]'（tools.ts:212-217，tests:140-189）；源 foundation 不写该索引，索引在写章节时落盘（writer.ts:441、runner.ts:1133）。",
+    "种子状态不校验：源 createInitialRuntimeState → saveRuntimeStateSnapshot 先 validateRuntimeState 再写（runtime-state-store.ts:25-44,152-170），非法 pendingHooks 会使基础设定失败；复刻 stateWritesIfMissing 把未校验的 pendingHooks 直接序列化（state.ts:375-389），重复 hookId 或空 type 会先落盘、之后读取才失败。",
+    "生成参数不可控：源固定 temperature 0.8 与分段 maxTokens（architect.ts:76,282,325,332）；复刻没有等价约束，由 DSH 模型/预设决定。",
+    "外部指令引导句缺失：源 contextBlock 带『以下是来自外部系统的创作指令，请将其融入设定中』（architect.ts:53-55）；复刻只渲染『## 外部指令』标题与 brief 原文（stages/architect.ts:57,64）。"
+  ],
+  "debt": {
+    "needed": true,
+    "title": "四段生成未贴源：审核反馈/修订与导入/同人变体缺失，schema 下限未补偿，init 换档删卡、多写 chapters/index.json、种子状态不校验、英文强制与外部指令引导句都不同",
+    "owner": "foundation.architect",
+    "closure": "1) 为 foundation 建立修订入口（反馈→reviseFrom→writeFoundationFiles('revise')）或在作者裁决后另立能力行；2) 导入/同人变体按源补工具或登记为 v1 外；3) 在四个工具入口补空串/空 roles/空 hook 字段拒绝，补偿 schema 子集不能表达的 minLength/minItems；4) 把 movedRoleCards 限定 revise；5) 裁决 chapters/index.json 与种子状态校验：补 validateHooks 后写入，或登记偏差；6) 补 LANGUAGE OVERRIDE 与外部指令引导句；每项关闭判据=对应拒绝/写入用例+真实回执更新，且 capabilities.yaml 的 source/dsh 字段修正（architect-tool.ts、tools.register 而非 subagents）。"
+  },
+  "limitations": [
+    "realRun 是 process-level；唯一的四段工具真实调用回执来自 2026-11-06 的 session-974fa00e，早于 2026-11-13 的初始索引改动（commit 7925d42），也早于本次审计看到的 tools.ts 现状。",
+    "没有验证模型真的按四步顺序调用；stages/index.ts 只是提示词，stage-context 测试只断言文本包含四个工具名。",
+    "capabilities.yaml 的 source 指向 agents/architect.ts，schema 的真实源是 architect-tool.ts；dsh 字段写 subagents，但四段工具是主代理工具（tools.register），没有 architect 子代理。",
+    "fidelity-audit.md:190 的『四段 tool schema 与源一致』与代码不符（mode 参数、缺 minLength/minItems），同一段先说『没有移植 architect 的 system prompt』后又说契约已由 stages/architect.ts 注入，句子互相矛盾。",
+    "本次审计无法运行 DSH 宿主做一次真实四段调用；进程级测试把 commitFoundation 与工具注册 stub 化，不能证明模型侧行为。",
+    "源 revise_foundation 的备份、恢复草稿与 artifact 同步（runner.ts:562-611,614+）没有对应能力行，本行的债无法在现有账本内关闭。"
+  ]
+}
