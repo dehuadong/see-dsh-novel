@@ -7,7 +7,7 @@ import { act, create } from 'react-test-renderer'
 import { Workbench } from '../src/client/Workbench.tsx'
 
 const index = {
-  version: 5,
+  version: 6,
   generatedAt: '2026-11-10T00:00:00.000Z',
   revision: 'r1',
   work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },

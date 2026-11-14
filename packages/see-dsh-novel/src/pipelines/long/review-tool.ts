@@ -13,7 +13,7 @@ const parameters: JsonSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    chapter: { type: 'integer', description: '章号；必须已有章纲与正文' },
+    chapter: { type: 'integer', description: '章号；草稿必须有正文与章纲，已发布章可无章纲（只按正文审）' },
     summary: { type: 'string', description: '本轮审稿的总结' },
     observations: {
       type: 'array',
@@ -69,7 +69,7 @@ export interface ReviewResult {
 export function installReviewTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: REVIEW_NAME,
-    description: 'Validate evidence-backed review observations against the chapter and its plan, then persist source/story/runtime/chapter-XXXX.review.json. sourceRefs must be objects ({sourceId, quote?}, or {sourceId, startLine, endLine}) referring to the numbered sources. One review per chapter.',
+    description: 'Validate evidence-backed review observations against the chapter and its plan, then persist source/story/runtime/chapter-XXXX.review.json. sourceRefs must be objects ({sourceId, quote?}, or {sourceId, startLine, endLine}) referring to the numbered sources. One review per chapter; a published chapter may be reviewed without a plan (prose only), a draft requires both prose and plan.',
     parameters,
     output: {
       schema: output,

@@ -202,7 +202,7 @@ async function buildPanelArtifacts(root: string): Promise<PanelArtifact[]> {
 }
 
 /** 索引格式版本；加字段时同步 `panel-types.ts`。 */
-export const PANEL_INDEX_VERSION = 5
+export const PANEL_INDEX_VERSION = 6
 
 function stageAction(stage: PanelStage['id'], status: PanelStage['status'], current: string): PanelAction | null {
   if (status !== 'current') return null
@@ -213,7 +213,7 @@ function stageAction(stage: PanelStage['id'], status: PanelStage['status'], curr
   }
   if (stage === 'plan') return { id: 'plan-chapter', label: '规划下一章', enabled: true, reason: '' }
   if (stage === 'write') return { id: 'write-chapter', label: '写下一章', enabled: true, reason: '' }
-  if (stage === 'review') return { id: 'review-chapter', label: '审阅下一章', enabled: true, reason: '' }
+  if (stage === 'review') return { id: 'review-chapter', label: '审阅本章', enabled: true, reason: '' }
   return null
 }
 
@@ -239,7 +239,8 @@ function stageSecondary(stage: PanelStage['id'], status: PanelStage['status'], c
  */
 export async function buildPanelIndex(root: string): Promise<PanelIndex> {
   const work = await readWork(root)
-  const stage = work === null ? 'proposal' : detectStage(root).stage
+  const facts = work === null ? null : detectStage(root)
+  const stage = facts?.stage ?? 'proposal'
   const currentChapter = work === null ? 0 : await readCurrentChapter(root)
   const latestChapter = work === null ? 0 : await readLatestChapter(root)
   // 摘要仍是 source/story 全量（签核语义），面板只显示白名单里的展示集合。
@@ -288,6 +289,7 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
           currentChapter,
           latestChapter,
           nextChapter: currentChapter + 1,
+          reviewChapter: stage === 'review' ? (facts?.reviewTarget ?? currentChapter + 1) : currentChapter + 1,
         },
     stages,
     artifacts: rows,

@@ -49,6 +49,7 @@ async function workspace(kind) {
     await mkdir(join(root, 'source/story/runtime'), { recursive: true })
     await writeFile(join(root, 'source/story/runtime/chapter-0001.plan.json'), JSON.stringify({
       version: 2,
+      intent: { chapter: 1, goal: '测试' },
       memo: { chapter: 1, goal: '测试', body: '让沈砚接下命案。', threadRefs: [] },
     }))
   }
@@ -80,10 +81,28 @@ test('detectStage follows the workspace files', async () => {
   for (const kind of ['proposal', 'foundation', 'foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
     const root = await workspace(kind)
     try {
-      assert.equal(detectStage(root).stage, kind)
+      const facts = detectStage(root)
+      assert.equal(facts.stage, kind)
+      assert.ok(facts.reviewTarget === 0 || facts.stage === 'review')
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  }
+})
+
+test('a restored published chapter becomes the review target', async () => {
+  const root = await workspace('chapter-done')
+  try {
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1 }))
+    await rm(join(root, 'source/story/runtime/chapter-0001.review.json'), { force: true })
+    const facts = detectStage(root)
+    assert.equal(facts.stage, 'review')
+    assert.equal(facts.reviewTarget, 1)
+    const text = renderStageProtocol(facts)
+    assert.match(text, /审第 1 章/)
+    assert.match(text, /重开保留的旧稿/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })
 

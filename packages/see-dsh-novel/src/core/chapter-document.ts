@@ -72,6 +72,19 @@ export function countChapterLength(content: string, language: WorkLanguage): num
   return (content.match(/[\u3400-\u9FFF]/gu) ?? []).length
 }
 
+/**
+ * 人工编辑字数口径：去 frontmatter、去标题行、去空白后取字符数。
+ * 只用于恢复/替换后写章节索引的 `wordCount`。
+ * @param content 恢复后的正文（可含标题行）
+ */
+export function roughChapterLength(content: string): number {
+  return content
+    .replace(/^---[\s\S]*?---\s*/m, '')
+    .replace(/^#{1,6}\s+.*$/gm, '')
+    .replace(/\s+/g, '')
+    .length
+}
+
 const pad = (chapter: number): string => String(chapter).padStart(4, '0')
 
 export function chapterPrefix(chapter: number): string {

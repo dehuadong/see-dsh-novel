@@ -47,7 +47,7 @@ test('panel index is built from files and does not become an artifact', async ()
   const root = await workspace('chapter')
   try {
     const index = await buildPanelIndex(root)
-    assert.equal(index.version, 5)
+    assert.equal(index.version, 6)
     assert.equal(index.action?.id, 'revise-chapter')
     assert.equal(index.work?.title, '标题')
     // 章节正文、章纲与审稿都在：阶段已经走到 chapter-done，基础设定是已完成。
@@ -180,6 +180,24 @@ test('no work yields the proposal stage with no action', async () => {
     assert.equal(index.stages[0].action, null)
     assert.deepEqual(index.stages[0].secondary, [])
     assert.equal(index.action, null)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the panel exposes the review target for a restored published chapter', async () => {
+  const root = await workspace('chapter')
+  try {
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1 }))
+    await rm(join(root, 'source/story/runtime/chapter-0001.review.json'), { force: true })
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '恢复第 1 章后复审', createdAt: '2026-11-10T00:00:00.000Z',
+    }))
+    const index = await buildPanelIndex(root)
+    const review = index.stages.find((stage) => stage.id === 'review')
+    assert.equal(review?.status, 'current')
+    assert.equal(review?.action?.label, '审阅本章')
+    assert.equal(index.work?.reviewChapter, 1)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

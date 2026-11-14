@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 `story_revise_chapter` 曾只落盘新正文、归档旧稿、追加 artifact revision 并作废旧审稿，不更新 `source/chapters/index.json`，回执也没有实际改动区域。源工程的修订路径两者都做：

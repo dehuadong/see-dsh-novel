@@ -33,7 +33,7 @@ const cleanup = (root) => rm(root, { recursive: true, force: true })
 test('the contract carries the requirement and both numbered sources', async () => {
   const root = await workspace('zh')
   try {
-    const text = renderReviewContract(root)
+    const text = renderReviewContract(root, 1)
     assert.match(text, /## 审稿要求/)
     assert.match(text, /## 来源 chapter-1\n1 \| 雨从二十三点下到现在。\n2 \| \n3 \| 沈砚站在巷口。/)
     assert.match(text, /## 来源 governed-context\n1 \| 场景一：雨夜接案。/)
@@ -46,7 +46,7 @@ test('the contract carries the requirement and both numbered sources', async () 
 test('an English work gets the English requirement', async () => {
   const root = await workspace('en')
   try {
-    const text = renderReviewContract(root)
+    const text = renderReviewContract(root, 1)
     assert.match(text, /## Review request/)
     assert.match(text, /## Source chapter-1/)
     assert.match(text, /## Source governed-context/)
@@ -55,11 +55,27 @@ test('an English work gets the English requirement', async () => {
   }
 })
 
-test('a missing chapter or plan yields an empty contract', async () => {
-  for (const options of [{ chapter: false }, { plan: false }]) {
+test('a missing chapter yields an empty contract', async () => {
+  const root = await workspace('zh', { chapter: false })
+  try {
+    assert.equal(renderReviewContract(root, 1), '')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a published chapter without a readable plan gets a prose-only contract', async () => {
+  for (const options of [{ plan: false }, { corruptPlan: true }]) {
     const root = await workspace('zh', options)
     try {
-      assert.equal(renderReviewContract(root), '')
+      if (options.corruptPlan === true) {
+        await writeFile(join(root, chapterPlanPath(1)), '{"version":2,"memo":')
+      }
+      const text = renderReviewContract(root, 1)
+      assert.match(text, /## 审稿要求/)
+      assert.match(text, /## 来源 chapter-1/)
+      assert.match(text, /## 缺章纲/)
+      assert.doesNotMatch(text, /## 来源 governed-context/)
     } finally {
       await cleanup(root)
     }

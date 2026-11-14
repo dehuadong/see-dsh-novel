@@ -395,17 +395,17 @@
 
 **源工程证据**：审稿 system prompt 要求按审稿 Skill 与权威上下文审查、提交编号原文证据；宿主把 `governed-context` 与 `chapter-N` 一起编号；审计失败生成 `unavailable` 观察；`reviewedArtifact` 记录被审版本。
 
-**复刻现状**：`story_review_chapter` 校验观察并落盘；来源为章节正文与章纲 memo；`sourceRefs` 工具 schema 已收紧为对象数组；`reviewedArtifact` 由 artifact store 的 current revision 填充，number-aware 标题归一化后字节不匹配则省略；没有 artifact 的旧工作区仍可审稿，但记录无 identity。
+**复刻现状**：`story_review_chapter` 校验观察并落盘；来源为章节正文与章纲 memo；已发布章在章纲缺失、不可读或解析失败时只用章节正文（草稿态仍要求章纲）；`sourceRefs` 工具 schema 已收紧为对象数组；`reviewedArtifact` 由 artifact store 的 current revision 填充，number-aware 标题归一化后字节不匹配则省略；没有 artifact 的旧工作区仍可审稿，但记录无 identity。
 
-**判定：等价（D17、D18 已偿还）** — 编号原文与章纲由 `stages/review.ts` 注入；`sourceRefs` 字符串在入参被拒绝；`reviewedArtifact` 来自 `source/artifacts/manifest.json` 的 `chapter-<NNNN>` current revision，且只在 revision bytes 与被审正文一致时写入。
+**判定：等价（D17、D18 已偿还；D45 收窄）** — 编号原文与章纲由 `stages/review.ts` 注入；`sourceRefs` 字符串在入参被拒绝；`reviewedArtifact` 来自 `source/artifacts/manifest.json` 的 `chapter-<NNNN>` current revision，且只在 revision bytes 与被审正文一致时写入。重审入口已随 `chapter.reopen`（D58）交付：恢复/修订/重开写本章 start，已发布章有未消费 start 且无审稿记录时阶段判为 `review` 目标该章。残余是重审后没有把当次 observations 写回索引（D45）。
 
 ### chapter.revise
 
 **源工程证据**：`pipeline/runner.ts:874-1120` 的 `reviseDraft`；`:1090-1120` 的索引更新与后代 `upstream-revision`；`:1156` 的 `changedRegion`；`utils/source-text.ts:31-37` 的最小连续改动区；`agents/reviser.ts:13-15` 的五种模式与 `:167-178` 的模式协议；`harness/tools/longform-production.ts:285,307` 的 `revise_chapter` 回执；`state/chapter-workspace.ts:61-80` 的 `archiveChapterVersion`；Studio `server.ts:5571-5599,5832-5870` 的修订/重写入口。
 
-**复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 用 `ranges`＋`replacements` 逐段构造正文，空串删段、多行按换行分行；`targetText` 对任意模式生效，字符级校验片段外不变。修订同时更新 `chapters/index.json`：当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 清空，后代替换 `upstream-revision` 提醒（中英文按作品语言）；缺当前行时追加。回执带 `changedRegion`（scope 与前后 `startLine`／`lineCount`／`content`／`truncated`），`changed=false` 也刷新索引并返回空区域。
+**复刻现状**：`story_revise_chapter` 支持五种模式（默认 rewrite），覆盖同一章节文件、旧正文归档到 `source/chapters/.versions/NNNN/`、追加 artifact revision（r2，parent r1，旧 revision superseded）、作废旧审稿把阶段送回 review。spot-fix 用 `ranges`＋`replacements` 逐段构造正文，空串删段、多行按换行分行；`targetText` 对任意模式生效，字符级校验片段外不变。修订同时更新 `chapters/index.json`：当前章 `wordCount`／`updatedAt`／`provenance: edited`／`observations` 清空，后代替换 `upstream-revision` 提醒（中英文按作品语言）；缺当前行时追加。回执带 `changedRegion`（scope 与前后 `startLine`／`lineCount`／`content`／`truncated`），`changed=false` 也刷新索引并返回空区域。正文变化时写/替换本章 workflow start（同章沿用；指向其它章时替换并返回 `replacedStartChapter`），阶段进入该章 `review`。
 
-**判定：机制等价（重审闸门）+ 保真债 D45／D59** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；修订事务内的自动重结算未复刻，随 D59；修订后的手动重算已接入结算对账（D34 注销）。多段范围与 `targetText` 任意模式已交付（D53 注销）；索引更新已交付；残余是已发布章重审后没有写回索引观察的入口（D45 收窄）；revision 快照已交付（D42 注销）。
+**判定：机制等价（重审闸门）+ 保真债 D45／D59** — 修订后的自动复审由审稿闸门承接，`dsh-mapping.md` 有偏差行；修订事务内的自动重结算未复刻，随 D59；修订后的手动重算已接入结算对账（D34 注销）。多段范围与 `targetText` 任意模式已交付（D53 注销）；索引更新已交付；重审入口已随 D58 交付，残余是重审后没有把当次 observations 写回索引（D45）；revision 快照已交付（D42 注销）。
 
 ## 批次 E：P4 结算与定稿
 
@@ -433,11 +433,11 @@
 
 ### chapter.reopen
 
-**源工程证据**：`state/chapter-workspace.ts:61-130` 的版本归档（id `<时间戳>_<来源>_<uuid>`、来源 `manual|agent|revision|regeneration|restore`、`chapters/.versions/<NNNN>/`、列表倒序）；`studio/src/api/server.ts:3132-3175` 的版本列表/读取与 restore；`interaction/edit-controller.ts:337-380` 的 `chapter-replace`（归档当前、替换正文、清 `chapter-NNNN.*` 运行时文件但保留 user-brief、索引记人工编辑观察）。
+**源工程证据**：`state/chapter-workspace.ts:61-130` 的版本归档（id `<时间戳>_<来源>_<uuid>`、来源 `manual|agent|revision|regeneration|restore`、`chapters/.versions/<NNNN>/`、列表倒序）；`studio/src/api/server.ts:3132-3175` 的版本列表/读取与 restore；`interaction/edit-controller.ts:337-380` 的 `chapter-replace`（归档当前、替换正文、清 `chapter-NNNN.*` 运行时文件但保留 user-brief、索引记人工编辑观察）；`interaction/edit-controller.ts:302-334` 的 `recordManualEditObservation`（`provenance: edited`、`wordCount` 按 rough 口径、替换 `manual-edit-review`）；`pipeline/runner.ts:820-873` 的 `reviewChapter` 可审任意章并写回索引；`pipeline/runner.ts:1503-1591` 的按 N-1 快照重同步。
 
-**复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 按 `versionId` 分流。恢复对任意章可用：替换正文、归档当前为 `restore`、清该章全部运行时文件（保留 user-brief），不动状态指针/摘要/facts/hooks；重开只对最后已结算章：保留正文、清运行时、写或沿用 workflow start、指针退回上一章并删除本章摘要行。工具返回提交后的真实阶段。
+**复刻现状**：`story_chapter_versions` 列归档版本；`story_reopen_chapter` 按 `versionId` 分流。恢复对任意章可用：替换正文、归档当前为 `restore`、清该章运行时（保留 user-brief 与章纲）、写索引人工编辑观察与本章复审 start，不动状态指针/摘要/facts/hooks。重开只对「最新已发布且最后已结算」章：保留正文、清运行时、从 `snapshots/<N-1>` 回退四份状态与三份投影、写/沿用本章 start；要求本章 `snapshots/<N>`、索引条目与 artifact 三件套，缺任一项指向 `story_recover`。工具返回提交后的真实阶段与 `stateRewoundTo`。
 
-**判定：机制等价（重开指针回退）+ 保真债 D36／D58** — 源恢复分支已按源对齐：任意章、只换正文与运行时、不动状态；重开分支的指针回退与摘要删除是 DSH 阶段判定的机制等价，已登记 `dsh-mapping.md`。源在索引里记 `manual-edit-review` 与 `provenance: edited`，复刻未更新索引（D36）；重开回退不恢复 facts/hooks、恢复后重审不可达、已结算未定稿章重开后的重算间隙、多重重开后的中间章记 D58（owner reopen）。D33 已由 implemented Note「chapter.settle —— 按基线快照重算（D33）」注销；D43／D44／D55 已注销。
+**判定：机制等价（重开回退）+ D36／D58 注销** — 源恢复分支按源对齐（任意章、只换正文与运行时、不动状态、写索引观察）；复审 start 与阶段目标是 DSH 审稿闸门/阶段机制的承接（已登记）。重开回退是 DSH 阶段判定引入的机制，状态从 N-1 快照回退而不是只退指针，避免产生源不可能的可观察状态，已登记 `dsh-mapping.md`。恢复保留章纲、无章纲时审稿退化为只用正文（源清全部运行时；复刻审稿契约以章纲 memo 作 governed-context），已登记偏差。D36（恢复索引观察）与 D58（重开回退 facts/hooks、恢复后重审、重开重算间隙、多重重开）注销；D33 已由「chapter.settle —— 按基线快照重算（D33）」注销；D43／D44／D55 已注销。D45（重审 observations 写回索引）仍留 `chapter.review` 行。
 
 ### chapter.move-delete
 
@@ -530,7 +530,7 @@
 | C | P2 章前规划 | 4 | 完成 |
 | D | P3 正文生产 | 3 | 完成 |
 | E | P4 结算与定稿 | 3 | 行 verified；出口待债（D35／D45） |
-| F | P5 章节运维与对账 | 3 | 行 verified；出口待债（D36／D58） |
+| F | P5 章节运维与对账 | 3 | 行 verified；D36／D58 已注销，出口待债（D45／D35） |
 | G | P6 产物与工作台 | 8 | 进行中（4/8）；另有 D57 |
 
 阶段合同与出口见 [`scope.md`](scope.md)；能力状态只由 `check-capabilities` 生成。P4／P5 的债未偿还前出口不成立，详见 scope 的「已知的次序偏差」。

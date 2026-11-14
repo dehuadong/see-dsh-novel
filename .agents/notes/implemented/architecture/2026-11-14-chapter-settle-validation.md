@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 源工程每落盘一章的结算结果前，都用独立的状态校验 agent 检查「旧真值 + 新真值」是否忠实于正文与权威文档；不一致时带 `validationFeedback` 重算一次结算再校验；仍不一致或校验不可用时**照常发布章节，但不推进状态**（`runtimeStateApplied: false`），把观察写进章节索引。交付前复刻没有这一步：`story_settle_chapter` 施加增量后直接一次提交发布，重算（D33）也不校验，坏投影会被当成正常结算落盘，作者要事后手动 `story_state_check` 才发现。`story_state_check` 自己也没读全基线：它只 stat 上一章快照的 `manifest.json`，四份 JSON 的严格读取未接。

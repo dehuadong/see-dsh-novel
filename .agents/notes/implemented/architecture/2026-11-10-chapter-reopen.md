@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 P5 的第一行 `chapter.reopen` 曾是 `missing`。已定稿的章节没有回头路：正文只能被修订覆盖，历史版本只写不读；作者想把一章退回重写或恢复某个旧版本时，没有工具可用，面板也只能显示当前稿。

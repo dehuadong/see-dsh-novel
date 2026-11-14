@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口：`chapter.revise` 曾是 `missing`。作者对一版不满意时只有两条路——重开一次 workflow start 重写整章，或手工改文件；前者丢版本，后者绕开宿主。
@@ -38,7 +40,7 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 
 ### 复审：旧审稿作废，阶段回到 review
 
-- 修订成功后删除 `source/story/runtime/chapter-XXXX.review.json`，返回 `reviewInvalidated: true`。审稿要过 workflow start 闸门，所以同一次提交里在没有 start 时重开本章（`instruction: 修订后重审第 N 章`），`detectStage` 因此回到 `review`。
+- 修订成功后删除 `source/story/runtime/chapter-XXXX.review.json`，返回 `reviewInvalidated: true`。审稿要过 workflow start 闸门，所以同一次提交里写或替换本章的 workflow start（`instruction: 修订后重审第 N 章`；同章沿用，指向其它章时替换并返回 `replacedStartChapter`），`detectStage` 因此回到 `review`。
 - 源在修订事务里自动复审（`collectReviewObservations`）；DSH 的审稿观察由模型产出、经 `story_review_chapter` 校验落盘，工具内不能跑模型。这是机制偏差：修订后必须重新调用审稿工具，阶段闸门保证这一步不会跳过。已登记 `docs/dsh-mapping.md`。
 
 ### 状态结算延后

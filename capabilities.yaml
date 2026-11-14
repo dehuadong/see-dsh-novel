@@ -313,10 +313,10 @@ capabilities:
     realRun: artifacts/real-runs/chapter.settle.json
     status: verified
   - id: chapter.reopen
-    title: 重开与回滚
-    source: inkos:packages/core/src/state/chapter-workspace.ts
+    title: 重开与回滚：状态从第 N-1 章快照回退，恢复写索引观察与复审 start
+    source: inkos:packages/core/src/state/chapter-workspace.ts、interaction/edit-controller.ts、pipeline/runner.ts
     dsh: storage
-    implementation: packages/see-dsh-novel/src/pipelines/long/reopen-tool.ts
+    implementation: packages/see-dsh-novel/src/core/reopen.ts
     consumer: packages/see-dsh-novel/test/chapter-reopen.test.mjs
     realRun: artifacts/real-runs/chapter.reopen.json
     status: verified

@@ -11,7 +11,7 @@ import { renderWriterContract } from './writer.js'
 import { renderNumberedSources, renderReviewContract } from './review.js'
 import { renderPlannerContract } from './planner.js'
 import { chapterReviewPath } from '../../../core/chapter-review.js'
-import { workflowStartedSync } from '../../../core/workflow-start.js'
+import { workflowStartChapterSync, workflowStartedSync } from '../../../core/workflow-start.js'
 import {
   STORY_FRAME_FILE,
   STORY_PENDING_HOOKS,
@@ -46,9 +46,15 @@ export interface StageFacts {
   chapterPublished: boolean
   /** 下一章是否已有状态快照（扣下态会写；遗留形态没有）。 */
   chapterSnapshot: boolean
+  /** 复审目标章；非 review 阶段为 0。 */
+  reviewTarget: number
 }
 
-const NO_CHAPTER: Pick<StageFacts, 'chapterPublished' | 'chapterSnapshot'> = { chapterPublished: false, chapterSnapshot: false }
+const NO_CHAPTER: Pick<StageFacts, 'chapterPublished' | 'chapterSnapshot' | 'reviewTarget'> = {
+  chapterPublished: false,
+  chapterSnapshot: false,
+  reviewTarget: 0,
+}
 
 /** 下一章是否已有发布正文（扣下或遗留的「已发布未结算」）。 */
 function chapterFileExists(root: string, chapter: number): boolean {
@@ -99,20 +105,37 @@ export function detectStage(root: string): StageFacts {
   const nextChapter = currentChapter + 1
   const chapterPublished = chapterFileExists(root, nextChapter)
   const chapterSnapshot = chapterSnapshotExists(root, nextChapter)
+  const startChapter = workflowStartChapterSync(root)
+  // 已发布章有待复审的 start：恢复/修订后的复审目标；先于 chapter-done 判断。
+  if (startChapter !== null && startChapter <= currentChapter
+    && chapterFileExists(root, startChapter)
+    && !existsSync(chapterReviewPath(startChapter))) {
+    return {
+      stage: 'review',
+      title,
+      currentChapter,
+      hasChapters,
+      chapterPublished,
+      chapterSnapshot,
+      reviewTarget: startChapter,
+    }
+  }
   const review = chapterReviewPath(nextChapter)
   if (existsSync(join(root, review))) {
-    return { stage: 'chapter-done', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot }
+    return { stage: 'chapter-done', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   if (!workflowStartedSync(root, nextChapter)) {
-    return { stage: 'foundation-ready', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot }
+    return { stage: 'foundation-ready', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   const nextPlan = chapterPlanPath(nextChapter)
   if (!existsSync(join(root, nextPlan))) {
-    return { stage: 'plan', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot }
+    return { stage: 'plan', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   const hasDraft = existsSync(join(root, '.drafts', `${String(nextChapter).padStart(4, '0')}.md`))
-  if (!chapterPublished && !hasDraft) return { stage: 'write', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot }
-  return { stage: 'review', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot }
+  if (!chapterPublished && !hasDraft) {
+    return { stage: 'write', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
+  }
+  return { stage: 'review', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: nextChapter }
 }
 
 /** 阶段协议：只写做什么、按什么顺序调什么、产出什么。 */
@@ -163,19 +186,22 @@ function renderStageBase(facts: StageFacts): string {
         '规划落盘后即停，不自动写正文；正文仍属于同一个 workflow start，由当前阶段继续。',
         common,
       ].join('\n')
-    case 'review':
+    case 'review': {
+      const target = facts.reviewTarget || next
       return [
         header,
-        `目标：审第 ${next} 章的首版正文。`,
+        `目标：审第 ${target} 章的首版正文。`,
         '1. 读章节文档与章纲；按注入的写作方法审稿。',
         '2. 每条观察给出 code、summary、assessment（issue／resolved／observation／unavailable）与 sourceRefs。',
         '3. 引文只能引用注入的编号来源（sourceId 加行号或逐字 quote）；没有证据的条目不提交。',
-        `4. 调 \`story_review_chapter\` 落盘第 ${next} 章的审稿记录。`,
+        `4. 调 \`story_review_chapter\` 落盘第 ${target} 章的审稿记录。`,
         '5. 审稿不通过转修订时：spot-fix 按下方编号来源选范围并交 `ranges`／`replacements`（空串删段，非空按换行分行），其它模式交整段 content，可选用唯一 targetText。',
         '同一章只审一次；修订后必须重新审稿。',
+        '若本章是「重开保留的旧稿」，先问作者是否改稿：改稿走 `story_revise_chapter`，不要直接审旧稿；直接审只作确认现有正文。',
         '审稿落盘后即停；不自动修订、结算或开下一章。',
         common,
       ].join('\n')
+    }
     case 'write':
       return [
         header,
@@ -208,7 +234,7 @@ function renderStageBase(facts: StageFacts): string {
             : '本章已发布但状态未推进且缺快照（旧工作区遗留）：先运行 `story_recover`，按它的人工步骤处理。']
           : []),
         '3. 作者要修订本章时：先问清要改哪里与模式（polish／rewrite／rework／anti-detect／spot-fix）。spot-fix 按下方编号正文选范围，派 reviser 子代理产出每段替换文本（空串删段，非空按换行分行），调 `story_revise_chapter`（ranges／replacements 与整段 content）；其它模式交整段 content，可选用唯一 targetText。修订会作废旧审稿，必须重新审稿后才能再停。',
-        '4. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档；恢复旧版用 `story_reopen_chapter` 带 versionId，任意章可用、只换正文并清运行时、不动状态；重开回退不带 versionId，仅限最后已结算章；重开后回到章前规划。',
+        '4. 作者要重开或恢复旧版本时：先调 `story_chapter_versions` 列归档；恢复旧版用 `story_reopen_chapter` 带 versionId，任意章可用、只换正文、清运行时（保留章纲）、写索引人工编辑观察与本章复审 start，不动状态；重开回退不带 versionId，仅限最新已发布且最后已结算章，状态从第 N-1 章快照回退（facts/hooks/摘要一起回退）；更晚章已发布或缺 N-1 快照/本章快照、索引条目、artifact 时拒绝。重开后回到章前规划；改稿走 `story_revise_chapter`（写入口拒已发布章），不要直接审旧稿。',
         '5. 作者要删掉最新章时：调 `story_delete_chapter`；原文进 `chapters/.trash/`，状态回滚到上一章。',
         '6. 作者要求核对状态时：派 state-check 子代理读本章正文、当前状态与投影、上一章快照与权威文档，提交 `reconciliationRequired` 与证据报告，再调 `story_state_check`；判据同上；findings 只回作者，不自动重结算。',
         '7. 下一章是后续能力/作者动作；不要自行开始。',
@@ -221,11 +247,11 @@ function renderStageBase(facts: StageFacts): string {
 const CHAPTER_REPAIR = [
   '## 重新结算（重算）',
   '作者在修订、恢复正文或重开回退后要求「重新结算／同步状态」时：',
-  '1. 先按需复审（修订会写本章 workflow start，复审会消费它；没有复审就重算会挡住下一章的 start）。',
+  '1. 先按需复审（修订、恢复正文或重开都会写或替换本章 workflow start，复审会消费它；没有复审就重算会挡住下一章的 start）。',
   '2. 派 settler 前把第 N-1 章基线原文（`source/story/snapshots/<N-1>/state/` 的四份 JSON 与三份快照投影）贴进 settler 提示并声明为唯一基线；`source/story/state/` 的当前投影只作参考。',
   '3. 用增量调 `story_resettle_chapter`（不带 validation）生成重算提案；派 state-check 子代理读提案、已发布正文、`story_frame` 与 `book_rules` 对账，按结算同一套判据只回 {reconciliationRequired, reportMarkdown}；结算前不要调用 `story_state_check`。',
   '4. 一致时带 validation 提交；需要重算时工具记录报告并拒绝，把提案文件的 failureReport 交给 settler 重做一次再提案、再对账；第二次仍不通过或校验不可用时工具拒绝且不写任何作品文件。',
-  '5. 只支持最新章；重算刷新第 N 章快照，不改正文、章节索引与 workflow-start；已结算章不要调 `story_settle_chapter`。',
+  '5. 只支持最新章；重算刷新第 N 章快照，不改正文、章节索引与 workflow-start；重开已把状态回退到 N-1，重算基线仍是 `snapshots/<N-1>`；已结算章不要调 `story_settle_chapter`。',
 ].join('\n')
 
 /** 阶段协议：基础协议 + 已开过章时的重算入口。 */
@@ -299,7 +325,7 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
         : facts.stage === 'write'
           ? renderWriterContract(root)
           : facts.stage === 'review'
-            ? renderReviewContract(root)
+            ? renderReviewContract(root, facts.reviewTarget || facts.currentChapter + 1)
             : facts.stage === 'chapter-done'
               ? renderNumberedSources(root, facts.currentChapter + 1)
               : renderPlannerContract(root)

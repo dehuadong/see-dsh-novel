@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 `chapter.reopen` 曾把「恢复旧版本」和「重开本章」合成同一条路径，三处与源工程或已裁决行为不一致：

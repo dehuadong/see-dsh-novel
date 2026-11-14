@@ -176,7 +176,7 @@ async function mountEligible(binding, files, commands) {
 /** 一份 foundation-ready 的索引；动作与宿主投影的形状一致。 */
 function panelIndex(overrides = {}) {
   return {
-    version: 5,
+    version: 6,
     generatedAt: '2026-11-10T00:00:00.000Z',
     revision: 'r1',
     work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },
@@ -883,4 +883,23 @@ test('the built client artifact keeps the module-loader handoff', () => {
   plugin.apply(ctx)
   assert.equal(head.children.length, 1)
   assert.deepEqual([...injected.keys()].sort(), [SLOT, SENTINEL_SLOT].sort())
+})
+
+test('the review action uses the projected review chapter', async () => {
+  installDocumentStub()
+  const index = panelIndex({
+    stages: [
+      { id: 'proposal', label: '提案', status: 'done', summary: '已完成', action: null, secondary: [] },
+      { id: 'foundation', label: '基础设定', status: 'done', summary: '已完成', action: null, secondary: [] },
+      { id: 'plan', label: '章前规划', status: 'done', summary: '已完成', action: null, secondary: [] },
+      { id: 'write', label: '正文', status: 'done', summary: '已完成', action: null, secondary: [] },
+      { id: 'review', label: '审阅', status: 'current', summary: '当前阶段', action: { id: 'review-chapter', label: '审阅本章', enabled: true, reason: '' }, secondary: [] },
+      { id: 'settle', label: '结算', status: 'locked', summary: '等待前一阶段', action: null, secondary: [] },
+    ],
+    work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 1, latestChapter: 2, nextChapter: 2, reviewChapter: 1 },
+  })
+  const { tree, advances } = await renderView({ indexText: JSON.stringify(index) })
+  await act(async () => { buttonByLabel(tree, '审阅本章').props.onClick() })
+  assert.equal(advances.length, 1)
+  assert.match(advances[0].text, /审阅第 1 章/)
 })

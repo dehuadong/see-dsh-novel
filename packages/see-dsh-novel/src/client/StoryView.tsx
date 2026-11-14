@@ -267,12 +267,13 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
   /** 规划/写作/审阅/修订：把阶段提示交给宿主，由模型继续。 */
   async function advanceStage(action: PanelAction): Promise<void> {
     const chapter = panelIndex?.work?.nextChapter ?? 1
+    const reviewChapter = panelIndex?.work?.reviewChapter ?? chapter
     const text = action.id === 'plan-chapter'
       ? `作者在工作台确认规划第 ${chapter} 章；按当前阶段调用规划工具，不要写正文。`
       : action.id === 'write-chapter'
         ? `作者在工作台确认写第 ${chapter} 章正文；按当前阶段调用写作工具，不要审阅。`
         : action.id === 'review-chapter'
-          ? `作者在工作台确认审阅第 ${chapter} 章；按当前阶段调用审阅工具，不要进入下一章。`
+          ? `作者在工作台确认审阅第 ${reviewChapter} 章；按当前阶段调用审阅工具，不要进入下一章。`
           : '作者在工作台点了「修订本章」；先问清要改哪里、用哪种模式，再派 reviser 子代理并调用 story_revise_chapter；修订后必须重新审稿。'
     const stillHere = begin()
     if (stillHere === undefined) return

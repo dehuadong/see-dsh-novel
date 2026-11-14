@@ -1,18 +1,20 @@
 {
   "capability": "chapter.reopen",
-  "date": "2026-11-13",
+  "date": "2026-11-14",
   "sessionId": "process:chapter.reopen",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "456 passed — chapter-reopen 7 例（版本列表倒序与非法 id、重开清运行时并保留 user-brief、指针回退与摘要删除、start 写入/沿用、任意章恢复且不动状态、更早章恢复、同内容拒绝且不写、阶段判定）＋ host 工具清单与 stage 协议回归"
+    "summary": "484 passed／1 skipped（symlink）— chapter-reopen 17 例（版本列表倒序与非法 id；重开回退四份状态与三份投影、保留快照 N、start、stateRewoundTo、阶段 plan；恢复索引观察与复审 start、保留章纲；早期章恢复进 review；同内容/坏 id/非最后已结算/更晚已发布/缺 N-1 快照/缺本章快照/索引/artifact/坏状态拒绝；同章 start 沿用；恢复后复审回 foundation-ready；无章纲复审；修订已发布章进 review；恢复状态不可读/更晚章返回 startSkipped）＋ stage-context、review-contract、chapter-review、panel-index 回归"
   },
   "receipts": [
     "`story_chapter_versions({chapter})` 列出 `source/chapters/.versions/<NNNN>/` 中合法 id 的归档版本（来源、时间、字数），按 createdAt 倒序；非法文件被忽略。",
-    "`story_reopen_chapter({chapter, versionId})` 的恢复分支：任意章可用；当前正文归档为 `<ts>_restore_<uuid>.md`，章节文件替换为版本全文；清该章全部 `runtime/chapter-NNNN.*`（保留 user-brief）；不改 `manifest.lastAppliedChapter`、`current_state.chapter`、摘要行与 facts/hooks；工具返回提交后的真实阶段。",
-    "`story_reopen_chapter({chapter})` 的重开分支：仅最后已结算章；保留正文、清同样运行时文件、写或沿用 workflow start，把两个状态指针退回上一章并删除本章摘要行；返回 `plan`。",
-    "版本内容与当前正文相同则拒绝，且章节、运行时、版本目录与状态文件都不写；更早章节的「重开回退」以「更早章节的重开不在支持范围」拒绝，「恢复」不受此限制。",
-    "`plan` 协议补条件指令：本章正文已存在（重开旧稿）时规划落盘后停，作者要求整章重写时用 `story_revise_chapter`，不走首次写作入口；`chapter-done` 不出现 `story_write_chapter`。",
-    "D43／D44／D55 已注销；D36（恢复索引观察）与 D58（重开回退不恢复 facts/hooks、恢复后重审不可达、已结算未定稿章重开后的重算间隙、多重重开后的中间章）保留。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
+    "`story_reopen_chapter({chapter, versionId})` 的恢复分支：任意章可用；当前正文归档为 `<ts>_restore_<uuid>.md`，章节文件替换为版本全文；清该章 `runtime/chapter-NNNN.*`（保留 user-brief 与 `chapter-NNNN.plan.json`）；已有索引行更新 `provenance: edited`、`updatedAt`、`wordCount`（源 rough 公式）、替换 `manual-edit-review` 并保留其它观察，缺行不补；`chapter <= current+1` 时写/替换本章复审 start；不改 `manifest.lastAppliedChapter`、`current_state.chapter`、摘要行与 facts/hooks。",
+    "`story_reopen_chapter({chapter})` 的重开分支：仅「最新已发布且最后已结算」章；要求本章 `snapshots/<N>`、索引条目与 artifact 三件套，且第 N-1 章快照 `manifest.lastAppliedChapter === N-1`；保留正文、清本章运行时，从 `snapshots/<N-1>` 回退四份状态与三份投影，写/沿用本章 start，保留快照 N；返回 `stateRewoundTo` 与 `plan` 阶段。",
+    "拒绝行为不写任何文件：版本内容与当前正文相同、版本 id 非法；重开时 `lastAppliedChapter !== N`、存在编号更大的已发布章、缺 N-1 快照/本章快照/索引条目/artifact、状态缺失或损坏、基线快照章号不符。",
+    "阶段：已发布章存在未消费 start 且无审稿记录时判为 `review`，目标为该章（可早于下一章）；审稿消费 start 后回到 `foundation-ready`；`review-tool` 在已发布章无章纲/章纲损坏时只用正文。",
+    "恢复在当前章号不可读时不拒绝：正文、归档、artifact 与索引照常写，跳过 start 并在输出 `startSkipped: state-unreadable`；`chapter > current+1` 时跳过 start 并在输出 `startSkipped: later-chapter`（回执提示先处理更晚章）。",
+    "`chapter-done` 与重算协议写明重开只限最新已发布章、状态从 N-1 快照回退、恢复保留章纲并写复审 start、重开后改稿走 `story_revise_chapter`，并写明三件套缺失指向 `story_recover`。",
+    "D36／D58 已注销；D45（重审 observations 写回索引）保留在 `chapter.review` 行。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

@@ -1,16 +1,18 @@
 {
   "capability": "chapter.review",
-  "date": "2026-11-09",
-  "sessionId": "session-14076820-d53e-4fe6-8cff-40a75dae6e93",
+  "date": "2026-11-14",
+  "sessionId": "process:chapter.review",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "305 passed — observation 4 例、chapter-review 3 例（reviewedArtifact、无 artifact 省略、缺稿拒绝）、review-tool 1 例、review-contract 3 例、artifact-store 3 例、stage review 阶段"
+    "summary": "484 passed／1 skipped（symlink）— chapter-review 4 例（观察校验与二次拒绝、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章无章纲只用正文）＋ review-contract 4 例（双来源、英文、缺正文空契约、无章纲/坏章纲退化）＋ stage review 回归"
   },
   "receipts": [
-    "真实审稿（`.artifacts/work-review2`，session `session-14076820-d53e-4fe6-8cff-40a75dae6e93`）：审稿契约提供「来源 chapter-1」与「来源 governed-context」两块编号原文；sourceRefs 全部是对象。",
-    "`story_review_chapter` 回执「第 1 章审稿已落盘：source/story/runtime/chapter-0001.review.json（issue 1／resolved 0／observation 0／unavailable 3）」。",
-    "记录中的 `reviewedArtifact` 为 `{workId:\"work-empty-2\", artifactId:\"chapter-0001\", revisionId:\"r1\"}`；当前章 artifact 的 current revision path 是 `source/chapters/0001_雨夜.md`，number-aware 字节比较通过后才写入。",
-    "`review-tool.test.mjs` 断言 observations 的 code/summary/assessment 必填、sourceRefs 为对象数组且 sourceId 必填；`chapter-review.test.mjs` 覆盖无 artifact 时 `reviewedArtifact` 省略；字符串 sourceRefs 在工具入参被 schema 拒绝。"
+    "`story_review_chapter` 继续校验 observation 的 code／summary／assessment／category／evidence／sourceRefs，并把审稿记录写入 `source/story/runtime/chapter-XXXX.review.json`；同一章已有记录时拒绝。",
+    "已发布章（`source/chapters/NNNN_*.md` 存在）在章纲缺失、不可读或解析失败时，`reviewSources` 只返回章节正文来源，审稿仍可落盘；草稿态仍要求章纲，缺章纲继续拒绝。",
+    "`review-tool` 的 description 与 `chapter` 参数说明写明「草稿必须有正文与章纲，已发布章可无章纲（只按正文审）」。",
+    "审稿契约（阶段注入）在章纲可读时给「来源 chapter-N + 来源 governed-context」，不可读时给「来源 chapter-N + 缺章纲说明」。",
+    "正常路径（双来源编号、sourceRefs 对象校验、reviewedArtifact）沿用既有真实会话证据；本次新增的无章纲退化路径由工具/状态测试覆盖，不是新的 DSH 会话。",
+    "该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

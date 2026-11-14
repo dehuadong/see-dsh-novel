@@ -34,7 +34,7 @@ export interface PanelArtifact {
 }
 
 export interface PanelIndex {
-  version: 5
+  version: 6
   generatedAt: string
   revision: string
   work: {
@@ -45,6 +45,8 @@ export interface PanelIndex {
     /** 章节索引里的最新章；索引缺失或损坏为 0。 */
     latestChapter: number
     nextChapter: number
+    /** 当前审阅目标章；review 阶段可能早于 nextChapter。 */
+    reviewChapter: number
   } | null
   stages: PanelStage[]
   artifacts: PanelArtifact[]

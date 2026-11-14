@@ -48,15 +48,18 @@ export async function reviewSources(root: string, chapter: number): Promise<Map<
   const [document, draft, plan] = await Promise.all([
     loadChapterDocument(root, chapter),
     loadChapterDraft(root, chapter),
-    loadChapterPlan(root, chapter),
+    loadChapterPlan(root, chapter).catch(() => null),
   ])
   const body = document?.content ?? draft?.content ?? null
   if (body === null) throw new Error(`第 ${chapter} 章还没有正文，先写再审`)
-  if (plan === null) throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
-  return new Map([
-    [`chapter-${chapter}`, body],
-    ['governed-context', plan.memo.body],
-  ])
+  const sources = new Map([[`chapter-${chapter}`, body]])
+  if (plan !== null) {
+    sources.set('governed-context', plan.memo.body)
+  } else if (document === null) {
+    // 草稿态仍要求章纲：规划闸门不变；已发布章可只用正文复审（章纲缺失/损坏时）。
+    throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
+  }
+  return sources
 }
 
 export async function reviewChapter(

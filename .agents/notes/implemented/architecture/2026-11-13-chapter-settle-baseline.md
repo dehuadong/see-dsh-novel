@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 `chapter.settle` 的结算把增量直接应用到**当前**状态：`story_settle_chapter` 读 `source/story/state/` 的四份 JSON，同章重结算时把新 delta 叠加在已经吸收过上一版 delta 的状态上（`settle-tool.ts:177-189`）。已经失效的旧 facts、旧 hooks 与旧摘要行可能残留，重结算得到的不是「从上一章快照重来」，而是「在旧结果上再叠一次」。重开回退后更明显：`reopenChapter` 只把指针退回上一章并删摘要行，facts/hooks 不回退（`reopen.ts:121-126`），再结算本章会把旧事实继续叠上去。

@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
+
 ## Problem
 
 源工程在一章通过审稿与结算后调用一次 `saveChapter`，用同一个 `commitAtomicFileSet` 写入章节文档、三份投影、四份状态 JSON、`story/snapshots/<N>/` 七份文件与 `chapters/index.json`（`inkos/packages/core/src/agents/writer.ts:364-450`、`inkos/packages/core/src/pipeline/chapter-persistence.ts:19-55`、`runner.ts:1382-1440`）。正文在审稿与结算期间只存在于内存，落盘就是发布。

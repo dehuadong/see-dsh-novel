@@ -23,7 +23,7 @@ import {
 } from '../../core/revise.js'
 import type { ReviseMode, ReviseRange, ChangedRegion } from '../../core/revise.js'
 import { withWorkAction } from '../../core/work-mutation.js'
-import { readWorkflowStart, WORKFLOW_START_PATH } from '../../core/workflow-start.js'
+import { reviewStartWrites } from '../../core/workflow-start.js'
 import { readWork } from '../../core/work.js'
 
 export const REVISE_NAME = 'story_revise_chapter'
@@ -100,6 +100,7 @@ const output: JsonSchema = {
     target: { type: 'integer' },
     revisionId: { type: 'string' },
     reviewInvalidated: { type: 'boolean' },
+    replacedStartChapter: { type: 'integer', description: '被本章 start 替换掉的未消费 start 章号' },
     changedRegion: changedRegionSchema,
   },
   required: ['chapter', 'path', 'mode', 'changed', 'charCount', 'target', 'revisionId', 'reviewInvalidated', 'changedRegion'],
@@ -114,6 +115,7 @@ export interface ReviseResult {
   target: number
   revisionId: string
   reviewInvalidated: boolean
+  replacedStartChapter?: number
   changedRegion: ChangedRegion
 }
 
@@ -141,10 +143,11 @@ export function installReviseTool(ctx: PluginContext): Disposer {
       schema: output,
       render: (_args: unknown, value: ReviseResult) => {
         const region = JSON.stringify(value.changedRegion)
+        const replaced = value.replacedStartChapter === undefined ? '' : `；已替换第 ${value.replacedStartChapter} 章的未消费 start`
         return [{
           type: 'text' as const,
           text: value.changed
-            ? `第 ${value.chapter} 章已修订（${value.mode}）：${value.path}（${value.charCount} / 目标 ${value.target}；改动区域：${region}；旧审稿已作废，本章已重新打开，等待重新审稿）`
+            ? `第 ${value.chapter} 章已修订（${value.mode}）：${value.path}（${value.charCount} / 目标 ${value.target}；改动区域：${region}；旧审稿已作废，本章已重新打开，等待重新审稿${replaced}）`
             : `第 ${value.chapter} 章没有改动（${value.mode}）；改动区域：${region}`,
         }]
       },
@@ -195,24 +198,14 @@ export function installReviseTool(ctx: PluginContext): Disposer {
         const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
         const changed = body !== base
         const review = changed ? await loadChapterReview(root, args.chapter) : null
-        // 复审要过 workflow start 闸门：已有 start 就沿用，没有就随本次修订重开一章。
-        const start = changed ? await readWorkflowStart(root) : null
-        const startWrite = changed && start === null
-          ? [{
-              relativePath: WORKFLOW_START_PATH,
-              content: `${JSON.stringify({
-                version: 1,
-                action: 'write_next',
-                chapter: args.chapter,
-                instruction: `修订后重审第 ${args.chapter} 章`,
-                createdAt: new Date().toISOString(),
-              }, null, 2)}\n`,
-            }]
-          : []
+        // 复审要过 workflow start 闸门：同章沿用，没有或指向其它章时写本章 start。
+        const start = changed ? await reviewStartWrites(root, args.chapter, `修订后重审第 ${args.chapter} 章`) : null
+        const startWrites = start?.writes ?? []
+        const replacedStartChapter = start?.replacedStartChapter
         if (document === null) {
           const draftDocument = renderChapterDocument({ chapter: args.chapter, title: draft!.title, content: body, language: work.language })
           await commitFoundation(root, {
-            writes: [{ relativePath: draftPath(args.chapter), content: draftDocument }, ...startWrite],
+            writes: [{ relativePath: draftPath(args.chapter), content: draftDocument }, ...startWrites],
             deletes: changed && review !== null ? [chapterReviewPath(args.chapter)] : [],
           })
           return {
@@ -224,6 +217,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
             target,
             revisionId: '',
             reviewInvalidated: changed && review !== null,
+            ...(replacedStartChapter === undefined ? {} : { replacedStartChapter }),
             changedRegion: changedRegion(base, body),
           }
         }
@@ -232,7 +226,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           content: body,
           language: work.language,
           deletes: changed && review !== null ? [chapterReviewPath(args.chapter)] : [],
-          extraWrites: startWrite,
+          extraWrites: startWrites,
         })
         return {
           chapter: args.chapter,
@@ -243,6 +237,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           target,
           revisionId: revised.revisionId,
           reviewInvalidated: changed && review !== null,
+          ...(replacedStartChapter === undefined ? {} : { replacedStartChapter }),
           changedRegion: revised.changedRegion,
         }
       })

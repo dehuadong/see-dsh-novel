@@ -75,3 +75,19 @@ test('a chapter without a draft or plan cannot be reviewed', async () => {
     await cleanup(root)
   }
 })
+
+test('a published chapter without a plan is reviewed from prose only', async () => {
+  const root = await workspace()
+  try {
+    await rm(join(root, chapterPlanPath(1)), { force: true })
+    const result = await reviewChapter(root, {
+      chapter: 1,
+      summary: '只看正文',
+      observations: [{ code: 'C7', summary: '无章纲', assessment: 'unavailable' }],
+    })
+    assert.equal(result.counts.unavailable, 1)
+    assert.ok(await loadChapterReview(root, 1))
+  } finally {
+    await cleanup(root)
+  }
+})

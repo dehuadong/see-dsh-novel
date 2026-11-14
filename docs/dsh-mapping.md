@@ -53,6 +53,13 @@
 - 原因：确认是授权入口，产物浏览是读取面；面板若自己触发投影或重算阶段协议，就会和宿主判定分叉，失败时还会静默回退旧卡。
 - 验证：`panel-index.test.mjs`／`workbench.test.mjs`／`client.test.mjs`／`panel-projection.test.mjs`；索引不含独立状态；作者裁定不做桌面回执，以进程级测试为证据。
 
+### panel.workbench：审阅目标与索引版本
+
+- 源工程做法：Studio 按当前章打开审阅；没有「审阅目标章」字段，因为源没有阶段状态机。
+- 复刻做法：`panel.index.json` 的 `work` 增加 `reviewChapter`，review 阶段取 `StageFacts.reviewTarget`（可能是更早的已发布章），其它阶段为 `currentChapter + 1`；审阅按钮文案改为「审阅本章」，审阅提示词使用 `reviewChapter`；索引版本 5→6，旧索引按版本重建。
+- 原因：DSH 的阶段判定在恢复/修订已发布章后把阶段指向该章，面板必须显示同一目标，否则提示词与按钮会指向错误的下一章。
+- 验证：`test/panel-index.test.mjs` 的「恢复后 review 目标」用例断言 `work.reviewChapter`、按钮文案与阶段；`test/stage-context.test.mjs` 断言 `reviewTarget`；`test/client.test.mjs` 断言审阅提示词。
+
 ### 面板产物：白名单、JSON 键值树与诊断折叠
 
 - 源工程做法：真值文件浏览器按显式白名单列文件（`api/server.ts:3228-3240` 的 flat／outline／运行时诊断正则，`api/server.ts:4189-4203` 加角色卡目录），诊断文件带 `readonlyReason: "runtime-diagnostic"` 与只读警示（`pages/TruthFiles.tsx:119-129`），内容统一用 `<pre>`（`pages/TruthFiles.tsx:168`）。
@@ -70,7 +77,7 @@
 ### chapter.revise：修订后由审稿闸门替代自动复审
 
 - 源工程做法：`pipeline/runner.ts:874-1120` 的 `reviseDraft` 在修订事务内 `collectReviewObservations` 复审修订稿，把观察写回章节 index；状态结算与校验也在同一事务。
-- 复刻做法：`story_revise_chapter` 覆盖章节文件后删除旧审稿记录，并在没有 start 时同批重开本章（`workflow-start.json`），阶段回到 `review`；审稿观察由主编派审稿子代理产出，再经 `story_review_chapter` 校验落盘；重结算由 `story_settle_chapter` 单独完成（可重入）。
+- 复刻做法：`story_revise_chapter` 覆盖章节文件后删除旧审稿记录，并写/替换本章的 `workflow-start.json`（同章沿用，指向其它章时替换并在回执返回 `replacedStartChapter`），阶段回到 `review`；审稿观察由主编派审稿子代理产出，再经 `story_review_chapter` 校验落盘；重结算由 `story_settle_chapter` 单独完成（可重入）。
 - 原因：DSH 的审稿观察与结算 delta 都是模型输出，工具内不能跑模型；阶段闸门保证修订后必须重审，再结算由作者/协议触发。
 - 验证：`test/chapter-revise.test.mjs` 断言修订后审稿文件消失、`reviewInvalidated`；`test/stage-context.test.mjs` 断言 review／chapter-done 协议写明重审。
 
@@ -126,10 +133,10 @@
 
 ### chapter.reopen：恢复正文与重开回退分开
 
-- 源工程做法：`chapter-replace` 对任意章可用，只替换正文、归档旧稿、清该章 `chapter-NNNN.*` 运行时文件（保留 user-brief）并记索引观察，不动运行时状态；源用 `requiresTruthRebuild` 标出后续重建。
-- 复刻做法：`story_reopen_chapter` 按 `versionId` 分流。恢复分支对任意章可用：替换正文、归档当前为 `restore`、清运行时，不改指针/摘要/facts/hooks、不写索引；重开分支只对最后已结算章：保留正文、清运行时、写或沿用 workflow start，把 `manifest.lastAppliedChapter` 与 `current_state.chapter` 退回上一章，并删除该章摘要行。
-- 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章。摘要行删除属于重开回退，不是源恢复；源恢复没有对应动作。
-- 验证：`test/chapter-reopen.test.mjs` 断言恢复任意章不动状态、重开清运行时/保留 user-brief/指针回退/摘要删除/start 写入或沿用；`test/stage-context.test.mjs` 断言 plan 段的条件修订指令。D36（恢复写索引观察）与 D58（重开回退不恢复 facts/hooks、恢复后重审不可达等）仍保留；D33 已由 [chapter.settle 基线重算](../.agents/notes/implemented/architecture/2026-11-13-chapter-settle-baseline.md) 注销。
+- 源工程做法：`chapter-replace` 对任意章可用，只替换正文、归档旧稿、清该章 `chapter-NNNN.*` 运行时文件（保留 user-brief）并记索引观察，不动运行时状态；源用 `requiresTruthRebuild` 标出后续重建。源没有「重开回退」这个动作。
+- 复刻做法：`story_reopen_chapter` 按 `versionId` 分流。恢复分支对任意章可用：替换正文、归档当前为 `restore`、清运行时（保留 user-brief 与章纲）、写索引的 `provenance: edited`／rough `wordCount`／`manual-edit-review`、写/替换本章复审 start，不改指针/摘要/facts/hooks；当前章号不可读时照常恢复但跳过 start 并返回 `startSkipped: state-unreadable`，`chapter > current+1` 时跳过 start 并返回 `startSkipped: later-chapter`。重开分支只对「最新已发布且最后已结算」章：保留正文、清运行时、从 `snapshots/<N-1>` 回退四份状态与三份投影；要求本章 `snapshots/<N>`、索引条目与 artifact 三件套，缺任一项指向 `story_recover`。阶段判定在 chapter-done 之前识别「已发布章有待复审 start」，把阶段判为 `review` 目标该章。
+- 原因：DSH 的阶段判定用 `current_state.chapter` 找下一章；指针不回退会把重开的章判到下一章。只退指针会留下「章号 N-1、facts/hooks 是 N」的源不可能状态，所以从 N-1 快照回退。恢复保留章纲：源清全部运行时，但复刻的审稿闸门与 governed-context 契约依赖章纲 memo；章纲缺失/损坏时审稿退化为只用正文。恢复/修订/重开写/替换 start 并把 review 目标化：源 `reviewChapter` 可审任意章，复刻用 start 闸门承接。
+- 验证：`test/chapter-reopen.test.mjs` 断言状态回退、三件套拒绝、start 覆盖、恢复索引观察（provenance/rough wordCount/manual-edit-review）、章纲保留与无章纲复审、已发布章复审后回到等待下一章、修订已发布章进入 review；`test/stage-context.test.mjs` 断言已发布章 start 命中 `reviewTarget`；`test/panel-index.test.mjs` 断言 `reviewChapter` 投影；`test/chapter-review.test.mjs` 断言已发布章无章纲可审。D36／D58 已注销；D33 已由 [chapter.settle 基线重算](../.agents/notes/implemented/architecture/2026-11-13-chapter-settle-baseline.md) 注销。
 
 ### backup.restore：工作区内的备份与恢复
 

@@ -10,6 +10,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { commitFile, commitFoundation } from './commit.js'
+import type { FileWrite } from './commit.js'
 import { withWorkAction } from './work-mutation.js'
 
 export const WORKFLOW_START_PATH = 'source/story/runtime/workflow-start.json'
@@ -74,10 +75,45 @@ export async function workflowStarted(root: string, chapter: number): Promise<bo
 
 /** 同步版本，供 `detectStage` 的同步 stage 判定使用。 */
 export function workflowStartedSync(root: string, chapter: number): boolean {
+  return workflowStartChapterSync(root) === chapter
+}
+
+/** 同步读 start 的章号；没有或无效时返回 null。 */
+export function workflowStartChapterSync(root: string): number | null {
   try {
     const parsed = JSON.parse(readFileSync(join(root, WORKFLOW_START_PATH), 'utf8')) as Partial<WorkflowStart>
-    return parsed.version === 1 && parsed.action === 'write_next' && parsed.chapter === chapter
+    if (parsed.version !== 1 || parsed.action !== 'write_next' || !Number.isInteger(parsed.chapter)) return null
+    return parsed.chapter as number
   } catch {
-    return false
+    return null
+  }
+}
+
+/** 一次 start 写入的结果：要并进提交的写项与被替换的章号。 */
+export interface ReviewStartWrites {
+  writes: FileWrite[]
+  replacedStartChapter?: number
+}
+
+/**
+ * 为「本章复审」准备 start：同章沿用原指令，没有 start 或指向其它章时写本章 start。
+ * 不直接提交，调用方把 writes 并进同一次 `commitFoundation`。
+ * @param root 作品根
+ * @param chapter 要复审的章号
+ * @param instruction start 的说明
+ */
+export async function reviewStartWrites(root: string, chapter: number, instruction: string): Promise<ReviewStartWrites> {
+  const existing = await readWorkflowStart(root)
+  if (existing !== null && existing.chapter === chapter) return { writes: [] }
+  const start: WorkflowStart = {
+    version: 1,
+    action: 'write_next',
+    chapter,
+    instruction,
+    createdAt: new Date().toISOString(),
+  }
+  return {
+    writes: [{ relativePath: WORKFLOW_START_PATH, content: `${JSON.stringify(start, null, 2)}\n` }],
+    ...(existing === null ? {} : { replacedStartChapter: existing.chapter }),
   }
 }
