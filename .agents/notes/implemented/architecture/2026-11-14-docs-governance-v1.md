@@ -28,6 +28,8 @@ Status: implemented
 - scope 不再承载逐行判定；fidelity 不再承载债表；mapping 不再承载等价判断。
 - 审计表 45 行：等价 6、机制等价 13、保真债 26；AU-01–AU-35（AU-10 关闭）保留在 scope。
 - P6 扩展移出 v1 后，v1 出口不再被 `materials.import` 等 missing 行卡住；D61 仍待 `import_chapters`。
+- `dsh-mapping.md` 只保留机制映射表与偏差入口；逐项实现过程/行号迁到 `artifacts/implementation-audit/dsh-deviations.md`。`scope.md` 的历史次序偏差迁到本 Note/审计工件。
+- 新增粒度规则：三份文档只写结论/判定/映射/链接；实现过程与理由归 Notes，回执归 real-runs，逐行证据归 implementation-audit。
 
 ## Verification
 
@@ -35,7 +37,9 @@ Status: implemented
 - `docs/scope.md` 增 9 阶段 v1 链路表、P6 拆分、运行形态移出。
 - `docs/fidelity-audit.md` 审计表为唯一判定；同名节旧判定标失效。
 - `artifacts/implementation-audit/rows/*.json` 无 verdict/debt；矩阵无判定/债。
-- `docs/dsh-mapping.md` 增运行形态，只保留映射/偏差。
+- `docs/dsh-mapping.md` 增运行形态，只保留映射表与偏差入口；详细偏差归档到 `artifacts/implementation-audit/dsh-deviations.md`。
+- `docs/scope.md` 只保留 v1 链路、阶段合同、非目标与债；历史次序偏差改为链接。
+- `docs/AGENTS.md` 增加粒度规则。
 - `pnpm run verify-notes` 通过；`pnpm run verify` 505 passed／1 skipped。
 
 ## Alternatives considered

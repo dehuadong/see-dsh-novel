@@ -46,6 +46,8 @@
 
 更新触发：改行为→`fidelity-audit.md`；改债→`scope.md`；改机制偏差→`dsh-mapping.md`；改证据→审计/real-runs；改状态→`check-capabilities -- --write`。
 
+粒度：`scope.md`／`dsh-mapping.md`／`fidelity-audit.md` 只写结论、判定、映射与链接，不写实现步骤、文件路径、行号或命令序列；实现过程与理由归 `.agents/notes/`，回执归 `artifacts/real-runs/`，逐行证据归 `artifacts/implementation-audit/`。
+
 ## 一个事实一个家
 
 每个事实由负责它的属主完整说明，其他位置只链接。

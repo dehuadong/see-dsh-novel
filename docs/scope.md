@@ -110,15 +110,7 @@ P7 短篇、P8 剧本、P9 雷达/预演不进入 v1 阶段合同；`materials.i
 
 
 
-P1 的前四行是内容生成的前提，不是「就近补齐」的附属项：源工程先 `init` 建项目、再 `book create` 生成 `works/<id>/work.json` 并推导 bookId，之后才写 foundation——作品先有身份，才谈写什么。本项目把多作品目录简化成「一个工作区即一部作品」，身份仍以 `work.json` 落在工作区根，`work.json` 同时替代源工程里 `works/<id>/work.json` 的身份、预设与导出边界三项职责。
-
-已知的次序偏差（按交付事实记录；不改写已验证的状态）：
-
-- **P1 前置行晚于 `foundation.*` 与 `cast.single-authority`**：这两组在 P1 前置行之前就已交付并 `verified`。账本行序仍是推进顺序——`runtime.*` 组剩余行补齐后才进 P2；这条历史事实不改写已验证的状态。
-- **`artifact.identity`（P6）晚于 `chapter.revise`（P3）**：源在基础设定结束时就建初始快照；复刻的 `chapter.revise` 先交付了 r2／parent／superseded 修订历史，而不可变 `snapshotPath` 到 `artifact.identity`（`235d9c6`）才补上，期间旧 revision 覆盖后不可读，记 D42 并已注销。这与本段原先「v1 只有第 1 章、不做历史修订，因此可以接受」的前提冲突：修订能力已经交付，前提不成立。后续任何写 revision 的能力必须先有 `artifact.identity`。
-- **P6 行在 P4／P5 债务未偿还时交付**：`panel.workbench`、`artifact.identity`、`export.work`、`backup.restore` 已 `verified`，但 P4／P5 的 D61（标题删除）仍未偿还。按本文件顶部的出口条件，P4／P5 出口尚未成立；P6 的 v1 扩展（`materials.import`、`search.unified`、`panel.logs`、`panel.analysis`）已移出 v1，不阻塞 v1 出口；D57（EPUB 包结构）仍是 P6 的保真债。
-
-债之间的依赖：`materials.import` → `search.unified` → D22／D24；章节链的写入与对账已交付（D33／D34 注销），重开/恢复入口与重审写回索引已交付（D36／D58／D45 注销），索引 `lengthTelemetry` 与按章 `tokenUsage` 已交付（D35／D60 注销），残余 D61（标题删除）；修订后的自动重结算已随 D59 交付；D38、D23／D54、D57 独立。凭据见 [`fidelity-audit.md`](fidelity-audit.md) 与各能力 Note。
+P1 的前四行是内容生成的前提：作品先有身份，才谈基础设定；本项目以 `work.json` 落在工作区根替代源的多作品目录。历史次序偏差与逐行证据见 [`2026-11-14-docs-governance-v1.md`](../.agents/notes/implemented/architecture/2026-11-14-docs-governance-v1.md) 与 [`implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)；本页只保留当前合同与债。
 
 源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
 
