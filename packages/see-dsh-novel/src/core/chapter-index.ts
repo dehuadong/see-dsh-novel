@@ -179,6 +179,17 @@ export function revisedChapterIndex(
   return next.sort((left, right) => left.number - right.number)
 }
 
+/** 审稿写回后的索引：只更新该章 `updatedAt` 与 `observations`；无该章条目时返回 null。 */
+export function reviewedChapterIndex(
+  entries: ReadonlyArray<ChapterIndexEntry>,
+  input: { chapter: number, observations: ReadonlyArray<Observation>, now: string },
+): ChapterIndexEntry[] | null {
+  if (!entries.some((entry) => entry.number === input.chapter)) return null
+  return entries.map((entry): ChapterIndexEntry => entry.number === input.chapter
+    ? { ...entry, updatedAt: input.now, observations: [...input.observations] }
+    : entry)
+}
+
 /** `chapters/` 下是否有任意位数前缀的章节正文文件；口径与严格读取一致。 */
 export async function hasChapterFiles(root: string): Promise<boolean> {
   let entries: string[]

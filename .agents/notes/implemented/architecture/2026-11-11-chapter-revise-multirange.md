@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D45（重审观察写回索引）已由 [chapter.review —— 重审观察写回章节索引](2026-11-14-review-index-writeback.md) 注销。
+
 ## Problem
 
 `chapter.revise` 原先只允许 spot-fix 出现一段连续改动，并且只有 spot-fix 会校验 `targetText`。源工程的行为不是这样：

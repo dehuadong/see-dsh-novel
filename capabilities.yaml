@@ -281,8 +281,8 @@ capabilities:
     realRun: artifacts/real-runs/chapter.write.json
     status: verified
   - id: chapter.review
-    title: observations/assessment/quote 校验与审稿记录
-    source: inkos:packages/core/src/pipeline/chapter-review.ts
+    title: observations/assessment/quote 校验与审稿记录；已发布章审稿写回章节索引
+    source: inkos:packages/core/src/pipeline/chapter-review.ts、pipeline/runner.ts
     dsh: subagents + tools.register
     implementation: packages/see-dsh-novel/src/core/chapter-review.ts
     consumer: packages/see-dsh-novel/test/chapter-review.test.mjs

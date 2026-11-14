@@ -102,6 +102,13 @@
 - 原因：DSH 工具跨调用无内存、工具内不能派子代理、工具回执超过 8192 字符会被裁剪；提案必须对校验方可读且可绑定。
 - 验证：`test/chapter-settle.test.mjs` 断言提案只写 `.drafts`、`source/` 字节不变；改正文/基线/提案/收据的漂移都被拒。
 
+### chapter.settle：重算不自动复审
+
+- 源工程做法：`resyncChapterStateAndAudit` 在重算后调用 `reviewChapter`（`runner.ts:1238-1253`），刷新索引观察。
+- 复刻做法：`story_resettle_chapter` 只重建状态，不改正文、章节索引与 `workflow-start.json`；需要新观察时作者走 `story_review_chapter`（D58 入口），已发布章审稿写回索引由 D45 的 `chapter.review` 路径覆盖。
+- 原因：DSH 工具内不能跑审稿模型；源 resync 的自动复审在复刻由 D58 的审稿闸门 + 作者显式复审承接（与修订后的复审同一机制）。重算不改正文，既有审稿记录仍有效；可观测后果是重算后索引观察不会自动刷新。
+- 验证：`test/chapter-settle.test.mjs` 断言重算不改正文/索引/start；`test/chapter-review.test.mjs` 与 `test/chapter-reopen.test.mjs` 断言复审写回索引。
+
 ### chapter.settle：reconcile 重试由主编再派 settler
 
 - 源工程做法：`chapter-state-recovery.ts:50-131` 在 pipeline 内自动带 `validationFeedback` 重跑结算并再校验一次。

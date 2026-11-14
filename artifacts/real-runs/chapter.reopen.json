@@ -15,6 +15,6 @@
     "阶段：已发布章存在未消费 start 且无审稿记录时判为 `review`，目标为该章（可早于下一章）；审稿消费 start 后回到 `foundation-ready`；`review-tool` 在已发布章无章纲/章纲损坏时只用正文。",
     "恢复在当前章号不可读时不拒绝：正文、归档、artifact 与索引照常写，跳过 start 并在输出 `startSkipped: state-unreadable`；`chapter > current+1` 时跳过 start 并在输出 `startSkipped: later-chapter`（回执提示先处理更晚章）。",
     "`chapter-done` 与重算协议写明重开只限最新已发布章、状态从 N-1 快照回退、恢复保留章纲并写复审 start、重开后改稿走 `story_revise_chapter`，并写明三件套缺失指向 `story_recover`。",
-    "D36／D58 已注销；D45（重审 observations 写回索引）保留在 `chapter.review` 行。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
+    "D36／D58 已注销；D45（重审 observations 写回索引）已由 `chapter.review` 的后续工作项注销。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

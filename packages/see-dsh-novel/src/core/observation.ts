@@ -53,6 +53,12 @@ export function resolveObservationSources(
   sources: ReadonlyMap<string, string>,
 ): Observation[] {
   return observations.map((observation, index) => {
+    if (observation.code === '') {
+      fail('REVIEW_SOURCE_REQUIRED', { path: `/observations/${index}/code`, instruction: 'code 不能为空' })
+    }
+    if (observation.summary === '') {
+      fail('REVIEW_SOURCE_REQUIRED', { path: `/observations/${index}/summary`, observationCode: observation.code, instruction: 'summary 不能为空' })
+    }
     const refs = observation.sourceRefs ?? []
     if (refs.length === 0 && observation.assessment !== 'unavailable') {
       fail('REVIEW_SOURCE_REQUIRED', { path: `/observations/${index}/sourceRefs`, observationCode: observation.code })
@@ -64,6 +70,14 @@ export function resolveObservationSources(
       ...(observation.category === undefined ? {} : { category: observation.category }),
       evidence: [...(observation.evidence ?? [])],
       sourceRefs: refs.map((reference, referenceIndex) => {
+        if (reference.quote === '') {
+          fail('REVIEW_SOURCE_REQUIRED', {
+            path: `/observations/${index}/sourceRefs/${referenceIndex}`,
+            observationCode: observation.code,
+            sourceId: reference.sourceId,
+            instruction: '引文不能为空；改成实际支撑观察的原文，或撤回这条观察。',
+          })
+        }
         const source = sources.get(reference.sourceId)
         if (source === undefined) {
           fail('REVIEW_SOURCE_UNKNOWN', { path: `/observations/${index}/sourceRefs/${referenceIndex}`, sourceId: reference.sourceId })

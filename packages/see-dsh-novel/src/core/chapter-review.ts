@@ -8,6 +8,7 @@ import { commitFoundation } from './commit.js'
 import { loadChapterDocument } from './chapter-document.js'
 import { loadChapterDraft } from './chapter-draft.js'
 import { chapterBodyForChapter } from './chapter-document.js'
+import { CHAPTER_INDEX_PATH, readChapterIndexStrict, reviewedChapterIndex } from './chapter-index.js'
 import { loadChapterPlan } from './chapter-plan.js'
 import { currentChapterArtifact, readArtifactRevision } from './artifact-store.js'
 import { countObservations, resolveObservationSources } from './observation.js'
@@ -43,8 +44,11 @@ function assertReviewedArtifact(value: ReviewedArtifact | undefined): ReviewedAr
   return value
 }
 
-/** 读取章纲与正文（已发布章优先、草稿兜底），作为审稿可引用的来源。 */
-export async function reviewSources(root: string, chapter: number): Promise<Map<string, string>> {
+/** 读取章纲与正文（已发布章优先、草稿兜底），作为审稿可引用的来源；`published` 决定是否写回索引。 */
+export async function reviewSources(
+  root: string,
+  chapter: number,
+): Promise<{ sources: Map<string, string>, published: boolean }> {
   const [document, draft, plan] = await Promise.all([
     loadChapterDocument(root, chapter),
     loadChapterDraft(root, chapter),
@@ -59,7 +63,7 @@ export async function reviewSources(root: string, chapter: number): Promise<Map<
     // 草稿态仍要求章纲：规划闸门不变；已发布章可只用正文复审（章纲缺失/损坏时）。
     throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
   }
-  return sources
+  return { sources, published: document !== null }
 }
 
 export async function reviewChapter(
@@ -72,7 +76,7 @@ export async function reviewChapter(
     throw error
   })
   if (existing !== null) throw new Error(`第 ${input.chapter} 章已经有审稿记录，不覆盖`)
-  const sources = await reviewSources(root, input.chapter)
+  const { sources, published } = await reviewSources(root, input.chapter)
   const observations = resolveObservationSources(input.observations, sources)
   const counts = countObservations(observations)
   let reviewedArtifact: ReviewedArtifact | undefined
@@ -97,7 +101,21 @@ export async function reviewChapter(
     ...(reviewedArtifact === undefined ? {} : { reviewedArtifact }),
   }
   const path = chapterReviewPath(input.chapter)
-  await commitFoundation(root, { writes: [{ relativePath: path, content: `${JSON.stringify(record, null, 2)}\n` }] })
+  const writes: Array<{ relativePath: string, content: string }> = [
+    { relativePath: path, content: `${JSON.stringify(record, null, 2)}\n` },
+  ]
+  if (published) {
+    const index = await readChapterIndexStrict(root)
+    const updated = reviewedChapterIndex(index, {
+      chapter: input.chapter,
+      observations,
+      now: new Date().toISOString(),
+    })
+    if (updated !== null) {
+      writes.push({ relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(updated, null, 2)}\n` })
+    }
+  }
+  await commitFoundation(root, { writes })
   return { path, counts, observations }
 }
 

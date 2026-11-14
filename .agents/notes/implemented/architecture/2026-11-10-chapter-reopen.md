@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D45（重审观察写回索引）已由 [chapter.review —— 重审观察写回章节索引](2026-11-14-review-index-writeback.md) 注销。
+
 > 后续更新（2026-11-14）：D36／D58 已由 [chapter.reopen —— 重开与恢复的闭环](2026-11-14-chapter-reopen-closure.md) 注销；恢复写索引观察与复审 start，重开从第 N-1 章快照回退。本文以下描述保留当时交付范围。
 
 ## Problem

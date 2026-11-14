@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D45（重审观察写回索引）已由 [chapter.review —— 重审观察写回章节索引](2026-11-14-review-index-writeback.md) 注销。
+
 ## Problem
 
 `chapter.reopen` 行剩两笔债：
@@ -54,7 +56,7 @@ Status: implemented
 
 非目标：
 
-- **D45**（已发布章重审的 observations 写回索引）不并入：源 `reviewChapter` 会把当次 observations 写回索引，复刻的 `story_review_chapter` 仍只写 review 记录；这是 `chapter.review` 行的债，D58 只负责让重审可达。后果写进 Risks。
+- **D45**（已发布章重审的 observations 写回索引）不在本行：当时复刻的 `story_review_chapter` 仍只写 review 记录；该债已由 [chapter.review —— 重审观察写回章节索引](2026-11-14-review-index-writeback.md) 注销。
 - 不改结算/重算（D34/D59）、索引 telemetry（D35）、删除、备份、恢复任意章的状态语义（C5 不变）。
 - 不模拟 `requiresTruthRebuild`/`state-sync-required`（源无消费者）。
 - 不为早期章重开开口（C5 裁决）；早期章的恢复只换正文与索引观察，审稿目标阶段仍可指向它并完成复审。
@@ -205,7 +207,7 @@ Status: implemented
 7. 面板：`panel.index.json` 的 work 含 `reviewChapter`，review 阶段等于目标章；`version` 为 6；审阅动作提示词与该章一致；按钮文案不再写「下一章」。
 8. start 覆盖：存在指向其它章的未消费 start 时，重开/恢复（写 start 的情形）/修订用本章 start 替换并在回执/输出里带被替换章号；同一时间仍只有一条 start。
 9. 协议：`chapter-done` 第 4 步与重算块写明重开只限最新已发布章、状态回退到 N-1、重开后改稿走修订、恢复后先复审；review 阶段文案可指向早期章。
-10. 六处同步（含 D36/D58 注销、D45 保持、real-runs、implemented Note 链）；`pnpm run verify` 全绿；`verify (ubuntu-latest)`／`verify (windows-latest)` 双端通过。
+10. 六处同步（含 D36/D58 注销、D45 由后续 Note 注销、real-runs、implemented Note 链）；`pnpm run verify` 全绿；`verify (ubuntu-latest)`／`verify (windows-latest)` 双端通过。
 
 
 ## Alternatives considered
@@ -225,7 +227,7 @@ Status: implemented
 - **start 被替换**：作者先前确认的下一章 start 会被重开/恢复/修订覆盖；回执会写明被替换的章，作者需重新确认下一章。
 - **阶段目标可指向早期章**：审阅早期章期间，下一章的 start 无法写入；这是单 start 机制的必然结果，协议会说明「审完再开下一章」。
 - **缺历史快照的旧作品**：重开被拒绝且无法自动重建 `snapshots/<N-1>`；删除/恢复仍是可用出口，重算需要基线。旧作品迁移不在本行。
-- **D45 残留**：重审的 observations 仍只写 review 记录，不写回索引；恢复写入的 `manual-edit-review` 会在索引里保留到下一次结算/索引写入。D45 独立偿还。
+- **D45 已注销**：重审入口由本行交付；当时重审的 observations 只写 review 记录、不写回索引，该残余已由 [chapter.review —— 重审观察写回章节索引](2026-11-14-review-index-writeback.md) 注销。
 - **索引严格读取**：旧工作区缺索引时恢复被拒绝（与修订一致）；需要先修复索引。
 - **跨能力**：`chapter.reopen` / `chapter.revise`（start 写入与回执）/ `chapter.review`（已发布章无章纲可审）/ `runtime.stage-context` / `panel.workbench` 五行同批；`chapter.revise` 的正文/索引/artifact 行为不变。
 - **面板投影变化**：`reviewChapter` 是 `panel.index.json` 的新字段；客户端与测试同批更新，不保留旧字段兼容。

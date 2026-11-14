@@ -371,6 +371,10 @@ test('a restored chapter can be reviewed and returns to the next chapter', async
     const versionId = await versionFile(root, '# 第1章 旧稿\n\n旧文。\n')
     await registry(root).get('story_reopen_chapter').execute({ chapter: 1, versionId }, exec)
     assert.equal(detectStage(root).stage, 'review')
+    const afterRestore = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(afterRestore[0].observations.map((observation) => observation.code), ['C1', 'manual-edit-review'])
+    const restoredWordCount = afterRestore[0].wordCount
+    assert.equal(afterRestore[0].provenance, 'edited')
     const review = await registry(root).get('story_review_chapter').execute({
       chapter: 1,
       summary: '恢复后复审',
@@ -379,6 +383,11 @@ test('a restored chapter can be reviewed and returns to the next chapter', async
     assert.equal(review.chapter, 1)
     assert.equal(await readWorkflowStart(root), null)
     assert.equal(detectStage(root).stage, 'foundation-ready')
+    const afterReview = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(afterReview[0].observations.map((observation) => observation.code), ['C9'])
+    assert.equal(afterReview[0].wordCount, restoredWordCount)
+    assert.equal(afterReview[0].provenance, 'edited')
+    assert.ok(Date.parse(afterReview[0].updatedAt) >= Date.parse(afterRestore[0].updatedAt))
   } finally {
     await rm(root, { recursive: true, force: true })
   }
