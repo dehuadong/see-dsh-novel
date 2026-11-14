@@ -1,0 +1,5 @@
+interface:
+  display_name: "fix bug"
+  short_description: "Fix a user-confirmed implementation bug after delivery."
+policy:
+  allow_implicit_invocation: false

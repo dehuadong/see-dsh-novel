@@ -1,0 +1,5 @@
+interface:
+  display_name: "to-verify"
+  short_description: "Verify delivered behavior against approved requirements and acceptance criteria."
+policy:
+  allow_implicit_invocation: false
