@@ -117,4 +117,4 @@ Status: implemented
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
 - 实施：`state-schema.ts`、`state.ts` strict 谓词、`work-status.ts`、settle/finalize 共用；`state-schema.test` 与 chapter-settle 拒绝/chapter0 用例。
-- 验证：`pnpm run verify` 511 passed／1 skipped；CI 待提交后回填。
+- 验证：`pnpm run verify` 511 passed／1 skipped；CI `43572836598` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `588c7b5`）。
