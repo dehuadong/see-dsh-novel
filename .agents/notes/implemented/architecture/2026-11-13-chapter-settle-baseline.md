@@ -19,7 +19,7 @@ Status: implemented
 - `inkos/packages/core/src/state/runtime-state-store.ts:65-92`：`loadRuntimeStateSnapshotAtChapter` 从 `story/snapshots/<n>/state/` 严格读四份 JSON，缺任一份即抛「Structured runtime snapshot is incomplete at chapter N」；不做当前状态回落。
 - `inkos/packages/core/src/agents/writer.ts:214-221`：`settleChapterState` 在给了 `baselineChapter` 时读该章快照，否则读当前状态；`:242-250` 把 `allowReapply`、`baselineChapter` 传给状态工件构建。
 - `inkos/packages/core/src/state/state-reducer.ts:37-39`：delta 章号必须大于 `lastAppliedChapter`（或显式 allowReapply 时等于）；`:45-51` 非 allowReapply 时拒绝重复摘要行；`:195-211` allowReapply 时先删同章摘要行再写入。
-- `inkos/packages/core/src/pipeline/runner.ts:1475-1602` 的 `_resyncChapterArtifactsLocked`：只接受最新持久章（`:1495-1498`）；加载第 N-1 章快照，缺失时报「baseline snapshot N-1 is unavailable」（`:1503-1512`）；用该基线跑 settler（`:1525-1536`，`allowReapply: true`）；validator 校验并在不一致时 reconcile（`:1537-1584`，属 D34）；`saveChapter` 一次写章节/状态/快照/索引（`:1591`），并清掉 `state-sync-required` 观察（`:1589`）。
+- `inkos/packages/core/src/pipeline/runner.ts:1475-1602` 的 `_resyncChapterArtifactsLocked`：只接受最新持久章（`:1495-1498`）；加载第 N-1 章快照，缺失时报「baseline snapshot N-1 is unavailable」（`:1503-1512`）；用该基线跑 settler（`:1525-1536`，`allowReapply: true`）；validator 校验并在不一致时 reconcile（`:1537-1584`，已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付）；`saveChapter` 一次写章节/状态/快照/索引（`:1591`），并清掉 `state-sync-required` 观察（`:1589`）。
 - `inkos/packages/core/src/pipeline/runner.ts:952-961`、`:999-1008`：修订也先加载第 N-1 章快照，再以它为基线结算修订后的正文；`:1120-1138` 只有最新章用 `saveChapter` 持久化状态，更早章只写章节文件与索引，不回退活状态；`:1089-1118` 给后代标 `upstream-revision`。
 - `inkos/packages/core/src/agent/agent-tools.ts:2963-3013`：`resync_chapter_state` 工具，描述「保持正文不变，从上一章快照重建状态、摘要与伏笔，然后跑审查；只支持最新章」。
 - `inkos/packages/cli/src/commands/write.ts:310-327` 的 `write sync` 与 `inkos/packages/studio/src/api/server.ts:5875-5900` 的 `/resync/:chapter` 端点：同一能力的两条入口。
@@ -47,7 +47,7 @@ Status: implemented
 
 非目标：
 
-- **不做自动校验与 reconcile**（D34）：`story_resettle_chapter` 不跑 validator，也不带 `validationFeedback` 重算；作者用 `story_state_check` 观察，D34 单独偿还。
+- **不做自动校验与 reconcile**（D34）：交付时 `story_resettle_chapter` 不跑 validator，也不带 `validationFeedback` 重算；该能力已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付。
 - **源的「重算后重审」不在本行**：源 resync 在重建后调用 `reviewChapter` 产生新观察（`runner.ts:1250`）；本项目已结算章恢复后的复审入口不可达（D58），修订路径的复审走 revise 写入的 workflow start。所以本行不承诺重审等价，重算只重建状态；索引 `updatedAt`/`wordCount`/观察仍停在上次定稿的值（D35/D45 的残余），`state-sync-required` 不模拟。
 - **不做原子保存重排**（D37）：重算写状态与第 N 章快照，但章节文件与索引仍由写作/定稿各自写；「一次提交章节+状态+快照+索引」仍归 D37。
 - 不支持早于最新持久章的通用重结算（源也不支持）；不在本行模拟 `requiresTruthRebuild` 或 `state-sync-required` 标记（源无消费者）。
@@ -172,12 +172,12 @@ Status: implemented
 
 ## Consequences
 
-- **重算不自动校验（D34）**：可能产生不一致状态，只有作者再用 `story_state_check` 观察；协议会提示，但不会强制。
+- **重算不自动校验（D34）**：交付时可能产生不一致状态，只有作者再用 `story_state_check` 观察；D34 后来把对账接进重算的两阶段提交。
 - **基线缺失的恢复路径**：快照是上次定稿时的状态副本，不能从更晚的活状态重放；定稿又只允许 `lastAppliedChapter === chapter`（`finalize.ts:45-47`），已结算到 N 后 `snapshots/<N-1>` 缺失就无法靠定稿补回。错误信息会点名缺失文件，恢复只能靠备份或重开/手工重建，本行不提供自动修复。
 - **重开回退后的重算可达性**：重开**已定稿**章后索引仍含该行；重开**重算/定稿过**的章后 `snapshots/<N>` 仍在。两者都能让目标回到 N，重算可达。只有「已结算、未定稿、也从未重算」的章重开时，索引、lastApplied、快照三处都停在 N-1，重算 N 不可达；恢复步骤是重开前先定稿（或修订后补索引行再重算）。这条间隙与重开回退不恢复 facts/hooks 一起记 D58（owner `chapter.reopen`）。
 - **settler 可能误用当前状态**：源把基线快照注入 settler 提示并声明约束（`writer.ts:304-312`）；复刻由主代理把 `snapshots/<N-1>/state/` 与三份投影原文贴进 settler 提示，工具无法强制模型的输入选择。测试只证明工具应用到基线，证明不了提示遵守协议。
 - **重算保留 start 会挡住下一章**：重算不消费 `workflow-start.json`；若它指向本章，作者未复审就开下一章，`writeWorkflowStart` 会拒绝第二条 start。协议要提示先复审（review 会清 start）；这是审稿闸门的正常表现，不是重算失败。
 - **恢复后的重审不可达**：恢复清掉 review 且不写 workflow start，审稿工具要该章 start、阶段又只找下一章；本行只交付状态重建，恢复后的重审/定稿路径记 D58（owner `chapter.reopen`）。修订路径由 revise 补 start，不受影响。
 - **多重重开**：先 `reopen N` 再 `reopen N-1` 会留下中间章既不满足 settle 的快照护栏、也不在 resettle 目标里的状态；恢复路径是先删最新章再重算。这不是本增量引入的（重开回退的既有形态），但新判据让目标更偏向最大章号；一并记 D58。
-- **重算不改变审稿状态**：源 resync 之后会跑一次新审查；本行不做审查（D34）。未结算章按阶段先审后结算；已结算章恢复后的复审见 D58。
+- **重算不改变审稿状态**：源 resync 之后会跑一次新审查；本行不做审查，重算后的复审仍归 D58。未结算章按阶段先审后结算；已结算章恢复后的复审见 D58。
 - **旧测试的假设变化**：只有 `test/chapter-settle.test.mjs:151` 依赖同章增量重结算，需要改写成重算夹具；`chapter-reopen.test.mjs:83`、`chapter-finalize.test.mjs:76`、`delete-command.test.mjs:69`、`state-check.test.mjs:75` 都只结算一次，不受收窄影响。

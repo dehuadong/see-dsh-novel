@@ -16,7 +16,7 @@ Status: implemented
 ### 范围与非目标
 
 - 范围：`chapter.settle` 允许章号大于 `lastAppliedChapter` 的跳章结算；四份状态 JSON 缺失时在写盘前拒绝。
-- 非目标：不接状态校验与 reconciliation（D34）；不做基线重算（D33）；不收敛独立摘要入口（D48）。
+- 非目标：不接状态校验与 reconciliation（D34；已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付）；不做基线重算（D33）；不收敛独立摘要入口（D48）。
 - 不改同章重结算、hooks／facts／摘要合并规则、投影内容与一次提交。
 
 ### 交付行为

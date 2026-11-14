@@ -79,8 +79,13 @@ const DELTA = {
   chapterSummary: SUMMARY,
 }
 
-async function settle(root) {
-  await registry(root).get('story_settle_chapter').execute(DELTA, exec)
+async function settle(root, args = DELTA) {
+  const tool = registry(root).get('story_settle_chapter')
+  const proposal = await tool.execute(args, exec)
+  await tool.execute({
+    chapter: args.chapter,
+    validation: { proposalDigest: proposal.proposalDigest, outcome: 'consistent', reportMarkdown: '' },
+  }, exec)
 }
 
 async function versionFile(root, content) {
@@ -198,7 +203,7 @@ test('restoring an earlier chapter works without rolling the state back', async 
       summary: '二审',
       observations: [{ code: 'C2', summary: '观察二', assessment: 'unavailable' }],
     })
-    await registry(root).get('story_settle_chapter').execute({ ...DELTA, chapter: 2 }, exec)
+    await settle(root, { ...DELTA, chapter: 2 })
 
     const manifestPath = join(root, 'source/story/state/manifest.json')
     const statePath = join(root, 'source/story/state/current_state.json')

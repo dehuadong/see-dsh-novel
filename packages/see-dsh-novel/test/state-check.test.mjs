@@ -72,13 +72,18 @@ function registry(root) {
 const exec = { agent: { session: 's' } }
 
 async function settle(root) {
-  await registry(root).get('story_settle_chapter').execute({
+  const tool = registry(root).get('story_settle_chapter')
+  const proposal = await tool.execute({
     chapter: 1,
     postSettlement: '甲上山。',
     factOps: { upsert: [], expire: [] },
     hookOps: { upsert: [], mention: [], resolve: [], defer: [] },
     newHookCandidates: [],
     chapterSummary: SUMMARY,
+  }, exec)
+  await tool.execute({
+    chapter: 1,
+    validation: { proposalDigest: proposal.proposalDigest, outcome: 'consistent', reportMarkdown: '' },
   }, exec)
 }
 
@@ -188,8 +193,21 @@ test('check rejects an unsettled chapter and a missing previous snapshot', async
       chapter: 1,
       reconciliationRequired: false,
       reportMarkdown: '',
-    }, exec), /快照缺失/)
+    }, exec), /快照不可用.*manifest\.json 缺失/)
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+
+  const corrupt = await workspace()
+  try {
+    await settle(corrupt)
+    await writeFile(join(corrupt, 'source/story/snapshots/0/state/current_state.json'), '{ bad')
+    await assert.rejects(registry(corrupt).get('story_state_check').execute({
+      chapter: 1,
+      reconciliationRequired: false,
+      reportMarkdown: '',
+    }, exec), /快照不可用.*current_state\.json 不合法/)
+  } finally {
+    await rm(corrupt, { recursive: true, force: true })
   }
 })

@@ -17,7 +17,7 @@ Status: implemented
 ### 范围与非目标
 
 - 范围：只修 `chapter.revise` 的局部修订边界——spot-fix 支持多段不重叠行范围与逐段替换，`targetText` 对所有 mode 生效。
-- 非目标：不写 artifact revision 的 `snapshotPath`（D42）；不更新章节索引的 `provenance`／`wordCount`／`upstream-revision`（D45）；不接自动重结算（D34）；不补 `changedRegion` 回执（D56）。
+- 非目标：不写 artifact revision 的 `snapshotPath`（D42）；不更新章节索引的 `provenance`／`wordCount`／`upstream-revision`（D45）；不接自动重结算（D59）；不补 `changedRegion` 回执（D56）。
 - 不改五种模式的语义、归档、artifact revision、审稿作废与 stage 闸门。
 - D53 已在本行注销，`artifacts/real-runs/chapter.revise.json` 已按新行为重录。
 

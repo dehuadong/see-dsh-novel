@@ -305,10 +305,10 @@ capabilities:
     realRun: artifacts/real-runs/chapter.summary.json
     status: verified
   - id: chapter.settle
-    title: 结算增量、伏笔六动作合并与按第 N-1 章快照基线重算
-    source: inkos:packages/core/src/agents/settler-tool.ts
+    title: 结算增量、伏笔合并、基线重算与结算前状态对账
+    source: inkos:packages/core/src/agents/settler-tool.ts、agents/state-validator.ts、pipeline/chapter-truth-validation.ts、pipeline/chapter-state-recovery.ts、state/state-validator.ts
     dsh: tools.register + storage
-    implementation: packages/see-dsh-novel/src/pipelines/long/settle-tool.ts
+    implementation: packages/see-dsh-novel/src/core/settlement.ts
     consumer: packages/see-dsh-novel/test/chapter-settle.test.mjs
     realRun: artifacts/real-runs/chapter.settle.json
     status: verified
@@ -329,7 +329,7 @@ capabilities:
     realRun: artifacts/real-runs/chapter.move-delete.json
     status: verified
   - id: state.check
-    title: 语义对账，只读 findings
+    title: 语义对账，只读 findings（严格基线）
     source: inkos:packages/core/src/agents/state-validator.ts
     dsh: tools.register
     implementation: packages/see-dsh-novel/src/pipelines/long/state-check-tool.ts

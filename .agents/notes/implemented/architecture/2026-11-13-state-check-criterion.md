@@ -9,14 +9,14 @@ Status: implemented
 - 源 `agents/state-validator.ts:38-47` 的提示：`reconciliationRequired=true` 只在「换一份 truth projection 能消解不一致」时成立；章节内部或权威文档之间的矛盾只作观察，不授权再次结算。
 - 源 `:82-92` 由布尔与报告生成 observation（`state-reconciliation` / `state-projection-review`）并返回；是否重结算由 `pipeline/chapter-truth-validation.ts:80-103` 判断，`validationFeedback` 在 `pipeline/chapter-state-recovery.ts:58-73`（`:69`）构造后传入重结算。
 
-复刻只在 Note 里描述过工具行为，工具参数说明和 `chapter-done` 协议都缺这条判据，子代理可能把「正文与权威矛盾」误报成需要重算。追溯评审记为 D51。D34（结算不自动校验）保留。
+复刻只在 Note 里描述过工具行为，工具参数说明和 `chapter-done` 协议都缺这条判据，子代理可能把「正文与权威矛盾」误报成需要重算。追溯评审记为 D51。D34（结算不自动校验）当时保留，后来由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付。
 
 ## Decision
 
 ### 范围与非目标
 
 - 范围：把判据写进 `story_state_check` 的参数说明、工具描述与 `chapter-done` 阶段协议；补 schema 与阶段文本断言；同步已实现 Note 的判据段与 D51 链接。
-- 非目标：不改工具写盘行为（仍只读）；不接自动校验/重结算（D34）；不检查模型判断是否正确（宿主只校验布尔与报告）。
+- 非目标：不改工具写盘行为（仍只读）；不接自动校验/重结算（D34；已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付，本行不改它）；不检查模型判断是否正确（宿主只校验布尔与报告）。
 - 不改报告必填错误码与 observation code 选择逻辑。
 
 ### 交付行为
@@ -49,7 +49,7 @@ Status: implemented
 ### 兼容与失败行为
 
 - 只是说明文字，行为与错误码不变。
-- 误报仍可能发生；D34 的自动校验/重结算才是根治。
+- 误报仍可能发生；D34 的自动校验/重结算由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 接上。
 
 ## Alternatives considered
 
@@ -62,10 +62,10 @@ Status: implemented
 - `test/state-check.test.mjs`（6 例）：报告必填错误码；无重算观察；干净对账；只读不写；未结算/缺快照拒绝；工具 description 与参数说明含判据（含「只作观察／不授权再次结算」）。
 - `test/stage-context.test.mjs`：`chapter-done` 文本含 `truth projection` 与「只作观察」。
 - `pnpm run verify` 全绿：425 tests；`artifacts/real-runs/state.check.json` 已按新行为重录。
-- D51 已从 `docs/scope.md` 注销，审计判定同步；D34 保留。
+- D51 已从 `docs/scope.md` 注销，审计判定同步；D34 已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付。
 
 ## Consequences
 
-- 说明文字不能保证模型判断正确；误报仍可能发生，直到 D34 接上校验与 reconciliation。
+- 说明文字不能保证模型判断正确；误报仍可能发生，D34 的自动校验/重结算已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 接上。
 - 协议文本变长，但不增加工具调用步骤。
 - 参数说明用中文、工具 description 用英文；同一 schema 内仍保持原有语言分工。

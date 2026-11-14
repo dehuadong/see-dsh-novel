@@ -39,7 +39,7 @@ Status: implemented
 
 非目标：
 
-- 不做自动状态校验（D34）；结算前不跑 validator。
+- 不做自动状态校验（D34；后来由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付）；结算前不跑 validator。
 - 不补 `lengthTelemetry`／`tokenUsage`（D35）；标题变化旧文件清理仍归 D35。
 - 不做旧作品的全量自动迁移：只有最新章缺快照/索引条目/artifact 可由 `story_recover apply` 补；历史章、整份索引缺失、未结算已发布章只报告。
 - 不新增面板动作；面板阶段文案随协议改。
@@ -65,7 +65,7 @@ Status: implemented
 - **旧作品部分可修**：最新章缺快照/索引条目/artifact 由 `story_recover apply` 调 `finalizeChapter` 补；历史章缺快照、整份索引缺失、未结算已发布章只报告并给人工步骤。
 - **D45 保留但收窄**：`finalizeChapter` 曾是「重审→结算→定稿」里唯一把重审观察写回索引的位置；退役后已发布章重审没有观察写入入口，D45 从「`edited` 被 finalize 覆盖」收窄为「重审观察无写入入口」。
 - **草稿不参与备份**：备份只拥有 `work.json`＋`source/`；恢复清空 `.drafts/` 是本行新增的边界行为。
-- **未决**：无；telemetry（D35）、自动校验（D34）不在本行。
+- **未决**：无；telemetry（D35）不在本行，自动校验（D34）已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付。
 
 ### 评审与批准证据
 

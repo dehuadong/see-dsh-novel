@@ -17,7 +17,7 @@ Status: implemented
 ### 范围与非目标
 
 - 范围：删除独立摘要工具与 `chapter-done` 的「只要摘要」步骤；摘要只由 `story_settle_chapter` 写入；结算的摘要写入按 `allowReapply` 门控，非重结算遇到已有同章行时拒绝。
-- 非目标：不改章节号门控、facts/hooks 合并、D34 自动校验；不改七字段 schema 与投影格式；不保留 `story_summarize_chapter` 兼容别名。
+- 非目标：不改章节号门控、facts/hooks 合并、D34 自动校验（已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付，本行不改它）；不改七字段 schema 与投影格式；不保留 `story_summarize_chapter` 兼容别名。
 
 ### 交付行为
 

@@ -272,6 +272,26 @@ export async function inspectState(
 }
 
 /**
+ * 状态快照的跨文件不变量问题；读取快照与结算前置共用。
+ * @param snapshot 待检查的快照
+ * @param prefix 路径前缀（快照读取用其在错误信息里点名文件）
+ */
+export function describeStateInconsistencies(snapshot: StateSnapshot, prefix = ''): string[] {
+  const problems: string[] = []
+  if (snapshot.currentState.chapter > snapshot.manifest.lastAppliedChapter) {
+    problems.push(
+      `${prefix}current_state.json 的 chapter ${snapshot.currentState.chapter} 大于 ${prefix}manifest.json 的 lastAppliedChapter ${snapshot.manifest.lastAppliedChapter}`,
+    )
+  }
+  const chapters = new Set<number>()
+  for (const row of snapshot.chapterSummaries.rows) {
+    if (chapters.has(row.chapter)) problems.push(`${prefix}chapter_summaries.json 的章节摘要重复：第 ${row.chapter} 章`)
+    chapters.add(row.chapter)
+  }
+  return problems
+}
+
+/**
  * 按章严格读快照：四份 JSON 齐全合法、跨文件不变量成立才返回。
  *
  * 与 `inspectState` 不同，这里不对当前状态回落，也不把问题降级成 missing/invalid。
@@ -309,16 +329,7 @@ export async function readStateSnapshot(root: string, chapter: number): Promise<
     hooks: hooksValue!,
     chapterSummaries: summariesValue!,
   }
-  if (snapshot.currentState.chapter > snapshot.manifest.lastAppliedChapter) {
-    problems.push(
-      `${at('current_state.json')} 的 chapter ${snapshot.currentState.chapter} 大于 ${at('manifest.json')} 的 lastAppliedChapter ${snapshot.manifest.lastAppliedChapter}`,
-    )
-  }
-  const chapters = new Set<number>()
-  for (const row of snapshot.chapterSummaries.rows) {
-    if (chapters.has(row.chapter)) problems.push(`${at('chapter_summaries.json')} 的章节摘要重复：第 ${row.chapter} 章`)
-    chapters.add(row.chapter)
-  }
+  problems.push(...describeStateInconsistencies(snapshot, `${STORY_ROOT}/snapshots/${chapter}/state/`))
   if (problems.length > 0) throw new Error(`第 ${chapter} 章快照不一致：${problems.join('；')}`)
   return snapshot
 }

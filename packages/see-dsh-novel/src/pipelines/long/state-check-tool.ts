@@ -3,13 +3,9 @@
  *
  * 对账的模型部分由主编派子代理完成；宿主只校验“布尔 + 报告”的结构，不写作品。
  */
-import { existsSync } from 'node:fs'
-import { join } from 'node:path'
-
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { readChapterText } from '../../core/chapter-draft.js'
-import { inspectState } from '../../core/state.js'
-import { STORY_ROOT } from '../../core/story-paths.js'
+import { inspectState, readStateSnapshot } from '../../core/state.js'
 
 export const STATE_CHECK_NAME = 'story_state_check'
 
@@ -91,10 +87,8 @@ export function installStateCheckTool(ctx: PluginContext): Disposer {
       if (read.snapshot.manifest.lastAppliedChapter < args.chapter) {
         throw new Error(`第 ${args.chapter} 章还没有结算，先结算再对账`)
       }
-      const baseline = join(root, STORY_ROOT, 'snapshots', String(args.chapter - 1), 'state/manifest.json')
-      if (!existsSync(baseline)) {
-        throw new Error(`不能对账：第 ${args.chapter - 1} 章的状态快照缺失（story/snapshots/${args.chapter - 1}）`)
-      }
+      // 基线严格读四份 JSON 与跨文件不变量；缺失或损坏时由 readStateSnapshot 点名文件。
+      await readStateSnapshot(root, args.chapter - 1)
       const report = args.reportMarkdown.trim()
       if (args.reconciliationRequired && report === '') {
         throw new Error(`${RECONCILIATION_REASON_REQUIRED}：需要重算时必须给出投影矛盾的证据报告`)

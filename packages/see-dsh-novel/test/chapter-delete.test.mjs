@@ -71,13 +71,18 @@ async function workspace() {
     summary: '初审',
     observations: [{ code: 'C1', summary: '观察', assessment: 'unavailable', category: 'quality' }],
   })
-  await tool(root, installSettleTool).execute({
+  const settle = tool(root, installSettleTool)
+  const proposal = await settle.execute({
     chapter: 1,
     postSettlement: '甲上山。',
     factOps: { upsert: [], expire: [] },
     hookOps: { upsert: [], mention: [], resolve: [], defer: [] },
     newHookCandidates: [],
     chapterSummary: SUMMARY,
+  }, { agent: { session: 's' } })
+  await settle.execute({
+    chapter: 1,
+    validation: { proposalDigest: proposal.proposalDigest, outcome: 'consistent', reportMarkdown: '' },
   }, { agent: { session: 's' } })
   return root
 }

@@ -1,16 +1,16 @@
 {
   "capability": "runtime.stage-context",
-  "date": "2026-11-09",
+  "date": "2026-11-14",
   "sessionId": "process:runtime.stage-context",
   "tests": {
-    "command": "pnpm test",
+    "command": "pnpm verify",
     "passed": true,
-    "summary": "318 passed — stage-context 4 例（foundation-ready、start→plan、review、chapter-done、问候不进入 plan/write）、workflow-start 2 例、write-tool 1 例、plan-tool/work-lock 回归"
+    "summary": "470 tests（469 pass／1 skipped symlink）— stage-context 6 例（阶段判定、重算块注入条件、扣下/遗留两态、chapter-done 两阶段协议、英文契约、其它预设不注入）＋ 结算与恢复回归"
   },
   "receipts": [
-    "foundation 六件套齐但没有 `workflow-start.json` 时 `detectStage` 返回 `foundation-ready`，阶段协议只提示等待作者 workflow start，不包含 `story_plan_chapter`／`story_write_chapter` 的调用步骤。",
-    "写入 `source/story/runtime/workflow-start.json`（`{version:1,action:'write_next',chapter:1,instruction,createdAt}`）后 `detectStage` 进入 `plan`；plan 落盘后进入 `write`；正文出现后进入 `review`；review 记录出现后进入 `chapter-done` 并停下。",
-    "`story_plan_chapter`、`story_write_chapter`、`story_review_chapter` 在无 start 时拒绝；有 start 时通过。普通问候不改作品，也不会自动进入 plan/write。",
-    "该回执是 process-level 阶段/准入测试；`panel.confirm` 的写 start 真机仍是 D29。"
+    "`chapter-done` 协议写两阶段：派 settler → 不带 validation 生成提案 → 派 state-check 子代理读提案/正文/story_frame/book_rules 对账 → 带 {proposalDigest, outcome, reportMarkdown} 提交；含判据、failureReport 原文用法、attempt 2 扣下含义与修复入口，并注明结算前不得调用 `story_state_check`。",
+    "`StageFacts` 增加 `chapterPublished` 与 `chapterSnapshot`：扣下态（章在、快照在）追加「用 story_resettle_chapter 重建，不要再次结算/重开上一章」；遗留「已发布未结算」（章在、快照缺）保持 `story_recover` 人工步骤，不追加重算行。",
+    "重算块改两阶段：先复审（消费修订写下的 workflow start），把 N-1 基线贴进 settler、生成提案、对账后提交；第二次失败或校验不可用时不写盘。",
+    "该回执是 process-level 阶段/协议测试；协议文案的行为约束属模型侧，宿主只能断言文本。"
   ]
 }

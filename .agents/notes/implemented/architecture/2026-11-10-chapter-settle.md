@@ -55,7 +55,8 @@ P4 只剩 `chapter.settle` 与 `chapter.finalize`。章节摘要已经能单独�
 ### 行与债务
 
 - `capabilities.yaml` 的 `chapter.settle`：implementation 指向 `src/pipelines/long/settle-tool.ts`，consumer 指向 `test/chapter-settle.test.mjs`，realRun 指向 `artifacts/real-runs/chapter.settle.json`。
-- D32：结算把摘要与 facts/hooks 放进同一次提交；修订后的重结算走同一工具的重结算路径，自动重结算仍随 D34。
+- D32：结算把摘要与 facts/hooks 放进同一次提交；修订后的重结算走同一工具的重结算路径，自动重结算随 D59。
+- 结算前的状态对账与 reconciliation 已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付；本行当时的单阶段结算接口由该行扩成两阶段。
 - D33（不按快照基线重算）仍登记在 `docs/scope.md` 与 `docs/fidelity-audit.md`；D46／D47 由 [结算的章号间隙与缺失状态前置](2026-11-13-chapter-settle-gaps.md) 注销。
 - `docs/dsh-mapping.md` 不需要新偏差：结算工具是 DSH `tools.register` + commit 的既有机制。
 
@@ -80,4 +81,4 @@ P4 只剩 `chapter.settle` 与 `chapter.finalize`。章节摘要已经能单独�
 - 结算一次写七个文件；任何一步失败整体回滚（`commitFoundation` 原子），坏状态与冲突在写入前拒绝。
 - 摘要工具与结算都会写摘要行；协议在结算场景优先结算，避免两次写同一行（同章替换是幂等的）。
 - settler 的质量决定 facts/hooks 的准确度；宿主只保证结构、合并规则与状态校验。
-- 结算没有状态校验 agent 与 reconciliation 重试（D34）；投影冲突只能由后续 `state.check` 或人工发现。
+- 结算时的状态校验与 reconciliation 重试已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付；本行的单阶段接口是该行之前的状态。

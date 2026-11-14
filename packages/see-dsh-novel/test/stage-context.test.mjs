@@ -97,7 +97,9 @@ test('the repair block is injected once a chapter exists, including when state i
     assert.match(textOf(entries.get('story:stage')), /story_resettle_chapter/)
     assert.match(textOf(entries.get('story:stage')), /只支持最新章/)
     assert.match(textOf(entries.get('story:stage')), /基线原文/)
-    assert.match(textOf(entries.get('story:stage')), /不消费 workflow-start/)
+    assert.match(textOf(entries.get('story:stage')), /不改正文、章节索引与 workflow-start/)
+    assert.match(textOf(entries.get('story:stage')), /failureReport/)
+    assert.match(textOf(entries.get('story:stage')), /复审会消费它/)
   } finally {
     await rm(byIndex, { recursive: true, force: true })
   }
@@ -127,7 +129,9 @@ test('the repair block is injected once a chapter exists, including when state i
 })
 
 test('the repair block follows chapter existence, not the stage name', () => {
-  const facts = (stage, currentChapter = 1, hasChapters = false) => ({ stage, title: '', currentChapter, hasChapters })
+  const facts = (stage, currentChapter = 1, hasChapters = false) => ({
+    stage, title: '', currentChapter, hasChapters, chapterPublished: false, chapterSnapshot: false,
+  })
   for (const stage of ['foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
     assert.match(renderStageProtocol(facts(stage)), /## 重新结算（重算）/)
   }
@@ -141,6 +145,36 @@ test('the repair block follows chapter existence, not the stage name', () => {
   // 有索引章、currentChapter 仍为 0 时也注入。
   for (const stage of ['foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
     assert.match(renderStageProtocol(facts(stage, 0, true)), /## 重新结算（重算）/)
+  }
+})
+
+test('a published chapter with a snapshot gets the held-state repair line, without one gets the legacy line', async () => {
+  const held = await workspace('chapter-done')
+  try {
+    await mkdir(join(held, 'source/story/snapshots/1/state'), { recursive: true })
+    await writeFile(join(held, 'source/story/snapshots/1/state/manifest.json'), JSON.stringify({ lastAppliedChapter: 0 }))
+    const facts = detectStage(held)
+    assert.equal(facts.chapterPublished, true)
+    assert.equal(facts.chapterSnapshot, true)
+    const text = renderStageProtocol(facts)
+    assert.match(text, /被扣下/)
+    assert.match(text, /story_resettle_chapter/)
+    assert.match(text, /不要再次结算/)
+    assert.doesNotMatch(text, /story_recover/)
+  } finally {
+    await rm(held, { recursive: true, force: true })
+  }
+
+  const legacy = await workspace('chapter-done')
+  try {
+    const facts = detectStage(legacy)
+    assert.equal(facts.chapterPublished, true)
+    assert.equal(facts.chapterSnapshot, false)
+    const text = renderStageProtocol(facts)
+    assert.match(text, /story_recover/)
+    assert.doesNotMatch(text, /被扣下/)
+  } finally {
+    await rm(legacy, { recursive: true, force: true })
   }
 })
 
@@ -185,10 +219,15 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /story_revise_chapter/)
         assert.doesNotMatch(stageText, /story_summarize_chapter/)
         assert.match(stageText, /story_settle_chapter/)
+        assert.match(stageText, /不带 validation/)
+        assert.match(stageText, /state-check 子代理读提案文件/)
+        assert.match(stageText, /failureReport/)
+        assert.match(stageText, /outcome: unavailable/)
+        assert.match(stageText, /结算前不要调用 `story_state_check`/)
         assert.match(stageText, /story_chapter_versions/)
         assert.match(stageText, /story_reopen_chapter/)
         assert.match(stageText, /story_state_check/)
-        assert.match(stageText, /只有换一份真值投影（truth projection）能消解[^。]*置 true/)
+        assert.match(stageText, /只有换一份真值投影（truth projection）能消解不一致时 reconciliationRequired 才为 true/)
         assert.match(stageText, /只作观察/)
         assert.doesNotMatch(stageText, /story_write_chapter/)
         assert.match(craftText, /创作方法（story-review）/)

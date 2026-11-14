@@ -6,7 +6,7 @@ Status: implemented
 
 P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在结算后核对“投影是否忠实于本章”：`current_state`／`pending_hooks` 与上一章快照、章纲、权威文档之间是否存在矛盾、漏写或时间线错位，目前只能靠人读文件。
 
-源工程的 `StateValidatorAgent` 是一个模型侧校验器：把上一份与新的状态／伏笔卡片、本章正文、权威上下文交给模型，模型提交 `reconciliationRequired` 布尔值与证据报告；布尔值与报告构成 findings，用于决定是否重结算。DSH 宿主工具不能直接跑模型，对账由子代理产出、宿主只做结果校验与回执；这不构成自动校验的机制障碍，自动路径仍记 D34。
+源工程的 `StateValidatorAgent` 是一个模型侧校验器：把上一份与新的状态／伏笔卡片、本章正文、权威上下文交给模型，模型提交 `reconciliationRequired` 布尔值与证据报告；布尔值与报告构成 findings，用于决定是否重结算。DSH 宿主工具不能直接跑模型，对账由子代理产出、宿主只做结果校验与回执；这不构成自动校验的机制障碍，自动路径后来由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付。
 
 ## 源工程证据
 
@@ -38,14 +38,13 @@ P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在�
 ### 范围与非目标
 
 - 只读：不写状态、不写观察文件、不触发重结算。
-- 不把对账接进 `chapter.settle` 的自动流程；那是 D34 的偿还（在 `chapter.settle` 增加校验步骤与 reconciliation 重试），本行只交付“可随时核对的只读入口”。
+- 不把对账接进 `chapter.settle` 的自动流程；本行只交付“可随时核对的只读入口”。结算前对账后来由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 以两阶段 + 提案收据承接。
 - 不做静态 schema 校验（损坏由 `inspectState`／各写入工具拒绝，已有机制），本行只做语义对账结果。
 
 ### 偏差与债务
 
 - 无新的机制偏差：对账的模型部分由 DSH 子代理产出，宿主只校验结果。
-- D34 保持：`chapter.settle` 的写入没有接状态校验与 reconciliation；本行不改变结算路径，D34 的偿还位置是 `chapter.settle`。
-- D51 已由 [对账布尔判据写进工具与协议](2026-11-13-state-check-criterion.md) 注销；判据现写在工具 description、`reconciliationRequired` 参数说明与 `chapter-done` 第 8 步。D34 保留。
+- D34 已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付：结算写入接上了状态校验与 reconciliation，本行不改变结算路径。D51 已由 [对账布尔判据写进工具与协议](2026-11-13-state-check-criterion.md) 注销；判据现写在工具 description、`reconciliationRequired` 参数说明与 `chapter-done` 协议；D34 的严格基线也由该行补齐。
 
 ## Alternatives considered
 
@@ -67,4 +66,4 @@ P5 的最后一行 `state.check` 曾是 `missing`。作者与主编都无法在�
 - 对账质量取决于子代理；宿主只保证布尔与报告的必填关系，与源一致。
 - 上一章快照在旧作品里可能缺失（`snapshots/0/` 是 foundation 新写的）；缺快照时拒绝而不是伪造基线。
 - 只读入口不会自动修复问题；作者看到 findings 后仍要回到重开/修订/重结算流程。
-- 自动校验与带反馈重结算仍未接（D34）；本行不改变结算工具的行为。
+- 自动校验与带反馈重结算已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付；本行的只读入口与严格基线是它之前的形态。

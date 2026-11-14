@@ -26,7 +26,7 @@ D36（恢复不写 `provenance: edited` 与 `manual-edit-review` 观察）仍保
 ### 范围与非目标
 
 - 范围：恢复旧版对任意章可用且不动状态指针；两条路径都清该章全部运行时文件（保留 user-brief）；重开后整章重写走修订协议。
-- 非目标：不写恢复的索引观察（D36）；不做 facts/hooks 基线回退（D33）；不改重结算（D34）；不加面板动作。
+- 非目标：不写恢复的索引观察（D36）；不做 facts/hooks 基线回退（D33）；不改重结算（D34 已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付，本行不改它）；不加面板动作。
 - 不改版本归档格式、相同内容拒绝、`AggregateError` 回滚。
 
 ### 交付行为

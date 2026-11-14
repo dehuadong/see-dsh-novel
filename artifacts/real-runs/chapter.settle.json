@@ -1,1 +1,17 @@
-{"capability":"chapter.settle","date":"2026-11-13","sessionId":"process:chapter.settle","tests":{"command":"pnpm run verify","passed":true,"summary":"448 passed — 草稿写入、审稿读草稿、结算一次提交发布（章节/状态/投影/快照/索引/artifact/active/审稿回填）、重算与 finalize 退役回归"},"receipts":["写作只写 .drafts/chapter-NNNN.md；结算读草稿与审稿记录，一次 commitFoundation 写章节、四份状态、三份投影、snapshots/<N>、索引、artifact 与 active，删除草稿。","审稿记录回填 reviewedArtifact；索引条目带审稿 observations、字数与 provenance: generated。","story_finalize_chapter 退役；D37 由本行注销，D45 收窄为已发布章重审观察无写入入口。该回执是 process-level 工具/状态测试，不是 DSH 会话。"]}
+{
+  "capability": "chapter.settle",
+  "date": "2026-11-14",
+  "sessionId": "process:chapter.settle",
+  "tests": {
+    "command": "pnpm run verify",
+    "passed": true,
+    "summary": "470 tests（469 pass／1 skipped symlink）— 结算两阶段（提案只写 .drafts、收据绑定、漂移拒绝）、attempt 1/2 与预算、扣下态（章节发布／状态停在 N-1／索引观察）、不可用不重试、重算失败不写盘、严格基线、扣下后重算与删除出口"
+  },
+  "receipts": [
+    "story_settle_chapter／story_resettle_chapter 不带 validation 只写 .drafts/settlement-NNNN.json（旧/新投影卡片、增量、正文与基线摘要），source/ 与章节索引字节不变；带 {proposalDigest, outcome, reportMarkdown} 提交且不再重发增量。",
+    "提交侧重读正文与基线、用提案增量重跑 reducer 与三份渲染并逐字段比对；正文/基线/提案/收据任一漂移以 SETTLEMENT_PROPOSAL_STALE 拒绝，提案缺失或摘要不自洽以 SETTLEMENT_PROPOSAL_UNAVAILABLE 拒绝。",
+    "第一次 reconciliation-required 记录 failureReport 并拒绝；第二次仍失败或 unavailable 时 settle 发布章节但状态停在 N-1（snapshots/<N> 写当前真值副本、索引观察记 state-reconciliation／state-validation-unavailable），resettle 在同样情形下拒绝且不写任何作品文件。",
+    "同键提案第一次 attempt 1、再生成 attempt 2、第三次 SETTLEMENT_PROPOSAL_BUDGET_EXHAUSTED；失败提案再提交以 SETTLEMENT_PROPOSAL_FAILED 拒绝；attempt 2 一致时正常发布到 N。",
+    "story_state_check 基线改用 readStateSnapshot 严格读四份 JSON 与跨文件不变量。D33／D34 注销；D59（修订事务内自动重结算）保留。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
+  ]
+}

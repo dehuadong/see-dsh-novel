@@ -44,7 +44,7 @@ Status: implemented
 ### 范围与非目标
 
 - 只删最新章；**不做移章/重排**（源没有该能力）。
-- 不做状态校验与 reconciliation（D34）；不重算历史章（D33 仍影响重结算，不影响删除）；前置与判据已按源对齐，D52 由 [删除索引前置对齐](2026-11-12-chapter-delete-parity.md) 注销。
+- 不做状态校验与 reconciliation（D34；已由 [D34：结算前的状态对账与 reconciliation](2026-11-14-chapter-settle-validation.md) 交付）；不重算历史章（D33 仍影响重结算，不影响删除）；前置与判据已按源对齐，D52 由 [删除索引前置对齐](2026-11-12-chapter-delete-parity.md) 注销。
 - 检索同步只做源行为：删 `memory.db*`，下一次搜索重建索引。
 
 ## Alternatives considered

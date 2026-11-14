@@ -81,12 +81,40 @@
 - 原因：DSH 的修订正文由子代理整段返回，宿主拿不到内部替换字段；不声明范围就无法区分多段局部修订与范围外改动。
 - 验证：`test/chapter-revise.test.mjs` 的多段成功、范围外拒绝、范围非法与 `targetText` 任意 mode 用例；参数形状错误复用 `ARTIFACT_EDIT_RANGE_INVALID` 也由这些用例覆盖。
 
-### chapter.publish：草稿先写、结算发布
+### chapter.publish：草稿先写、结算一次提交发布
 
-- 源工程做法：正文在内存中完成审稿与结算，saveChapter 一次写章节、状态、快照与索引。
-- 复刻做法：正文先写 `.drafts/chapter-NNNN.md`，不进入 `source/chapters/`；结算一次提交写章节/状态/快照/索引/artifact。
-- 原因：DSH 工具跨调用无内存，审稿子代理需要可读正文。
-- 验证：`test/chapter-settle.test.mjs` 断言写后 chapters 无文件、结算后同批出现；`test/write-tool.test.mjs` 覆盖草稿审稿/修订。
+- 源工程做法：正文在内存中完成审稿与结算，saveChapter 一次写章节、状态、快照与索引；校验先于落盘。
+- 复刻做法：正文先写 `.drafts/chapter-NNNN.md`，不进入 `source/chapters/`；发布仍是带收据的那一次 `story_settle_chapter` 提交，一次写章节/状态/快照/索引/artifact（提案与收据见下一条）。
+- 原因：DSH 工具跨调用无内存，审稿与状态校验子代理都需要可读正文。
+- 验证：`test/chapter-settle.test.mjs` 断言写后 chapters 无文件、带一致收据的提交后同批出现；`test/write-tool.test.mjs` 覆盖草稿审稿/修订。
+
+### chapter.settle：结算提案落 `.drafts/`，收据随提交回传
+
+- 源工程做法：`runner.ts:1394-1416` 在内存里持有 `settleChapterState` 输出，交给 `StateValidatorAgent.validate` 后同一次 `saveChapter` 落盘（`chapter-truth-validation.ts:44-53`）。
+- 复刻做法：两个结算工具先写 `.drafts/settlement-NNNN.json`（旧/新卡片、增量、正文与基线摘要），主编派 state-check 子代理读文件，收据随第二次调用回传；宿主重读正文与基线、逐字段重算后一次 `commitFoundation`。
+- 原因：DSH 工具跨调用无内存、工具内不能派子代理、工具回执超过 8192 字符会被裁剪；提案必须对校验方可读且可绑定。
+- 验证：`test/chapter-settle.test.mjs` 断言提案只写 `.drafts`、`source/` 字节不变；改正文/基线/提案/收据的漂移都被拒。
+
+### chapter.settle：reconcile 重试由主编再派 settler
+
+- 源工程做法：`chapter-state-recovery.ts:50-131` 在 pipeline 内自动带 `validationFeedback` 重跑结算并再校验一次。
+- 复刻做法：第一次 `reconciliation-required` 只把报告写进提案并拒绝；主编把报告交回 settler，再生成提案、再对账、提交；`attempt` 由同键提案文件记录，第二次失败才扣下（settle）或拒绝（resettle）。
+- 原因：重结算需要 settler 的模型输出，工具内不能派子代理；重试次数与反馈必须落在可校验的文件上。
+- 验证：`test/chapter-settle.test.mjs` 覆盖 attempt 1 失败不写作品、attempt 2 失败扣下/拒绝、失败提案重复提交被拒、同键不提交失败收据直接重生成也升 attempt 2。
+
+### chapter.settle：校验结论由收据真实性假设承接
+
+- 源工程做法：`state-validator.ts:71-92` 通过结构化工具提交，宿主强制报告必填，布尔与报告由 agent 循环接收。
+- 复刻做法：state-check 子代理按协议回 `{reconciliationRequired, reportMarkdown}`，主编映射为 `outcome` 并连同 `proposalDigest` 提交；宿主校验摘要、必填报告与 attempt，不证明子代理真的读过证据。
+- 原因：DSH 工具内不能运行模型，子代理完成走通知，报告只能经主编转交。
+- 验证：`test/chapter-settle.test.mjs` 覆盖报告必填错误码与摘要不符拒绝；`test/stage-context.test.mjs` 固定输入与判据文本。
+
+### chapter.settle：扣下态不能直接开下一章
+
+- 源工程做法：扣下后索引已含第 N 章，`getNextChapterNumber` 取索引连续前缀 +1，下一次写入是 N+1；reducer 只拒 `chapter <= lastApplied`，所以源会在状态停在 N-1 时继续写并结算 N+1。
+- 复刻做法：`detectStage` 按 `current_state.chapter + 1` 找下一章，扣下时命中第 N 章审稿记录 → `chapter-done`；下一章 start 只在 `foundation-ready` 写，所以先修复（重算／修订复审后重算／删除本章）才推进。
+- 原因：阶段由工作区文件判定，是已登记的机制等价（源没有阶段概念）；不新增作者确认门，也不把状态缺口静默带过。
+- 验证：`test/stage-context.test.mjs` 断言扣下态阶段与修复行；`test/chapter-settle.test.mjs` 断言扣下时的修复与删除出口。
 
 ### chapter.revise：缺索引行时追加修订条目
 

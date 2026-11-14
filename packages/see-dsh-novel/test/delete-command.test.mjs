@@ -64,13 +64,18 @@ async function workspace() {
     workingDirectory: { ensure: async () => root },
   }
   installSettleTool(ctx)
-  await tools.get('story_settle_chapter').execute({
+  const settleTool = tools.get('story_settle_chapter')
+  const proposal = await settleTool.execute({
     chapter: 1,
     postSettlement: '甲上山。',
     factOps: { upsert: [], expire: [] },
     hookOps: { upsert: [], mention: [], resolve: [], defer: [] },
     newHookCandidates: [],
     chapterSummary: SUMMARY,
+  }, { agent: { session: 's' } })
+  await settleTool.execute({
+    chapter: 1,
+    validation: { proposalDigest: proposal.proposalDigest, outcome: 'consistent', reportMarkdown: '' },
   }, { agent: { session: 's' } })
   return root
 }
