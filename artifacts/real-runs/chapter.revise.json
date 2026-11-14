@@ -5,9 +5,12 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "505 passed／1 skipped（symlink）— chapter-revise 23 例（范围/替换/归一/归档/索引/长度遥测/更早章即时路径）＋ chapter-revision-commit 1 例（最新章提案→审稿→C1→C2 一次提交）＋ chapter-revision-commit 的 revisionDigest 拒绝 ＋ stage-context 的修订路由/协议"
+    "summary": "520 passed／1 skipped（symlink）— chapter-revise 30 例（范围/替换/归一/归档/索引/长度遥测/更早章即时路径）＋ chapter-revision-commit 1 例（最新章提案→审稿→C1→C2 一次提交）＋ chapter-revision-commit 的 revisionDigest 拒绝 ＋ stage-context 的修订路由/协议"
   },
   "receipts": [
+    "长度硬校验：rewrite/spot-fix 候选按 work min/max 与条目 countingMode 校验，越界抛 CHAPTER_LENGTH_OUT_OF_RANGE，带 actual/minimum/maximum；不写正文。",
+    "spot-fix ranges 与 targetText 的固定文本先算 replacementBudget；maximum<0 抛 CHAPTER_EDIT_SCOPE_CONFLICT，候选越界再抛长度错误；targetText 对任意 mode 生效。",
+    "有显式 min/max 时回执带 wordCount 与源形状 delivery；无界时不返回。",
     "最新已发布章修订只写 `.drafts/revision-NNNN.json` 与复审 start，删除旧审稿与旧修订结算提案；`source/chapters`、索引、artifact、状态字节不变；缺 N-1 快照拒绝；已有提案覆盖并重写。",
     "修订审稿带 `revisionDigest` 从提案正文取源，写 `reviewedRevisionDigest`，不写索引；审稿后阶段为 chapter-done 修订分支。",
     "`story_commit_revision` C1 只写 `.drafts/revision-NNNN.settlement.json`；C2 用 N-1 基线重跑结算，一次提交正文、索引（wordCount／lengthTelemetry／observations=review+settlementObservations／provenance edited／tokenUsage 保留）、artifact、状态与快照；删除提案/结算提案/审稿记录。",

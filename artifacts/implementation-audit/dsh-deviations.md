@@ -62,6 +62,7 @@
 - 复刻做法：最新已发布章由 `story_revise_chapter` 只写 `.drafts/revision-NNNN.json` 与复审 start，并删除旧审稿；`story_review_chapter` 带 `revisionDigest` 从提案正文审稿、不写索引；`story_commit_revision` C1 写修订结算提案，state-check 后 C2 一次写章节、索引、artifact、状态与快照，观察合并 review + `settlementObservations`。更早章/草稿保持即时路径。
 - 原因：DSH 的审稿、settler 与 state-check 都是模型输出，工具内不能跑模型；审稿闸门要求复审在结算前，因此把源的单事务拆成“提案 → 复审 → C1/C2 一次提交”，原子提交仍由 `commitFoundation` 保证。
 - 验证：`test/chapter-revision-commit.test.mjs` 覆盖提案、`revisionDigest` 错摘要拒绝、审稿与一次提交；`test/chapter-revise.test.mjs` 覆盖更早章即时路径与长度遥测；`test/stage-context.test.mjs` 覆盖提案注入与 C1/C2 协议。
+- 更早章观察：源在同事务内复审并写 `postRevisionObservations`；复刻即时修订清空索引观察并写复审 start，由审稿闸门承接。
 
 ### chapter.revise：局部修订范围由主编随正文提交
 
@@ -252,3 +253,10 @@
 - 复刻做法：`draft` 对应 `outlining`；`activateWorkStatus` 在 settle/finalize 共用；`archived` 无源对应。
 - 原因：复刻 `WorkStatus` 只有 draft/active/archived；源其余状态（incubating/paused/completed/dropped）归 AU-06 的 work.json 身份债，本行只对齐激活生命周期。
 - 验证：`chapter-settle.test.mjs` 发布后 status=active；`state-schema.test.mjs` 的 activateWorkStatus 单测；finalize 回归。
+
+### chapter.revise：非显式修订入口
+
+- 源工程做法：`runner.ts:909-941` 由 externalContext/targetText/rewrite/rework 组合决定是否显式；非显式先复审，观察为空返回 `changed:false`。
+- 复刻做法：`story_revise_chapter` 只承接显式修订；工具调用本身即显式，没有非显式自动复审入口。
+- 原因：DSH 的修订由主编在审稿后显式调用；源的非显式短路是 pipeline 内部行为，没有对应的工具调用面。登记为机制差异，不新增 `explicit` 参数。
+- 验证：`test/chapter-revise.test.mjs` 的显式路径与回执；更早章观察差异由同一事务行覆盖。

@@ -292,8 +292,8 @@ capabilities:
     title: 最新章两阶段修订（提案/审稿/一次提交）；spot-fix/polish/rewrite/rework/anti-detect；索引长度遥测
     source: inkos:packages/core/src/agents/reviser.ts、pipeline/runner.ts、utils/length-metrics.ts
     dsh: subagents
-    implementation: packages/see-dsh-novel/src/pipelines/long/revision-commit-tool.ts
-    consumer: packages/see-dsh-novel/test/chapter-revision-commit.test.mjs
+    implementation: packages/see-dsh-novel/src/pipelines/long/revise-tool.ts
+    consumer: packages/see-dsh-novel/test/chapter-revise.test.mjs
     realRun: artifacts/real-runs/chapter.revise.json
     status: verified
   - id: chapter.summary

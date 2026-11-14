@@ -13,7 +13,7 @@ import { chapterBodyForChapter, loadChapterDocument, renderChapterDocument } fro
 import { CHAPTER_INDEX_PATH, buildLengthTelemetry, readChapterIndexStrict, revisedChapterIndex } from '../../core/chapter-index.js'
 import { loadChapterReview, chapterReviewPath } from '../../core/chapter-review.js'
 import { commitFoundation } from '../../core/commit.js'
-import { countChapterLengthByMode } from '../../core/length.js'
+import { chapterLengthSpecOf, countChapterLengthByMode } from '../../core/length.js'
 import {
   readRevisionProposal,
   readRevisionSettlement,
@@ -187,8 +187,9 @@ async function commitPhase(root: string, args: CommitRevisionArgs): Promise<Comm
   if (current === undefined) throw new Error(`第 ${chapter} 章没有索引条目`)
   const chapterDocument = await loadChapterDocument(root, chapter)
   if (chapterDocument === null) throw new Error(`第 ${chapter} 章没有正文`)
-  const countingMode = current.lengthTelemetry?.countingMode === 'en_words' ? 'en_words' : (language === 'en' ? 'en_words' : 'zh_chars')
-  const target = current.lengthTelemetry?.target ?? work?.metadata.chapterWordCount ?? (language === 'en' ? 2000 : 3000)
+  const spec = chapterLengthSpecOf(work ?? { language, metadata: {} }, current)
+  const countingMode = spec.countingMode
+  const target = spec.target
   const writerCount = countChapterLengthByMode(chapterDocument.content, countingMode)
   const finalCount = countChapterLengthByMode(revision.content, countingMode)
   const lengthTelemetry = buildLengthTelemetry({

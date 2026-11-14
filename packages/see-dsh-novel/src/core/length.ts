@@ -63,3 +63,112 @@ export function countChapterLengthByMode(content: string, countingMode: 'zh_char
 export function countChapterLength(content: string, language: 'zh' | 'en'): number {
   return countChapterLengthByMode(content, countingModeOf(language))
 }
+
+/** 显式长度范围；target 只是近似值，min/max 才是硬校验。 */
+export interface LengthSpec {
+  target: number
+  countingMode: 'zh_chars' | 'en_words'
+  minChapterLength?: number
+  maxChapterLength?: number
+}
+
+export interface LengthDeliveryIssue {
+  code: 'CHAPTER_LENGTH_OUT_OF_RANGE'
+  actual: number
+  minimum?: number
+  maximum?: number
+}
+
+export interface LengthDelivery {
+  status: 'checks_passed' | 'needs_revision'
+  measurements: { count: number, countingMode: 'zh_chars' | 'en_words' }
+  target: LengthSpec
+  issues: LengthDeliveryIssue[]
+}
+
+/** 按源形状构造长度 spec：target 近似、min/max 硬边界。 */
+export function buildLengthSpec(
+  target: number,
+  language: 'zh' | 'en',
+  bounds: { minChapterLength?: number, maxChapterLength?: number } = {},
+): LengthSpec {
+  return {
+    target,
+    countingMode: countingModeOf(language),
+    ...(bounds.minChapterLength === undefined ? {} : { minChapterLength: bounds.minChapterLength }),
+    ...(bounds.maxChapterLength === undefined ? {} : { maxChapterLength: bounds.maxChapterLength }),
+  }
+}
+
+/** 从作品与章节条目解析唯一的长度 spec（target／口径／min/max）。 */
+export function chapterLengthSpecOf(
+  work: { language: 'zh' | 'en', metadata: { chapterWordCount?: number, minChapterLength?: number, maxChapterLength?: number } },
+  entry?: { lengthTelemetry?: { target?: number, countingMode?: 'zh_chars' | 'en_words' } },
+): LengthSpec {
+  const target = entry?.lengthTelemetry?.target ?? lengthTargetOf(work)
+  const countingMode = entry?.lengthTelemetry?.countingMode ?? countingModeOf(work.language)
+  const spec = buildLengthSpec(target, work.language, {
+    ...(work.metadata.minChapterLength === undefined ? {} : { minChapterLength: work.metadata.minChapterLength }),
+    ...(work.metadata.maxChapterLength === undefined ? {} : { maxChapterLength: work.metadata.maxChapterLength }),
+  })
+  return { ...spec, countingMode }
+}
+
+/** 章节长度回执；没有显式 min/max 时返回 undefined，源也不伪造 delivery。 */
+export function chapterLengthDelivery(count: number, spec: LengthSpec): LengthDelivery | undefined {
+  if (spec.minChapterLength === undefined && spec.maxChapterLength === undefined) return undefined
+  const issues: LengthDeliveryIssue[] = []
+  if ((spec.minChapterLength !== undefined && count < spec.minChapterLength)
+    || (spec.maxChapterLength !== undefined && count > spec.maxChapterLength)) {
+    issues.push({
+      code: 'CHAPTER_LENGTH_OUT_OF_RANGE',
+      actual: count,
+      ...(spec.minChapterLength === undefined ? {} : { minimum: spec.minChapterLength }),
+      ...(spec.maxChapterLength === undefined ? {} : { maximum: spec.maxChapterLength }),
+    })
+  }
+  return {
+    status: issues.length > 0 ? 'needs_revision' : 'checks_passed',
+    measurements: { count, countingMode: spec.countingMode },
+    target: spec,
+    issues,
+  }
+}
+
+/** 硬长度校验；越界抛源错误码，message 带可重试的 delivery。 */
+export interface LengthErrorContext {
+  scope?: 'selected_ranges' | 'selected_text'
+  source?: { length: number, unchangedByThisAttempt: boolean }
+  replacementBudget?: ReturnType<typeof replacementBudgetOf>
+  candidateCommitted?: false
+  instruction?: string
+}
+
+export function assertChapterLength(content: string, spec?: LengthSpec, context: LengthErrorContext = {}): void {
+  if (spec === undefined) return
+  const count = countChapterLengthByMode(content, spec.countingMode)
+  const delivery = chapterLengthDelivery(count, spec)
+  if (delivery?.issues.length === 0 || delivery === undefined) return
+  const error = new Error(JSON.stringify({
+    code: 'CHAPTER_LENGTH_OUT_OF_RANGE',
+    ...delivery,
+    ...context,
+    instruction: context.instruction ?? 'Revise the complete chapter into the explicit length range, preserving core events and causal continuity.',
+  }))
+  throw Object.assign(error, { code: 'CHAPTER_LENGTH_OUT_OF_RANGE', delivery, ...context })
+}
+
+/** spot-fix 固定文本预算；maximum<0 表示固定文本已超最大章长。 */
+export function replacementBudgetOf(fixedLength: number, spec: LengthSpec): {
+  countingMode: 'zh_chars' | 'en_words'
+  fixedContentLength: number
+  minimum: number
+  maximum?: number
+} {
+  return {
+    countingMode: spec.countingMode,
+    fixedContentLength: fixedLength,
+    minimum: Math.max(0, (spec.minChapterLength ?? 0) - fixedLength),
+    ...(spec.maxChapterLength === undefined ? {} : { maximum: spec.maxChapterLength - fixedLength }),
+  }
+}

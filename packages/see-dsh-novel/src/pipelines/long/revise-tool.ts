@@ -5,7 +5,7 @@
  * 其余模式交整段 `content`，都可选用唯一 `targetText` 绑定局部改动。
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
-import { chapterBodyForChapter, countChapterLength, loadChapterDocument, renderChapterDocument, reviseChapterDocument } from '../../core/chapter-document.js'
+import { chapterBodyForChapter, loadChapterDocument, renderChapterDocument, reviseChapterDocument } from '../../core/chapter-document.js'
 import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
 import { commitFoundation } from '../../core/commit.js'
 import { chapterReviewPath, loadChapterReview } from '../../core/chapter-review.js'
@@ -13,7 +13,8 @@ import { chapterTitleOf, readChapterIndex } from '../../core/chapter-index.js'
 import { readStateSnapshot } from '../../core/state.js'
 import { renderRevisionProposal, revisionDigest, revisionProposalPath, revisionSettlementPath } from '../../core/revision.js'
 import { loadChapterPlan } from '../../core/chapter-plan.js'
-import { countingModeOf, lengthTargetOf } from '../../core/length.js'
+import { assertChapterLength, chapterLengthDelivery, chapterLengthSpecOf, countChapterLengthByMode, replacementBudgetOf } from '../../core/length.js'
+import type { LengthSpec } from '../../core/length.js'
 import {
   DEFAULT_REVISE_MODE,
   REVISE_MODES,
@@ -108,6 +109,8 @@ const output: JsonSchema = {
     proposalPath: { type: 'string' },
     proposalDigest: { type: 'string' },
     settleRequired: { type: 'boolean' },
+    wordCount: { type: 'integer' },
+    delivery: { type: 'object' },
   },
   required: ['chapter', 'path', 'mode', 'changed', 'charCount', 'target', 'revisionId', 'reviewInvalidated', 'changedRegion'],
 }
@@ -123,6 +126,8 @@ export interface ReviseResult {
   reviewInvalidated: boolean
   replacedStartChapter?: number
   changedRegion: ChangedRegion
+  wordCount?: number
+  delivery?: ReturnType<typeof chapterLengthDelivery>
   proposalPath?: string
   proposalDigest?: string
   settleRequired?: boolean
@@ -188,8 +193,9 @@ export function installReviseTool(ctx: PluginContext): Disposer {
         }
 
         let body: string
+        let edits: ReturnType<typeof normalizeRangeEdits> | undefined
         if (hasRanges) {
-          const edits = normalizeRangeEdits(args.ranges, args.replacements, splitBodyLines(base).length)
+          edits = normalizeRangeEdits(args.ranges, args.replacements, splitBodyLines(base).length)
           const constructed = chapterBodyForChapter(applyRangeEdits(base, edits), args.chapter)
           if (constructed === '') throw new Error('content 不能为空')
           const normalized = chapterBodyForChapter(args.content, args.chapter)
@@ -204,9 +210,44 @@ export function installReviseTool(ctx: PluginContext): Disposer {
 
         if (args.targetText !== undefined) assertTargetText(base, body, args.targetText)
 
-        const target = lengthTargetOf(work)
-        const changed = body !== base
         const entries = document === null ? [] : await readChapterIndex(root)
+        const entry = entries.find((item) => item.number === args.chapter)
+        const spec = chapterLengthSpecOf(work, entry)
+        let replacementBudget: ReturnType<typeof replacementBudgetOf> | undefined
+        if (edits !== undefined) {
+          const fixedContent = chapterBodyForChapter(applyRangeEdits(base, edits.map((edit) => ({ ...edit, replacement: '' }))), args.chapter)
+          replacementBudget = replacementBudgetOf(countChapterLengthByMode(fixedContent, spec.countingMode), spec)
+          if (replacementBudget.maximum !== undefined && replacementBudget.maximum < 0) {
+            throw Object.assign(
+              new Error('CHAPTER_EDIT_SCOPE_CONFLICT: the protected text alone exceeds the chapter maximum. These edit ranges cannot satisfy both scope and length constraints.'),
+              { code: 'CHAPTER_EDIT_SCOPE_CONFLICT', replacementBudget },
+            )
+          }
+        } else if (args.targetText !== undefined) {
+          const fixedContent = base.replace(args.targetText, '')
+          replacementBudget = replacementBudgetOf(countChapterLengthByMode(fixedContent, spec.countingMode), spec)
+          if (replacementBudget.maximum !== undefined && replacementBudget.maximum < 0) {
+            throw Object.assign(
+              new Error('CHAPTER_EDIT_SCOPE_CONFLICT: the protected text alone exceeds the chapter maximum. The selected text cannot satisfy both scope and length constraints.'),
+              { code: 'CHAPTER_EDIT_SCOPE_CONFLICT', replacementBudget },
+            )
+          }
+        }
+
+        assertChapterLength(body, spec, {
+          ...(edits !== undefined || args.targetText !== undefined
+            ? { scope: 'selected_ranges' as const, source: { length: countChapterLengthByMode(base, spec.countingMode), unchangedByThisAttempt: true }, candidateCommitted: false as const }
+            : {}),
+          ...(replacementBudget === undefined ? {} : { replacementBudget }),
+          ...(edits !== undefined || args.targetText !== undefined
+            ? { instruction: 'The rejected replacement has not changed the source chapter. Adjust only the selected replacement fields to their combined budget. Do not include or rewrite protected surrounding text.' }
+            : {}),
+        })
+
+        const target = spec.target
+        const changed = body !== base
+        const finalCount = countChapterLengthByMode(body, spec.countingMode)
+        const delivery = chapterLengthDelivery(finalCount, spec)
         const latest = entries.reduce((max, entry) => Math.max(max, entry.number), 0)
         const latestTwoPhase = document !== null && args.chapter === latest
         const review = changed || latestTwoPhase ? await loadChapterReview(root, args.chapter) : null
@@ -243,7 +284,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
             path: revisionProposalPath(args.chapter),
             mode,
             changed,
-            charCount: countChapterLength(body, work.language),
+            charCount: finalCount, wordCount: finalCount, ...(delivery === undefined ? {} : { delivery }),
             target,
             revisionId: '',
             reviewInvalidated: review !== null,
@@ -265,7 +306,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
             path: draftPath(args.chapter),
             mode,
             changed,
-            charCount: countChapterLength(body, work.language),
+            charCount: finalCount, wordCount: finalCount, ...(delivery === undefined ? {} : { delivery }),
             target,
             revisionId: '',
             reviewInvalidated: changed && review !== null,
@@ -277,8 +318,9 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           chapter: args.chapter,
           content: body,
           language: work.language,
+          spec,
           target,
-          countingMode: countingModeOf(work.language),
+          countingMode: spec.countingMode,
           deletes: changed && review !== null ? [chapterReviewPath(args.chapter)] : [],
           extraWrites: startWrites,
         })
@@ -288,6 +330,8 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           mode,
           changed: revised.changed,
           charCount: revised.charCount,
+          wordCount: revised.charCount,
+          ...(delivery === undefined ? {} : { delivery }),
           target: revised.lengthTelemetry.target,
           revisionId: revised.revisionId,
           reviewInvalidated: changed && review !== null,

@@ -576,3 +576,133 @@ test('a usage file does not affect revision and tokenUsage stays absent', async 
     await rm(root, { recursive: true, force: true })
   }
 })
+
+async function setBounds(root, min, max) {
+  const work = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+  work.metadata = { ...work.metadata, minChapterLength: min, maxChapterLength: max }
+  await writeFile(join(root, 'work.json'), JSON.stringify(work, null, 2) + '\n')
+}
+
+test('revision rejects content outside explicit length bounds', async () => {
+  const root = await workspace()
+  try {
+    await setBounds(root, 20, 100)
+    await assert.rejects(
+      tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec),
+      /CHAPTER_LENGTH_OUT_OF_RANGE/,
+    )
+    assert.equal((await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')).includes('第三段。'), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('spot-fix fixed text exceeding max conflicts before writing', async () => {
+  const root = await workspace()
+  try {
+    await setBounds(root, 1, 3)
+    await assert.rejects(
+      tool(root).execute({
+        chapter: 1,
+        mode: 'spot-fix',
+        ranges: [{ startLine: 1, endLine: 1 }],
+        replacements: ['改。'],
+        content: '改。\n第二段。\n第三段。',
+      }, exec),
+      { code: 'CHAPTER_EDIT_SCOPE_CONFLICT' },
+    )
+    assert.equal((await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')).includes('第三段。'), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('targetText fixed text exceeding max conflicts before writing', async () => {
+  const root = await workspace()
+  try {
+    await setBounds(root, 1, 3)
+    await assert.rejects(
+      tool(root).execute({ chapter: 1, targetText: '第二段。', content: '第一段。\n改。\n第三段。' }, exec),
+      { code: 'CHAPTER_EDIT_SCOPE_CONFLICT' },
+    )
+    assert.equal((await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')).includes('第三段。'), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('revision receipt carries wordCount and delivery within bounds', async () => {
+  const root = await workspace()
+  try {
+    await setBounds(root, 5, 100)
+    const result = await tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec)
+    assert.equal(result.wordCount, 13)
+    assert.equal(result.delivery.status, 'checks_passed')
+    assert.equal(result.delivery.target.minChapterLength, 5)
+    assert.equal(result.delivery.target.maxChapterLength, 100)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('latest chapter proposal is rejected before writing when outside bounds', async () => {
+  const root = await workspace()
+  try {
+    const entry = {
+      number: 1, title: '雨夜', wordCount: 13,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      observations: [], provenance: 'generated',
+    }
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry]))
+    await setBounds(root, 20, 100)
+    const before = await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8')
+    await assert.rejects(
+      tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec),
+      /CHAPTER_LENGTH_OUT_OF_RANGE/,
+    )
+    assert.equal(await readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), before)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('explicit no-op revision carries delivery when bounds exist', async () => {
+  const root = await workspace()
+  try {
+    const entry = {
+      number: 1, title: '雨夜', wordCount: 13,
+      createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z',
+      observations: [], provenance: 'generated',
+    }
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry]))
+    await setBounds(root, 5, 100)
+    const result = await tool(root).execute({ chapter: 1, content: ORIGINAL }, exec)
+    assert.equal(result.changed, false)
+    assert.equal(result.delivery.status, 'checks_passed')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('targetText candidate outside max reports length error with selection context', async () => {
+  const root = await workspace()
+  try {
+    await setBounds(root, 1, 16)
+    await assert.rejects(
+      tool(root).execute({
+        chapter: 1,
+        targetText: '第二段。',
+        content: '第一段。\n这是一个明显超出最大章长的替换段落。\n第三段。',
+      }, exec),
+      (error) => {
+        assert.equal(error.code, 'CHAPTER_LENGTH_OUT_OF_RANGE')
+        assert.equal(error.scope, 'selected_ranges')
+        assert.equal(error.candidateCommitted, false)
+        assert.deepEqual(error.source, { length: 12, unchangedByThisAttempt: true })
+        return true
+      },
+    )
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})

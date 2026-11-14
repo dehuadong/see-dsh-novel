@@ -168,6 +168,8 @@ export async function reviseChapterDocument(
     target?: number
     /** 作品级计数口径回退；条目是 en_words 时优先条目。 */
     countingMode?: 'zh_chars' | 'en_words'
+    /** 已解析的长度 spec；提供时 target/countingMode 以它为准。 */
+    spec?: { target: number, countingMode: 'zh_chars' | 'en_words' }
     deletes?: ReadonlyArray<string>
     /** 与该次修订同批提交的额外写入（例如重新打开的 workflow start）。 */
     extraWrites?: ReadonlyArray<{ relativePath: string, content: string }>
@@ -184,9 +186,9 @@ export async function reviseChapterDocument(
   const entries = await readChapterIndexStrict(root)
   const now = new Date().toISOString()
   const current = entries.find((entry) => entry.number === input.chapter)
-  const fallbackMode = input.countingMode ?? countingModeOf(input.language)
+  const fallbackMode = input.spec?.countingMode ?? input.countingMode ?? countingModeOf(input.language)
   const countingMode = current?.lengthTelemetry?.countingMode === 'en_words' ? 'en_words' : fallbackMode
-  const target = current?.lengthTelemetry?.target ?? input.target ?? defaultChapterLength(input.language)
+  const target = input.spec?.target ?? current?.lengthTelemetry?.target ?? input.target ?? defaultChapterLength(input.language)
   const writerCount = countChapterLengthByMode(existing.content, countingMode)
   const finalCount = countChapterLengthByMode(body, countingMode)
   const lengthTelemetry = buildLengthTelemetry({
