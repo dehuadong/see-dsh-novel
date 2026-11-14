@@ -231,3 +231,24 @@
 - 复刻做法：`/story-approve` 命令写确认回执后，由 client 向同一会话投一条可见的 queue user 消息（`client/index.ts:89-94,122`），agent 再调 `story_gate` 复核并继续下一阶段；确认与续作是两次会话动作。
 - 原因：DSH approval 在 agent 工具之外，不能在模型上下文里注入隐藏 toolResult；命令与提示是宿主可用的等价确认/叫醒面。
 - 验证：`client.test.mjs:494-511,794-829` 覆盖确认后 queue 消息与 gate 复核；真实会话 seq 380-417。
+
+### chapter.settle：状态探针不抛错
+
+- 源工程做法：`loadRuntimeStateSnapshot` 读取失败即抛错，调用方拿不到 missing/invalid 分类。
+- 复刻做法：`inspectState` 返回 `{missing, invalid}`，供 finalize/recovery/reopen/settle 的探针使用；`readStateSnapshot` 与结算前置仍抛错。
+- 原因：DSH 的恢复/重开/结算前置需要在同一读取器上区分“缺失可补”和“损坏需人工修”，源没有这些恢复面。
+- 验证：`state-schema.test.mjs` 的 strict 拒绝/接受；`chapter-settle.test.mjs` 的坏文件拒绝与 chapter 0 基线。
+
+### chapter.settle：重算目标章
+
+- 源工程做法：`_resyncChapterArtifactsLocked` 只取章节索引最后一章。
+- 复刻做法：`resettle-tool` 取 `max(索引最大章, lastAppliedChapter, 最大快照章)`，用于扣下/索引落后/状态回退后的修复。
+- 原因：复刻的扣下态可能让索引领先状态、重开可能让状态回退；只取索引末章无法定位要修的真值（D34 扣下态偏差）。
+- 验证：`chapter-settle.test.mjs` 的扣下/重算用例；`resettle` 目标章测试。
+
+### chapter.settle：work.status 激活
+
+- 源工程做法：`book.status === 'outlining'` 时写 `active`，在 chapter-persistence 发布路径。
+- 复刻做法：`draft` 对应 `outlining`；`activateWorkStatus` 在 settle/finalize 共用；`archived` 无源对应。
+- 原因：复刻 `WorkStatus` 只有 draft/active/archived；源其余状态（incubating/paused/completed/dropped）归 AU-06 的 work.json 身份债，本行只对齐激活生命周期。
+- 验证：`chapter-settle.test.mjs` 发布后 status=active；`state-schema.test.mjs` 的 activateWorkStatus 单测；finalize 回归。

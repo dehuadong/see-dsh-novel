@@ -9,7 +9,8 @@ import { join } from 'node:path'
 
 import type { FileWrite } from './commit.js'
 import type { HooksState } from './hooks.js'
-import { validateHooks } from './hooks.js'
+import { validateCurrentState, validateHooksState, validateManifest, validateSummariesState } from './state-schema.js'
+import type { StateIssue } from './state-schema.js'
 import type { PendingHook } from './types.js'
 import type {
   ChapterSummariesState,
@@ -43,7 +44,7 @@ export interface StateManifest {
   schemaVersion: 2
   language: ProjectionLanguage
   lastAppliedChapter: number
-  projectionVersion: 1
+  projectionVersion: number
 }
 
 /** 一次播种所需的完整状态。 */
@@ -128,33 +129,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isManifest(value: unknown): value is StateManifest {
-  return isRecord(value) && value.schemaVersion === 2 && (value.language === 'zh' || value.language === 'en')
-    && typeof value.lastAppliedChapter === 'number' && value.projectionVersion === 1
-}
-
-function isFact(value: unknown): boolean {
-  if (!isRecord(value)) return false
-  return typeof value.subject === 'string' && typeof value.predicate === 'string' && typeof value.object === 'string'
-    && typeof value.validFromChapter === 'number' && typeof value.sourceChapter === 'number'
-    && (value.validUntilChapter === null || typeof value.validUntilChapter === 'number')
+  return validateManifest(value).ok
 }
 
 function isCurrentState(value: unknown): value is CurrentStateState {
-  return isRecord(value) && typeof value.chapter === 'number'
-    && Array.isArray(value.facts) && value.facts.every(isFact)
+  return validateCurrentState(value).ok
 }
 
 function isHooksState(value: unknown): value is HooksState {
-  if (!isRecord(value) || !Array.isArray(value.hooks)) return false
-  try {
-    validateHooks(value as unknown as HooksState)
-    return true
-  } catch {
-    return false
-  }
+  return validateHooksState(value).ok
 }
-
-const SUMMARY_FIELDS = ['title', 'characters', 'events', 'stateChanges', 'hookActivity', 'mood', 'chapterType'] as const
 
 /**
  * 校验整份章节摘要状态；任何一条字段不合法就抛错。
@@ -162,22 +146,18 @@ const SUMMARY_FIELDS = ['title', 'characters', 'events', 'stateChanges', 'hookAc
  * @returns 校验通过的章节摘要状态
  */
 export function validateChapterSummaries(value: unknown): ChapterSummariesState {
-  if (!isRecord(value) || !Array.isArray(value.rows)) throw new Error('chapter_summaries 必须是带 rows 数组的对象')
-  for (const [index, row] of value.rows.entries()) {
-    if (!isRecord(row) || typeof row.chapter !== 'number' || SUMMARY_FIELDS.some((field) => typeof row[field] !== 'string')) {
-      throw new Error(`第 ${index + 1} 条章节摘要字段不合法`)
-    }
-  }
-  return value as unknown as ChapterSummariesState
+  const result = validateSummariesState(value)
+  if (result.ok) return result.value
+  throw new Error(describeIssues('chapter_summaries.json', result.issues))
 }
 
 function isChapterSummaries(value: unknown): value is ChapterSummariesState {
-  try {
-    validateChapterSummaries(value)
-    return true
-  } catch {
-    return false
-  }
+  return validateSummariesState(value).ok
+}
+
+/** 把字段级 issues 拼成可读错误。 */
+function describeIssues(file: string, issues: ReadonlyArray<StateIssue>): string {
+  return `${file} 不合法：${issues.map((issue) => `${issue.path} ${issue.message}`).join('；')}`
 }
 
 /** 读一份 JSON 的三种结局：成功、缺失、内容坏了。 */

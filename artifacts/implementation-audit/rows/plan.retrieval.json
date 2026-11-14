@@ -94,7 +94,7 @@
   "deviations": [
     "D22 素材过渡候选仍在 story-memory scope：复刻 storyDocuments 把 materials/*.md 作为 kind=material 加入同一批文档（story-index.ts:140-149），story_search 会返回 material（story-index.test.mjs:32-59；真实回执 seq 27/52）；源 story memory 只有 chapter-summary/hook/volume-summary（memory-retrieval.ts:180-221），素材是独立 scope（materials/retrieve.ts）。该债已登记 docs/scope.md:143 与 fidelity-audit.md:356 的 D22，计划 P6 偿还。",
     "检索层不再提供源的 MemorySelection 合约：没有 lookupSummaries/lookupHooks、semantic selector、retrievalTrace 的返回（memory-retrieval.ts:59-133,256-266）；这些被拆到 plan.context-select 的 context-package.ts:323-345,723-756。对调用方而言，row 标题里的「章前检索」只剩 search，选择与 trace 在另一行；本行不把拆层本身记债，但源的「检索+选择」单入口没有一一对上。",
-    "严格校验不一致：源用 HooksStateSchema/ChapterSummariesStateSchema 的 zod strict（memory-retrieval.ts:73-74,163-169）；复刻 validateHooks 拒绝重复 hookId（比源严），validateChapterSummaries 放过未知字段/非整数 chapter（比源松）。源可索引的重复 hook 工作区在复刻会抛错，源会拒绝的坏摘要在复刻可能进索引；严格读校验的债分别归 foundation.hooks 与 chapter.settle。",
+    "严格校验不一致：源用 HooksStateSchema/ChapterSummariesStateSchema 的 zod strict（memory-retrieval.ts:73-74,163-169）；复刻 validateHooks 拒绝重复 hookId（比源严），validateChapterSummaries 已随 AU-26 改为 strict（未知字段/非整数 chapter 拒绝）。源可索引的重复 hook 工作区在复刻会抛错，源会拒绝的坏摘要在复刻可能进索引；严格读校验的债分别归 foundation.hooks 与 chapter.settle。",
     "material 文档正文截断到 4000 字（story-index.ts:147）；源的素材摄取/检索有自己的大小与切段策略（materials/retrieve.ts），过渡候选不是源行为。",
     "trace 的候选 id 命名不同：源用 summary:<chapter>/hook:<hookId>/volume-summary:<index>（memory-retrieval.ts:223-233）；复刻 context-package 的 memory 候选用 memory:<source>（context-package.ts:328,750），写进 ChapterTrace 后 id 前缀与源不同。该差异属 plan.context-select 的 trace 组装，但根源是本行 story-index 的文档 id 不含 kind 前缀。",
     "源检索会把第 N-1 章摘要强制放进选定摘要（memory-retrieval.ts:256-266）；复刻检索只返回命中/候选，强制包含由调用方的 selection 决定且没有实现（context-package.ts:323-345,612-628）。该行为债归 plan.context-select。"
@@ -104,6 +104,6 @@
     "素材过渡候选是已登记的 D22/P6 债，不是永久设计；本行把它计入不等价，是因为当前 story_search 的可见结果确实包含 material。",
     "源没有对外的 story_search 工具，story-memory 检索是 composer 内部的 retrieveMemorySelection；复刻用 tools.register 暴露只读入口，这是 DSH 机制（docs/dsh-mapping.md:19 的「工具」行），但工具面的查询参数与输出形状由复刻自定。",
     "本行不覆盖语义选择：源 retrieveMemorySelection 的 selector 与 trace 由 plan.context-select 的候选/子代理流程承接，本行只审计检索内核、故事记忆类型与来源标注。",
-    "对照：capabilities.yaml:243-250 标 verified；docs/fidelity-audit.md:348-356 判「未关闭差异」（D22/D23）；本审计确认未关闭差异，并把 strictness 与 trace id 命名补进本行。"
+    "对照：capabilities.yaml:243-250 标 verified；docs/fidelity-audit.md:348-356 判「未关闭差异」（D22/D23）；本审计确认未关闭差异，strictness 的摘要部分已随 AU-26 修复，trace id 等其余项仍在。"
   ]
 }

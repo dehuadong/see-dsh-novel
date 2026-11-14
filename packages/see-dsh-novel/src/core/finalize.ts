@@ -17,6 +17,7 @@ import type { StateSnapshot } from './state.js'
 import { STORY_ROOT } from './story-paths.js'
 import type { Work } from './work.js'
 import { readWork } from './work.js'
+import { activateWorkStatus } from './work-status.js'
 
 export { CHAPTER_INDEX_PATH }
 export type { ChapterIndexEntry } from './chapter-index.js'
@@ -82,7 +83,7 @@ export async function finalizeChapter(root: string, chapter: number): Promise<Fi
   }
   // 只补缺失：已有本章条目时不覆盖。
   const nextEntries = existingIndex >= 0 ? entries : [...entries, entry]
-  const status: Work['status'] = work.status === 'draft' ? 'active' : work.status
+  const status = activateWorkStatus(work)
   const nextWork: Work = { ...work, status, updatedAt: status === work.status ? work.updatedAt : now }
   const artifact = (await currentChapterArtifact(root, chapter)) === null
     ? await chapterArtifactWrite(root, { chapter, chapterPath: document.path, content: await (await import('node:fs/promises')).readFile(join(root, document.path), 'utf8') })

@@ -19,6 +19,7 @@ import { installDeleteTool } from '../src/pipelines/long/delete-tool.ts'
 import { installReviseTool } from '../src/pipelines/long/revise-tool.ts'
 import { installReviewTool } from '../src/pipelines/long/review-tool.ts'
 import { installSettleTool } from '../src/pipelines/long/settle-tool.ts'
+import { finalizeChapter } from '../src/core/finalize.ts'
 import { installResettleTool } from '../src/pipelines/long/resettle-tool.ts'
 import { repairWorkspace, scanWorkspace } from '../src/core/recovery.ts'
 import { STORY_CHAPTER_SUMMARIES_MD, STORY_CURRENT_STATE_MD, STORY_PENDING_HOOKS, WORK_FILE } from '../src/core/story-paths.ts'
@@ -1184,5 +1185,44 @@ test('a broken usage file is ignored and removed on publish', async () => {
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  }
+})
+
+test('a state file with an unknown field is rejected before any write', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({
+      chapter: 0, facts: [], extra: 1,
+    }))
+    await assert.rejects(tool(root).execute(delta(), exec), /状态文件损坏|不合法|未知字段/)
+    assert.equal(existsSync(join(root, 'source/chapters/0001_雨夜.md')), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('chapter 0 state is accepted as the settlement baseline', async () => {
+  const root = await workspace()
+  try {
+    await seedSnapshot(root, 0)
+    const result = await tool(root).execute(delta(), exec)
+    assert.equal(result.status, 'proposal')
+    assert.match(result.proposalPath, /settlement-0001/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('finalize reactivates a draft work after settlement', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    const work = await readJson(root, 'work.json')
+    await writeFile(join(root, 'work.json'), JSON.stringify({ ...work, status: 'draft' }))
+    const result = await finalizeChapter(root, 1)
+    assert.equal(result.status, 'active')
+    assert.equal((await readJson(root, 'work.json')).status, 'active')
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })

@@ -78,7 +78,7 @@
     "只有 process-level 证据；没有真实 DSH 会话回执。",
     "摘要没有独立工具入口，只能通过 story_settle_chapter 提交；源同样由 settler 在结算里产出，没有独立摘要步骤。",
     "title 空白处理有细微差别：复刻先 trim 再要求非空，源只要求原始长度≥1 并按原样存储；纯空白或带首尾空白的 title 落盘字节会不同。",
-    "四份状态读取对摘要行比源宽松（未知字段／非整数 chapter 不拒）；该缺口归 chapter.settle 的严格基线债，不在摘要写入路径。",
+    "摘要行 strict 已随 AU-26 的共享 state-schema 修复（未知字段/非整数 chapter/空 title 拒绝）；摘要写入行为未变。",
     "摘要的 tokenUsage 不单独记录；按章用量由 chapter.settle 的 tokenUsage 承接。",
     "对照：capabilities.yaml:299-306 标 verified；docs/fidelity-audit.md:412-418 判「等价（D48 注销）」；本审计对有效输入确认该判定（读校验缺口另记 chapter.settle）。"
   ]

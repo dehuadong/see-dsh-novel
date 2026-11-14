@@ -47,6 +47,7 @@ import {
   writeSettlementProposal,
 } from '../../core/settlement-proposal.js'
 import { readWork } from '../../core/work.js'
+import { activateWorkStatus } from '../../core/work-status.js'
 import type { Work } from '../../core/work.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
@@ -258,7 +259,7 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
     ? entries.map((current, index) => index === existingIndex ? entry : current)
     : [...entries, entry]
   const artifact = await chapterArtifactWrite(root, { chapter, chapterPath: relativePath, content })
-  const status: Work['status'] = work.status === 'draft' ? 'active' : work.status
+  const status = activateWorkStatus(work)
   const nextWork: Work = { ...work, status, updatedAt: status === work.status ? work.updatedAt : now }
   const updatedReview = {
     ...review,

@@ -8,7 +8,7 @@
 
 - 工件：[`../artifacts/implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)，逐行证据在 `artifacts/implementation-audit/rows/<id>.json`。
 - 冻结：仓库 `e3b7886`，源 `inkos` `8433323`。
-- 结论：等价 6、机制等价 13、保真债 26；realRun S 27、P 18、N 0；34 行有未关闭差异（见 [`scope.md`](scope.md) 的“2026-11-14 实现审计债” AU-01–AU-35）。
+- 结论：等价 6、机制等价 13、保真债 26；realRun S 27、P 18、N 0；33 行有未关闭差异（见 [`scope.md`](scope.md) 的“2026-11-14 实现审计债” AU-01–AU-35）。
 - 审计只读，不改 `capabilities.yaml` 状态；本节的 45 行判定表取代下方同名 `###` 段的旧判定；冲突以本表为准，旧段待按 AU 债修复。
 
 **判定唯一表**：以下 45 行是当前判定；下方同名 `###` 段的旧判定已失效。
@@ -52,7 +52,7 @@
 | chapter.review | 保真债 | AU-24 | [json](../artifacts/implementation-audit/rows/chapter.review.json) |
 | chapter.revise | 保真债 | AU-25 | [json](../artifacts/implementation-audit/rows/chapter.revise.json) |
 | chapter.summary | 保真债 | AU-35 | [json](../artifacts/implementation-audit/rows/chapter.summary.json) |
-| chapter.settle | 机制等价 | AU-26 | [json](../artifacts/implementation-audit/rows/chapter.settle.json) |
+| chapter.settle | 机制等价 |  | [json](../artifacts/implementation-audit/rows/chapter.settle.json) |
 | chapter.reopen | 机制等价 | AU-27 | [json](../artifacts/implementation-audit/rows/chapter.reopen.json) |
 | chapter.move-delete | 等价 |  | [json](../artifacts/implementation-audit/rows/chapter.move-delete.json) |
 | state.check | 机制等价 |  | [json](../artifacts/implementation-audit/rows/state.check.json) |

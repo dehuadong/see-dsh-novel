@@ -5,9 +5,11 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "503 passed／1 skipped（symlink）— 结算两阶段（发布/扣下的索引 lengthTelemetry 与 tokenUsage（usage 文件写入/删除、坏文件按缺省）（提案只写 .drafts、收据绑定、漂移拒绝）、attempt 1/2 与预算、扣下态（章节发布／状态停在 N-1／索引观察）、不可用不重试、重算失败不写盘、严格基线、扣下后重算与删除出口"
+    "summary": "511 passed／1 skipped（symlink）— 结算两阶段（发布/扣下的索引 lengthTelemetry 与 tokenUsage（usage 文件写入/删除、坏文件按缺省）（提案只写 .drafts、收据绑定、漂移拒绝）、attempt 1/2 与预算、扣下态（章节发布／状态停在 N-1／索引观察）、不可用不重试、重算失败不写盘、严格基线、扣下后重算与删除出口"
   },
   "receipts": [
+    "四份状态 JSON strict：未知字段/非整数 chapter/空 title/非法 hook status 拒绝；manifest/current_state/fact/hook 允许 chapter 0，summary 要求 ≥1；`inspectState` 保持 missing/invalid，`readStateSnapshot` 与结算前置拒绝。",
+    "`activateWorkStatus`：settle/finalize 共用 draft→active；源 outlining 映射与其余状态缺口写入 `artifacts/implementation-audit/dsh-deviations.md`。",
     "story_settle_chapter／story_resettle_chapter 不带 validation 只写 .drafts/settlement-NNNN.json（旧/新投影卡片、增量、正文与基线摘要），source/ 与章节索引字节不变；带 {proposalDigest, outcome, reportMarkdown} 提交且不再重发增量。",
     "发布（含扣下）的索引条目写 `lengthTelemetry`：target 取作品 `chapterWordCount`/默认，countingMode 按语言，writerCount 与 finalCount 用源口径正文数，postReviseCount=0，repairApplied=false；恢复补齐的索引条目同样写。若本章有 usage 文件（`story_record_chapter_usage` 把 writer／review 直接子会话四桶汇总为三字段），索引写 `tokenUsage` 并在发布成功时删除 usage 文件；无/坏文件按缺省不写。",
     "`story_record_chapter_usage` 只接受本会话直接 child（depth=1），四桶映射 prompt=uncached+cacheRead+cacheWrite、completion=output、total=两者之和；已发布章拒绝记录。`tokenUsage` 省略而非写 0（源恒写 0 的差异已登记）。D60 注销。",
