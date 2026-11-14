@@ -138,4 +138,4 @@ Status: implemented
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
 - 实施：`detectStage` 复用 `draftPath`；writer 契约加题材/平台/Skill、start 指令、min/max；write 回执 wordCount/delivery；删除标题前缀拒绝；账本改 write-tool/chapter-write.test。
-- 验证：`pnpm run verify` 523 passed／1 skipped；realRun chapter.write/stage-context 重录；CI 待回填。
+- 验证：`pnpm run verify` 523 passed／1 skipped；realRun chapter.write/stage-context 重录；CI `43577369534` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `ea647ae`）。
