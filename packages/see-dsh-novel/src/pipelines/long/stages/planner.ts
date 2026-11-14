@@ -2,6 +2,7 @@
  * 规划阶段的 planner 契约：方法句、memo 请求骨架与可用 hook id。
  */
 import { existsSync, readFileSync } from 'node:fs'
+import { authorInstructionSync } from '../../../core/workflow-start.js'
 import { join } from 'node:path'
 
 import { defaultChapterLength } from '../../../core/length.js'
@@ -48,8 +49,8 @@ export function renderPlannerContract(root: string): string {
     }
   })()
   const next = chapter + 1
-  const instruction = [STORY_EXTERNAL_BRIEF, CURRENT_FOCUS_FILE, AUTHOR_INTENT_FILE]
-    .map((file) => readText(join(root, file)))
+  const author = authorInstructionSync(root, next)
+  const instruction = [author ?? '', ...[STORY_EXTERNAL_BRIEF, CURRENT_FOCUS_FILE, AUTHOR_INTENT_FILE].map((file) => readText(join(root, file)))]
     .filter((text) => text !== '')
     .join('\n\n')
   const hooks = (() => {

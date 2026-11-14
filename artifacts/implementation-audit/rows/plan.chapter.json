@@ -156,11 +156,11 @@
     "packages/see-dsh-novel/test/stage-context.test.mjs:258-262：plan 阶段上下文含 `## planner 契约` 与 `# 第1章 memo 请求`",
     "real-run 记录 pnpm run verify 295 passed（planner-contract 3、plan-tool 1、chapter-plan 4），本次审计未重跑；冻结提交 e3b7886 当前测试规模已增至 437"
   ],
-  "realRunLevel": "S",
-  "realRunBasis": "artifacts/real-runs/plan.chapter.json：date=2026-11-09，sessionId=session-e96508fc-aff4-48b4-a934-5b70e4519e06（非 process:*），tests 与 4 条 receipts 齐全；该会话的 DSH 事件流存在于 .artifacts/session-e96508fc-latest.jsonl（第 13 行 runtime context 显示 `## 当前阶段：章前规划`＋`## planner 契约`；第 103 行 tool/result 为「第 1 章章纲已落盘：source/story/runtime/chapter-0001.plan.json、chapter-0001.intent.md」；第 82-83 行显示 planner-context 文件与 47 条 selectedContext），属真实 DSH 会话证据。回执日期早于冻结提交，且未重跑后续 D14/D15 变更。",
+  "realRunLevel": "P",
+  "realRunBasis": "process:plan.chapter（2026-11-14 重录；旧 2026-11-09 会话早于 planner 指令/复用改动，不可继续描述新行为；无新真实 DSH 会话）",
   "deviations": [
-    "复用语义与源相反：源只在 reuseExistingIntentWhenContextMissing 且 externalContext 为空时复用持久 plan，有新章级指令时重跑 planner 并覆盖 plan（runner.ts:2168-2186）；复刻 story_plan_chapter 对任何已存在 plan 无条件 reused:true、不覆盖、不校验入参（plan-tool.ts:109-118），没有「有新章级指令就重规划」的入口；唯一能重新生成 plan 的路径是先 reopen 最新已发布章（reopen.ts:245 清掉该章 runtime 含 plan），它不是新指令重规划而是把已发布章退回重审。2026-11-06-plan-planner-prompt.md:29 的否决理由「源工程只在没有持久 plan 时生成」与源不符。",
-    "source 不调用、复刻自创的两块提示输入：①「当前用户指令」在源只放 externalContext（planner.ts:93／planner-prompts.ts:27-28,36-37），复刻放 brief＋current_focus＋author_intent（stages/planner.ts:52-55），章级作者指令既不产生（/story-write No arguments，write-command.ts:61-66）也不读取（workflow-start.instruction 只写不读）；②源没有单独的 hook id 列表段，复刻从 hooks.json 注入全量 hook id（stages/planner.ts:69-76,89,97），可能列出未进入 governed context 的 id，与方法句「只使用输入中存在的 hook id」冲突。",
+    "已修（2026-11-14）：plan 工具按 instructionSource=author 覆盖、system 复用；阶段入口重规划仍未接。原差异：复用语义与源相反：源只在 reuseExistingIntentWhenContextMissing 且 externalContext 为空时复用持久 plan，有新章级指令时重跑 planner 并覆盖 plan（runner.ts:2168-2186）；复刻 story_plan_chapter 对任何已存在 plan 无条件 reused:true、不覆盖、不校验入参（plan-tool.ts:109-118），没有「有新章级指令就重规划」的入口；唯一能重新生成 plan 的路径是先 reopen 最新已发布章（reopen.ts:245 清掉该章 runtime 含 plan），它不是新指令重规划而是把已发布章退回重审。2026-11-06-plan-planner-prompt.md:29 的否决理由「源工程只在没有持久 plan 时生成」与源不符。",
+    "source 不调用、复刻自创的两块提示输入：①「当前用户指令」在源只放 externalContext（planner.ts:93／planner-prompts.ts:27-28,36-37），复刻放 brief＋current_focus＋author_intent（stages/planner.ts:52-55），章级作者指令已由 AU-11 产生、AU-22 续读取；hook id 段仍归 AU-18。原差异：既不产生（/story-write No arguments，write-command.ts:61-66）也不读取（workflow-start.instruction 只写不读）；②源没有单独的 hook id 列表段，复刻从 hooks.json 注入全量 hook id（stages/planner.ts:69-76,89,97），可能列出未进入 governed context 的 id，与方法句「只使用输入中存在的 hook id」冲突。",
     "「上一章正文」渠道与体量不同：源把整章正文（去首行标题）作为 protected 上下文条目（planning-materials.ts:37-46＋planner.ts:70-83），其 user message 从不渲染该段（planner.ts:129-138 未传 previousChapter）；复刻把摘要截成末尾 2000 字（context-package.ts:224）同时再以独立提示段注入（stages/planner.ts:56-67），既改变了体量也新增了源提示里没有的段落。",
     "plan 阶段没有创作方法：源 planner 由 BaseAgent 注入已激活技能（base.ts:52-78；longform-novel requiredSkillIds=[inkos-long-writing]，builtin-profiles.ts:18；技能要求规划时加载 references/reader-contract-and-progression.md）；复刻 craftSkillsFor('plan') 返回 []（stages/index.ts:356-361），且冻结树里没有 story-plan 技能（skills/ 只有 longform-writing／story-proposal／story-review），阶段协议却声称「本阶段的创作方法已随上下文提供」。",
     "进度来源不同：源下一章取 chapters/index.json 的连续前缀 +1，索引与文件不一致即抛错（state-bootstrap.ts:4-47）；复刻取 current_state.chapter+1（plan-tool.ts:56-64,108；stages/planner.ts:44-51）。扣下/重开等状态与索引不一致时两者分叉，该差异只被 chapter.settle 的映射行间接覆盖，plan.chapter 自身没有 dsh-mapping 偏差行。",
@@ -176,6 +176,8 @@
     "docs/fidelity-audit.md:378 把「user message 分段（指令／上下文／上一章／字数遥测）」列为源证据，但 planner.planChapter 不传 previousChapter，该段在 planner 路径不存在；docs/fidelity-audit.md:382「与源缓存语义一致」「hook id／上一章结尾是源契约」也不成立。",
     "2026-11-06-plan-chapter.md 引用的 `skills/story-plan/SKILL.md` 在冻结树中不存在（skills/ 只有 longform-writing、story-proposal、story-review），该 Note 的『方法用 DSH 原生 Skill』一项与实现不符。",
     "对照：capabilities.yaml:267-274 标 verified；docs/fidelity-audit.md:376-382 判机制差异已登记（D14／D15 已偿还）并自认「上一章 2000 字／进度来源」为残余，但残余没有被登记成 scope 债，也没有 dsh-mapping 偏差行；本行按未登记行为差异裁决。",
-    "2026-11-14 AU-22 修复：删除独立上一章段、空白/字节/threadRefs 对齐、plan 工具三道 DSH 闸门登记；索引进度仍 current_state+1，复用语义/brief 指令段仍开放，AU-22 维持债。"
+    "2026-11-14 AU-22 修复：删除独立上一章段、空白/字节/threadRefs 对齐、plan 工具三道 DSH 闸门登记；索引进度仍 current_state+1，复用语义/brief 指令段仍开放，AU-22 维持债。",
+    "2026-11-14 AU-22 续：planner 只读 instructionSource=author 的 start 指令；plan 工具在 author 指令下覆盖旧 plan，system 复用。索引进度/detectStage/brief 仍开放。",
+    "2026-11-14 AU-22 续：planner 只读 author 来源；plan 工具直调覆盖/复用；阶段入口重规划仍缺。"
   ]
 }

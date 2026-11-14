@@ -51,7 +51,7 @@ export async function startChapter(root: string, instruction?: string): Promise<
     const chapter = current + 1
     if (await exists(join(root, chapterReviewPath(chapter)))) throw new Error(`第 ${chapter} 章已经有审稿记录，不再开始`)
     if (await workflowStarted(root, chapter)) throw new Error(`第 ${chapter} 章已经开始了`)
-    await writeWorkflowStart(root, { chapter, instruction: instruction ?? `开始第 ${chapter} 章` })
+    await writeWorkflowStart(root, { chapter, instruction: instruction ?? `开始第 ${chapter} 章`, instructionSource: instruction === undefined ? 'system' : 'author' })
     return { chapter }
   })
 }

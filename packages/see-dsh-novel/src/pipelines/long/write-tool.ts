@@ -81,7 +81,7 @@ export function installWriteTool(ctx: PluginContext): Disposer {
           language: work.language,
         })
         if (await readWorkflowStart(root) === null) {
-          await writeWorkflowStart(root, { chapter: args.chapter, instruction: '开始写作' })
+          await writeWorkflowStart(root, { chapter: args.chapter, instruction: '开始写作', instructionSource: 'system' })
         }
         const spec = chapterLengthSpecOf(work)
         const finalCount = countChapterLengthByMode(draft.content, spec.countingMode)

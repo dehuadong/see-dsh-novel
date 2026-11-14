@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import {
+  authorInstruction,
   clearWorkflowStart,
   readWorkflowStart,
   workflowStarted,
@@ -46,6 +47,24 @@ test('a malformed workflow start is rejected instead of treated as absent', asyn
     await writeFile(join(root, WORKFLOW_START_PATH), JSON.stringify({ version: 1, action: 'create_book', chapter: 1, instruction: 'x', createdAt: 'x' }), 'utf8')
     await assert.rejects(readWorkflowStart(root), /无效/)
     assert.match(await readFile(join(root, WORKFLOW_START_PATH), 'utf8'), /create_book/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('instructionSource validates and old records are system', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, WORKFLOW_START_PATH), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '开始第 1 章', instructionSource: 'nope', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    await assert.rejects(readWorkflowStart(root), /instructionSource/)
+    await writeFile(join(root, WORKFLOW_START_PATH), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '开始第 1 章', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    const start = await readWorkflowStart(root)
+    assert.equal(start.instructionSource, 'system')
+    assert.equal(await authorInstruction(root, 1), null)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

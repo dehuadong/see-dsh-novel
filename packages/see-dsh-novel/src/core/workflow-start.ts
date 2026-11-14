@@ -20,6 +20,8 @@ export interface WorkflowStart {
   action: 'write_next'
   chapter: number
   instruction: string
+  /** 作者附言与宿主句必须区分；旧记录按 system。 */
+  instructionSource?: 'author' | 'system'
   createdAt: string
 }
 
@@ -30,11 +32,16 @@ export async function readWorkflowStart(root: string): Promise<WorkflowStart | n
       throw new Error('workflow-start 记录无效')
     }
     if (typeof parsed.instruction !== 'string' || typeof parsed.createdAt !== 'string') throw new Error('workflow-start 记录无效')
+    if (parsed.instructionSource !== undefined && parsed.instructionSource !== 'author' && parsed.instructionSource !== 'system') {
+      throw new Error('workflow-start.instructionSource 无效')
+    }
+    if (parsed.instructionSource === 'author' && parsed.instruction.length === 0) throw new Error('workflow-start 作者指令不能为空')
     return {
       version: 1,
       action: 'write_next',
       chapter: parsed.chapter as number,
       instruction: parsed.instruction,
+      instructionSource: parsed.instructionSource ?? 'system',
       createdAt: parsed.createdAt,
     }
   } catch (error) {
@@ -44,15 +51,17 @@ export async function readWorkflowStart(root: string): Promise<WorkflowStart | n
 }
 
 /** 写一章的 start；同一时间只允许一条记录。 */
-export async function writeWorkflowStart(root: string, input: { chapter: number, instruction: string }): Promise<WorkflowStart> {
+export async function writeWorkflowStart(root: string, input: { chapter: number, instruction: string, instructionSource?: 'author' | 'system' }): Promise<WorkflowStart> {
   return withWorkAction(root, async () => {
     const existing = await readWorkflowStart(root)
     if (existing !== null) throw new Error(`第 ${existing.chapter} 章的 workflow start 还没有消费；先完成或清除它`)
+    const instructionSource = input.instructionSource ?? 'author'
     const start: WorkflowStart = {
       version: 1,
       action: 'write_next',
       chapter: input.chapter,
       instruction: input.instruction,
+      instructionSource,
       createdAt: new Date().toISOString(),
     }
     await commitFile(root, WORKFLOW_START_PATH, `${JSON.stringify(start, null, 2)}\n`)
@@ -121,10 +130,29 @@ export async function reviewStartWrites(root: string, chapter: number, instructi
     action: 'write_next',
     chapter,
     instruction,
+    instructionSource: 'system',
     createdAt: new Date().toISOString(),
   }
   return {
     writes: [{ relativePath: WORKFLOW_START_PATH, content: `${JSON.stringify(start, null, 2)}\n` }],
     ...(existing === null ? {} : { replacedStartChapter: existing.chapter }),
+  }
+}
+
+/** 本章作者附言；system/默认句/错章返回 null。 */
+export async function authorInstruction(root: string, chapter: number): Promise<string | null> {
+  const start = await readWorkflowStart(root)
+  return start !== null && start.chapter === chapter && start.instructionSource === 'author' ? start.instruction : null
+}
+
+/** 同步版；坏 JSON 视为无作者附言。 */
+export function authorInstructionSync(root: string, chapter: number): string | null {
+  try {
+    const parsed = JSON.parse(readFileSync(join(root, WORKFLOW_START_PATH), 'utf8')) as Partial<WorkflowStart>
+    return parsed.chapter === chapter && parsed.instructionSource === 'author' && typeof parsed.instruction === 'string'
+      ? parsed.instruction
+      : null
+  } catch {
+    return null
   }
 }

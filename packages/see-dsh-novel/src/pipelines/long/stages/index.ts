@@ -248,7 +248,7 @@ function renderStageBase(facts: StageFacts): string {
         '3. 调 `story_context_package`（purpose=planner，instruction 与上一步相同，selection=上一步的 id 集合）。若返回 compressionTask：对每个 chunk 派 subagent 压缩，合并后超预算重压一次；把最终文本作为 compressedText 重调 package。',
         `4. 按 package 写 memo（goal / body / threadRefs），再调 \`story_plan_chapter\` 落盘第 ${next} 章；plannerInputs 由宿主从 planner 包读取。`,
         '5. 本章正文已存在（重开保留了旧稿）时：规划落盘后停；作者要求整章重写时用 `story_revise_chapter`（rewrite／rework），不走首次写作入口。',
-        '只规划下一章；该章已有章纲时不覆盖。',
+        '只规划下一章；无作者附言且已有章纲时复用，不覆盖；作者附言存在时重规划并覆盖。',
         '规划落盘后即停，不自动写正文；正文仍属于同一个 workflow start，由当前阶段继续。',
         common,
       ].join('\n')

@@ -295,3 +295,10 @@
 - 复刻做法：`story_plan_chapter` 先要求基础设定六件套齐全、本章已有 workflow start，再落 plan；chapter+1 闸门仍按 current_state；索引进度为 AU-22 残余。
 - 原因：DSH 的工具是独立授权边界，宿主必须在工具入口拒绝未立项/未开工的写入；这两道闸门是阶段与授权机制的落点。
 - 验证：`test/plan-tool.test.mjs` 的 plan 工具基础前置；闸门行为由工具/阶段测试覆盖。
+
+### plan.chapter：externalContext 映射到 workflow-start.instruction
+
+- 源工程做法：`writeChapters` 的 `externalContext` 来自调用方 config/写选项，planner 将其作为 currentInstruction。
+- 复刻做法：作者附言存在 `workflow-start.instruction` 并标记 `instructionSource: author`；planner 只读 author 来源，宿主句/默认句标记 system。
+- 原因：DSH 的写确认是独立命令/start，作者输入必须落在会话前的 start 记录里，而不是调用参数。
+- 验证：`test/planner-contract.test.mjs` 的附言段；`test/plan-tool.test.mjs` 的复用/覆盖。

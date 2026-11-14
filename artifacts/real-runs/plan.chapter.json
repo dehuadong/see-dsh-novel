@@ -1,13 +1,15 @@
 {
   "capability": "plan.chapter",
-  "date": "2026-11-09",
-  "sessionId": "session-e96508fc-aff4-48b4-a934-5b70e4519e06",
+  "date": "2026-11-14",
+  "sessionId": "process:plan.chapter",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "535 passed／1 skipped（symlink） — planner-contract 3 例、plan-tool 1 例（plannerInputs 从 planner-context 读取、首次写入、二次 reused）、chapter-plan 4 例、stage plan 阶段"
+    "summary": "541 passed／1 skipped（symlink） — planner-contract 4 例、plan-tool 2 例、write-command 6 例（plannerInputs 从 planner-context 读取、首次写入、二次 reused）、chapter-plan 4 例、stage plan 阶段"
   },
   "receipts": [
+    "planner 只读 instructionSource=author 的 start；plan 工具直调 author 覆盖、system 复用；阶段入口重规划仍缺（AU-22 残余）。",
+    "instructionSource author/system；planner 只读 author；plan 工具 author 覆盖、system 复用。",
     "删除独立上一章提示段；空白/字节/threadRefs 对齐源；plan 工具基础设定/workflow start/current+1 三道闸门登记；索引进度未实现（AU-22 残余）。",
     "planner 契约注入（`.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`renderPlannerContract` 的首轮上下文包含方法句「把输入的 governed context 编译为一份章节 memo，不写正文」、`# 第1章 memo 请求`、当前用户指令、可用 hook id 与字数遥测。",
     "planner pass 先于 memo：`story_context_candidates(purpose=planner)` → `story_context_package(purpose=planner)` 写 `chapter-0001.planner-context.json`（43 条），再调 `story_plan_chapter`。",

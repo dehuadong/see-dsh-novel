@@ -64,3 +64,17 @@ test('missing instruction, previous chapter and hooks omit their sections', asyn
     await cleanup(root)
   }
 })
+
+test('the planner contract carries the author start instruction', async () => {
+  const root = await workspace('zh')
+  try {
+    await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 2, instruction: '写得更冷', instructionSource: 'author', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    const text = renderPlannerContract(root)
+    assert.match(text, /## 当前用户指令\n写得更冷/)
+  } finally {
+    await cleanup(root)
+  }
+})

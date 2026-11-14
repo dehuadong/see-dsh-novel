@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 2026-11-14 由 [`2026-11-14-planner-instruction-reuse.md`](2026-11-14-planner-instruction-reuse.md) 修订：planner 读取作者附言；plan 工具按 author/system 覆盖或复用；上一章独立段已删除；hook id/技能归 AU-18。本 Note 的“不覆盖/无入参变化覆盖”已失效。
+
 ## Problem（D14／D15）
 
 `plan.chapter` 只有阶段协议的工具顺序，没有源工程的 planner 提示；`story_plan_chapter` 遇到已存在 plan 直接拒绝，而源工程按持久 plan 复用（`loadPersistedPlan` 命中即返回）。
@@ -26,7 +28,7 @@ Status: implemented
 
 **保留「已存在即拒绝」。** 否掉：源工程是复用缓存；拒绝会让重试与恢复不可用。
 
-**入参变化时覆盖。** 否掉：源工程只在没有持久 plan 时生成。
+**入参变化时覆盖。** 原否掉；2026-11-14 修订：源在 externalContext 非空时重跑 planner 并覆盖持久 plan，见 AU-22 续。
 
 ## Consequences
 

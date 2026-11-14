@@ -108,6 +108,29 @@ test('the command writes the author instruction into workflow start', async () =
     assert.equal(result.kind, 'success')
     const start = JSON.parse(await readFile(join(root, WORKFLOW_START_PATH), 'utf8'))
     assert.equal(start.instruction, '写得更冷')
+    assert.equal(start.instructionSource, 'author')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the empty command writes a system default instruction', async () => {
+  const root = await workspace()
+  try {
+    const commands = new Map()
+    installWriteCommand({
+      commands: { register: (definition) => { commands.set(definition.name, definition); return () => commands.delete(definition.name) } },
+      workingDirectory: { ensure: async () => root },
+    })
+    const result = await commands.get(COMMAND_WRITE).handler({
+      agent: { session: { snapshotEvents: () => [] }, followup: () => {} },
+      rawInput: '',
+      signal: new AbortController().signal,
+    })
+    assert.equal(result.kind, 'success')
+    const start = JSON.parse(await readFile(join(root, WORKFLOW_START_PATH), 'utf8'))
+    assert.equal(start.instructionSource, 'system')
+    assert.equal(start.instruction, '开始第 1 章')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

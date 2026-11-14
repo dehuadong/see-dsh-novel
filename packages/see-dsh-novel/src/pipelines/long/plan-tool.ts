@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { withWorkAction } from '../../core/work-mutation.js'
-import { workflowStarted } from '../../core/workflow-start.js'
+import { authorInstruction, workflowStarted } from '../../core/workflow-start.js'
 import { chapterIntentPath, chapterPlanPath, loadChapterPlan, loadPlannerContext, saveChapterPlan } from '../../core/chapter-plan.js'
 import {
   STORY_CHAPTER_SUMMARIES_MD,
@@ -107,7 +107,8 @@ export function installPlanTool(ctx: PluginContext): Disposer {
         const current = await readChapter(root)
         if (args.chapter !== current + 1) throw new Error(`只能规划第 ${current + 1} 章（当前第 ${current} 章）`)
         const existing = await loadChapterPlan(root, args.chapter)
-        if (existing !== null) {
+        const author = await authorInstruction(root, args.chapter)
+        if (existing !== null && author === null) {
           return {
             chapter: args.chapter,
             planPath: chapterPlanPath(args.chapter),

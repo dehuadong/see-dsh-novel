@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { installPlanTool, PLAN_NAME } from '../src/pipelines/long/plan-tool.ts'
+import { detectStage } from '../src/pipelines/long/stages/index.ts'
 import { chapterPlanPath } from '../src/core/chapter-plan.ts'
 import { writeWorkflowStart } from '../src/core/workflow-start.ts'
 
@@ -30,7 +31,7 @@ async function workspace() {
     chapter: 1,
     selectedContext: [{ source: 'source/story/outline/story_frame.md', reason: 'planner', protection: 'protected' }],
   }))
-  await writeWorkflowStart(root, { chapter: 1, instruction: '写第一章' })
+  await writeWorkflowStart(root, { chapter: 1, instruction: '写第一章', instructionSource: 'system' })
   return root
 }
 
@@ -63,3 +64,22 @@ test('a missing plan is written once and reused afterwards', async () => {
     await rm(root, { recursive: true, force: true })
   }
 })
+
+test('an author instruction re-plans and overwrites an existing plan', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '写得更冷', instructionSource: 'author', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    const tool = fakeContext(root)
+    const first = await tool.execute(args, exec)
+    assert.equal(first.reused, false)
+    const second = await tool.execute({ ...args, goal: '更冷' }, exec)
+    assert.equal(second.reused, false)
+    assert.match(await readFile(join(root, second.planPath), 'utf8'), /更冷/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+
