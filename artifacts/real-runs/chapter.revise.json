@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "495 passed／1 skipped（symlink）— chapter-revise 22 例（范围配对/排序/重叠/越界、空串删段、多行替换、多段区域、content 不一致、缺 replacements、targetText 任意模式、构造归一、归档与 revision、索引更新/追加/后代 upstream-revision、缺索引与坏 JSON 拒绝、英文通知、2000 截断、changed=false 空区域、索引 lengthTelemetry（条目 target 优先、修订前后字数、repairApplied、tokenUsage 保留、en_words 条目口径））＋ chapter-reopen 的「修订已发布章进 review 并替换他章 start」＋ stage-context 回归"
+    "summary": "503 passed／1 skipped（symlink）— chapter-revise 22 例（范围配对/排序/重叠/越界、空串删段、多行替换、多段区域、content 不一致、缺 replacements、targetText 任意模式、构造归一、归档与 revision、索引更新/追加/后代 upstream-revision、缺索引与坏 JSON 拒绝、英文通知、2000 截断、changed=false 空区域、索引 lengthTelemetry（条目 target 优先、修订前后字数、repairApplied、tokenUsage 保留、en_words 条目口径））＋ chapter-reopen 的「修订已发布章进 review 并替换他章 start」＋ stage-context 回归"
   },
   "receipts": [
     "修订覆盖同一章节文件、把旧正文归档到 `source/chapters/.versions/NNNN/<ts>_revision_<uuid>.md`、追加 artifact revision（r2，parent r1，旧 revision superseded）。",

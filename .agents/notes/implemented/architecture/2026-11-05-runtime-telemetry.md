@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：四桶读取与观察释放抽到 `plugin/session-usage.ts`，`story_telemetry` 回执不变；按章用量另见 [chapter.settle —— 按章用量记账](2026-11-14-chapter-usage.md)。
+
 ## Problem
 
 委派已经能发生（`subagent` 工具在预设里挂着），但事后没有一份按作品可读的账：主编把一段活派给写手，只知道结果文本，不知道这一趟花了多少 token、跑了多久、正常结束还是中途失败。作者问「这一章花了多少」，只能猜。

@@ -8,6 +8,7 @@ import { installReviseTool } from '../src/pipelines/long/revise-tool.ts'
 import { countChapterLength, loadChapterDocument, reviseChapterDocument, writeChapterDocument } from '../src/core/chapter-document.ts'
 import { loadArtifactStore, readArtifactRevision } from '../src/core/artifact-store.ts'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
+import { chapterUsagePath } from '../src/core/chapter-usage.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { applyRangeEdits, assertTargetText, normalizeRangeEdits } from '../src/core/revise.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
@@ -544,6 +545,27 @@ test('revising uses an en_words entry counting mode', async () => {
     assert.equal(index[0].lengthTelemetry.countingMode, 'en_words')
     assert.equal(index[0].lengthTelemetry.finalCount, 3)
     assert.equal(index[0].wordCount, 3)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a usage file does not affect revision and tokenUsage stays absent', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+    await writeFile(join(root, chapterUsagePath(1)), JSON.stringify({
+      version: 1,
+      chapter: 1,
+      childSessionIds: ['writer', 'reviewer'],
+      tokenUsage: { promptTokens: 1250, completionTokens: 800, totalTokens: 2050 },
+      createdAt: '2026-11-10T00:00:00.000Z',
+    }, null, 2) + '\n')
+    const result = await tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec)
+    assert.equal(result.changed, true)
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.equal(index[0].tokenUsage, undefined)
+    await stat(join(root, chapterUsagePath(1)))
   } finally {
     await rm(root, { recursive: true, force: true })
   }

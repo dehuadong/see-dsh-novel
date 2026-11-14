@@ -5,9 +5,10 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "490 passed／1 skipped（symlink）— chapter-review 10 例（观察校验与二次拒绝、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章无章纲只用正文、已发布章写回索引、草稿不写索引、索引缺失/损坏/schema 不符拒绝、索引无行不改、空 code/summary/quote 拒绝、空白引文不额外拒绝）＋ chapter-reopen 的「恢复→复审替换 manual-edit-review」＋ review-contract 4 例与 stage review 回归"
+    "summary": "503 passed／1 skipped（symlink）— chapter-review 10 例（观察校验与二次拒绝、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章无章纲只用正文、已发布章写回索引、草稿不写索引、索引缺失/损坏/schema 不符拒绝、索引无行不改、空 code/summary/quote 拒绝、空白引文不额外拒绝）＋ chapter-reopen 的「恢复→复审替换 manual-edit-review」＋ review-contract 4 例与 stage review 回归"
   },
   "receipts": [
+    "`review` 阶段协议要求派审稿子代理产出 observations，主会话拿回后调 `story_review_chapter`；审稿用量因此可按直接子会话记录。",
     "`story_review_chapter` 继续校验 observation 的 code／summary／assessment／category／evidence／sourceRefs，并把审稿记录写入 `source/story/runtime/chapter-XXXX.review.json`；同一章已有记录时拒绝。",
     "已发布章（`source/chapters/NNNN_*.md` 存在）审稿时，在写审稿记录的同一个 `commitFoundation` 里更新 `source/chapters/index.json` 的该章条目：`updatedAt` 置 now，`observations` 整体替换为本次 resolved 观察；`title`／`wordCount`／`createdAt`／`provenance`／`lengthTelemetry`／`tokenUsage` 保留。草稿审稿不读也不写索引；索引缺失、坏 JSON 或 schema 不符时拒绝审稿；索引无该章条目时不补行、不改该章条目。",
     "已发布章（`source/chapters/NNNN_*.md` 存在）在章纲缺失、不可读或解析失败时，`reviewSources` 只返回章节正文来源，审稿仍可落盘；草稿态仍要求章纲，缺章纲继续拒绝。",

@@ -9,6 +9,7 @@ import { applySettlement } from '../src/core/settle.ts'
 import { writeChapterDraft } from '../src/core/chapter-draft.ts'
 import { existsSync } from 'node:fs'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
+import { chapterUsagePath } from '../src/core/chapter-usage.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { inspectState, readStateSnapshot, snapshotWrites } from '../src/core/state.ts'
 import { reopenChapter, restoreChapter } from '../src/core/reopen.ts'
@@ -801,6 +802,13 @@ test('the first failed reconciliation retries once and the second withholds stat
   const root = await workspace()
   try {
     await seedSnapshot(root, 0)
+    await writeFile(join(root, chapterUsagePath(1)), JSON.stringify({
+      version: 1,
+      chapter: 1,
+      childSessionIds: ['writer', 'reviewer'],
+      tokenUsage: { promptTokens: 1250, completionTokens: 800, totalTokens: 2050 },
+      createdAt: '2026-11-10T00:00:00.000Z',
+    }, null, 2) + '\n')
     const commit = (digest, outcome, reportMarkdown) => tool(root).execute({
       chapter: 1,
       validation: { proposalDigest: digest, outcome, reportMarkdown },
@@ -822,6 +830,8 @@ test('the first failed reconciliation retries once and the second withholds stat
     assert.equal((await readJson(root, 'source/story/snapshots/1/state/manifest.json')).lastAppliedChapter, 0)
     const index = await readJson(root, 'source/chapters/index.json')
     assert.equal(index[0].observations.at(-1).code, 'state-reconciliation')
+    assert.deepEqual(index[0].tokenUsage, { promptTokens: 1250, completionTokens: 800, totalTokens: 2050 })
+    assert.equal(existsSync(join(root, chapterUsagePath(1))), false)
     assert.deepEqual(index[0].lengthTelemetry, {
       target: 300,
       countingMode: 'zh_chars',
@@ -1123,5 +1133,56 @@ test('recover writes length telemetry when it rebuilds a missing index row', asy
     })
   } finally {
     await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('publishing writes recorded usage and removes the usage file', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, chapterUsagePath(1)), JSON.stringify({
+      version: 1,
+      chapter: 1,
+      childSessionIds: ['writer', 'reviewer'],
+      tokenUsage: { promptTokens: 1250, completionTokens: 800, totalTokens: 2050 },
+      createdAt: '2026-11-10T00:00:00.000Z',
+    }, null, 2) + '\n')
+    await settle(root)
+    const index = await readJson(root, 'source/chapters/index.json')
+    assert.deepEqual(index[0].tokenUsage, { promptTokens: 1250, completionTokens: 800, totalTokens: 2050 })
+    assert.equal(existsSync(join(root, chapterUsagePath(1))), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a broken usage file is ignored and removed on publish', async () => {
+  const contents = [
+    '{broken',
+    JSON.stringify({
+      version: 1,
+      chapter: 2,
+      childSessionIds: ['writer'],
+      tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+      createdAt: '2026-11-10T00:00:00.000Z',
+    }),
+    JSON.stringify({
+      version: 1,
+      chapter: 1,
+      childSessionIds: ['writer'],
+      tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3, cacheReadTokens: 4 },
+      createdAt: '2026-11-10T00:00:00.000Z',
+    }),
+  ]
+  for (const content of contents) {
+    const root = await workspace()
+    try {
+      await writeFile(join(root, chapterUsagePath(1)), content)
+      await settle(root)
+      const index = await readJson(root, 'source/chapters/index.json')
+      assert.equal(index[0].tokenUsage, undefined)
+      assert.equal(existsSync(join(root, chapterUsagePath(1))), false)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   }
 })

@@ -115,6 +115,7 @@ test('apply registers the work, story_next, foundation and gate tools, the appro
     STORY_NEXT_NAME,
     'story_plan_chapter',
     'story_propose',
+    'story_record_chapter_usage',
     'story_recover',
     'story_reopen_chapter',
     'story_resettle_chapter',

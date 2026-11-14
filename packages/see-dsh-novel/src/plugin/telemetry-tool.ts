@@ -9,12 +9,14 @@ import type {
   ExecuteContext,
   JsonSchema,
   PluginContext,
-  SessionObservationLike,
   SessionQueryLike,
   SubagentRowLike,
   SubagentsLike,
   ToolDefinition,
 } from '../core/types.js'
+import { release, usageOf } from './session-usage.js'
+import type { UsageBuckets } from './session-usage.js'
+
 
 /** 工具名；注册与测试共用。 */
 export const TELEMETRY_NAME = 'story_telemetry'
@@ -25,14 +27,6 @@ const MAX_LIMIT = 200
 
 /** 一笔委派的四种可判定状态。 */
 export type DelegationState = 'completed' | 'incomplete' | 'running' | 'unknown'
-
-/** `tokenUsage` 投影的四个互不重叠的桶。 */
-export interface UsageBuckets {
-  uncachedInputTokens: number
-  outputTokens: number
-  cacheReadTokens: number
-  cacheWriteTokens: number
-}
 
 /** 一笔委派。 */
 export interface Delegation {
@@ -63,14 +57,6 @@ export interface TelemetryResult {
   }
   delegations: Delegation[]
   diagnostics: Diagnostic[]
-}
-
-/** `tokenUsage` 投影在本行关心的形状。 */
-interface TokenUsageProjection {
-  uncachedInputTokens?: unknown
-  outputTokens?: unknown
-  cacheReadTokens?: unknown
-  cacheWriteTokens?: unknown
 }
 
 /** `subagentTiming` 投影在本行关心的形状。 */
@@ -159,20 +145,6 @@ function finite(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
 }
 
-/** 读四个桶；任一不是数字就当整份用量不可得。 */
-function usageOf(value: unknown): UsageBuckets | undefined {
-  if (value === null || typeof value !== 'object') return undefined
-  const projection = value as TokenUsageProjection
-  const buckets = {
-    uncachedInputTokens: finite(projection.uncachedInputTokens),
-    outputTokens: finite(projection.outputTokens),
-    cacheReadTokens: finite(projection.cacheReadTokens),
-    cacheWriteTokens: finite(projection.cacheWriteTokens),
-  }
-  if (Object.values(buckets).some((bucket) => bucket === undefined)) return undefined
-  return buckets as UsageBuckets
-}
-
 /** 耗时（可能为 null）与两个状态信号；状态判断不依赖耗时是否可读。 */
 function timingOf(value: unknown): { durationMs: number | null, lastTurnCompleted: boolean | undefined, openTurn: boolean } | undefined {
   if (value === null || typeof value !== 'object') return undefined
@@ -202,16 +174,6 @@ function limitOf(value: unknown): number {
   }
   if (limit > MAX_LIMIT) throw new Error(`limit 不能超过 ${MAX_LIMIT}，实际是 ${limit}`)
   return limit
-}
-
-/** 宿主把释放方法挂在 `[Symbol.dispose]` 上（`SessionObservation extends Disposable`）。 */
-const SYMBOL_DISPOSE = (Symbol as unknown as { dispose?: symbol }).dispose
-
-/** 释放一份观察；宿主只提供 `[Symbol.dispose]`，没有这个符号就什么都不做。 */
-function release(observation: SessionObservationLike): void {
-  if (SYMBOL_DISPOSE === undefined) return
-  const dispose = (observation as Record<symbol, unknown>)[SYMBOL_DISPOSE]
-  if (typeof dispose === 'function') (dispose as () => void).call(observation)
 }
 
 /**

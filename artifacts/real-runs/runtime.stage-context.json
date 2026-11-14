@@ -5,13 +5,14 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "484 passed／1 skipped（symlink）— stage-context 7 例（阶段判定与 reviewTarget、已发布章 start 命中 review 目标、重算块注入条件、扣下/遗留两态、chapter-done 两阶段协议、英文契约、其它预设不注入）＋ 结算/恢复/面板回归"
+    "summary": "503 passed／1 skipped（symlink）— stage-context 7 例（阶段判定与 reviewTarget、已发布章 start 命中 review 目标、重算块注入条件、扣下/遗留两态、chapter-done 两阶段协议、英文契约、其它预设不注入）＋ 结算/恢复/面板回归"
   },
   "receipts": [
     "`StageFacts` 增加 `reviewTarget`：`detectStage` 在 `chapter-done` 判断之前检查「start 指向已发布章（startChapter <= currentChapter）且该章无审稿记录」，命中则阶段为 `review`、目标为该章；普通下一章的 review 目标仍是 `currentChapter + 1`；其它阶段为 0。",
     "`chapter-done` 协议写两阶段：派 settler → 不带 validation 生成提案 → 派 state-check 子代理读提案/正文/story_frame/book_rules 对账 → 带 {proposalDigest, outcome, reportMarkdown} 提交；含判据、failureReport 原文用法、attempt 2 扣下含义与修复入口，并注明结算前不得调用 `story_state_check`。",
     "`chapter-done` 第 4 步更新：重开只限最新已发布且最后已结算章、状态从 N-1 快照回退、三件套缺失指向 `story_recover`；恢复保留章纲并写复审 start；重开后改稿走 `story_revise_chapter`，不直接审旧稿。",
-    "`review` 阶段文案按目标章编号；「重开保留的旧稿」提示先问作者是否改稿，改稿走修订；审阅完回到等待下一章。",
+    "`review` 阶段文案按目标章编号；协议要求派审稿子代理产出 observations；「重开保留的旧稿」提示先问作者是否改稿，改稿走修订；审阅完回到等待下一章。",
+    "`chapter-done` 结算步骤新增「记录本章用量（可选）」：`story_telemetry` 找 writer／review 直接子会话 id → `story_record_chapter_usage`；结算写索引 `tokenUsage` 并删除 usage 文件；拿不到就跳过。",
     "扣下态（章在、快照在）追加「用 story_resettle_chapter 重建，不要再次结算/重开上一章」；遗留「已发布未结算」（章在、快照缺）保持 `story_recover` 人工步骤。",
     "该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]

@@ -289,7 +289,7 @@ capabilities:
     realRun: artifacts/real-runs/chapter.review.json
     status: verified
   - id: chapter.revise
-    title: spot-fix/polish/rewrite/rework/anti-detect；reviser 方法 prompt；索引长度遥测
+    title: spot-fix/polish/rewrite/rework/anti-detect；reviser 方法 prompt；索引长度遥测；保留 tokenUsage
     source: inkos:packages/core/src/agents/reviser.ts、pipeline/runner.ts、utils/length-metrics.ts
     dsh: subagents
     implementation: packages/see-dsh-novel/src/pipelines/long/revise-tool.ts
@@ -305,8 +305,8 @@ capabilities:
     realRun: artifacts/real-runs/chapter.summary.json
     status: verified
   - id: chapter.settle
-    title: 结算增量、伏笔合并、基线重算、结算前状态对账与索引长度遥测
-    source: inkos:packages/core/src/agents/settler-tool.ts、agents/state-validator.ts、pipeline/chapter-truth-validation.ts、pipeline/chapter-state-recovery.ts、state/state-validator.ts、pipeline/chapter-persistence.ts、utils/length-metrics.ts
+    title: 结算增量、伏笔合并、基线重算、结算前状态对账、索引长度遥测与按章 tokenUsage
+    source: inkos:packages/core/src/agents/settler-tool.ts、agents/state-validator.ts、pipeline/chapter-truth-validation.ts、pipeline/chapter-state-recovery.ts、state/state-validator.ts、pipeline/chapter-persistence.ts、utils/length-metrics.ts、models/chapter.ts
     dsh: tools.register + storage
     implementation: packages/see-dsh-novel/src/core/settlement.ts
     consumer: packages/see-dsh-novel/test/chapter-settle.test.mjs

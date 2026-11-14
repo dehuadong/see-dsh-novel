@@ -38,6 +38,26 @@ export interface TokenUsage {
   totalTokens: number
 }
 
+/** 索引里的三字段用量：恰好三个整数字段（与源 schema 同形，不额外约束正负或求和）。 */
+export function isIndexTokenUsage(value: unknown): value is TokenUsage {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const keys = Object.keys(value)
+  if (keys.length !== 3 || keys.some((key) => !['promptTokens', 'completionTokens', 'totalTokens'].includes(key))) return false
+  const usage = value as Partial<TokenUsage>
+  return Number.isInteger(usage.promptTokens)
+    && Number.isInteger(usage.completionTokens)
+    && Number.isInteger(usage.totalTokens)
+}
+
+/** usage 文件的三字段：在索引形状上再要求非负与 total=prompt+completion。 */
+export function isTokenUsage(value: unknown): value is TokenUsage {
+  if (!isIndexTokenUsage(value)) return false
+  const usage = value as TokenUsage
+  return usage.promptTokens >= 0
+    && usage.completionTokens >= 0
+    && usage.totalTokens === usage.promptTokens + usage.completionTokens
+}
+
 /** 长度遥测：发布、修订与定稿恢复共用的形状。 */
 export function buildLengthTelemetry(input: LengthTelemetry): LengthTelemetry {
   return { ...input }
@@ -153,12 +173,7 @@ function validateChapterEntry(value: unknown, index: number): ChapterIndexEntry 
     if (typeof value.lengthTelemetry.repairApplied !== 'boolean') fail(`${at}.repairApplied 必须是布尔`)
   }
   if (value.tokenUsage !== undefined) {
-    const at = `${where}.tokenUsage`
-    if (!isRecord(value.tokenUsage)) fail(`${at} 必须是对象`)
-    unknownKeys(value.tokenUsage, new Set(['promptTokens', 'completionTokens', 'totalTokens']), at)
-    requireInteger(value.tokenUsage.promptTokens, `${at}.promptTokens`)
-    requireInteger(value.tokenUsage.completionTokens, `${at}.completionTokens`)
-    requireInteger(value.tokenUsage.totalTokens, `${at}.totalTokens`)
+    if (!isIndexTokenUsage(value.tokenUsage)) fail(`${where}.tokenUsage 必须是 {promptTokens, completionTokens, totalTokens} 三个整数字段`)
   }
   return value as unknown as ChapterIndexEntry
 }

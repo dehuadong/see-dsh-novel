@@ -23,6 +23,7 @@ import type { StoryNext } from './story-next.js'
 import { installRecoveryTool } from './recovery-tool.js'
 import { installProposalTool } from './proposal-tool.js'
 import { installTelemetryTool } from './telemetry-tool.js'
+import { installChapterUsageTool } from './chapter-usage-tool.js'
 import { installInitCommand } from './work-command.js'
 import { installIndexCommand } from './index-command.js'
 import { installExportCommand } from './export-command.js'
@@ -132,6 +133,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeDeleteCommand = installDeleteCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
+  const disposeChapterUsage = installChapterUsageTool(ctx)
   const disposeRecovery = installRecoveryTool(ctx)
   const disposeProposal = installProposalTool(ctx)
   const disposeCast = installCastContext(ctx, PRESET_ID)
@@ -145,6 +147,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeProposal()
     disposeRecovery()
     disposeTelemetry()
+    disposeChapterUsage()
     disposeWork()
     disposeInit()
     disposeIndex()

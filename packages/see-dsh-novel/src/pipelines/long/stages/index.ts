@@ -191,7 +191,7 @@ function renderStageBase(facts: StageFacts): string {
       return [
         header,
         `目标：审第 ${target} 章的首版正文。`,
-        '1. 读章节文档与章纲；按注入的写作方法审稿。',
+        '1. 派审稿子代理读章节文档与章纲，按注入的写作方法审稿；拿回 observations 与 summary 后落盘。',
         '2. 每条观察给出 code、summary、assessment（issue／resolved／observation／unavailable）与 sourceRefs。',
         '3. 引文只能引用注入的编号来源（sourceId 加行号或逐字 quote）；没有证据的条目不提交。',
         `4. 调 \`story_review_chapter\` 落盘第 ${target} 章的审稿记录。`,
@@ -224,9 +224,10 @@ function renderStageBase(facts: StageFacts): string {
         '   a. 派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要。',
         `   b. 用这份增量调 \`story_settle_chapter\`（不带 validation）生成结算提案：它只写 \`.drafts/settlement-${String(next).padStart(4, '0')}.json\`，此时不发布。`,
         '   c. 派 state-check 子代理读提案文件、本章正文（`.drafts/chapter-NNNN.md`）、`source/story/outline/story_frame.md` 与 `source/story/book_rules.md`，按下面的判据只回 {reconciliationRequired, reportMarkdown}；结算前不要调用 `story_state_check`（本章未结算，会因前置被拒）。',
-        '   d. 一致时带 validation={proposalDigest, outcome: consistent, reportMarkdown} 重调 `story_settle_chapter` 提交：章节、四份状态 JSON、三份投影、快照、索引、artifact 与 active 一次落盘。',
-        '   e. 需要重算时带 outcome: reconciliation-required 提交：工具会把报告记进提案并拒绝；把提案文件的 failureReport 原文交给 settler 重做一次，再生成提案、再对账、再提交。第二次仍要求重算时，工具会发布章节但状态停在上一章，必须告诉作者修复后用 `story_resettle_chapter` 重建。',
-        '   f. 校验子代理失败或不可用时带 outcome: unavailable 提交：同样发布章节但不推进状态，观察记为 state-validation-unavailable。',
+        '   d. 记录本章用量（可选）：先用 `story_telemetry` 找到本章 writer／review 的直接子会话 id，再调 `story_record_chapter_usage`；结算会写索引 `tokenUsage` 并删除 usage 文件。id 以本章委派回执为准；拿不到用量就跳过。',
+        '   e. 一致时带 validation={proposalDigest, outcome: consistent, reportMarkdown} 重调 `story_settle_chapter` 提交：章节、四份状态 JSON、三份投影、快照、索引、artifact 与 active 一次落盘。',
+        '   f. 需要重算时带 outcome: reconciliation-required 提交：工具会把报告记进提案并拒绝；把提案文件的 failureReport 原文交给 settler 重做一次，再生成提案、再对账、再提交。第二次仍要求重算时，工具会发布章节但状态停在上一章，必须告诉作者修复后用 `story_resettle_chapter` 重建。',
+        '   g. 校验子代理失败或不可用时带 outcome: unavailable 提交：同样发布章节但不推进状态，观察记为 state-validation-unavailable。',
         '   判据：只有换一份真值投影（truth projection）能消解不一致时 reconciliationRequired 才为 true；正文或权威之间的矛盾只作观察、不授权再次结算；superseded 伏笔按 notes 与撤回权威核对，不要求原前提在正文发生；按作品语言作答。',
         ...(facts.chapterPublished
           ? [facts.chapterSnapshot

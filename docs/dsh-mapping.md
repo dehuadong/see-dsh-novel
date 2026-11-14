@@ -130,6 +130,27 @@
 - 原因：阶段由工作区文件判定，是已登记的机制等价（源没有阶段概念）；不新增作者确认门，也不把状态缺口静默带过。
 - 验证：`test/stage-context.test.mjs` 断言扣下态阶段与修复行；`test/chapter-settle.test.mjs` 断言扣下时的修复与删除出口。
 
+### chapter.settle：按章用量记账（显式子会话 id、四桶→三字段）
+
+- 源工程做法：`runner.ts` 在发布前把 writer 输出用量与 review 用量累加成 `{promptTokens, completionTokens, totalTokens}`，随 `persistChapterArtifacts` 写索引；用量是模型调用内部的累计，不落单独文件。
+- 复刻做法：`story_record_chapter_usage` 接收本章 writer／review 的**直接**子会话 id（`kind==='child' && depth===1`），从 `sessionQuery` 的 `tokenUsage` 投影读四桶，映射 `prompt = uncachedInput + cacheRead + cacheWrite`、`completion = output`、`total = 两者之和`，写 `source/story/runtime/chapter-NNNN.usage.json`；结算读取后写索引 `tokenUsage`，发布成功的同一提交删除文件。settler／state-check 是独立子代理，不计入本章（源把结算调用放在 writer 侧）。工具拒绝已发布章：源没有该工具/文件，复刻为避免孤儿文件，只允许发布前记录。
+- 原因：DSH 工具边界拿不到模型 usage；会话投影只有四桶且不归属章节，必须由主编显式给 id、工具校验直接子会话后汇总，才能审计来源并避免把其它委派算进本章。
+- 验证：`test/chapter-usage.test.mjs` 断言求和/映射、直接 child 校验、文件写入/覆盖；`test/chapter-settle.test.mjs` 断言发布与扣下写 `tokenUsage` 并删除 usage 文件、坏文件按无用量；`test/chapter-revise.test.mjs` 断言修订保留 `tokenUsage`。
+
+### chapter.settle：无用量省略 tokenUsage 而不是写 0
+
+- 源工程做法：发布恒写 `tokenUsage`；没有模型用量时 `totalUsage` 兜底 `{0,0,0}`。
+- 复刻做法：没有 usage 文件（或文件不可用）时不写 `tokenUsage` 字段；索引 schema 允许省略。
+- 原因：DSH 的会话投影无法区分「模型没花 token」与「没有记录」，写 0 会把「没记」伪装成「没花」；省略是源 schema 允许的可选缺省。
+- 验证：`test/chapter-settle.test.mjs` 的无文件/坏文件用例断言字段缺省，另有 usage 文件用例断言三字段写入。
+
+### chapter.settle：usage 文件生命周期
+
+- 源工程做法：没有单独文件；用量随发布一次性写索引。
+- 复刻做法：usage 文件在发布前由 `story_record_chapter_usage` 写、同章覆盖；发布成功在同一提交删除；发布失败保留供重试；`reopen`／`restore`／`delete` 清 `chapter-N.*` 运行时（含该文件）。
+- 原因：运行时诊断不属于作品正文；保留旧文件会让下次发布读到旧用量。
+- 验证：`test/chapter-usage.test.mjs` 覆盖同章覆盖；`test/chapter-settle.test.mjs` 断言发布后文件删除；删除/重开/恢复回归覆盖 `chapter-N.*` 清理。
+
 ### chapter.revise：缺索引行时追加修订条目
 
 - 源工程做法：写章节时已有章节索引行，`reviseDraft` 直接 `index.map` 更新当前章与后代；缺行不会发生。

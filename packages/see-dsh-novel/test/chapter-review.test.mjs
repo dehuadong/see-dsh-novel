@@ -249,3 +249,22 @@ test('explicit whitespace quotes are not rejected', () => {
   ], new Map([['chapter-1', 'a b']]))
   assert.equal(observations[0].sourceRefs[0].quote, ' ')
 })
+
+test('the index accepts the source tokenUsage shape without extra constraints', async () => {
+  const root = await workspace()
+  try {
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    index[0].tokenUsage = { promptTokens: -1, completionTokens: 2, totalTokens: 0 }
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify(index, null, 2) + '\n')
+    await reviewChapter(root, {
+      chapter: 1,
+      summary: '源形状',
+      observations: [{ code: 'C0', summary: '保留', assessment: 'unavailable' }],
+    })
+    assert.ok(await loadChapterReview(root, 1))
+    const updated = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.deepEqual(updated[0].tokenUsage, { promptTokens: -1, completionTokens: 2, totalTokens: 0 })
+  } finally {
+    await cleanup(root)
+  }
+})

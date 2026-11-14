@@ -19,6 +19,7 @@ import {
   renderChapterDocument,
   safeChapterTitle,
 } from '../../core/chapter-document.js'
+import { chapterUsagePath, readChapterUsage } from '../../core/chapter-usage.js'
 import { buildLengthTelemetry } from '../../core/chapter-index.js'
 import { countingModeOf, lengthTargetOf } from '../../core/length.js'
 import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
@@ -232,6 +233,7 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
   const entries = await readChapterIndexStrict(root)
   const now = new Date().toISOString()
   const existingIndex = entries.findIndex((entry) => entry.number === chapter)
+  const usage = await readChapterUsage(root, chapter)
   const countingMode = countingModeOf(work.language)
   const finalCount = countChapterLengthByMode(draft.content, countingMode)
   const entry: ChapterIndexEntry = {
@@ -242,6 +244,7 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
     updatedAt: now,
     observations: held ? [...review.observations, ...observations] : [...review.observations],
     provenance: 'generated',
+    ...(usage === null ? {} : { tokenUsage: usage }),
     lengthTelemetry: buildLengthTelemetry({
       target: lengthTargetOf(work),
       countingMode,
@@ -277,7 +280,7 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
       artifact.snapshot,
       { relativePath: chapterReviewPath(chapter), content: `${JSON.stringify(updatedReview, null, 2)}\n` },
     ],
-    deletes: [draftPath(chapter), settlementProposalPath(chapter)],
+    deletes: [draftPath(chapter), settlementProposalPath(chapter), chapterUsagePath(chapter)],
   })
   return {
     status: held ? 'held' : 'published',

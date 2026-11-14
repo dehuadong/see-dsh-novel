@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 后续更新（2026-11-14）：D60（按章 `tokenUsage`）已由 [chapter.settle —— 按章用量记账](2026-11-14-chapter-usage.md) 注销；本文以下保留当时拆债范围。
+
 ## Problem
 
 源工程的章节索引条目带 `lengthTelemetry`（目标、计数口径、writer／修订／最终字数、是否修复）与 `tokenUsage`；复刻的 `chapter.settle` 发布、`chapter.revise` 落盘与 `chapter.finalize` 的恢复补齐只写基础字段，`lengthTelemetry` 与 `tokenUsage` 一直缺失。D35 的原文还把「标题变化时删 superseded 章节文件」记在同一行。
@@ -38,12 +40,12 @@ D35 拆成三笔：
 3. **发布写 `lengthTelemetry`**：`story_settle_chapter` 发布（含扣下发布）的索引条目加 `{target: work.metadata.chapterWordCount ?? defaultChapterLength, countingMode: language mode, writerCount: 草稿字数, postReviseCount: 0, finalCount: 草稿字数, repairApplied: false}`。
 4. **修订写 `lengthTelemetry`**：`story_revise_chapter` 的索引更新加 `{target, countingMode, writerCount: 修订前字数, postReviseCount: 修订后字数, finalCount: 修订后字数, repairApplied: changed}`；`target`／`countingMode` 按源规则从该章已有 `lengthTelemetry` 取（`en_words` 才沿用条目口径，否则按作品语言），缺条目时取作品目标/语言；修订回执的 `target` 也取同一值，不另用作品目标。
 5. **定稿恢复写 `lengthTelemetry`**：`finalizeChapter` 补索引条目时写与发布同形状的 telemetry（target/口径取作品，writerCount=finalCount=正文口径字数，postRevise=0，repairApplied=false）。
-6. **不写 `tokenUsage`**：本行不动该字段；归 D60。
+6. **不写 `tokenUsage`**：本行不动该字段；归 D60（已注销）。
 7. **不做标题删除**：归 D61。
 
 非目标：
 
-- 不实现每章 `tokenUsage`（D60）；不实现标题变化删除（D61）。
+- 不实现每章 `tokenUsage`（D60 已注销）；不实现标题变化删除（D61）。
 - 不改结算/重算的状态、提案与对账（D33/D34）；不改修订的模式、范围、复审闸门（D45/D58）；不改删除、重开、恢复的判定与补齐条件（只在定稿恢复补条目时加 telemetry）。
 - 不补索引缺失行、不重建索引、不改 `chapterTitleOf`。
 
@@ -144,7 +146,7 @@ D35 拆成三笔：
 4. `changed=false` 的修订同样写 `lengthTelemetry`（writer=postRevise=final，`repairApplied=false`）。
 5. 定稿恢复补出的索引条目带同形状 `lengthTelemetry`；已有条目不被覆盖。
 6. `ChapterIndexEntry` 接口含可选 `lengthTelemetry`／`tokenUsage`，类型通过 typecheck；严格读回不丢字段。
-7. `tokenUsage` 仍不写；D60（tokenUsage）与 D61（标题删除）写入 scope/audit，含 owner、阻塞与关闭判据；D35 注销不表示 P4/P5 出口完成。
+7. `tokenUsage` 仍不写；D60 已注销；D61（标题删除）写入 scope/audit，含 owner、阻塞与关闭判据；D35 注销不表示 P4/P5 出口完成。
 8. 六处同步完成；`pnpm run verify` 全绿；CI 双端通过。
 
 ## 实施记录
@@ -165,6 +167,6 @@ D35 拆成三笔：
 
 - **计数口径切换**：`wordCount`/`charCount`/目标偏差显示都会变，旧测试与历史索引数值不再可比；这是源口径的代价，验收里用固定样例锁住。
 - **修订 target 切换**：作者改 `chapterWordCount` 后，已有章的修订仍用条目 target（源行为）；新章用新目标。回执与索引同源可避免分叉。
-- **D60/D61 长期未还**：P4/P5 出口继续等待；索引缺省 `tokenUsage`，读取方不得假设存在；标题删除在不可达路径上不实现。
+- **D61 长期未还（D60 已注销）**：P4/P5 出口继续等待；索引缺省 `tokenUsage`，读取方不得假设存在；标题删除在不可达路径上不实现。
 - **定稿恢复**：只补缺失条目；已有旧条目不回填 telemetry，避免覆盖作者/历史数据。
 
