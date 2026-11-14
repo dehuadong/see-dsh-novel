@@ -57,7 +57,7 @@ Status: implemented
 非目标：
 
 - **D45**（已发布章重审的 observations 写回索引）不在本行：当时复刻的 `story_review_chapter` 仍只写 review 记录；该债已由 [chapter.review —— 重审观察写回章节索引](2026-11-14-review-index-writeback.md) 注销。
-- 不改结算/重算（D34/D59）、索引 telemetry（D35）、删除、备份、恢复任意章的状态语义（C5 不变）。
+- 不改结算/重算（D34/D59）、索引长度遥测（D35 已注销，见 [长度遥测](2026-11-14-settle-length-telemetry.md)）、删除、备份、恢复任意章的状态语义（C5 不变）。
 - 不模拟 `requiresTruthRebuild`/`state-sync-required`（源无消费者）。
 - 不为早期章重开开口（C5 裁决）；早期章的恢复只换正文与索引观察，审稿目标阶段仍可指向它并完成复审。
 - 不重建缺失的历史快照：缺 `snapshots/<N-1>` 时重开拒绝并点名；旧工作区不自动迁移。

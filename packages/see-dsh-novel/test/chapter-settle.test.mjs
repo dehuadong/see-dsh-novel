@@ -822,6 +822,14 @@ test('the first failed reconciliation retries once and the second withholds stat
     assert.equal((await readJson(root, 'source/story/snapshots/1/state/manifest.json')).lastAppliedChapter, 0)
     const index = await readJson(root, 'source/chapters/index.json')
     assert.equal(index[0].observations.at(-1).code, 'state-reconciliation')
+    assert.deepEqual(index[0].lengthTelemetry, {
+      target: 300,
+      countingMode: 'zh_chars',
+      writerCount: 3,
+      postReviseCount: 0,
+      finalCount: 3,
+      repairApplied: false,
+    })
     assert.equal(existsSync(join(root, 'source/chapters/0001_雨夜.md')), true)
     assert.equal(existsSync(join(root, '.drafts/chapter-0001.md')), false)
     assert.equal(existsSync(join(root, second.proposalPath)), false)
@@ -1070,6 +1078,49 @@ test('a held chapter is repaired after revise, re-review and resettle', async ()
     const repaired = await resettle(root, delta({ newHookCandidates: [] }))
     assert.equal(repaired.status, 'published')
     assert.equal((await readJson(root, 'source/story/state/manifest.json')).lastAppliedChapter, 1)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+test('publishing writes source-shaped length telemetry', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    const index = await readJson(root, 'source/chapters/index.json')
+    assert.deepEqual(index[0].lengthTelemetry, {
+      target: 300,
+      countingMode: 'zh_chars',
+      writerCount: 3,
+      postReviseCount: 0,
+      finalCount: 3,
+      repairApplied: false,
+    })
+    assert.equal(index[0].tokenUsage, undefined)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('recover writes length telemetry when it rebuilds a missing index row', async () => {
+  const root = await workspace()
+  try {
+    await seedSnapshot(root, 0)
+    await seedIndex(root, [])
+    await settle(root)
+    await seedIndex(root, [])
+    await rm(join(root, 'source/story/snapshots/1'), { recursive: true, force: true })
+    const scan = await scanWorkspace(root)
+    assert.equal(scan.findings.find((item) => item.code === 'chapter-publish-incomplete')?.fixable, true)
+    await repairWorkspace(root, scan.findings)
+    const index = await readJson(root, 'source/chapters/index.json')
+    assert.deepEqual(index[0].lengthTelemetry, {
+      target: 300,
+      countingMode: 'zh_chars',
+      writerCount: 3,
+      postReviseCount: 0,
+      finalCount: 3,
+      repairApplied: false,
+    })
   } finally {
     await rm(root, { recursive: true, force: true })
   }

@@ -5,11 +5,12 @@ import { join } from 'node:path'
  * 源工程在章节保存时一次写下这些产物；复刻按阶段把结算与定稿拆开，定稿负责
  * 快照、索引与作品状态，内容取当前状态，不重新结算。
  */
-import { CHAPTER_INDEX_PATH, chapterTitleOf, readChapterIndexStrict } from './chapter-index.js'
+import { CHAPTER_INDEX_PATH, buildLengthTelemetry, chapterTitleOf, readChapterIndexStrict } from './chapter-index.js'
 import type { ChapterIndexEntry } from './chapter-index.js'
 import { commitFoundation } from './commit.js'
 import { chapterArtifactWrite, currentChapterArtifact } from './artifact-store.js'
-import { countChapterLength, loadChapterDocument } from './chapter-document.js'
+import { countChapterLengthByMode, loadChapterDocument } from './chapter-document.js'
+import { countingModeOf, lengthTargetOf } from './length.js'
 import { loadChapterReview } from './chapter-review.js'
 import { inspectState, stateJsonWrites, stateProjectionWrites } from './state.js'
 import type { StateSnapshot } from './state.js'
@@ -60,14 +61,24 @@ export async function finalizeChapter(root: string, chapter: number): Promise<Fi
   const entries = await readChapterIndexStrict(root)
   const now = new Date().toISOString()
   const existingIndex = entries.findIndex((entry) => entry.number === chapter)
+  const countingMode = countingModeOf(work.language)
+  const finalCount = countChapterLengthByMode(document.content, countingMode)
   const entry: ChapterIndexEntry = {
     number: chapter,
     title: chapterTitleOf(document.heading, document.path.split('/').pop() ?? document.path),
-    wordCount: countChapterLength(document.content, work.language),
+    wordCount: finalCount,
     createdAt: existingIndex >= 0 ? entries[existingIndex]!.createdAt : now,
     updatedAt: now,
     observations: [...review.observations],
     provenance: 'generated',
+    lengthTelemetry: buildLengthTelemetry({
+      target: lengthTargetOf(work),
+      countingMode,
+      writerCount: finalCount,
+      postReviseCount: 0,
+      finalCount,
+      repairApplied: false,
+    }),
   }
   // 只补缺失：已有本章条目时不覆盖。
   const nextEntries = existingIndex >= 0 ? entries : [...entries, entry]

@@ -14,11 +14,13 @@ import { commitFoundation } from '../../core/commit.js'
 import { chapterArtifactWrite } from '../../core/artifact-store.js'
 import {
   chapterPrefix,
-  countChapterLength,
+  countChapterLengthByMode,
   loadChapterDocument,
   renderChapterDocument,
   safeChapterTitle,
 } from '../../core/chapter-document.js'
+import { buildLengthTelemetry } from '../../core/chapter-index.js'
+import { countingModeOf, lengthTargetOf } from '../../core/length.js'
 import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
 import { chapterReviewPath, loadChapterReview } from '../../core/chapter-review.js'
 import { CHAPTER_INDEX_PATH, readChapterIndexStrict } from '../../core/chapter-index.js'
@@ -230,14 +232,24 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
   const entries = await readChapterIndexStrict(root)
   const now = new Date().toISOString()
   const existingIndex = entries.findIndex((entry) => entry.number === chapter)
+  const countingMode = countingModeOf(work.language)
+  const finalCount = countChapterLengthByMode(draft.content, countingMode)
   const entry: ChapterIndexEntry = {
     number: chapter,
     title,
-    wordCount: countChapterLength(draft.content, work.language),
+    wordCount: finalCount,
     createdAt: existingIndex >= 0 ? entries[existingIndex]!.createdAt : now,
     updatedAt: now,
     observations: held ? [...review.observations, ...observations] : [...review.observations],
     provenance: 'generated',
+    lengthTelemetry: buildLengthTelemetry({
+      target: lengthTargetOf(work),
+      countingMode,
+      writerCount: finalCount,
+      postReviseCount: 0,
+      finalCount,
+      repairApplied: false,
+    }),
   }
   const nextEntries = existingIndex >= 0
     ? entries.map((current, index) => index === existingIndex ? entry : current)

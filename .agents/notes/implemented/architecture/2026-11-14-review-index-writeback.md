@@ -6,7 +6,7 @@ Status: implemented
 
 D58 交付后，已发布章可以被恢复、修订或重开后复审；复审记录落 `source/story/runtime/chapter-NNNN.review.json`，但章节索引 `source/chapters/index.json` 仍停在上次结算/恢复时的观察。源工程的审稿路径在审完后把当次观察写回该章索引（`updatedAt` 与 `observations`），复刻没有这一步：作者重审后，索引里的 `manual-edit-review`、旧审稿观察或后代 `upstream-revision` 会一直保留，直到下一次修订/结算覆盖。
 
-D45 的残余就是这一条：**已发布章重审后没有把当次 observations 写回索引**。D36 已随 D58 交付（恢复写索引观察），D35（`lengthTelemetry`／`tokenUsage`）与 D59（修订自动重结算）不在本行。
+D45 的残余就是这一条：**已发布章重审后没有把当次 observations 写回索引**。D36 已随 D58 交付（恢复写索引观察），索引长度遥测（D35 已注销；`tokenUsage` 归 D60）与 D59（修订自动重结算）不在本行。
 
 另有一处相邻但不同的问题：源 `resyncChapterStateAndAudit` 在重算后还会调用 `reviewChapter` 复审并刷新索引（`runner.ts:1238-1253`）；复刻的 `story_resettle_chapter` 按 D33 的既有合同只重建状态、不改正文/索引/workflow-start。因此重算后不会自动刷新索引观察，需要新观察时作者走 `story_review_chapter`（D58 入口），写回索引由本行覆盖。该差异登记在 `chapter.settle` 的偏差行，原因是 DSH 工具内不能跑审稿模型，自动复审由 D58 的审稿闸门承接。
 
@@ -35,7 +35,7 @@ D45 的残余就是这一条：**已发布章重审后没有把当次 observatio
 
 - 不改 `wordCount`／`provenance`／`title`／`createdAt`（源审稿只动 `updatedAt` 与 `observations`）。
 - 不补缺失的索引行、不重建索引、不修索引 schema。
-- 不改结算/恢复/修订；不碰 D35、D59、D58 的回退与 start 机制。
+- 不改结算/恢复/修订；不碰 D35（已由后续注销）、D59、D58 的回退与 start 机制。
 - 不新增工具或阶段；`story_review_chapter` 参数与回执字段不变。
 - 不把 `sourceRefs` 的行号写进索引（resolved 观察已只有 `sourceId`＋`quote`）。
 
@@ -92,7 +92,7 @@ D45 的残余就是这一条：**已发布章重审后没有把当次 observatio
 
 1. `capabilities.yaml`：`chapter.review` 的 title 补「重审写回索引」，implementation 不变，realRun 重录；`check-capabilities -- --write`。
 2. `docs/fidelity-audit.md`：`chapter.review` 段补「已发布章审稿写回 `updatedAt`／`observations`，草稿不写」；判定 D45 注销；`chapter.revise:408` 的「保真债 D45／D59」改为只留 D59；`chapter.reopen:440` 的 D45 残余句改为已注销；`chapter.settle:424/426` 补「重算不自动复审」并链 `dsh-mapping` 的新偏差行；批次表 E/F（`:532-533`）的「出口待债」去掉 D45。
-3. `docs/scope.md`：删 D45 行；P4/P5 出口与依赖句改成只剩 D35；D45 相关行移除。
+3. `docs/scope.md`：删 D45 行；P4/P5 出口与依赖句改成只剩 D60/D61；D45 相关行移除。
 4. `docs/dsh-mapping.md`：不改（该文件没有 D45 引用）；新增 `chapter.settle` 的「重算后自动复审」偏差行（源 `resyncChapterStateAndAudit` → DSH 只重建状态、重审走 D58 入口 → 工具内不能跑审稿模型 → `chapter-settle` 测试）。
 5. `artifacts/real-runs/chapter.review.json`：重录，写清已发布/草稿/缺索引/缺行四条路径。
 6. 本 Note 转 implemented；所有 D45 引用改为注销或链本 Note：`2026-11-10-chapter-reopen.md`、`2026-11-13-reopen-restore-split.md`、`2026-11-13-revise-index-changed-region.md`、`2026-11-14-chapter-reopen-closure.md`、`2026-11-10-chapter-revise.md`、`2026-11-11-chapter-revise-multirange.md`、`2026-11-13-chapter-settle-baseline.md`、`2026-11-13-chapter-atomic-save.md`、`2026-11-13-chapter-finalize-index.md`（archived，若改需遵守归档只读；不改则在审计注明历史）。

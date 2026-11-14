@@ -42,8 +42,12 @@ test('file titles are path-safe', () => {
 })
 
 test('length counts CJK characters or English words', () => {
-  assert.equal(countChapterLength('雨夜，沈砚接案。', 'zh'), 6)
+  assert.equal(countChapterLength('雨夜，沈砚接案。', 'zh'), 8)
   assert.equal(countChapterLength('one two three', 'en'), 3)
+  assert.equal(countChapterLength('# 第1章 雨夜\n\n第一段。', 'zh'), 4)
+  assert.equal(countChapterLength('---\ntitle: x\n---\n第一段。', 'zh'), 4)
+  assert.equal(countChapterLength('```\nnot prose\n```\n第一段。', 'zh'), 4)
+  assert.equal(countChapterLength("don't stop", 'en'), 2)
 })
 
 test('write refuses a second draft for the same chapter and load round-trips', async () => {
@@ -51,7 +55,7 @@ test('write refuses a second draft for the same chapter and load round-trips', a
   try {
     const written = await writeChapterDocument(root, { chapter: 1, title: '雨夜', content: '正文一。', language: 'zh' })
     assert.equal(written.path, 'source/chapters/0001_雨夜.md')
-    assert.equal(written.charCount, 3)
+    assert.equal(written.charCount, 4)
     assert.match(await readFile(join(root, written.path), 'utf8'), /^# 第1章 雨夜\n\n正文一。\n$/)
     const manifest = JSON.parse(await readFile(join(root, 'source/artifacts/manifest.json'), 'utf8'))
     const snapshotPath = manifest.artifacts[0].revisions[0].snapshotPath

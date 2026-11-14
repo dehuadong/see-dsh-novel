@@ -132,6 +132,15 @@ test('reviseChapterDocument rewrites the chapter, archives the old prose and app
     assert.equal(index[0].title, '雨夜')
     assert.equal(index[0].wordCount, countChapterLength(revised, 'zh'))
     assert.equal(index[0].createdAt, index[0].updatedAt)
+    assert.deepEqual(index[0].lengthTelemetry, {
+      target: 3000,
+      countingMode: 'zh_chars',
+      writerCount: countChapterLength(ORIGINAL, 'zh'),
+      postReviseCount: countChapterLength(revised, 'zh'),
+      finalCount: countChapterLength(revised, 'zh'),
+      repairApplied: true,
+    })
+    assert.equal(result.lengthTelemetry.target, 3000)
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -453,6 +462,88 @@ test('revision archives are hidden from the chapter listing', async () => {
     await reviseChapterDocument(root, { chapter: 1, content: '第一段改。\n第二段。\n第三段。', language: 'zh' })
     const entries = await readdir(join(root, 'source/chapters'))
     assert.deepEqual(entries.sort(), ['.versions', '0001_雨夜.md', 'index.json'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('revising prefers the entry target and keeps token usage', async () => {
+  const root = await workspace()
+  try {
+    const entry = {
+      number: 1,
+      title: '雨夜',
+      wordCount: 12,
+      createdAt: '2026-11-10T00:00:00.000Z',
+      updatedAt: '2026-11-10T00:00:00.000Z',
+      observations: [],
+      provenance: 'generated',
+      lengthTelemetry: {
+        target: 999,
+        countingMode: 'zh_chars',
+        writerCount: 12,
+        postReviseCount: 0,
+        finalCount: 12,
+        repairApplied: false,
+      },
+      tokenUsage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+    }
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry], null, 2) + '\n')
+    const result = await tool(root).execute({ chapter: 1, content: '第一段改。\n第二段。\n第三段。' }, exec)
+    assert.equal(result.target, 999)
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.equal(index[0].lengthTelemetry.target, 999)
+    assert.equal(index[0].lengthTelemetry.writerCount, 12)
+    assert.equal(index[0].lengthTelemetry.finalCount, 13)
+    assert.equal(index[0].lengthTelemetry.repairApplied, true)
+    assert.deepEqual(index[0].tokenUsage, { promptTokens: 1, completionTokens: 2, totalTokens: 3 })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an unchanged revise writes equal length telemetry', async () => {
+  const root = await workspace()
+  try {
+    const result = await tool(root).execute({ chapter: 1, content: ORIGINAL }, exec)
+    assert.equal(result.changed, false)
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.equal(index[0].lengthTelemetry.writerCount, index[0].lengthTelemetry.finalCount)
+    assert.equal(index[0].lengthTelemetry.postReviseCount, index[0].lengthTelemetry.finalCount)
+    assert.equal(index[0].lengthTelemetry.repairApplied, false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('revising uses an en_words entry counting mode', async () => {
+  const root = await workspace()
+  try {
+    const entry = {
+      number: 1,
+      title: '雨夜',
+      wordCount: 12,
+      createdAt: '2026-11-10T00:00:00.000Z',
+      updatedAt: '2026-11-10T00:00:00.000Z',
+      observations: [],
+      provenance: 'generated',
+      lengthTelemetry: {
+        target: 100,
+        countingMode: 'en_words',
+        writerCount: 12,
+        postReviseCount: 0,
+        finalCount: 12,
+        repairApplied: false,
+      },
+    }
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([entry], null, 2) + '\n')
+    const result = await tool(root).execute({ chapter: 1, content: 'one two three' }, exec)
+    assert.equal(result.target, 100)
+    assert.equal(result.charCount, 3)
+    const index = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
+    assert.equal(index[0].lengthTelemetry.countingMode, 'en_words')
+    assert.equal(index[0].lengthTelemetry.finalCount, 3)
+    assert.equal(index[0].wordCount, 3)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

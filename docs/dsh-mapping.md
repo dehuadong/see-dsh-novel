@@ -133,9 +133,9 @@
 ### chapter.revise：缺索引行时追加修订条目
 
 - 源工程做法：写章节时已有章节索引行，`reviseDraft` 直接 `index.map` 更新当前章与后代；缺行不会发生。
-- 复刻做法：正文先写 `.drafts/chapter-NNNN.md`，结算发布时才进入 `source/chapters/`；索引在结算发布时写；修订时若缺当前章行，`revisedChapterIndex` 追加一条 `edited` 行（`createdAt = updatedAt`），已有行保留 `createdAt`。
+- 复刻做法：正文先写 `.drafts/chapter-NNNN.md`，结算发布时才进入 `source/chapters/`；索引在结算发布时写；修订时若缺当前章行，`revisedChapterIndex` 追加一条 `edited` 行（`createdAt = updatedAt`），已有行保留 `createdAt`；追加行与已有行一样写 `lengthTelemetry`。
 - 原因：DSH 的修订早于结算发布；追加让修订后的索引反映当前正文。
-- 验证：`test/chapter-revise.test.mjs` 的「无索引行时追加」与「已有行保留 createdAt」用例。
+- 验证：`test/chapter-revise.test.mjs` 的「无索引行时追加」「已有行保留 createdAt」与修订长度遥测用例。
 
 
 ### chapter.reopen：恢复正文与重开回退分开

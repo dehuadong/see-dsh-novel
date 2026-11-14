@@ -46,7 +46,7 @@ test('write rejects a chapter without a workflow start and accepts it after the 
     await writeWorkflowStart(root, { chapter: 1, instruction: '开始第一章' })
     const result = await write.execute({ chapter: 1, title: '雨夜', content: '正文。' }, exec)
     assert.equal(result.chapter, 1)
-    assert.equal(result.charCount, 2)
+    assert.equal(result.charCount, 3)
     assert.equal(result.path, '.drafts/chapter-0001.md')
     assert.match(await readFile(join(root, '.drafts/chapter-0001.md'), 'utf8'), /正文。/)
     await assert.rejects(readFile(join(root, 'source/chapters/0001_雨夜.md'), 'utf8'), /ENOENT/u)

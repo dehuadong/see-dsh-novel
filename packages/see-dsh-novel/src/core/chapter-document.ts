@@ -7,7 +7,16 @@ import { join } from 'node:path'
 
 import { commitFoundation } from './commit.js'
 import { chapterArtifactWrite } from './artifact-store.js'
-import { CHAPTER_INDEX_PATH, chapterTitleOf, readChapterIndexStrict, revisedChapterIndex } from './chapter-index.js'
+import {
+  CHAPTER_INDEX_PATH,
+  buildLengthTelemetry,
+  chapterTitleOf,
+  readChapterIndexStrict,
+  revisedChapterIndex,
+} from './chapter-index.js'
+import type { LengthTelemetry } from './chapter-index.js'
+import { defaultChapterLength, countChapterLength, countChapterLengthByMode, countingModeOf } from './length.js'
+export { countChapterLength, countChapterLengthByMode } from './length.js'
 import { changedRegion } from './revise.js'
 import type { ChangedRegion } from './revise.js'
 import type { WorkLanguage } from './work.js'
@@ -64,12 +73,6 @@ export function chapterBodyForChapter(content: string, chapter: number): string 
 
 export function renderChapterDocument(input: { chapter: number, title: string, content: string, language: WorkLanguage }): string {
   return `${chapterHeading(input.chapter, input.title, input.language)}\n\n${chapterBodyForChapter(input.content, input.chapter)}\n`
-}
-
-/** 中文字符数或英文词数。 */
-export function countChapterLength(content: string, language: WorkLanguage): number {
-  if (language === 'en') return content.trim().split(/\s+/u).filter(Boolean).length
-  return (content.match(/[\u3400-\u9FFF]/gu) ?? []).length
 }
 
 /**
@@ -144,6 +147,7 @@ export interface ReviseChapterResult {
   archivedPath: string
   revisionId: string
   changed: boolean
+  lengthTelemetry: LengthTelemetry
   changedRegion: ChangedRegion
 }
 
@@ -160,6 +164,10 @@ export async function reviseChapterDocument(
     chapter: number
     content: string
     language: WorkLanguage
+    /** 作品级 target 回退；条目已有 lengthTelemetry.target 时优先条目。 */
+    target?: number
+    /** 作品级计数口径回退；条目是 en_words 时优先条目。 */
+    countingMode?: 'zh_chars' | 'en_words'
     deletes?: ReadonlyArray<string>
     /** 与该次修订同批提交的额外写入（例如重新打开的 workflow start）。 */
     extraWrites?: ReadonlyArray<{ relativePath: string, content: string }>
@@ -175,13 +183,27 @@ export async function reviseChapterDocument(
 
   const entries = await readChapterIndexStrict(root)
   const now = new Date().toISOString()
-  const wordCount = countChapterLength(body, input.language)
+  const current = entries.find((entry) => entry.number === input.chapter)
+  const fallbackMode = input.countingMode ?? countingModeOf(input.language)
+  const countingMode = current?.lengthTelemetry?.countingMode === 'en_words' ? 'en_words' : fallbackMode
+  const target = current?.lengthTelemetry?.target ?? input.target ?? defaultChapterLength(input.language)
+  const writerCount = countChapterLengthByMode(existing.content, countingMode)
+  const finalCount = countChapterLengthByMode(body, countingMode)
+  const lengthTelemetry = buildLengthTelemetry({
+    target,
+    countingMode,
+    writerCount,
+    postReviseCount: finalCount,
+    finalCount,
+    repairApplied: changed,
+  })
   const nextEntries = revisedChapterIndex(entries, {
     chapter: input.chapter,
     title: chapterTitleOf(existing.heading, existing.path.split('/').pop() ?? existing.path),
-    wordCount,
+    wordCount: finalCount,
     language: input.language,
     now,
+    lengthTelemetry,
   })
 
   const writes: Array<{ relativePath: string, content: string }> = [
@@ -215,10 +237,11 @@ export async function reviseChapterDocument(
   return {
     path: existing.path,
     title,
-    charCount: countChapterLength(body, input.language),
+    charCount: finalCount,
     archivedPath,
     revisionId,
     changed,
+    lengthTelemetry,
     changedRegion: changedRegion(existing.content, body),
   }
 }

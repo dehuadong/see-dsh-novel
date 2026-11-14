@@ -19,6 +19,28 @@ export interface ChapterIndexEntry {
   updatedAt: string
   observations: IndexObservation[]
   provenance: 'generated' | 'imported' | 'edited'
+  lengthTelemetry?: LengthTelemetry
+  tokenUsage?: TokenUsage
+}
+
+export interface LengthTelemetry {
+  target: number
+  countingMode: 'zh_chars' | 'en_words'
+  writerCount: number
+  postReviseCount: number
+  finalCount: number
+  repairApplied: boolean
+}
+
+export interface TokenUsage {
+  promptTokens: number
+  completionTokens: number
+  totalTokens: number
+}
+
+/** 长度遥测：发布、修订与定稿恢复共用的形状。 */
+export function buildLengthTelemetry(input: LengthTelemetry): LengthTelemetry {
+  return { ...input }
 }
 
 /** 索引观察：源只保证 code/summary/evidence，其余字段可缺。 */
@@ -144,7 +166,7 @@ function validateChapterEntry(value: unknown, index: number): ChapterIndexEntry 
 /** 修订后的索引：当前章标 edited，后代替换 upstream-revision 提醒。 */
 export function revisedChapterIndex(
   entries: ReadonlyArray<ChapterIndexEntry>,
-  input: { chapter: number, title: string, wordCount: number, language: string, now: string },
+  input: { chapter: number, title: string, wordCount: number, language: string, now: string, lengthTelemetry: LengthTelemetry },
 ): ChapterIndexEntry[] {
   const notice = input.language === 'en'
     ? `Chapter ${input.chapter} changed; re-review this downstream chapter for continuity.`
@@ -160,6 +182,7 @@ export function revisedChapterIndex(
     updatedAt: input.now,
     observations: [],
     provenance: 'edited',
+    lengthTelemetry: input.lengthTelemetry,
   }
   const next = entries.map((entry): ChapterIndexEntry => {
     if (entry.number === input.chapter) return updated

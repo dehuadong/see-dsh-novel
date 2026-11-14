@@ -10,7 +10,7 @@ import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
 import { commitFoundation } from '../../core/commit.js'
 import { chapterReviewPath, loadChapterReview } from '../../core/chapter-review.js'
 import { loadChapterPlan } from '../../core/chapter-plan.js'
-import { defaultChapterLength } from '../../core/length.js'
+import { countingModeOf, lengthTargetOf } from '../../core/length.js'
 import {
   DEFAULT_REVISE_MODE,
   REVISE_MODES,
@@ -195,7 +195,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
 
         if (args.targetText !== undefined) assertTargetText(base, body, args.targetText)
 
-        const target = work.metadata.chapterWordCount ?? defaultChapterLength(work.language)
+        const target = lengthTargetOf(work)
         const changed = body !== base
         const review = changed ? await loadChapterReview(root, args.chapter) : null
         // 复审要过 workflow start 闸门：同章沿用，没有或指向其它章时写本章 start。
@@ -225,6 +225,8 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           chapter: args.chapter,
           content: body,
           language: work.language,
+          target,
+          countingMode: countingModeOf(work.language),
           deletes: changed && review !== null ? [chapterReviewPath(args.chapter)] : [],
           extraWrites: startWrites,
         })
@@ -234,7 +236,7 @@ export function installReviseTool(ctx: PluginContext): Disposer {
           mode,
           changed: revised.changed,
           charCount: revised.charCount,
-          target,
+          target: revised.lengthTelemetry.target,
           revisionId: revised.revisionId,
           reviewInvalidated: changed && review !== null,
           ...(replacedStartChapter === undefined ? {} : { replacedStartChapter }),
