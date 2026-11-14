@@ -82,10 +82,10 @@
     "packages/see-dsh-novel/test/client.test.mjs:525 『稍后』不写、start-chapter 只写 workflow start",
     "packages/see-dsh-novel/test/workflow-start.test.mjs 生命周期与读取",
     "packages/see-dsh-novel/test/workbench.test.mjs:77 动作条只带当前动作",
-    "artifacts/real-runs/panel.confirm.json 记录 2026-11-09 的 pnpm test 322 passed"
+    "artifacts/real-runs/panel.confirm.json 记录 2026-11-14 的 pnpm test 537 passed"
   ],
   "realRunLevel": "P",
-  "realRunBasis": "artifacts/real-runs/panel.confirm.json：date=2026-11-09，sessionId=process:panel.confirm（process:* 前缀，不是 DSH 会话 id），tests.command=pnpm test、passed=true；receipts 全部是进程级命令/面板测试的断言（/story-write 写 start、重复与未到 foundation-ready 拒绝、BOOK_BUSY 不写、followup source、面板稍后不写、开始下一章可见条件、P1 固定第 1 章）。本机 C:\\Users\\MyPC\\.dsh\\sessions 下所有 --E-see-dsh-novel* 会话日志（含 work-demo、work-empty 等）解压后检索 '/story-write' 为空：没有该行的非 process 会话回执，可复核的 11-05/11-09 会话只有 /story-approve 与工具调用。",
+  "realRunBasis": "artifacts/real-runs/panel.confirm.json：date=2026-11-14，sessionId=process:panel.confirm（process:* 前缀，不是 DSH 会话 id），tests.command=pnpm test、passed=true；receipts 全部是进程级命令/面板测试的断言（2026-11-14 重录）（/story-write 写 start、重复与未到 foundation-ready 拒绝、BOOK_BUSY 不写、followup source、面板稍后不写、开始下一章可见条件、P1 固定第 1 章）。本机 C:\\Users\\MyPC\\.dsh\\sessions 下所有 --E-see-dsh-novel* 会话日志（含 work-demo、work-empty 等）解压后检索 '/story-write' 为空：没有该行的非 process 会话回执，可复核的 11-05/11-09 会话只有 /story-approve 与工具调用。",
   "deviations": [
     "源确认 write_next 后由宿主直接执行 pipeline.writeChapters（server.ts:3328-3367、1209-1226；longform-production.ts:189-227），章节流水线在这一次宿主 action 调用内跑完（HTTP 端先回 status=writing，完成走 SSE）；复刻 /story-write 只写 workflow-start.json 并 followup，让 DSH 的 agent 在下一轮按阶段协议跑 plan/write/review/settle。『确认一次 start』等价，执行者与提交边界不同，已由 docs/dsh-mapping.md:20,42-47 的作者确认/阶段停点行登记。",
     "源 write_next 的结构化 payload 有 chapterCount（缺省 1，可 >1，action-envelope.ts:46-48；server.ts:1213）；复刻的 workflow-start 与命令都没有章数字段（workflow-start.ts:18-24；write-command.ts:33-51），一次确认永远只跑第 N 章。Studio 自带按钮固定 1 章（BookDetail.tsx:113 + server.ts:3349），所以普通 UI 路径观察不到差异；带 actionPayload 的 chat/API 确认路径会观察到。",
@@ -97,8 +97,9 @@
     "本行的真实证据是进程级的：sessionId=process:panel.confirm，tests.command=pnpm test；按任务定义只能是 P。capabilities.yaml:115-122 仍写 verified，是因为 check-capabilities.mjs:97-101 只校验 sessionId 非空字符串，没有拒绝 process:*。",
     "P1 的面板与命令只确认『一章』的 workflow start；多章确认、逐章停点与连续生产没有实现，也没有测试。",
     "create_book 的确认不在本行实现里；本行的『开始下一章』按钮只出现在 foundation-ready，create_book 由 proposal.creative 的 approval 承接。跨行看确认语义没有三套 decision，但按行看本行覆盖不全。",
-    "workflow-start 的 instruction 是固定的『开始第 N 章』，面板不传作者备注；源 POST /write-next 也不传备注，等价；chat 确认路径的 instruction 由对话给，复刻的命令入口没有对应参数。",
-    "2026-11-09 之后 panel.workbench/D58 改了 StoryView 的外围结构，但 write-command.ts 与 write-command.test.mjs 自 cfa290d 起没有改动（git diff 为空），11-09 的进程级证据仍对应当前命令行为。",
-    "/story-write 仍不接收作者附言；workflow-start.instruction 恒为默认句，作者方向的生产链是 AU-11 残余。"
+    "面板「开始下一章」仍不传作者备注；命令/API 入口可传附言并写入 workflow-start.instruction。",
+    "2026-11-14 已改 write-command.ts 与测试；进程级回执对应当前命令行为，但真实 DSH 会话仍缺。",
+    "作者附言已由 /story-write 写入 workflow-start.instruction；chapterCount 与真实会话仍为 AU-11 残余。",
+    "2026-11-14 AU-11 修复：/story-write 声明 input.hint，接收作者附言并写入 workflow-start.instruction；chapterCount 与真实 DSH 会话仍开放，AU-11 维持债。"
   ]
 }

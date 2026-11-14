@@ -15,6 +15,12 @@ import type { CommandInvocationLike, CommandResultLike, Disposer, PluginContext,
 
 export const COMMAND_WRITE = 'story-write'
 
+/** 解析命令后的作者附言；空文本返回 undefined，避免写空串。 */
+export function parseInstruction(rawInput: string): string | undefined {
+  const instruction = rawInput.trim()
+  return instruction === '' ? undefined : instruction
+}
+
 async function exists(path: string): Promise<boolean> {
   try {
     await stat(path)
@@ -58,15 +64,18 @@ export async function startChapter(root: string, instruction?: string): Promise<
 export function installWriteCommand(ctx: PluginContext): Disposer {
   return ctx.commands.register({
     name: COMMAND_WRITE,
-    description: 'Author-confirm the next chapter workflow start after foundation is ready. No arguments.',
+    description: 'Author-confirm the next chapter workflow start after foundation is ready. Optional instruction becomes workflow-start.instruction.',
+    input: { hint: '可选：写本章的方向；缺省用默认句' },
     handler: async (invocation: CommandInvocationLike): Promise<CommandResultLike> => {
       try {
         const root = await ctx.workingDirectory.ensure(invocation.agent)
         if (!root) throw new Error('无法解析当前工作区目录')
-        const { chapter } = await startChapter(root)
+        const instruction = parseInstruction(invocation.rawInput)
+        const { chapter } = await startChapter(root, instruction)
+        const note = instruction === undefined ? '' : `；附言：${instruction}`
         const message: UserMessageLike = {
           role: 'user',
-          content: [{ type: 'text', text: `作者已确认开始第 ${chapter} 章；按 story_next 进入 plan，不跳过审阅。` }],
+          content: [{ type: 'text', text: `作者已确认开始第 ${chapter} 章${note}；按 story_next 进入 plan，不跳过审阅。` }],
           source: { kind: 'story-command', command: COMMAND_WRITE },
         }
         try {
@@ -80,7 +89,7 @@ export function installWriteCommand(ctx: PluginContext): Disposer {
         }
         return {
           kind: 'success',
-          text: `已确认开始第 ${chapter} 章：workflow start 已写入。下一轮按 story_next 进入 plan，不跳过审阅。`,
+          text: `已确认开始第 ${chapter} 章${note}：workflow start 已写入。下一轮按 story_next 进入 plan，不跳过审阅。`,
         }
       } catch (error) {
         return { kind: 'error', text: error instanceof Error ? error.message : String(error) }

@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { acquireWorkLock } from '../src/core/work-lock.ts'
-import { COMMAND_WRITE, installWriteCommand, startChapter } from '../src/plugin/write-command.ts'
+import { COMMAND_WRITE, installWriteCommand, parseInstruction, startChapter } from '../src/plugin/write-command.ts'
 import { WORKFLOW_START_PATH } from '../src/core/workflow-start.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
 
@@ -36,7 +36,9 @@ test('the command confirms one workflow start and rejects a second one', async (
   try {
     const first = await startChapter(root)
     assert.equal(first.chapter, 1)
-    assert.equal(JSON.parse(await readFile(join(root, WORKFLOW_START_PATH), 'utf8')).action, 'write_next')
+    const start = JSON.parse(await readFile(join(root, WORKFLOW_START_PATH), 'utf8'))
+    assert.equal(start.action, 'write_next')
+    assert.equal(start.instruction, '开始第 1 章')
     await assert.rejects(startChapter(root), /当前阶段/)
   } finally {
     await rm(root, { recursive: true, force: true })
@@ -78,6 +80,34 @@ test('installWriteCommand registers one handler and follows up with a user messa
     assert.equal(messages.length, 1)
     assert.equal(messages[0].role, 'user')
     assert.deepEqual(messages[0].source, { kind: 'story-command', command: COMMAND_WRITE })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('parseInstruction trims and treats empty as undefined', () => {
+  assert.equal(parseInstruction('  '), undefined)
+  assert.equal(parseInstruction(' 写得更冷 '), '写得更冷')
+})
+
+test('the command writes the author instruction into workflow start', async () => {
+  const root = await workspace()
+  try {
+    const commands = new Map()
+    installWriteCommand({
+      commands: { register: (definition) => { commands.set(definition.name, definition); return () => commands.delete(definition.name) } },
+      workingDirectory: { ensure: async () => root },
+    })
+    const definition = commands.get(COMMAND_WRITE)
+    assert.equal(definition.input.hint.length > 0, true)
+    const result = await definition.handler({
+      agent: { session: { snapshotEvents: () => [] }, followup: () => {} },
+      rawInput: ' 写得更冷 ',
+      signal: new AbortController().signal,
+    })
+    assert.equal(result.kind, 'success')
+    const start = JSON.parse(await readFile(join(root, WORKFLOW_START_PATH), 'utf8'))
+    assert.equal(start.instruction, '写得更冷')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

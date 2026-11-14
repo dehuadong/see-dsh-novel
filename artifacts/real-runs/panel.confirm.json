@@ -1,13 +1,14 @@
 {
   "capability": "panel.confirm",
-  "date": "2026-11-09",
+  "date": "2026-11-14",
   "sessionId": "process:panel.confirm",
   "tests": {
     "command": "pnpm test",
     "passed": true,
-    "summary": "322 passed — write-command 3 例（确认一章、重复拒绝、BOOK_BUSY、followup source）、client 30 例（开始下一章/稍后/已开始/本章完成/禁用）、workflow-start 生命周期、review 清除"
+    "summary": "537 passed／1 skipped（symlink） — write-command 5 例（确认一章、重复拒绝、BOOK_BUSY、followup source）、client 30 例（开始下一章/稍后/已开始/本章完成/禁用）、workflow-start 生命周期、review 清除"
   },
   "receipts": [
+    "/story-write 声明 input.hint；命令附言 entry 写入 workflow-start.instruction；空附言回退默认句。",
     "`/story-write` 在 foundation-ready 写 `workflow-start.json`，followup 的 source 是 `{kind:'story-command',command:'story-write'}`；重复命令与未到 foundation-ready 都拒绝。",
     "另一次 start 持锁时命令返回 `BOOK_BUSY`，不写 start；面板「稍后」不调命令、不写 start。",
     "面板「开始下一章」只在 foundation 齐、无 start、无 review 时出现；start 后显示已开始；review 后显示本章完成。P1 面板固定第 1 章，动态 currentChapter 依赖 P6 panel.workbench。",
