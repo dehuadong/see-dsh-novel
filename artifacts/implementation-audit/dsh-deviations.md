@@ -274,3 +274,17 @@
 - 复刻做法：`chapter-XXXX.planner-context.json` 保存 planner 子代理回传的上下文包，plan-tool 读回 plannerInputs；读回走 strict schema。
 - 原因：DSH 把 planner 拆成子代理回合，回传结果需要一个断点落点；没有该文件，plan-tool 无法在后续回合取回同一份输入。
 - 验证：`test/context-package.test.mjs` 的 planner/writer 持久化用例；坏包 strict 拒绝。
+
+### chapter.review：重审不现场重编排
+
+- 源工程做法：重审时 `prepareExistingChapterContext` 以 review brief 为 goal 重新调用 composer，追加 `story/book_rules.md`，再交给 auditor。
+- 复刻做法：审稿读 `chapter-XXXX.context.json` 的 selectedContext；缺包回退章纲 memo。
+- 原因：DSH 的 composer 是独立子代理回合，审稿工具内不能同步重跑选择器；读上次包是当前可用的最近似来源。
+- 验证：`test/review-contract.test.mjs` 的 context 包/before 编号来源；`test/chapter-review.test.mjs` 的 scope 双源；AU-24 保留保真债，不判等价。
+
+### chapter.review：before 源标签
+
+- 源工程做法：修订对照的 before 源 id 使用 baseline/parent revision id。
+- 复刻做法：审稿契约与工具统一使用 `chapter-N@before`，不依赖 artifact revision id。
+- 原因：审稿契约是同步渲染，无法在渲染时安全读取 artifact revision；固定标签保证工具校验与模型引用一致。
+- 验证：`test/chapter-review.test.mjs` 的 scope 双源用例；`test/review-contract.test.mjs` 的 before 编号来源。

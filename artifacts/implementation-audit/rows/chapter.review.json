@@ -92,6 +92,7 @@
     "审稿由主编派子代理完成，宿主只能校验提交的观察，无法证明子代理读过全部来源；源同一进程内由 auditor 直接提交。",
     "reviewedArtifact 的字节匹配依赖 artifact manifest；没有 artifact 的旧工作区仍可审稿但记录无 identity（与源一致）。",
     "索引观察写回只在已发布章；草稿审稿不写索引，与源 reviewChapterDraft 的行为一致。",
-    "对照：capabilities.yaml:283-290 标 verified；docs/fidelity-audit.md:394-400 判「等价（D17／D18 已偿还）」，却把 plan memo 当 governed-context、未提 scope／对照与 unavailable，差异与判定见 docs/fidelity-audit.md 的审计表。"
+    "对照：capabilities.yaml:283-290 标 verified；docs/fidelity-audit.md:394-400 判「等价（D17／D18 已偿还）」，却把 plan memo 当 governed-context、未提 scope／对照与 unavailable，差异与判定见 docs/fidelity-audit.md 的审计表。",
+    "2026-11-14 AU-24 修复：重复审替换索引、before/current+scope 双源、unavailable 落盘、delivery、evidence 空数组、无章纲拒绝；源重审现场重编排未复刻，AU-24 维持债。"
   ]
 }

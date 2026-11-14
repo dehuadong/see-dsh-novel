@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { renderReviewContract } from '../src/pipelines/long/stages/review.ts'
-import { chapterPlanPath } from '../src/core/chapter-plan.ts'
+import { chapterContextPath, chapterPlanPath } from '../src/core/chapter-plan.ts'
 
 async function workspace(language = 'zh', options = {}) {
   const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-review-contract-'))
@@ -64,20 +64,32 @@ test('a missing chapter yields an empty contract', async () => {
   }
 })
 
-test('a published chapter without a readable plan gets a prose-only contract', async () => {
+test('a published chapter without a readable plan gets no review contract', async () => {
   for (const options of [{ plan: false }, { corruptPlan: true }]) {
     const root = await workspace('zh', options)
     try {
       if (options.corruptPlan === true) {
         await writeFile(join(root, chapterPlanPath(1)), '{"version":2,"memo":')
       }
-      const text = renderReviewContract(root, 1)
-      assert.match(text, /## 审稿要求/)
-      assert.match(text, /## 来源 chapter-1/)
-      assert.match(text, /## 缺章纲/)
-      assert.doesNotMatch(text, /## 来源 governed-context/)
+      assert.equal(renderReviewContract(root, 1), '')
     } finally {
       await cleanup(root)
     }
+  }
+})
+
+test('the contract prefers the context package and adds the before source for revisions', async () => {
+  const root = await workspace('zh')
+  try {
+    await writeFile(join(root, chapterContextPath(1)), JSON.stringify({
+      chapter: 1,
+      selectedContext: [{ source: 'runtime/chapter_memo', reason: '包来源', excerpt: '包正文', protection: 'protected' }],
+    }))
+    const text = renderReviewContract(root, 1, '新正文')
+    assert.match(text, /## 来源 governed-context[\s\S]*包正文/)
+    assert.match(text, /## 来源 chapter-1@before/)
+    assert.match(text, /雨从二十三点下到现在/)
+  } finally {
+    await cleanup(root)
   }
 })

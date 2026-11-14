@@ -5,17 +5,18 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "505 passed／1 skipped（symlink）— chapter-review 10 例（观察校验与二次拒绝、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章无章纲只用正文、已发布章写回索引、草稿不写索引、索引缺失/损坏/schema 不符拒绝、索引无行不改、空 code/summary/quote 拒绝、空白引文不额外拒绝）＋ chapter-reopen 的「恢复→复审替换 manual-edit-review」＋ review-contract 4 例与 stage review 回归"
+    "summary": "534 passed／1 skipped（symlink）— chapter-review 15 例（观察校验与重复审替换、reviewedArtifact 只认同版本正文、无稿/无章纲拒绝、已发布章写回索引、草稿不写索引、索引缺失/损坏/schema 不符拒绝、scope 双源、evidence 空数组）＋ chapter-reopen 的「恢复→复审替换 manual-edit-review」＋ review-contract 4 例与 stage review 回归"
   },
   "receipts": [
+    "重复审替换索引观察；修订 before/current 双源与 scope 校验；unavailable/delivery/evidence 空数组；无章纲拒绝；context 包优先、缺包回退章纲（债）。",
     "`revisionDigest` 选择修订提案正文：只写带 `reviewedRevisionDigest` 的审稿记录，不写索引；摘要不符/提案缺失拒绝。",
     "`review` 阶段协议要求派审稿子代理产出 observations，主会话拿回后调 `story_review_chapter`；审稿用量因此可按直接子会话记录。",
-    "`story_review_chapter` 继续校验 observation 的 code／summary／assessment／category／evidence／sourceRefs，并把审稿记录写入 `source/story/runtime/chapter-XXXX.review.json`；同一章已有记录时拒绝。",
+    "`story_review_chapter` 继续校验 observation 的 code／summary／assessment／category／evidence／sourceRefs，并把审稿记录写入 `source/story/runtime/chapter-XXXX.review.json`；同一章可重审，新记录替换旧记录与索引观察。",
     "已发布章（`source/chapters/NNNN_*.md` 存在）审稿时，在写审稿记录的同一个 `commitFoundation` 里更新 `source/chapters/index.json` 的该章条目：`updatedAt` 置 now，`observations` 整体替换为本次 resolved 观察；`title`／`wordCount`／`createdAt`／`provenance`／`lengthTelemetry`／`tokenUsage` 保留。草稿审稿不读也不写索引；索引缺失、坏 JSON 或 schema 不符时拒绝审稿；索引无该章条目时不补行、不改该章条目。",
-    "已发布章（`source/chapters/NNNN_*.md` 存在）在章纲缺失、不可读或解析失败时，`reviewSources` 只返回章节正文来源，审稿仍可落盘；草稿态仍要求章纲，缺章纲继续拒绝。",
+    "已发布章也必须有章纲；章纲缺失/不可读时 reviewSources 与审稿契约都拒绝（撤回复刻新增的“无章纲只按正文”放宽）。",
     "`resolveObservationSources` 拒绝空 `code`、空 `summary` 与显式空 `quote`（`REVIEW_SOURCE_REQUIRED`），避免写回后索引严格读取失败；显式空白引文不额外收紧。",
     "恢复（写 `manual-edit-review`）后复审：索引观察被本次结果替换，`manual-edit-review` 消失，`updatedAt` 前进；`wordCount` 与 `provenance` 仍是恢复时的值。",
-    "`review-tool` 的 description 与 `chapter` 参数说明写明「草稿必须有正文与章纲，已发布章可无章纲（只按正文审）」；审稿契约在章纲不可读时给「来源 chapter-N + 缺章纲说明」。",
+    "review-tool 的 description 与 chapter 参数说明写明「草稿与已发布章都必须有正文和章纲，可重审并替换记录」；审稿契约缺章纲时返回空串。",
     "正常路径（双来源编号、sourceRefs 对象校验、reviewedArtifact）沿用既有真实会话证据；本次新增的索引写回、草稿/缺索引/缺行/空字段路径由工具/状态测试覆盖。D45 注销。该回执是 process-level 工具/状态测试，不是 DSH 会话。"
   ]
 }

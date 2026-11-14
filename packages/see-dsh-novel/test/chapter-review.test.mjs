@@ -47,7 +47,7 @@ async function workspace() {
 
 const cleanup = (root) => rm(root, { recursive: true, force: true })
 
-test('review persists validated observations with counts and refuses a second review', async () => {
+test('review persists validated observations and replaces on a second review', async () => {
   const root = await workspace()
   try {
     const beforeMs = Date.now()
@@ -88,10 +88,9 @@ test('review persists validated observations with counts and refuses a second re
     assert.deepEqual(index[0].tokenUsage, { promptTokens: 1, completionTokens: 2, totalTokens: 3 })
     const updatedAt = Date.parse(index[0].updatedAt)
     assert.ok(updatedAt >= beforeMs && updatedAt <= afterMs, `updatedAt ${index[0].updatedAt} 应落在本次审稿区间`)
-    await assert.rejects(
-      reviewChapter(root, { chapter: 1, summary: '再审', observations: [] }),
-      /已经有审稿记录/,
-    )
+    const second = await reviewChapter(root, { chapter: 1, summary: '再审', observations: [] })
+    assert.equal(second.counts.issue, 0)
+    assert.equal(JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))[0].observations.length, 0)
   } finally {
     await cleanup(root)
   }
@@ -120,17 +119,18 @@ test('a chapter without a draft or plan cannot be reviewed', async () => {
   }
 })
 
-test('a published chapter without a plan is reviewed from prose only', async () => {
+test('a published chapter without a plan is rejected', async () => {
   const root = await workspace()
   try {
     await rm(join(root, chapterPlanPath(1)), { force: true })
-    const result = await reviewChapter(root, {
-      chapter: 1,
-      summary: '只看正文',
-      observations: [{ code: 'C7', summary: '无章纲', assessment: 'unavailable' }],
-    })
-    assert.equal(result.counts.unavailable, 1)
-    assert.ok(await loadChapterReview(root, 1))
+    await assert.rejects(
+      reviewChapter(root, {
+        chapter: 1,
+        summary: '只看正文',
+        observations: [{ code: 'C7', summary: '无章纲', assessment: 'unavailable' }],
+      }),
+      /还没有章纲/
+    )
   } finally {
     await cleanup(root)
   }
@@ -264,6 +264,56 @@ test('the index accepts the source tokenUsage shape without extra constraints', 
     assert.ok(await loadChapterReview(root, 1))
     const updated = JSON.parse(await readFile(join(root, 'source/chapters/index.json'), 'utf8'))
     assert.deepEqual(updated[0].tokenUsage, { promptTokens: -1, completionTokens: 2, totalTokens: 0 })
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('scope issues require both before and current sources', async () => {
+  const { resolveObservationSources } = await import('../src/core/observation.ts')
+  const sources = new Map([['chapter-1', '新文'], ['chapter-1@before', '旧文']])
+  assert.throws(
+    () => resolveObservationSources([{ code: 'S1', summary: '越界', assessment: 'issue', category: 'scope', sourceRefs: [{ sourceId: 'chapter-1', quote: '新文' }] }], sources, { scopeComparison: { beforeId: 'chapter-1@before', currentId: 'chapter-1', before: '旧文', current: '新文' } }),
+    /REVIEW_SCOPE_EVIDENCE_REQUIRED/,
+  )
+  assert.doesNotThrow(
+    () => resolveObservationSources([{ code: 'S1', summary: '越界', assessment: 'issue', category: 'scope', sourceRefs: [{ sourceId: 'chapter-1', quote: '新文' }, { sourceId: 'chapter-1@before', quote: '旧文' }] }], sources, { scopeComparison: { beforeId: 'chapter-1@before', currentId: 'chapter-1', before: '旧文', current: '新文' } }),
+  )
+})
+
+test('review record clears evidence but keeps source refs', async () => {
+  const root = await workspace()
+  try {
+    await reviewChapter(root, {
+      chapter: 1,
+      summary: '证据清空',
+      observations: [{ code: 'C9', summary: '观察', assessment: 'observation', evidence: ['模型自述'], sourceRefs: [{ sourceId: 'chapter-1', quote: '雨从二十三点下到现在。' }] }],
+    })
+    const record = await loadChapterReview(root, 1)
+    assert.deepEqual(record.observations[0].evidence, [])
+    assert.equal(record.observations[0].sourceRefs[0].sourceId, 'chapter-1')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a scope issue without revision comparison is rejected', async () => {
+  const { resolveObservationSources } = await import('../src/core/observation.ts')
+  assert.throws(
+    () => resolveObservationSources([{ code: 'S2', summary: '越界', assessment: 'issue', category: 'scope', sourceRefs: [{ sourceId: 'chapter-1', quote: '新文' }] }], new Map([['chapter-1', '新文']])),
+    /REVIEW_SCOPE_EVIDENCE_REQUIRED/,
+  )
+})
+
+test('review returns delivery when the work has explicit bounds', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'work.json'), JSON.stringify({ version: 1, id: 'w', title: 't', profile: 'longform-novel', language: 'zh', status: 'draft', metadata: { chapterWordCount: 3 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }))
+    const work = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+    work.metadata = { ...work.metadata, minChapterLength: 1, maxChapterLength: 100 }
+    await writeFile(join(root, 'work.json'), JSON.stringify(work, null, 2) + '\n')
+    const result = await reviewChapter(root, { chapter: 1, summary: '有界', observations: [] })
+    assert.equal(result.delivery.status, 'checks_passed')
   } finally {
     await cleanup(root)
   }

@@ -9,7 +9,10 @@ import { loadChapterDocument } from './chapter-document.js'
 import { loadChapterDraft } from './chapter-draft.js'
 import { chapterBodyForChapter } from './chapter-document.js'
 import { CHAPTER_INDEX_PATH, readChapterIndexStrict, reviewedChapterIndex } from './chapter-index.js'
-import { loadChapterPlan } from './chapter-plan.js'
+import { loadChapterPlan, loadWriterContext } from './chapter-plan.js'
+import { readWork } from './work.js'
+import { chapterLengthDelivery, chapterLengthSpecOf, countChapterLengthByMode } from './length.js'
+import type { LengthDelivery } from './length.js'
 import { currentChapterArtifact, readArtifactRevision } from './artifact-store.js'
 import { countObservations, resolveObservationSources } from './observation.js'
 import type { Observation, ObservationCounts, ObservationInput } from './observation.js'
@@ -50,6 +53,8 @@ export async function reviewSources(
   root: string,
   chapter: number,
   revisionContent?: string,
+  beforeContent?: string,
+  beforeLabel?: string,
 ): Promise<{ sources: Map<string, string>, published: boolean }> {
   const [document, draft, plan] = await Promise.all([
     loadChapterDocument(root, chapter),
@@ -58,12 +63,16 @@ export async function reviewSources(
   ])
   const body = revisionContent ?? document?.content ?? draft?.content ?? null
   if (body === null) throw new Error(`第 ${chapter} 章还没有正文，先写再审`)
+  if (plan === null) throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
   const sources = new Map([[`chapter-${chapter}`, body]])
-  if (plan !== null) {
-    sources.set('governed-context', plan.memo.body)
-  } else if (document === null) {
-    // 草稿态仍要求章纲：规划闸门不变；已发布章可只用正文复审（章纲缺失/损坏时）。
-    throw new Error(`第 ${chapter} 章还没有章纲，先规划再审`)
+  const context = await loadWriterContext(root, chapter)
+  sources.set('governed-context', context === null
+    ? plan.memo.body
+    : context.selectedContext
+      .map((entry) => [`## ${entry.source}`, entry.reason, entry.excerpt ?? ''].filter(Boolean).join('\n'))
+      .join('\n\n'))
+  if (revisionContent !== undefined && beforeContent !== undefined) {
+    sources.set(`chapter-${chapter}@${beforeLabel ?? 'before'}`, beforeContent)
   }
   return { sources, published: revisionContent === undefined && document !== null }
 }
@@ -74,17 +83,33 @@ export async function reviewChapter(
     chapter: number
     summary: string
     observations: ReadonlyArray<ObservationInput>
-    revision?: { digest: string, content: string }
+    revision?: { digest: string, content: string, beforeContent?: string, beforeLabel?: string }
   },
-): Promise<{ path: string, counts: ObservationCounts, observations: Observation[] }> {
+): Promise<{ path: string, counts: ObservationCounts, observations: Observation[], wordCount?: number, delivery?: LengthDelivery }> {
   if (input.summary.trim() === '') throw new Error('summary 不能为空')
   const existing = await readFile(join(root, chapterReviewPath(input.chapter)), 'utf8').catch((error: NodeJS.ErrnoException) => {
     if (error.code === 'ENOENT') return null
     throw error
   })
-  if (existing !== null) throw new Error(`第 ${input.chapter} 章已经有审稿记录，不覆盖`)
-  const { sources, published } = await reviewSources(root, input.chapter, input.revision?.content)
-  const observations = resolveObservationSources(input.observations, sources)
+  const { sources, published } = await reviewSources(
+    root,
+    input.chapter,
+    input.revision?.content,
+    input.revision?.beforeContent,
+    input.revision?.beforeLabel,
+  )
+  const observations = resolveObservationSources(input.observations, sources, {
+    ...(input.revision?.beforeContent === undefined || input.revision.beforeContent === input.revision.content
+      ? {}
+      : {
+          scopeComparison: {
+            beforeId: `chapter-${input.chapter}@${input.revision.beforeLabel ?? 'before'}`,
+            currentId: `chapter-${input.chapter}`,
+            before: input.revision.beforeContent,
+            current: input.revision.content,
+          },
+        }),
+  }).map((observation) => ({ ...observation, evidence: [] }))
   const counts = countObservations(observations)
   let reviewedArtifact: ReviewedArtifact | undefined
   if (input.revision === undefined) {
@@ -101,6 +126,11 @@ export async function reviewChapter(
       }
     }
   }
+  const work = await readWork(root)
+  const spec = work === null ? undefined : chapterLengthSpecOf(work)
+  const body = sources.get(`chapter-${input.chapter}`) ?? ''
+  const wordCount = spec === undefined ? undefined : countChapterLengthByMode(body, spec.countingMode)
+  const delivery = spec === undefined || wordCount === undefined ? undefined : chapterLengthDelivery(wordCount, spec)
   const record: ReviewRecord = {
     version: 1,
     chapter: input.chapter,
@@ -109,6 +139,8 @@ export async function reviewChapter(
     counts,
     ...(reviewedArtifact === undefined ? {} : { reviewedArtifact }),
     ...(input.revision === undefined ? {} : { reviewedRevisionDigest: input.revision.digest }),
+    ...(wordCount === undefined ? {} : { wordCount }),
+    ...(delivery === undefined ? {} : { delivery }),
   }
   const path = chapterReviewPath(input.chapter)
   const writes: Array<{ relativePath: string, content: string }> = [
@@ -126,7 +158,7 @@ export async function reviewChapter(
     }
   }
   await commitFoundation(root, { writes })
-  return { path, counts, observations }
+  return { path, counts, observations, ...(wordCount === undefined ? {} : { wordCount }), ...(delivery === undefined ? {} : { delivery }) }
 }
 
 export async function loadChapterReview(root: string, chapter: number): Promise<ReviewRecord | null> {

@@ -274,7 +274,7 @@ function renderStageBase(facts: StageFacts): string {
         '3. 引文只能引用注入的编号来源（sourceId 加行号或逐字 quote）；没有证据的条目不提交。',
         `4. 调 \`story_review_chapter\` 落盘第 ${target} 章的审稿记录。`,
         '5. 审稿不通过转修订时：spot-fix 按下方编号来源选范围并交 `ranges`／`replacements`（空串删段，非空按换行分行），其它模式交整段 content，可选用唯一 targetText。',
-        '同一章只审一次；修订后必须重新审稿。',
+        '同一章可以重审；再审覆盖记录并替换索引观察；修订后必须重新审稿。',
         '若本章是「重开保留的旧稿」，先问作者是否改稿：改稿走 `story_revise_chapter`，不要直接审旧稿；直接审只作确认现有正文。',
         '审稿落盘后即停；不自动修订、结算或开下一章。',
         common,

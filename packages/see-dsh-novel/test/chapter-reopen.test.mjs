@@ -393,7 +393,7 @@ test('a restored chapter can be reviewed and returns to the next chapter', async
   }
 })
 
-test('a restored published chapter without a plan can still be reviewed', async () => {
+test('a restored published chapter without a plan is rejected', async () => {
   const root = await workspace()
   try {
     await settle(root)
@@ -401,13 +401,15 @@ test('a restored published chapter without a plan can still be reviewed', async 
     const versionId = await versionFile(root, '# 第1章 旧稿\n\n旧文。\n')
     await registry(root).get('story_reopen_chapter').execute({ chapter: 1, versionId }, exec)
     assert.equal(detectStage(root).stage, 'review')
-    const review = await registry(root).get('story_review_chapter').execute({
-      chapter: 1,
-      summary: '缺章纲复审',
-      observations: [{ code: 'C8', summary: '只按正文', assessment: 'unavailable' }],
-    }, exec)
-    assert.equal(review.chapter, 1)
-    assert.equal(await readWorkflowStart(root), null)
+    await assert.rejects(
+      registry(root).get('story_review_chapter').execute({
+        chapter: 1,
+        summary: '缺章纲复审',
+        observations: [{ code: 'C8', summary: '只按正文', assessment: 'unavailable' }],
+      }, exec),
+      /还没有章纲/,
+    )
+    assert.equal((await readWorkflowStart(root))?.chapter, 1)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

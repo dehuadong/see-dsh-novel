@@ -3,6 +3,8 @@
  */
 import type { Disposer, ExecuteContext, JsonSchema, PluginContext, ToolDefinition } from '../../core/types.js'
 import { reviewChapter } from '../../core/chapter-review.js'
+import { loadChapterDocument } from '../../core/chapter-document.js'
+import { revisionDigest } from '../../core/revision.js'
 import { readRevisionProposal } from '../../core/revision.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import { workflowStarted, clearWorkflowStart } from '../../core/workflow-start.js'
@@ -14,7 +16,7 @@ const parameters: JsonSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    chapter: { type: 'integer', description: '章号；草稿必须有正文与章纲，已发布章可无章纲（只按正文审）' },
+    chapter: { type: 'integer', description: '章号；必须有正文与章纲' },
     revisionDigest: { type: 'string', description: '修订提案的 contentDigest；带它时从提案正文审稿，不写索引' },
     summary: { type: 'string', description: '本轮审稿的总结' },
     observations: {
@@ -58,6 +60,8 @@ const output: JsonSchema = {
     chapter: { type: 'integer' },
     path: { type: 'string' },
     counts: { type: 'object' },
+    wordCount: { type: 'integer' },
+    delivery: { type: 'object' },
   },
   required: ['chapter', 'path', 'counts'],
 }
@@ -66,19 +70,24 @@ export interface ReviewResult {
   chapter: number
   path: string
   counts: ObservationCounts
+  wordCount?: number
+  delivery?: unknown
 }
 
-async function revisionSource(root: string, chapter: number, digest: string): Promise<{ digest: string, content: string }> {
+async function revisionSource(root: string, chapter: number, digest: string): Promise<{ digest: string, content: string, beforeContent: string, beforeLabel: string }> {
   const proposal = await readRevisionProposal(root, chapter)
   if (proposal === null) throw new Error(`第 ${chapter} 章没有修订提案；先生成修订提案`)
   if (proposal.contentDigest !== digest) throw new Error(`第 ${chapter} 章的修订提案摘要不匹配；重新生成修订提案后再审`)
-  return { digest, content: proposal.content }
+  const before = await loadChapterDocument(root, chapter)
+  if (before === null) throw new Error(`第 ${chapter} 章没有已发布正文，无法做修订对照`)
+  if (revisionDigest(before.content) !== proposal.baseDigest) throw new Error('第 '+chapter+' 章修订提案的 baseDigest 与已发布正文不匹配')
+  return { digest, content: proposal.content, beforeContent: before.content, beforeLabel: 'before' }
 }
 
 export function installReviewTool(ctx: PluginContext): Disposer {
   return ctx.tools.register({
     name: REVIEW_NAME,
-    description: 'Validate evidence-backed review observations against the chapter and its plan, then persist source/story/runtime/chapter-XXXX.review.json. sourceRefs must be objects ({sourceId, quote?}, or {sourceId, startLine, endLine}) referring to the numbered sources. One review per chapter; a published chapter may be reviewed without a plan (prose only), a draft requires both prose and plan.',
+    description: 'Validate evidence-backed review observations against the chapter and its plan, then persist source/story/runtime/chapter-XXXX.review.json. sourceRefs must be objects ({sourceId, quote?}, or {sourceId, startLine, endLine}) referring to the numbered sources. A chapter may be reviewed repeatedly; a new review replaces the previous record and index observations. Both draft and published chapters require prose and a chapter plan.',
     parameters,
     output: {
       schema: output,
@@ -106,7 +115,7 @@ export function installReviewTool(ctx: PluginContext): Disposer {
             warning: `审稿已落盘，但 workflow start 未清除：${error instanceof Error ? error.message : String(error)}`,
           } as ReviewResult & { warning: string }
         }
-        return { chapter: args.chapter, path: result.path, counts: result.counts }
+        return { chapter: args.chapter, path: result.path, counts: result.counts, ...(result.wordCount === undefined ? {} : { wordCount: result.wordCount }), ...(result.delivery === undefined ? {} : { delivery: result.delivery }) }
       })
     },
   } as ToolDefinition<{ chapter: number, summary: string, observations: ObservationInput[] }, ReviewResult>)

@@ -48,9 +48,15 @@ function fail(code: string, details: Record<string, unknown>): never {
 /**
  * 把行号或引文解析成逐字 quote；任何无证据、越界、空行、不匹配都按源工程的错误码拒绝。
  */
+export interface ObservationResolutionOptions {
+  /** 修订对照的两个 source id；scope issue 必须同时引用。 */
+  scopeComparison?: { beforeId: string, currentId: string, before: string, current: string }
+}
+
 export function resolveObservationSources(
   observations: ReadonlyArray<ObservationInput>,
   sources: ReadonlyMap<string, string>,
+  options: ObservationResolutionOptions = {},
 ): Observation[] {
   return observations.map((observation, index) => {
     if (observation.code === '') {
@@ -62,6 +68,17 @@ export function resolveObservationSources(
     const refs = observation.sourceRefs ?? []
     if (refs.length === 0 && observation.assessment !== 'unavailable') {
       fail('REVIEW_SOURCE_REQUIRED', { path: `/observations/${index}/sourceRefs`, observationCode: observation.code })
+    }
+    const comparison = options.scopeComparison
+    if (observation.assessment === 'issue' && observation.category === 'scope') {
+      const ids = new Set(refs.map((reference) => reference.sourceId))
+      if (comparison === undefined || !ids.has(comparison.beforeId) || !ids.has(comparison.currentId) || comparison.before === comparison.current) {
+        fail('REVIEW_SCOPE_EVIDENCE_REQUIRED', {
+          path: `/observations/${index}/sourceRefs`, observationCode: observation.code,
+          beforeId: comparison?.beforeId, currentId: comparison?.currentId,
+          instruction: 'scope issue 必须同时引用修订前后两版；缺一版或两版相同都拒绝。',
+        })
+      }
     }
     return {
       code: observation.code,

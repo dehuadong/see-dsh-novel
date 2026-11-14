@@ -10,7 +10,7 @@ import { join } from 'node:path'
 
 import { chapterBodyForChapter } from '../../../core/chapter-document.js'
 import { loadChapterDraftSync } from '../../../core/chapter-draft.js'
-import { chapterPlanPath } from '../../../core/chapter-plan.js'
+import { chapterContextPath, chapterPlanPath, parseContextPackageText } from '../../../core/chapter-plan.js'
 import { numberSourceLines } from '../../../core/observation.js'
 import type { WorkLanguage } from '../../../core/work.js'
 
@@ -48,6 +48,20 @@ export function readCurrentChapterBody(root: string, chapter: number): string | 
 }
 
 /** 章纲 memo 正文；缺文件、解析失败或章号不符时返回 undefined。 */
+function readContextText(root: string, chapter: number): string | undefined {
+  let raw: string
+  try {
+    raw = readFileSync(join(root, chapterContextPath(chapter)), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined
+    throw error
+  }
+  if (raw.trim() === '') return undefined
+  const parsed = parseContextPackageText(raw, chapter, 'context')
+  if (parsed.chapter !== chapter) throw new Error(`context 包章号不是 ${chapter}`)
+  return parsed.selectedContext.map((entry) => [`## ${entry.source}`, entry.reason, entry.excerpt ?? ''].filter(Boolean).join('\n')).join('\n\n')
+}
+
 function readPlanMemo(root: string, chapter: number): string | undefined {
   try {
     const parsed = JSON.parse(readFileSync(join(root, chapterPlanPath(chapter)), 'utf8')) as {
@@ -64,7 +78,18 @@ function readPlanMemo(root: string, chapter: number): string | undefined {
 }
 
 /** 章节正文的编号来源；缺正文时返回空串。 */
-export function renderChapterSource(root: string, chapter: number, revisionContent?: string): string {
+export function readBeforeBody(root: string, chapter: number): string | undefined {
+  try {
+    const prefix = String(chapter).padStart(4, '0') + '_'
+    const file = readdirSync(join(root, 'source/chapters')).find((name) => name.startsWith(prefix) && name.endsWith('.md'))
+    if (file === undefined) return undefined
+    return chapterBodyForChapter(readFileSync(join(root, 'source/chapters', file), 'utf8'), chapter)
+  } catch {
+    return undefined
+  }
+}
+
+function renderChapterSource(root: string, chapter: number, revisionContent?: string): string {
   const body = revisionContent ?? readCurrentChapterBody(root, chapter)
   if (body === undefined) return ''
   const language = workLanguage(root)
@@ -76,11 +101,13 @@ export function renderChapterSource(root: string, chapter: number, revisionConte
 export function renderNumberedSources(root: string, chapter: number, revisionContent?: string): string {
   const chapterSource = renderChapterSource(root, chapter, revisionContent)
   if (chapterSource === '') return ''
-  const memo = readPlanMemo(root, chapter)
+  const memo = readContextText(root, chapter) ?? readPlanMemo(root, chapter)
   if (memo === undefined) return ''
   const language = workLanguage(root)
   const contextLabel = language === 'en' ? '## Source governed-context' : '## 来源 governed-context'
-  return [chapterSource, '', contextLabel, numberSourceLines(memo)].join('\n')
+  const before = revisionContent === undefined ? undefined : readBeforeBody(root, chapter)
+  const beforeBlock = before === undefined ? [] : ['', language === 'en' ? `## Source chapter-${chapter}@before` : `## 来源 chapter-${chapter}@before`, numberSourceLines(before)]
+  return [chapterSource, ...beforeBlock, '', contextLabel, numberSourceLines(memo)].join('\n')
 }
 
 /** 审稿要求 + 编号来源；缺正文时返回空串；缺章纲时只给正文并说明。 */
@@ -97,13 +124,12 @@ export function renderReviewContract(root: string, chapter: number, revisionCont
         '## 审稿要求',
         '按随阶段提供的审稿方法和权威上下文审查本章。每条观察给出 code、assessment（issue／resolved／observation／unavailable）、summary 与 sourceRefs；证据只能来自下面的编号来源，用 sourceId 加 startLine／endLine 或逐字 quote 引用。不估算字数，字数由宿主计算。observations 可以为空；缺少对照证据时用 unavailable，不要写成正文缺陷。',
       ].join('\n')
-  const memo = readPlanMemo(root, chapter)
+  const memo = readContextText(root, chapter) ?? readPlanMemo(root, chapter)
   if (memo === undefined) {
-    const note = language === 'en'
-      ? ['## Missing chapter plan', 'The chapter plan is missing or unreadable: review the prose only, without governed-context.'].join('\n')
-      : ['## 缺章纲', '本章章纲缺失或不可读：只按正文审稿，不引用 governed-context。'].join('\n')
-    return [requirement, '', chapterSource, '', note].join('\n')
+    return ''
   }
   const contextLabel = language === 'en' ? '## Source governed-context' : '## 来源 governed-context'
-  return [requirement, '', chapterSource, '', contextLabel, numberSourceLines(memo)].join('\n')
+  const before = revisionContent === undefined ? undefined : readBeforeBody(root, chapter)
+  const beforeBlock = before === undefined ? [] : ['', language === 'en' ? `## Source chapter-${chapter}@before` : `## 来源 chapter-${chapter}@before`, numberSourceLines(before)]
+  return [requirement, '', chapterSource, ...beforeBlock, '', contextLabel, numberSourceLines(memo)].join('\n')
 }
