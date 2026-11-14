@@ -132,4 +132,4 @@ Status: implemented
 ## 实施记录
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
-- 实施：删上一章段、空白/字节/threadRefs、三道闸门登记；索引进度未实现（AU-22 残余）。`pnpm run verify` 535 passed／1 skipped；realRun 重录；CI 待回填。
+- 实施：删上一章段、空白/字节/threadRefs、三道闸门登记；索引进度未实现（AU-22 残余）。`pnpm run verify` 535 passed／1 skipped；realRun 重录；CI `43583628076` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `e4f947e`）。
