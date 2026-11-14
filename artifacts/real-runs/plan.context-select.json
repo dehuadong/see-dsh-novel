@@ -1,13 +1,15 @@
 {
   "capability": "plan.context-select",
-  "date": "2026-11-09",
-  "sessionId": "session-e96508fc-aff4-48b4-a934-5b70e4519e06",
+  "date": "2026-11-14",
+  "sessionId": "process:plan.context-select",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "295 passed — context-package 7 例（planner/writer 两 pass、previous chapter、五类任务、0/1 自动、complete/semantic、protected 分层、trace、planner/writer 包落盘、按文件校验）＋ story-index 2 例（role/outline 删除、material 保留）＋ writer-contract 3 例（selectedContext 注入）＋ plan-tool 1 例（plannerInputs 从 planner-context）"
+    "summary": "529 passed／1 skipped（symlink） — context-package 7 例（planner/writer 两 pass、previous chapter、五类任务、0/1 自动、complete/semantic、protected 分层、trace、planner/writer 包落盘、按文件校验）＋ story-index 2 例（role/outline 删除、material 保留）＋ writer-contract 3 例（selectedContext 注入）＋ plan-tool 1 例（plannerInputs 从 planner-context）"
   },
   "receipts": [
+    "semantic 选择覆盖：N-1 摘要 required 强制、summary 按章号 #2→#10、context/writer strict、en referenced hook。",
+    "context-package 上一章取 N-1 全文去标题；semantic 强制 N-1 摘要；selectedContext 按 source id 源顺序；referenced hook 按语言双语；context strict 读入（未知字段/缺 reason/保护值非法拒绝）；planner-context 登记为 DSH 子代理产物。",
     "真实运行（工作区 `.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`story_context_candidates(purpose=planner, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=planner)` 回执「第 1 章上下文：43 条」，写入 `source/story/runtime/chapter-0001.planner-context.json`。",
     "planner 包含 `runtime/chapter_memo`、`source/story/current_focus.md`、`author_intent.md`、`style_guide.md`、`parent_canon.md`、`fanfic_canon.md`、9 条 hook、8 张角色卡与两份大纲分节；planner-context 43 条与 `story_plan_chapter` 的 `plannerInputs` 完全一致，`plannerInputs` 由宿主从 planner-context 读取。",
     "`story_context_candidates(purpose=writer, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=writer)` 回执「第 1 章上下文：47 条」，写入 `chapter-0001.context.json`／`.trace.json`。",

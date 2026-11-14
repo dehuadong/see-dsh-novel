@@ -81,12 +81,12 @@
     {
       "file": "packages/see-dsh-novel/src/core/context-package.ts",
       "line": "212-225",
-      "behavior": "previousChapterExcerpt 取上一章文件后调用 chapterBodyForChapter(..., chapter)（传的是下一章章号），再 slice(-2000)；只剥掉章号等于下一章的标题，上一章的「第N-1章」标题因此留在 excerpt 里。"
+      "behavior": "context-package 上一章取 chapterBodyForChapter(...,chapter-1) 全文；semantic 强制 N-1 摘要；selectedContext 按 source id 顺序与来源 reason；referenced hook 按语言双语；context strict。"
     },
     {
       "file": "packages/see-dsh-novel/src/core/context-package.ts",
       "line": "323-345,347-377,379-399,401-418",
-      "behavior": "memoryCandidates 只取 hook/chapter-summary/volume-summary 三类（material 被过滤掉），按 hit 顺序排；roleCandidates 只扫 ROLE_DIR_NAMES 的主要角色/次要角色；stateCandidates 读 current_state.json facts；outlineCandidates 按 heading 切 story_frame/volume_map。"
+      "behavior": "memoryCandidates 只取 hook/chapter-summary/volume-summary 三类（material 被过滤掉），按 hit 顺序排；required N-1 摘要由 selection 强制；roleCandidates 只扫 ROLE_DIR_NAMES 的主要角色/次要角色；stateCandidates 读 current_state.json facts；outlineCandidates 按 heading 切 story_frame/volume_map。"
     },
     {
       "file": "packages/see-dsh-novel/src/core/context-package.ts",
@@ -96,7 +96,7 @@
     {
       "file": "packages/see-dsh-novel/src/core/context-package.ts",
       "line": "595-675",
-      "behavior": "assembleContext：fixed entries 先入 selected；按 groups 顺序把 memory 再 role/state/outline 选中项追加；memory 为 compressible、其它为 protected；reason 统一为 composer <kind>；超预算转 compressionTask。"
+      "behavior": "assembleContext：fixed entries 先入 selected；按 groups 顺序把 memory 再 role/state/outline 选中项追加；memory 为 compressible、其它为 protected；reason 用来源完整说明；selectedContext 按 source id 顺序排序；超预算转 compressionTask。"
     },
     {
       "file": "packages/see-dsh-novel/src/core/context-package.ts",
@@ -142,27 +142,28 @@
     "packages/see-dsh-novel/test/writer-contract.test.mjs:45-88 selectedContext 进入 writer 契约",
     "本次审计运行 node --import tsx --test context-package/context-spool/plan-tool/writer-contract 全过（测试通过不等价）"
   ],
-  "realRunLevel": "S",
-  "realRunBasis": "artifacts/real-runs/plan.context-select.json：date=2026-11-09，sessionId=session-e96508fc-aff4-48b4-a934-5b70e4519e06（非 process:*）。本机 session（.artifacts/work-context，2026-11-09T03:36Z 创建）可读：seq 22 story_context_candidates(planner, 传 contextWindowTokens=128000) 回执「第 1 章 complete 选择：0 个任务」；seq 28 package(planner) 回执「第 1 章上下文：43 条」，含 runtime/chapter_memo、current_focus、author_intent、style_guide、parent_canon、fanfic_canon、9 条 hook、8 张角色卡、单章大纲分节；seq 107/113 writer 回执「47 条」，额外 4 条 runtime/referenced_hook#H-01/H-02/H-03/H-08；seq 193/199/200 story_context_task 返回 ENOENT（complete 不写候选 task）；seq 138 story_write_chapter 回执「第 1 章已落盘：source/chapters/0001_无尸.md（2363 / 目标 3000）」。另见 seq 167 只传 12000 窗口的 semantic 候选回执（4 个任务）。",
+  "realRunLevel": "P",
+  "realRunBasis": "process:plan.context-select（2026-11-14；无真实 DSH semantic 会话）",
   "deviations": [
     "D24 book reference 上下文缺失：源 composeChapter 先 loadReferenceContext 并在 complete 预算与最终 selectedContext 里追加 compressible 引用段（composer.ts:93-104,569-578；reference-context.ts:40-84）；复刻 grep 不到 reference/referenceContextProvider，context-package 只装配固定来源与五组（docs/scope.md:145 的 D24，计划 P6 materials/search.unified）。",
-    "上一章 excerpt 与源不同：源取上一章去掉标题行后的全文（planning-materials.ts:20-51），复刻只取末尾 2000 字（context-package.ts:212-225），并且把下一章章号传给 chapterBodyForChapter，导致上一章的「第N-1章」标题没有被剥掉。planner 契约同样 slice(-2000)（stages/planner.ts:56-68）。",
-    "第 N-1 章摘要没有强制进入选择：源 selectSummariesById 在 semantic 模式下无条件包含 chapter===N-1 的摘要（memory-retrieval.ts:256-266）；复刻 memoryCandidates 把全部摘要当候选，选中与否由子代理/selection 决定，没有强制包含（context-package.ts:323-345,612-628）。",
+    "已修（2026-11-14）：上一章 excerpt 与源不同：源取上一章去掉标题行后的全文（planning-materials.ts:20-51），复刻只取末尾 2000 字（context-package.ts:212-225），并且把下一章章号传给 chapterBodyForChapter，导致上一章的「第N-1章」标题没有被剥掉。planner 契约同样 slice(-2000)（stages/planner.ts:56-68）。",
+    "已修（2026-11-14）：第 N-1 章摘要没有强制进入选择：源 selectSummariesById 在 semantic 模式下无条件包含 chapter===N-1 的摘要（memory-retrieval.ts:256-266）；复刻 memoryCandidates 把全部摘要当候选，选中与否由子代理/selection 决定，没有强制包含（context-package.ts:323-345,612-628）。",
     "英文角色目录不参与选择：源扫 主要角色/次要角色/major/minor 四个目录（composer.ts:786-804）；复刻 roleCandidates 只迭代 ROLE_DIR_NAMES 的两个中文目录（context-package.ts:347-377；story-paths.ts:70）。使用 roles/major|minor 的作品在复刻上下文里没有角色卡。",
-    "选定条目的顺序、reason 与源不同：源顺序是 memo→focus→intent→style→state→outline→canon→role→referenced hook→summary→volume→hooks（composer.ts:722-734），reason 是各来源的完整说明；复刻是 fixed→memory→role→state→outline（context-package.ts:458-468,609-628），selected 的 reason 统一为「composer <kind>」（:623）。context.json、trace.selectedSources 与 token 统计随之不同，writer 看到的上下文顺序也不同。",
-    "referenced hook 文本只有中文：源按 language 输出中英两套 reason/excerpt（composer.ts:861-891）；复刻 context-package.ts:281-289 硬编码中文。英文作品会得到中文的读者承诺/种于/推进于文本。",
+    "已修（2026-11-14）：选定条目的顺序、reason 与源不同：源顺序是 memo→focus→intent→style→state→outline→canon→role→referenced hook→summary→volume→hooks（composer.ts:722-734），reason 是各来源的完整说明；复刻是 fixed→memory→role→state→outline（context-package.ts:458-468,609-628），selected 的 reason 统一为「composer <kind>」（:623）。context.json、trace.selectedSources 与 token 统计随之不同，writer 看到的上下文顺序也不同。",
+    "已修（2026-11-14）：referenced hook 文本只有中文：源按 language 输出中英两套 reason/excerpt（composer.ts:861-891）；复刻 context-package.ts:281-289 硬编码中文。英文作品会得到中文的读者承诺/种于/推进于文本。",
     "trace 的 memory 候选 id 命名与源不同：源是 summary:<chapter>/hook:<id>/volume-summary:<index>（memory-retrieval.ts:223-233）；复刻是 memory:<source>（context-package.ts:328,750）。ChapterTrace 的 retrieval.candidates/semanticSelectedIds 因此与源不可直接对读。",
     "planner pass 多写 planner-context.json：源 planner 只返回 plannerInputs 并写 intent.md（planner.ts:84,103-108），不落 planner 包；复刻 context-tool.ts:291-293 额外把 planner 包写 source/story/runtime/chapter-XXXX.planner-context.json，plan-tool 再从它读 plannerInputs。该文件是复刻为断点续跑加的，不在源产物里。",
-    "上下文包/trace 读取不校验 strict schema：源 ContextPackageSchema/ChapterTraceSchema 是 strict（input-governance.ts:19-70）；复刻 parseContextPackage 只检查 chapter 与 selectedContext 是数组（chapter-plan.ts:44-49），坏条目会被当作 ContextSource 传给 writer/plan。",
+    "已修（2026-11-14）：上下文包/trace 读取不校验 strict schema：源 ContextPackageSchema/ChapterTraceSchema 是 strict（input-governance.ts:19-70）；复刻 parseContextPackage 只检查 chapter 与 selectedContext 是数组（chapter-plan.ts:44-49），坏条目会被当作 ContextSource 传给 writer/plan。",
     "complete 预算不含 book reference：源 completeContextWithinBudget 接收 reference entries 并计入 tokens（composer.ts:323-330,368-380）；复刻没有 reference，故 complete 判定天然更宽（D24 的下游影响）。",
     "源 planner/writer 在进程内直接调选择器；复刻要求主模型按阶段协议派 composer 子代理再把 id 回传（context-tool.ts:144-307；stages/index.ts:245-252,286-293）。这是 DSH 的 subagent 机制（docs/dsh-mapping.md:12「Agent 循环」、:21「阶段停点」），但其语义分支的真实回执缺失（见 limitations）。"
   ],
   "limitations": [
-    "S 级会话只覆盖 complete 分支：两次 candidates 都回「0 个任务」，semantic 子代理选择（选择器/回传/校验）没有真实 DSH 会话回执，只有 context-package 的进程级用例。",
+    "P 级回执（无真实 DSH 会话）只覆盖 complete 分支：两次 candidates 都回「0 个任务」，semantic 子代理选择（选择器/回传/校验）没有真实 DSH 会话回执，只有 context-package 的进程级用例。",
     "该会话的 story_context_candidates 在参数里传了 contextWindowTokens=128000/12000（旧工具面）；当前 context-tool.ts:125-138 从 request/header + llm.resolveModelInfo 派生预算，这条派生路径没有会话回执。",
-    "会话创建时间早于 2026-11-09 13:46 的 context-package 改动（previous chapter 改为 chapterBodyForChapter(..., chapter)），因此当前上一章带 N-1 标题的行为没有回执；43/47 条数与 writer 2363 字的回执仍可与代码对上。",
+    "会话创建时间早于 2026-11-09 13:46 的 context-package 改动（previous chapter 改为 chapterBodyForChapter(..., chapter)），上一章全文去标题已由 2026-11-14 测试覆盖；43/47 条数与 writer 2363 字的回执仍可与代码对上。",
     "源 composer 的选择器是进程内直接调用模型；复刻的候选/任务经 spool 文件交接，主模型派子代理读任务，宿主只校验 id 与未知 id。spool 读取是 DSH 机制（context-spool.ts:1-12），但它把「选择」拆成多次工具回合，真实行为依赖模型按协议执行；本行只能证明工具与文本。",
     "book reference（D24）在源是 materials 资产绑定的引用段；复刻当前没有 materials.import/search.unified 承载，属于 P6 的已知未交付，无法在本行内等价。",
-    "对照：capabilities.yaml:251-258 标 verified；docs/fidelity-audit.md:358-366 判「未关闭差异」（D24/D25）；本审计确认未关闭差异，并把上一章截断/标题残留、N-1 摘要强制、英文角色目录、顺序/reason/trace id、strict 读取列为新证据。"
+    "对照：capabilities.yaml:251-258 标 verified；docs/fidelity-audit.md:358-366 判「未关闭差异」（D24/D25）；本审计确认未关闭差异；2026-11-14 已修上一章全文、N-1 强制、顺序/reason、双语 hook、context strict，残留 D24。",
+    "2026-11-14 AU-20 修复：context-package 上一章全文去标题、强制 N-1 摘要、source-id 顺序/reason、referenced hook 双语、context strict 读入、planner-context 登记；D24 reference 未修，AU-20 维持债。角色目录/trace id/planner 契约分别归 AU-15/AU-19/AU-22。"
   ]
 }

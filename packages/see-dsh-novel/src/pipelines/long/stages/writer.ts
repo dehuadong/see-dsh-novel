@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-import { chapterContextPath, chapterIntentPath, chapterPlanPath } from '../../../core/chapter-plan.js'
+import { chapterContextPath, chapterIntentPath, chapterPlanPath, parseContextPackageText } from '../../../core/chapter-plan.js'
 import { defaultChapterLength } from '../../../core/length.js'
 import { STORY_RULES_MD, STORY_STYLE_GUIDE_MD } from '../../../core/story-paths.js'
 import type { WorkLanguage } from '../../../core/work.js'
@@ -50,7 +50,9 @@ export function renderWriterContract(root: string): string {
   const chapter = currentChapter(root) + 1
   const plan = readJson<{ memo?: { goal?: string, body?: string } }>(join(root, chapterPlanPath(chapter)))
   const intent = readText(join(root, chapterIntentPath(chapter)))
-  const context = readJson<{ selectedContext?: Array<{ source: string, reason: string, excerpt?: string, protection: string }> }>(join(root, chapterContextPath(chapter)))
+  const context = readText(join(root, chapterContextPath(chapter))) === ''
+    ? undefined
+    : parseContextPackageText(readText(join(root, chapterContextPath(chapter))), chapter, 'context')
   const bookRulesBody = readText(join(root, STORY_RULES_MD))
   const styleGuide = readText(join(root, STORY_STYLE_GUIDE_MD))
   const target = work.metadata?.chapterWordCount ?? defaultChapterLength(language)

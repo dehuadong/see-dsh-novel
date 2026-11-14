@@ -267,3 +267,10 @@
 - 复刻做法：首版正文先写 `.drafts/chapter-NNNN.md`；`detectStage` 直接复用 `draftPath()` 判定草稿存在，不再硬编码 `.drafts/NNNN.md`。
 - 原因：DSH 的审稿闸门要求首版正文先落草稿、审稿后结算发布；路径只能由草稿 helper 单点决定。
 - 验证：`test/chapter-write.test.mjs` 写后 `detectStage=review`；`test/write-tool.test.mjs` 路径与回执。
+
+### plan.context-select：planner 包落盘
+
+- 源工程做法：planner 只返回 plannerInputs 并写 intent.md，不落 planner 包。
+- 复刻做法：`chapter-XXXX.planner-context.json` 保存 planner 子代理回传的上下文包，plan-tool 读回 plannerInputs；读回走 strict schema。
+- 原因：DSH 把 planner 拆成子代理回合，回传结果需要一个断点落点；没有该文件，plan-tool 无法在后续回合取回同一份输入。
+- 验证：`test/context-package.test.mjs` 的 planner/writer 持久化用例；坏包 strict 拒绝。

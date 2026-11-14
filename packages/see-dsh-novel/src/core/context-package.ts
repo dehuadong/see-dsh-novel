@@ -87,6 +87,12 @@ export interface CompressionTask {
 
 export interface Candidate {
   id: string
+  /** semantic 选择必须包含的候选（源强制 N-1 摘要）。 */
+  required?: boolean
+  /** 选择理由；缺省按 kind 生成。 */
+  reason?: string
+  /** 同类候选的稳定顺序（summary 章号 / volume 索引 / hook 源序）。 */
+  order?: number
   /** 子代理实际提交的 id；切块时是 `<id>:part-N`。 */
   selectionId: string
   kind: SelectionKind
@@ -221,7 +227,7 @@ async function previousChapterExcerpt(root: string, chapter: number): Promise<st
   }
   const file = files.find((name) => name.startsWith(prefix) && name.endsWith('.md'))
   if (file === undefined) return ''
-  return chapterBodyForChapter(await readText(join(root, 'source/chapters', file)), chapter).slice(-2000)
+  return chapterBodyForChapter(await readText(join(root, 'source/chapters', file)), chapter - 1)
 }
 
 async function plannerGoal(root: string, instruction?: string): Promise<string> {
@@ -238,7 +244,7 @@ function chapterMemoEntry(plan: ChapterPlan | null, goal: string): ContextSource
   const body = plan?.memo.body ?? goal
   return {
     source: 'runtime/chapter_memo',
-    reason: 'Carry the planner chapter memo into governed context.',
+    reason: "Carry the planner's chapter memo into governed writing.",
     excerpt: [`goal=${plan?.memo.goal ?? goal}`, body].filter(Boolean).join(' | '),
     protection: 'protected',
   }
@@ -264,6 +270,8 @@ function renderHookBeat(summary: SummaryRow): string {
 
 async function referencedHookEntries(root: string, plan: ChapterPlan): Promise<ContextSource[]> {
   if (plan.memo.threadRefs.length === 0) return []
+  const work = await readJson(join(root, 'work.json')) as { language?: string } | undefined
+  const english = work?.language === 'en'
   const hooksState = await readJson(join(root, 'source/story/state/hooks.json')) as { hooks?: HookRow[] } | undefined
   const summariesState = await readJson(join(root, 'source/story/state/chapter_summaries.json')) as { rows?: SummaryRow[] } | undefined
   const hooks = hooksState?.hooks ?? []
@@ -274,18 +282,25 @@ async function referencedHookEntries(root: string, plan: ChapterPlan): Promise<C
     if (hook === undefined) continue
     const seed = findHookSummary(summaries, hookId, hook.startChapter, 'seed')
     const latest = findHookSummary(summaries, hookId, hook.lastAdvancedChapter, 'latest')
-    const promise = hook.expectedPayoff || '（未写明）'
+    const promise = hook.expectedPayoff || (english ? '(unspecified)' : '（未写明）')
     const seedBeat = seed === undefined ? (hook.notes || promise) : renderHookBeat(seed)
     const latestBeat = latest !== undefined && latest !== seed ? renderHookBeat(latest) : undefined
     entries.push({
       source: `runtime/referenced_hook#${hookId}`,
-      reason: '章节备忘引用伏笔的可追溯历史。',
-      excerpt: [
-        `${hookId}（${hook.type}，备忘引用伏笔，状态=${hook.status}）`,
-        `读者承诺：${promise}`,
-        `种于第${hook.startChapter}章：${seedBeat}`,
-        latestBeat === undefined ? undefined : `推进于第${hook.lastAdvancedChapter}章：${latestBeat}`,
-      ].filter(Boolean).join(' | '),
+      reason: english ? 'Traceable history for a hook referenced by the chapter memo.' : '章节备忘引用伏笔的可追溯历史。',
+      excerpt: english
+        ? [
+            `${hookId} (${hook.type}, memo-referenced hook, status=${hook.status})`,
+            `reader promise: ${promise}`,
+            `original seed (ch${hook.startChapter}): ${seedBeat}`,
+            latestBeat === undefined ? undefined : `latest turn (ch${hook.lastAdvancedChapter}): ${latestBeat}`,
+          ].filter(Boolean).join(' | ')
+        : [
+            `${hookId}（${hook.type}，备忘引用伏笔，状态=${hook.status}）`,
+            `读者承诺：${promise}`,
+            `种于第${hook.startChapter}章：${seedBeat}`,
+            latestBeat === undefined ? undefined : `推进于第${hook.lastAdvancedChapter}章：${latestBeat}`,
+          ].filter(Boolean).join(' | '),
       protection: 'protected',
     })
   }
@@ -297,10 +312,10 @@ async function fixedContext(root: string, plan: ChapterPlan | null, purpose: Con
   const entries: ContextSource[] = [chapterMemoEntry(plan, goal)]
   for (const [file, reason] of [
     [CURRENT_FOCUS_FILE, 'Current task focus for this chapter.'],
-    [AUTHOR_INTENT_FILE, "User's long-term authorial intent and direction."],
+    [AUTHOR_INTENT_FILE, "User's long-term authorial intent and direction — binding, overrides model defaults."],
     [STORY_STYLE_GUIDE_MD, 'User-approved style guidance for this Work.'],
-    [STORY_PARENT_CANON_MD, 'Parent canon constraints.'],
-    [STORY_FANFIC_CANON_MD, 'Extracted fanfic canon constraints.'],
+    [STORY_PARENT_CANON_MD, 'Preserve parent canon constraints for governed continuation or fanfic writing.'],
+    [STORY_FANFIC_CANON_MD, 'Preserve extracted fanfic canon constraints for governed writing.'],
   ] as const) {
     const content = await readText(join(root, file))
     if (content !== '') entries.push({ source: file, reason, excerpt: content, protection: 'protected' })
@@ -320,11 +335,12 @@ async function fixedContext(root: string, plan: ChapterPlan | null, purpose: Con
   return { entries, chapter }
 }
 
-async function memoryCandidates(root: string, query: string): Promise<Candidate[]> {
+async function memoryCandidates(root: string, query: string, chapter: number): Promise<Candidate[]> {
   const hits = await searchStory(root, query, { limit: 200 })
   const docs = (await storyDocuments(root)).filter((doc) => doc.kind === 'hook' || doc.kind === 'chapter-summary' || doc.kind === 'volume-summary')
+    .filter((doc) => doc.kind !== 'chapter-summary' || Number(doc.id.slice('summary:'.length)) < chapter)
   const hitScores = new Map(hits.map((hit) => [`memory:${hit.source}`, hit.score]))
-  const candidates: Candidate[] = docs.map((doc) => ({
+  const candidates: Candidate[] = docs.map((doc, index) => ({
     id: `memory:${doc.source}`,
     selectionId: `memory:${doc.source}`,
     kind: 'memory',
@@ -332,6 +348,17 @@ async function memoryCandidates(root: string, query: string): Promise<Candidate[
     title: doc.title,
     excerpt: doc.body,
     score: hitScores.get(`memory:${doc.source}`) ?? -1_000_000,
+    order: doc.kind === 'chapter-summary'
+      ? Number(doc.id.slice('summary:'.length))
+      : doc.kind === 'volume-summary'
+        ? 1_000_000 + Number(doc.id.slice('volume-summary:'.length))
+        : 2_000_000 + index,
+    reason: doc.kind === 'chapter-summary'
+      ? 'Relevant episodic memory retrieved for the current chapter goal.'
+      : doc.kind === 'volume-summary'
+        ? 'Carry forward long-span arc memory compressed from earlier volumes.'
+        : 'Carry forward unresolved hooks that match the chapter focus.',
+    ...(doc.kind === 'chapter-summary' && doc.id === `summary:${chapter - 1}` ? { required: true } : {}),
   }))
   const hitOrder = new Map(hits.map((hit, index) => [`memory:${hit.source}`, index]))
   return candidates.sort((left, right) => {
@@ -413,6 +440,9 @@ async function outlineCandidates(root: string, file: string): Promise<Candidate[
       title: section.heading,
       excerpt: section.raw,
       score: 0,
+      reason: file === STORY_FRAME_FILE
+        ? 'Preserve canon constraints referenced by the active chapter brief or hard constraints.'
+        : 'Anchor the default planning node for this chapter.',
     }
   })
 }
@@ -452,7 +482,7 @@ export async function buildSelectionGroups(
     : [plan?.intent.goal, plan?.memo.body, ...(plan?.memo.threadRefs ?? [])].filter(Boolean).join('\n')
   const fixed = await fixedContext(root, plan, purpose, goal)
   const memoryGroups = groupMemoryCandidates(
-    await memoryCandidates(root, query),
+    await memoryCandidates(root, query, chapter),
     semanticInputBudget(options.budget),
   )
   const groups: SelectionGroup[] = [
@@ -582,9 +612,31 @@ export async function buildSelectionTasks(
   return { ...built, mode, tasks }
 }
 
+function contextOrder(source: string): number {
+  if (source === 'runtime/chapter_memo') return 0
+  if (source === CURRENT_FOCUS_FILE) return 1
+  if (source === AUTHOR_INTENT_FILE) return 2
+  if (source === STORY_STYLE_GUIDE_MD) return 3
+  if (source.includes('current_state')) return 4
+  if (source.includes('outline/')) return 5
+  if (source.includes('canon')) return 6
+  if (source.includes('roles/')) return 7
+  if (source.includes('referenced_hook')) return 8
+  if (source.includes('chapter_summaries')) return 9
+  if (source.includes('volume_summaries')) return 10
+  if (source.includes('pending_hooks')) return 11
+  if (source.includes('previous_chapter')) return 12
+  return 13
+}
+
 function selectedIdsFor(group: SelectionGroup, selection: Selection, mode: 'semantic' | 'complete'): string[] {
   if (mode === 'complete') return group.candidates.map((candidate) => candidate.selectionId)
-  if (group.kind !== 'memory' && group.candidates.length === 1) return [group.candidates[0]!.selectionId]
+  if (group.kind === 'memory') {
+    const required = group.candidates.filter((candidate) => candidate.required === true).map((candidate) => candidate.selectionId)
+    const byId = new Map(group.candidates.map((candidate) => [candidate.selectionId, candidate.order ?? 0]))
+    return [...new Set([...required, ...selection.memory])].sort((left, right) => (byId.get(left) ?? 0) - (byId.get(right) ?? 0))
+  }
+  if (group.candidates.length === 1) return [group.candidates[0]!.selectionId]
   if (group.kind === 'outline') {
     return [...new Set(group.file === STORY_FRAME_FILE ? selection.storyFrame : selection.volumeMap)]
   }
@@ -617,16 +669,25 @@ export function assembleContext(input: {
       if (candidate === undefined) throw new Error(`未知的候选 id：${id}`)
       if (selectedIds.has(candidate.id)) continue
       selectedIds.add(candidate.id)
-      if (group.kind === 'memory') memorySelected.push(candidate.id)
+      if (group.kind === 'memory' && (candidate.required !== true || input.selection.memory.includes(candidate.selectionId))) memorySelected.push(candidate.id)
       selected.push({
         source: candidate.source,
-        reason: `composer ${group.kind}`,
+        reason: candidate.reason ?? (group.kind === 'role' ? 'Role canon selected for the current chapter task.' : group.kind === 'state' ? 'Current-state fact selected for the current chapter task.' : group.kind === 'outline' ? 'Canon constraints selected for the current chapter task.' : 'Story memory selected for this chapter.'),
         excerpt: candidate.excerpt,
         protection: group.kind === 'memory' ? 'compressible' : 'protected',
       })
     }
   }
 
+  selected.sort((left, right) => {
+    const byClass = contextOrder(left.source) - contextOrder(right.source)
+    if (byClass !== 0) return byClass
+    const number = (source: string): number => {
+      const match = /chapter_summaries\.md#(\d+)/u.exec(source)
+      return match === null ? 0 : Number(match[1])
+    }
+    return number(left.source) - number(right.source)
+  })
   const protectedEntries = selected.filter((entry) => entry.protection === 'protected')
   const compressible = selected.filter((entry) => entry.protection === 'compressible')
   const protectedTokens = protectedEntries.reduce((sum, entry) => sum + contextTokens(entry), 0)

@@ -41,12 +41,38 @@ export function chapterTracePath(chapter: number): string {
   return `${STORY_RUNTIME_DIR}/chapter-${pad(chapter)}.trace.json`
 }
 
-function parseContextPackage(raw: string, chapter: number, label: string): ContextPackage {
-  const parsed = JSON.parse(raw) as { chapter?: number, selectedContext?: unknown }
-  if (parsed.chapter !== chapter || !Array.isArray(parsed.selectedContext)) {
-    throw new Error(`${label} 的章号或 selectedContext 不合法`)
+/** 按源 ContextPackageSchema 校验；未知字段、缺失必填、错误类型都拒绝。 */
+export function parseContextPackageText(raw: string, chapter: number, label: string): ContextPackage {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error(`${label} 不是合法 JSON`)
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error(`${label} 必须是对象`)
+  const record = parsed as Record<string, unknown>
+  const keys = Object.keys(record).sort()
+  if (keys.join(',') !== 'chapter,selectedContext') throw new Error(`${label} 存在未知或缺失字段：${keys.join(',')}`)
+  if (!Number.isInteger(record.chapter) || (record.chapter as number) < 1) throw new Error(`${label}.chapter 必须是 ≥1 的整数`)
+  if (!Array.isArray(record.selectedContext)) throw new Error(`${label}.selectedContext 必须是数组`)
+  for (const [index, entry] of record.selectedContext.entries()) {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) throw new Error(`${label}.selectedContext[${index}] 必须是对象`)
+    const item = entry as Record<string, unknown>
+    const itemKeys = Object.keys(item).sort()
+    const allowed = ['protection', 'reason', 'source', ...(Object.hasOwn(item, 'excerpt') ? ['excerpt'] : [])].sort()
+    if (itemKeys.join(',') !== allowed.join(',')) throw new Error(`${label}.selectedContext[${index}] 字段不合法：${itemKeys.join(',')}`)
+    if (typeof item.source !== 'string' || item.source.length === 0) throw new Error(`${label}.selectedContext[${index}].source 必须是非空字符串`)
+    if (typeof item.reason !== 'string' || item.reason.length === 0) throw new Error(`${label}.selectedContext[${index}].reason 必须是非空字符串`)
+    if (item.excerpt !== undefined && typeof item.excerpt !== 'string') throw new Error(`${label}.selectedContext[${index}].excerpt 必须是字符串`)
+    if (item.protection !== 'protected' && item.protection !== 'compressible') throw new Error(`${label}.selectedContext[${index}].protection 不合法`)
   }
   return parsed as ContextPackage
+}
+
+function parseContextPackage(raw: string, chapter: number, label: string): ContextPackage {
+  const parsed = parseContextPackageText(raw, chapter, label)
+  if (parsed.chapter !== chapter) throw new Error(`${label} 的章号不是 ${chapter}`)
+  return parsed
 }
 
 /** 读取 planner pass 的上下文包；缺文件返回 null。 */

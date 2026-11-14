@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
+import { renderWriterContract } from '../src/pipelines/long/stages/writer.ts'
 import { join } from 'node:path'
 
 import {
@@ -15,6 +16,7 @@ import {
   chapterPlannerContextPath,
   loadPlannerContext,
   loadWriterContext,
+  parseContextPackageText,
   savePlannerContext,
   saveWriterContext,
 } from '../src/core/chapter-plan.ts'
@@ -263,6 +265,97 @@ test('persists planner and writer context artifacts', async () => {
     assert.equal((await loadWriterContext(root, built.chapter))?.chapter, 2)
     assert.equal(chapterPlannerContextPath(2), 'source/story/runtime/chapter-0002.planner-context.json')
     assert.equal(chapterContextPath(2), 'source/story/runtime/chapter-0002.context.json')
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('previous chapter excerpt keeps the full chapter and strips its heading', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'source/chapters/0001_雨夜.md'), `# 第1章 雨夜\n\n${'长'.repeat(3000)}\n`, 'utf8')
+    const built = await buildSelectionGroups(root, 'planner')
+    const entry = built.fixedEntries.find((item) => item.source === 'runtime/previous_chapter#1')
+    assert.ok(entry)
+    assert.equal(entry.excerpt.length, 3000)
+    assert.doesNotMatch(entry.excerpt, /第1章/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('semantic selection always keeps the previous chapter summary', async () => {
+  const root = await workspace()
+  try {
+    const built = await buildSelectionGroups(root, 'planner')
+    const assembled = assembleContext({
+      chapter: built.chapter,
+      query: built.query,
+      fixedEntries: built.fixedEntries,
+      groups: built.groups,
+      selection: { memory: [], role: [], state: [], outline: [], storyFrame: [], volumeMap: [] },
+      mode: 'semantic',
+    })
+    assert.ok(assembled.package.selectedContext.some((entry) => entry.source.includes('chapter_summaries')))
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('context package strict rejects unknown fields and bad entries', () => {
+  assert.throws(() => parseContextPackageText('{"chapter":2,"selectedContext":[],"extra":1}', 2, 'context'), /未知/)
+  assert.throws(() => parseContextPackageText('{"chapter":2,"selectedContext":[{"source":"a","reason":"","protection":"protected"}]}', 2, 'context'), /reason/)
+  assert.throws(() => parseContextPackageText('{"chapter":2,"selectedContext":[{"source":"a","reason":"r","protection":"x"}]}', 2, 'context'), /protection/)
+})
+
+test('referenced hooks render English text for an English work', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'work.json'), JSON.stringify({ version: 1, id: 'w', title: 'T', profile: 'longform-novel', language: 'en', status: 'draft', metadata: { chapterWordCount: 300 }, createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }))
+    const built = await buildSelectionGroups(root, 'writer')
+    const entry = built.fixedEntries.find((item) => item.source.startsWith('runtime/referenced_hook'))
+    assert.ok(entry)
+    assert.doesNotMatch(entry.reason + entry.excerpt, /读者承诺|种于|推进于/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('summary candidates are ordered by chapter even when N-1 is required', async () => {
+  const root = await workspace()
+  try {
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 10, facts: [] }))
+    await writeFile(join(root, 'source/story/state/chapter_summaries.json'), JSON.stringify({ rows: [
+      { chapter: 2, title: '二', characters: '甲', events: '二', stateChanges: '二', hookActivity: '二', mood: '二', chapterType: '推进' },
+      { chapter: 10, title: '十', characters: '甲', events: '十', stateChanges: '十', hookActivity: '十', mood: '十', chapterType: '推进' },
+    ] }))
+    const built = await buildSelectionGroups(root, 'planner')
+    const assembled = assembleContext({
+      chapter: built.chapter,
+      query: built.query,
+      fixedEntries: built.fixedEntries,
+      groups: built.groups,
+      selection: { memory: ['memory:source/story/chapter_summaries.md#2'], role: [], state: [], outline: [], storyFrame: [], volumeMap: [] },
+      mode: 'semantic',
+    })
+    const summaries = assembled.package.selectedContext.map((entry) => entry.source).filter((source) => source.includes('chapter_summaries'))
+    assert.deepEqual(summaries, ['source/story/chapter_summaries.md#2', 'source/story/chapter_summaries.md#10'])
+    assert.ok(assembled.trace.retrieval.semanticSelectedIds.includes('memory:source/story/chapter_summaries.md#2'))
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('context and planner packages reject bad fields; writer refuses a bad context', async () => {
+  assert.throws(() => parseContextPackageText('{"chapter":0,"selectedContext":[]}', 0, 'context'), /chapter/)
+  assert.throws(() => parseContextPackageText('{"chapter":2,"selectedContext":[{"source":"a","reason":"r","protection":"protected","kind":"x"}]}', 2, 'context'), /字段/)
+  const root = await workspace()
+  try {
+    await savePlannerContext(root, 2, { chapter: 2, selectedContext: [] })
+    await writeFile(join(root, chapterPlannerContextPath(2)), '{"chapter":2,"selectedContext":[],"extra":1}')
+    await assert.rejects(loadPlannerContext(root, 2), /未知/)
+    await writeFile(join(root, chapterContextPath(2)), '{"chapter":2,"selectedContext":[{"source":"a","reason":"r","protection":"protected","kind":"x"}]}')
+    assert.throws(() => renderWriterContract(root), /字段/)
   } finally {
     await cleanup(root)
   }
