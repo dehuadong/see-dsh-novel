@@ -110,4 +110,4 @@ AU-11 已让 `/story-write` 写入作者附言，但 `plan.chapter` 仍有两处
 ## 实施记录
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（多轮）。
-- 实施：instructionSource/authorInstruction、planner 作者指令、plan 复用/覆盖；541 passed／1 skipped；realRun 重录；CI 待回填。
+- 实施：instructionSource/authorInstruction、planner 作者指令、plan 复用/覆盖；541 passed／1 skipped；realRun 重录；CI `43587741717` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `f08b095`）。
