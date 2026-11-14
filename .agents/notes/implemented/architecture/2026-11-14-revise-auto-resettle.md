@@ -175,4 +175,4 @@ DSH 工具内不能跑 settler／state-validator／审稿模型，所以“自�
 
 - Plan Review 三轴：Standards／Spec／Architecture 均通过（第 3 轮确认）；实施完成。
 - 实施：`core/revision.ts`、`pipelines/long/revision-commit-tool.ts`、`revise-tool.ts` 提案分支、`review-tool.ts` 的 `revisionDigest`、`chapter-review.ts` 提案源、`stages/index.ts` 的 `revisionProposed`/`revisionReviewed` 与 C1/C2 协议；`chapter-revision-commit` 端到端用例。
-- 验证：`pnpm run verify` 通过（505 passed／1 skipped）；`verify-notes`、`check-capabilities`、`audit-coverage`；CI 双端见提交后回填。
+- 验证：`pnpm run verify` 通过（505 passed／1 skipped）；`verify-notes`、`check-capabilities`、`audit-coverage`；CI `43560442643` 的 `verify (ubuntu-latest)` 与 `verify (windows-latest)` 均通过（提交 `7e0286b`）。
