@@ -1,5 +1,7 @@
 # 交接：v1 审计修复（2026-11-14）
 
+> 2026-11-15 更新：本文件是历史基线，不再维护；当前唯一交接见 [`2026-11-15-full-workstream-handoff.md`](./2026-11-15-full-workstream-handoff.md)。
+
 ## 当前状态
 
 - 仓库：`E:\see-dsh-novel`；分支 `main`；HEAD `c75463b`；工作树干净。
