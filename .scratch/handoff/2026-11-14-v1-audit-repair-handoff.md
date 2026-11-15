@@ -23,7 +23,7 @@
 
 提案 → 立项/初始化 → 基础设定 → 全书/章前规划 → 正文 → 审稿 → 修订/清稿 → 摘要/结算/定稿 → 导出/备份。
 
-- 只覆盖第 1 章定稿与导出/备份。
+- 只覆盖第 <N>  章定稿与导出/备份。
 - `chapter.finalize` 并入 `chapter.settle`。
 - P6 v1 仅 `artifact.identity`、`export.work`、`backup.restore`、`panel.workbench`；`materials.import`/`search.unified`/`panel.logs`/`panel.analysis` 在 v1 之后。
 

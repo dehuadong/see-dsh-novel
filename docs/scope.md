@@ -6,7 +6,7 @@
 
 只做一条纵向链路，端到端打通：
 
-创意提案 → 立项与初始化 → 基础设定 → 角色权威 → 第 1 章 write / review / revise / summary / settle → 导出与备份
+创意提案 → 立项与初始化 → 基础设定 → 角色权威 → 第 <N> 章 write / review / revise / summary / settle → 导出与备份
 
 链路中每一步都是 `capabilities.yaml` 的一行；交付是否成立以该行的证据为准，不以完成度描述为准。
 
@@ -24,7 +24,7 @@
 | 8 | 导出/备份 | txt/md/epub、全作品备份/恢复、工作台 | `artifact.identity`、`export.work`、`backup.restore`、`panel.workbench` |
 | 9 | 运行时底座 | 加载、工具面、命令、提交/锁/事务、阶段、遥测、恢复、边界、打包、客户端 | `runtime.agent-tools`、`skill.references`、`runtime.client-ui`、`runtime.package-check`、`runtime.boundary-check`、`runtime.telemetry`、`runtime.recovery`、`runtime.stage-context`、`runtime.commit-safety`、`runtime.work-lock`、`runtime.txn-format` |
 
-每个阶段固定七个维度：产品行为（入口/动作/产物）、能力行与状态、DSH 机制落点、文件/状态不变量、证据（测试/回执/CI）、债或偏差、出口条件。`chapter.finalize` 不设独立行，并入 `chapter.settle`；v1 只覆盖第 1 章定稿与导出/备份。
+每个阶段固定七个维度：产品行为（入口/动作/产物）、能力行与状态、DSH 机制落点、文件/状态不变量、证据（测试/回执/CI）、债或偏差、出口条件。`chapter.finalize` 不设独立行，并入 `chapter.settle`；v1 只覆盖第 <N> 章定稿与导出/备份。
 
 **v1 能力集 = 当前 45 条 `verified`。** `materials.import`、`search.unified`、`panel.logs`、`panel.analysis` 与 `short.*`、`script.*`、`radar.topic`、`forecast.plot` 不进入 v1；它们已登记在账本，按 v1 之后推进。
 
