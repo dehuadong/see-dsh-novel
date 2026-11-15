@@ -7,7 +7,7 @@
 > - `packages/core/skills/inkos-storyboard/` (`SKILL.md`, `references/shot-continuity.md`)
 > - `packages/core/src/llm/cover-providers.ts`
 > - `packages/core/src/pipeline/short-fiction-runner.ts` (`generateImageFromPrompt`)
-> **整理位置**：`.scratch/inkos/storyboard/storyboard-pipeline-analysis.md`  
+> **整理位置**：`docs/inkos/storyboard/storyboard-pipeline-analysis.md`  
 > **分镜生图全链路**：视觉规格立项 → 节拍切镜与视听连续性 → 生图 Prompt 提纯与单瞬间冻结 → 资产清单与目录三态隔离 → 底层多 Provider 生图调度 → 工件持久化与 DSH 复刻  
 > **核心设计哲学**：镜头服务于节拍位移、跨镜视听时空连续性追踪、文生图静态瞬间单帧冻结、多模态资产物理三态隔离（Source / Generated / Selected）。
 

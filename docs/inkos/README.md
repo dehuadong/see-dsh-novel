@@ -1,7 +1,7 @@
 # InkOS 源工程创作流程各模块深度分析专题总览与导航目录
 
 > **源工程路径**：`d:\workspace\see-dsh-novel\inkos`（本地 Junction 联接）  
-> **研究存放根目录**：`docs/inkos/`（受 `.gitignore` 保护，不入库）  
+> **研究存放根目录**：`docs/inkos/` 
 > **整理时间**：2026-11-15  
 
 为了避免不同创作媒介、视听参数与底层架构的交叉混杂，本研究专题已按照 **InkOS 源工程底层的真实模块形态（Built-in Profiles & Pipelines）** 进行严格的独立建组与分层隔离：
