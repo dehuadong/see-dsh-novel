@@ -138,9 +138,9 @@ capabilities:
     status: verified
   - id: foundation.approval
     title: 作者确认闸门与回执
-    source: inkos:packages/core/src/interaction/session.ts
+    source: inkos:packages/core/src/agent/agent-tools.ts + inkos:packages/core/src/interaction/action-envelope.ts + inkos:packages/studio/src/shared/confirmed-production.ts + inkos:packages/core/src/agent/agent-session.ts + inkos:packages/studio/src/api/server.ts
     dsh: client + tools.register + commands + approval
-    implementation: packages/see-dsh-novel/src/pipelines/long/gate.ts
+    implementation: packages/see-dsh-novel/src/core/foundation-approval.ts
     consumer: packages/see-dsh-novel/test/approval.test.mjs
     realRun: artifacts/real-runs/foundation.approval.json
     status: verified
@@ -308,8 +308,8 @@ capabilities:
     title: 结算增量、伏笔合并、基线重算、结算前状态对账、索引长度遥测与按章 tokenUsage
     source: inkos:packages/core/src/agents/settler-tool.ts、agents/state-validator.ts、pipeline/chapter-truth-validation.ts、pipeline/chapter-state-recovery.ts、state/state-validator.ts、pipeline/chapter-persistence.ts、utils/length-metrics.ts、models/chapter.ts
     dsh: tools.register + storage
-    implementation: packages/see-dsh-novel/src/core/settlement.ts
-    consumer: packages/see-dsh-novel/test/chapter-settle.test.mjs
+    implementation: packages/see-dsh-novel/src/plugin/settle-command.ts
+    consumer: packages/see-dsh-novel/test/settle-command.test.mjs
     realRun: artifacts/real-runs/chapter.settle.json
     status: verified
   - id: chapter.reopen
@@ -380,7 +380,7 @@ capabilities:
     title: 作品工作台：宿主投影索引、阶段轨道、产物浏览与阶段动作
     source: inkos:packages/studio/src/pages/ + inkos:packages/studio/src/components/
     dsh: client
-    implementation: packages/see-dsh-novel/src/client/StoryView.tsx
+    implementation: packages/see-dsh-novel/src/core/panel-index.ts
     consumer: packages/see-dsh-novel/test/workbench.test.mjs
     realRun: artifacts/real-runs/panel.workbench.json
     status: verified

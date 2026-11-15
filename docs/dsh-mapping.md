@@ -2,7 +2,7 @@
 
 记录每项机制在 DSH 上的等价实现与偏差：源工程做法 / 复刻做法 / 原因 / 验证。本文件记录映射设计与偏差，不记录完成状态。
 
-**登记前提**：偏差只有两种合法来源——DSH 机制无法等价，或源行为本身不可观测。能用 DSH 机制等价实现的一律按源行为复刻；「先简化、记一笔」不算合法偏差，算保真债（见 `AGENTS.md`「保真原则」）。
+**登记前提**：偏差有三种合法来源——DSH 机制无法等价、源行为本身不可观测，或作者明确裁决的产品决定（记在下方「作者裁决偏差」，不计保真债）。能用 DSH 机制等价实现的一律按源行为复刻；「先简化、记一笔」不算合法偏差，算保真债（见 `AGENTS.md`「保真原则」）。
 
 ## 运行形态
 
@@ -31,6 +31,16 @@
 | 阶段数据层级 | 源 worker 调用的 user message 承载章号／指令／governed context／上一章／长度 | 协议与契约进 `systemPrompt.context()`；worker user 消息由主代理委派提示构造 | 会话 system prompt 不能按单次 worker 调用构造；用户消息通道不满足同轮与角色语义 | 阶段文本断言；子代理会话回执待补 |
 | 阶段技能分发 | 源按角色分 required／recommended | 复刻按阶段取并集，注入同预设所有 agent | 阶段上下文只有预设／agent 过滤，没有源的角色身份 | `craftSkillsFor` 与 `story:craft` 断言；子代理会话回执待补 |
 | 面板 | 独立前端服务；文件/阶段确认/只读产物 | `client` 插件 + slots；`panel.workbench`（P6）是唯一作品页，承载阶段栏、产物列表、详情与动作条；确认语义仍归 `panel.confirm` | 从会话进入，与对话、轨迹并列；UI 用 React；DSH resource 只能按路径订阅，阶段与产物清单由宿主投影的 `panel.index.json` 提供；面板只读、不触发投影 | 索引驱动渲染；动作经宿主命令/提示；`workbench`/`client`/`panel-projection` 测试 |
+
+## 作者裁决偏差
+
+作者明确要求、源工程没有或不同的产品行为；不是保真债，也不是机制偏差。明细与验证入口见 [`../artifacts/implementation-audit/dsh-deviations.md`](../artifacts/implementation-audit/dsh-deviations.md)。
+
+| 决定 | 源工程做法 | 复刻做法 | 作者裁决 | 验证 |
+| --- | --- | --- | --- | --- |
+| 开章前基础设定确认 | 只检查基础设定完整；`write_next` 一次确认后跑完整章 | 作品级 `foundation-approval.json`（大纲/规则/角色卡摘要）；`/story-write` 每次开章前校验；改了基础设定要重新确认 | 2026-11-15：全书计划确认后才能开章，第 2 卷同样适用 | `foundation-approval`／`write-command`／`approval` 测试；真实回执待补 |
+| 正文不进入主会话 | Studio 写作中流式显示 `draft:delta`，正文进作品页 | writer 子代理调 `story_write_chapter` 落盘，只回四行摘要；writer 子会话落盘后不再注入审稿阶段 | 2026-11-15：主会话只给摘要与路径，不显示整章正文 | `stage-context` 测试；真实回执待补 |
+| 首版结算显式确认 | `write_next` 内自动结算，无独立 settle 动作 | 面板「结算本章」+ `/story-settle` 写 `.drafts` 标记；`story_settle_chapter` 无标记拒绝，提交事务消费 | 2026-11-15：结算不能自动，也不能只靠对话语义 | `settle-command`／`chapter-settle`／`panel-index`／`client` 测试；真实回执待补 |
 
 ## 偏差登记
 

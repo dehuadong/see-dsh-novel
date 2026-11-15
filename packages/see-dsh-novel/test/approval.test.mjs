@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { readArtifacts } from '../src/core/artifacts.ts'
+import { isFoundationApproved } from '../src/core/foundation-approval.ts'
 import { approvalMarkerLine } from '../src/core/receipts.ts'
 import { installApprovalCommands } from '../src/pipelines/long/commands.ts'
 import { evaluateSignoff, installGateTools } from '../src/pipelines/long/gate.ts'
@@ -400,6 +401,7 @@ test('/story-approve writes the marker and records the note', async () => {
     assert.match(result.text, /作者备注：这版可以/)
     const artifacts = await readArtifacts(root)
     assert.match(result.text, new RegExp(`story-approval stage=foundation digest=${artifacts.digest} files=2`))
+    assert.equal(isFoundationApproved(root), true)
   } finally {
     dispose()
     await workCleanup(root)
@@ -423,10 +425,34 @@ test('/story-reject records a rejection without a marker', async () => {
   const root = await work()
   const { registered, agent, dispose } = host({ root })
   try {
+    await registered.get('/story-approve').handler({ agent, rawInput: '', signal: new AbortController().signal })
+    assert.equal(isFoundationApproved(root), true)
     const result = await registered.get('/story-reject').handler({ agent, rawInput: '', signal: new AbortController().signal })
     assert.equal(result.kind, 'success')
     assert.match(result.text, /作者退回/)
     assert.doesNotMatch(result.text, /story-approval/)
+    assert.equal(isFoundationApproved(root), false)
+  } finally {
+    dispose()
+    await workCleanup(root)
+  }
+})
+
+test('a rejected record blocks an older session receipt from rebuilding approval', async () => {
+  const root = await work()
+  const artifacts = await readArtifacts(root)
+  const { registered, agent, dispose } = host({ root, events: approvalEvents(artifacts), policy: 'ask' })
+  try {
+    await registered.get('/story-reject').handler({ agent, rawInput: '', signal: new AbortController().signal })
+    const gate = await registered.get('story_gate').execute({}, { agent })
+    assert.equal(gate.confirmed, false)
+    assert.equal(gate.decision, 'reject')
+    assert.equal(gate.channel, 'none')
+    await assert.rejects(
+      registered.get('story_foundation_signoff').execute({}, { agent }),
+      /退回了这一版基础设定/,
+    )
+    assert.equal(isFoundationApproved(root), false)
   } finally {
     dispose()
     await workCleanup(root)
@@ -455,6 +481,7 @@ test('the gate reports a confirmed version and the signoff tool signs it', async
       digest: artifacts.digest,
       files: artifacts.files,
     })
+    assert.equal(isFoundationApproved(root), true)
 
     // 签核结果自带标记行，事后能读懂「这一版已签核」。
     const rendered = registered.get('story_foundation_signoff').output.render({}, signed)

@@ -6,6 +6,7 @@
  * 让那条确认失效，不需要另外记录或比对路径集合。
  */
 import { createHash } from 'node:crypto'
+import { FOUNDATION_APPROVAL_PATH } from './foundation-approval.js'
 import { PANEL_INDEX_PATH } from './story-paths.js'
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
@@ -53,7 +54,7 @@ export async function readArtifacts(root: string): Promise<ArtifactSet> {
   await walk(join(root, WORK_DIR), absolute)
   const files = absolute
     .map((path) => relative(root, path).split(sep).join('/'))
-    .filter((path) => path !== PANEL_INDEX_PATH)
+    .filter((path) => path !== PANEL_INDEX_PATH && path !== FOUNDATION_APPROVAL_PATH)
     .sort()
   if (files.length === 0) return { files, digest: '' }
 

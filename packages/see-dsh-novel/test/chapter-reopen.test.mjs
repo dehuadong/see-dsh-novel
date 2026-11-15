@@ -94,6 +94,8 @@ const DELTA = {
 
 async function settle(root, args = DELTA) {
   const tool = registry(root).get('story_settle_chapter')
+  const { writeSettleApproval } = await import('../src/core/settle-approval.ts')
+  await writeSettleApproval(root, args.chapter)
   const proposal = await tool.execute(args, exec)
   await tool.execute({
     chapter: args.chapter,

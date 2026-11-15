@@ -323,3 +323,26 @@
 - 复刻做法：作者附言存在 `workflow-start.instruction` 并标记 `instructionSource: author`；planner 只读 author 来源，宿主句/默认句标记 system。
 - 原因：DSH 的写确认是独立命令/start，作者输入必须落在会话前的 start 记录里，而不是调用参数。
 - 验证：`test/planner-contract.test.mjs` 的附言段；`test/plan-tool.test.mjs` 的复用/覆盖。
+
+## 作者裁决偏差（2026-11-15）
+
+### foundation.approval：作品级开章确认
+
+- 源工程做法：写章前只检查基础设定完整；作者确认一次 `write_next` 后整章 pipeline 继续，没有作品级基础设定确认记录。
+- 复刻做法：`source/story/runtime/foundation-approval.json` 记录大纲/分卷/规则/角色卡摘要；`/story-approve` 与 `story_foundation_signoff` 写入，`/story-reject` 与原生退回清除；`/story-write` 每次开章前校验，含第 2 卷。
+- 原因：作者 2026-11-15 决定「全书计划确认后才能写章」，属于产品裁决，不是 DSH 机制强制。
+- 验证：`foundation-approval.test.mjs`、`approval.test.mjs`、`write-command.test.mjs`、`panel-index.test.mjs`；真实会话取证待 batch。
+
+### chapter.write：正文不进入主会话
+
+- 源工程做法：Studio 在写作过程中流式显示 `draft:delta`，正文进作品页；最终回答不是整章正文。
+- 复刻做法：writer 子代理调 `story_write_chapter` 落盘，只回四行摘要；writer 子会话落盘后不再注入审稿阶段；主会话不显示整章正文。
+- 原因：作者 2026-11-15 决定主会话只给摘要与路径，避免整章正文占据对话。
+- 验证：`stage-context.test.mjs`（write 协议四行摘要、writer stop、主编反例）；真实会话取证待 batch。
+
+### chapter.settle：首版结算的显式确认
+
+- 源工程做法：`write_next` 内自动结算，没有独立 settle 动作或确认。
+- 复刻做法：面板「结算本章」+ `/story-settle` 写 `.drafts/settle-approval-NNNN.json`；`story_settle_chapter` 提案与提交都校验，提交事务消费；修订/扣下不走这条。
+- 原因：作者 2026-11-15 决定结算不能自动，也不能只靠对话语义。
+- 验证：`settle-command.test.mjs`、`chapter-settle.test.mjs`、`panel-index.test.mjs`、`client.test.mjs`；真实会话取证待 batch。

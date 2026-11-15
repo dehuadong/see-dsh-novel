@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { readArtifacts } from '../src/core/artifacts.ts'
+import { writeFoundationApproval } from '../src/core/foundation-approval.ts'
 import { buildPanelIndex, writePanelIndex } from '../src/core/panel-index.ts'
 import { PANEL_INDEX_PATH, WORK_FILE } from '../src/core/story-paths.ts'
 
@@ -47,7 +48,7 @@ test('panel index is built from files and does not become an artifact', async ()
   const root = await workspace('chapter')
   try {
     const index = await buildPanelIndex(root)
-    assert.equal(index.version, 6)
+    assert.equal(index.version, 7)
     assert.equal(index.action?.id, 'revise-chapter')
     assert.equal(index.work?.title, '标题')
     // 章节正文、章纲与审稿都在：阶段已经走到 chapter-done，基础设定是已完成。
@@ -58,6 +59,18 @@ test('panel index is built from files and does not become an artifact', async ()
     const after = await readArtifacts(root)
     assert.equal(after.files.includes(PANEL_INDEX_PATH), false)
     assert.equal((await readFile(join(root, PANEL_INDEX_PATH), 'utf8')).includes('foundation'), true)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a first-version reviewed chapter offers settle instead of revise', async () => {
+  const root = await workspace('chapter')
+  try {
+    await rm(join(root, 'source/chapters/0001_开端.md'), { force: true })
+    const index = await buildPanelIndex(root)
+    assert.equal(index.action?.id, 'settle-chapter')
+    assert.equal(index.action?.label, '结算本章')
   } finally {
     await rm(root, { recursive: true, force: true })
   }
@@ -106,7 +119,7 @@ test('the panel shows the curated set while the approval digest keeps every stor
 
     const chapter = index.artifacts.find((artifact) => artifact.path === 'source/chapters/0001_开端.md')
     assert.equal(chapter?.class, 'chapter')
-    assert.deepEqual(chapter?.stages, ['write', 'review'])
+    assert.deepEqual(chapter?.stages, ['write', 'review', 'settle'])
     assert.match(chapter?.title ?? '', /第 1 章 · 开端/)
 
     const plan = index.artifacts.find((artifact) => artifact.path === 'source/story/runtime/chapter-0001.plan.json')
@@ -152,6 +165,91 @@ test('latestChapter comes from the chapter index and a broken index falls back t
   }
 })
 
+test('foundation in progress keeps the start action and leaves later stages locked', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-panel-foundation-'))
+  try {
+    await writeFile(join(root, WORK_FILE), JSON.stringify({
+      version: 1, id: 'w', title: '标题', profile: 'longform-novel', language: 'zh', status: 'draft',
+      metadata: {}, createdAt: '2026-11-09T00:00:00.000Z', updatedAt: '2026-11-09T00:00:00.000Z',
+    }))
+    const index = await buildPanelIndex(root)
+    const foundation = index.stages.find((stage) => stage.id === 'foundation')
+    assert.equal(foundation?.status, 'current')
+    assert.equal(foundation?.action?.id, 'start-foundation')
+    assert.equal(index.stages.find((stage) => stage.id === 'plan')?.status, 'locked')
+    assert.equal(index.stages.find((stage) => stage.id === 'write')?.status, 'locked')
+    assert.equal(index.stages.find((stage) => stage.id === 'review')?.status, 'locked')
+    assert.equal(index.stages.find((stage) => stage.id === 'settle')?.status, 'locked')
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a settled chapter projects every stage done and offers only the next chapter', async () => {
+  const root = await workspace('chapter')
+  try {
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1 }))
+    const work = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    work.status = 'active'
+    await writeFile(join(root, WORK_FILE), JSON.stringify(work))
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([{
+      number: 1, title: '开端', wordCount: 2,
+      createdAt: '2026-11-09T00:00:00.000Z', updatedAt: '2026-11-09T00:00:00.000Z',
+      observations: [], provenance: 'generated',
+    }]))
+    await writeFoundationApproval(root)
+    const index = await buildPanelIndex(root)
+    for (const id of ['proposal', 'foundation', 'plan', 'write', 'review', 'settle']) {
+      assert.equal(index.stages.find((stage) => stage.id === id)?.status, 'done', id)
+    }
+    assert.equal(index.action?.id, 'start-chapter')
+    assert.equal(index.action?.label, '开始下一章')
+    assert.equal(index.work?.latestChapter, 1)
+    assert.deepEqual(index.confirmation, { kind: 'none', state: 'done', reason: '' })
+    assert.equal(index.stages.find((stage) => stage.id === 'foundation')?.action, null)
+    assert.deepEqual(index.stages.find((stage) => stage.id === 'foundation')?.secondary, [])
+    const chapter = index.artifacts.find((artifact) => artifact.path === 'source/chapters/0001_开端.md')
+    assert.deepEqual(chapter?.stages, ['write', 'review', 'settle'])
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an approved foundation-ready work offers only the next chapter', async () => {
+  const root = await workspace()
+  try {
+    await writeFoundationApproval(root)
+    const index = await buildPanelIndex(root)
+    const foundation = index.stages.find((stage) => stage.id === 'foundation')
+    assert.equal(foundation?.status, 'done')
+    assert.equal(foundation?.action, null)
+    assert.deepEqual(foundation?.secondary, [])
+    assert.equal(index.stages.find((stage) => stage.id === 'plan')?.status, 'locked')
+    assert.equal(index.action?.id, 'start-chapter')
+    assert.deepEqual(index.confirmation, { kind: 'none', state: 'done', reason: '' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a settled chapter with an invalid foundation approval asks for re-confirmation', async () => {
+  const root = await workspace('chapter')
+  try {
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1 }))
+    const work = JSON.parse(await readFile(join(root, WORK_FILE), 'utf8'))
+    work.status = 'active'
+    await writeFile(join(root, WORK_FILE), JSON.stringify(work))
+    const index = await buildPanelIndex(root)
+    const foundation = index.stages.find((stage) => stage.id === 'foundation')
+    assert.equal(foundation?.status, 'current')
+    assert.equal(foundation?.action?.id, 'confirm-foundation')
+    assert.equal(index.action, null)
+    assert.deepEqual(index.confirmation, { kind: 'foundation-signoff', state: 'pending', reason: '基础设定已齐，等待作者确认' })
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('foundation-ready carries one primary action and the confirm actions beside it', async () => {
   const root = await workspace()
   try {
@@ -165,6 +263,8 @@ test('foundation-ready carries one primary action and the confirm actions beside
       'later',
     ])
     assert.equal(index.stages.find((stage) => stage.id === 'proposal')?.secondary.length, 0)
+    assert.deepEqual(index.confirmation, { kind: 'foundation-signoff', state: 'pending', reason: '基础设定已齐，等待作者确认' })
+    assert.equal(foundation?.secondary.find((action) => action.id === 'start-chapter')?.enabled, true)
     assert.equal(index.action, null)
   } finally {
     await rm(root, { recursive: true, force: true })

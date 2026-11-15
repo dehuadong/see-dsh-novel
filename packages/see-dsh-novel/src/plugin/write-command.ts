@@ -8,6 +8,7 @@ import { readFile, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { chapterReviewPath } from '../core/chapter-review.js'
+import { isFoundationApproved, readFoundationApproval } from '../core/foundation-approval.js'
 import { detectStage } from '../pipelines/long/stages/index.js'
 import { writeWorkflowStart, workflowStarted } from '../core/workflow-start.js'
 import { withWorkAction } from '../core/work-mutation.js'
@@ -41,6 +42,14 @@ export async function startChapter(root: string, instruction?: string): Promise<
     const stage = detectStage(root)
     if (stage.stage !== 'foundation-ready') {
       throw new Error(`当前阶段是 ${stage.stage}，只有 foundation-ready 可以开始下一章`)
+    }
+    if (!isFoundationApproved(root)) {
+      const previous = readFoundationApproval(root)
+      throw new Error(previous === null
+        ? '基础设定还没有作者确认；先 `/story-approve`（或面板「确认基础设定」）再开章'
+        : previous.state === 'rejected'
+          ? '作者退回了这一版基础设定；先 `/story-approve`（或面板「确认基础设定」）重新确认'
+          : '基础设定在确认后改过，确认已失效；先 `/story-approve`（或面板「确认基础设定」）重新确认')
     }
     let current = 0
     try {

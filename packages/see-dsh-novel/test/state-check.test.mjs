@@ -73,6 +73,8 @@ const exec = { agent: { session: 's' } }
 
 async function settle(root) {
   const tool = registry(root).get('story_settle_chapter')
+  const { writeSettleApproval } = await import('../src/core/settle-approval.ts')
+  await writeSettleApproval(root, 1)
   const proposal = await tool.execute({
     chapter: 1,
     postSettlement: '甲上山。',

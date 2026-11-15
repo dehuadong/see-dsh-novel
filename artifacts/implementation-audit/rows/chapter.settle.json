@@ -102,7 +102,7 @@
     "packages/see-dsh-novel/test/chapter-revision-commit.test.mjs（修订 C1/C2 一次提交与状态推进）"
   ],
   "realRunLevel": "P",
-  "realRunBasis": "artifacts/real-runs/chapter.settle.json：date=2026-11-14，sessionId=process:chapter.settle；receipts 覆盖两阶段、扣下、重算、用量与严格基线，并注明「该回执是 process-level 工具/状态测试，不是 DSH 会话」。",
+  "realRunBasis": "artifacts/real-runs/chapter.settle.json：date=2026-11-15，sessionId=process:chapter.settle；process-level，含 marker 门禁与结算两阶段；真实 DSH 会话待 batch。",
   "deviations": [
     "结算拆成提案 + 收据两阶段：源在内存里把 settleChapterState 输出交给 validator 后同一次 saveChapter 落盘；复刻先写 .drafts/settlement-NNNN.json，由 state-check 子代理读，再带收据提交。已登记 dsh-mapping「chapter.settle：结算提案落 .drafts」；提交时重算并逐字段比对，漂移拒绝。",
     "一次重算由主编再派 settler：源 chapter-state-recovery.ts:50 自动带 feedback 重跑一次；复刻第一次 reconciliation-required 只记报告并拒绝，主编重派后再提案。已登记 dsh-mapping「reconcile 重试由主编再派 settler」；attempt 1→2→预算耗尽。",
@@ -118,6 +118,7 @@
     "settler 与 state-check 的模型调用在复刻是独立子代理，源在 writer 侧累计；按章 tokenUsage 因此少算这两个调用（已登记）。",
     "扣下态的索引观察与快照是当前真值副本；源同样以 runtimeStateApplied=false 落当前真值，但源没有「扣下后先修复再开下一章」的阶段判定。",
     "重算不自动复审，作者需要显式重审；源在重算后自动刷新索引观察。",
-    "对照：capabilities.yaml:307-314 标 verified；docs/fidelity-audit.md:420-426 判「机制差异已登记 + D34 注销」；本审计确认机制差异已登记，新增债仅严格读取与 status 激活条件。"
+    "对照：capabilities.yaml:307-314 标 verified；docs/fidelity-audit.md:420-426 判「机制差异已登记 + D34 注销」；本审计确认机制差异已登记，新增债仅严格读取与 status 激活条件。",
+    "2026-11-15：首版结算增加作者确认 marker（.drafts/settle-approval-NNNN.json），提案/提交校验、published/held 事务消费、删章/重开清理；仍为 process-level，真实会话待 batch。"
   ]
 }

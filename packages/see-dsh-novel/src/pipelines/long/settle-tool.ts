@@ -24,6 +24,7 @@ import { buildLengthTelemetry } from '../../core/chapter-index.js'
 import { countingModeOf, lengthTargetOf } from '../../core/length.js'
 import { draftPath, loadChapterDraft } from '../../core/chapter-draft.js'
 import { chapterReviewPath, loadChapterReview } from '../../core/chapter-review.js'
+import { readSettleApproval, settleApprovalPath } from '../../core/settle-approval.js'
 import { CHAPTER_INDEX_PATH, readChapterIndexStrict } from '../../core/chapter-index.js'
 import type { ChapterIndexEntry } from '../../core/chapter-index.js'
 import { inspectState, snapshotWrites, stateJsonWrites, stateProjectionWrites } from '../../core/state.js'
@@ -151,6 +152,7 @@ async function proposeSettlement(root: string, work: Work, args: ProposalArgs): 
   const draft = await loadChapterDraft(root, chapter, work.language)
   if (draft === null) throw new Error(`第 ${chapter} 章还没有草稿，先写再结算`)
   if (await loadChapterReview(root, chapter) === null) throw new Error(`第 ${chapter} 章还没有审稿记录，先审再结算`)
+  if (readSettleApproval(root, chapter) === null) throw new Error(`第 ${chapter} 章还没有作者结算确认；先 /story-settle 或面板「结算本章」`)
   const delta = settlementDeltaOf(args)
   const documentText = await readFile(join(root, draftPath(chapter)), 'utf8')
   const attempt = nextAttempt(
@@ -206,6 +208,7 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
   if (draft === null) throw new Error(`第 ${chapter} 章还没有草稿，先写再结算`)
   const review = await loadChapterReview(root, chapter)
   if (review === null) throw new Error(`第 ${chapter} 章还没有审稿记录，先审再结算`)
+  if (readSettleApproval(root, chapter) === null) throw new Error(`第 ${chapter} 章还没有作者结算确认；先 /story-settle 或面板「结算本章」`)
   const proposal = await readSettlementProposal(root, chapter)
   if (proposal === null) throw settlementError('SETTLEMENT_PROPOSAL_UNAVAILABLE', `第 ${chapter} 章没有结算提案；先生成提案`)
   if (proposal.kind !== 'settle') throw settlementError('SETTLEMENT_PROPOSAL_UNAVAILABLE', `第 ${chapter} 章的提案不是结算提案`)
@@ -281,7 +284,7 @@ async function commitSettlement(root: string, work: Work, commit: CommitArgs): P
       artifact.snapshot,
       { relativePath: chapterReviewPath(chapter), content: `${JSON.stringify(updatedReview, null, 2)}\n` },
     ],
-    deletes: [draftPath(chapter), settlementProposalPath(chapter), chapterUsagePath(chapter)],
+    deletes: [draftPath(chapter), settlementProposalPath(chapter), chapterUsagePath(chapter), settleApprovalPath(chapter)],
   })
   return {
     status: held ? 'held' : 'published',

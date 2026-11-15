@@ -16,6 +16,7 @@
     "seq 241/265（章后审阅）：`## 当前阶段：章后审阅` + `longform-writing` + `story-review`（含 review-matrix 参考）；审稿工具 `story_review_chapter` 成功落盘。",
     "seq 176/287（本章完成）：`## 当前阶段：本章完成` + `longform-writing` + `story-review`；协议含 settler 增量→提案→state-check 对账→带 validation 提交的两阶段结算；seq 331 `story_settle_chapter` 生成提案、seq 337 派 state-check、seq 371 带 validation 提交成功；发布后索引第 1 章 1383 字、status active、快照 0/1、observations 已解决。",
     "各阶段通用句为「本阶段强制注入的创作方法必须使用；其它方法只在确有需要时加载，不要机械加载无关方法」，不再出现「不需要再调用技能工具加载」。",
-    "本会话作品为 zh，未覆盖英文真实会话；英文协议与英文 craft 标题按验收 7 的裁决由 `stage-context` 的文本断言与中英结构对照覆盖（session 未取得英文回执，记为 limitation，不记为未取得）。"
+    "本会话作品为 zh，未覆盖英文真实会话；英文协议与英文 craft 标题按验收 7 的裁决由 `stage-context` 的文本断言与中英结构对照覆盖（session 未取得英文回执，记为 limitation，不记为未取得）。",
+    "2026-11-15 协议变更：foundation-ready 的中英文本改为「先 /story-approve 确认基础设定，再 /story-write」；本回执的真实会话仍是旧文本，新文本由 stage-context 测试覆盖，真实会话取证待 batch。"
   ]
 }

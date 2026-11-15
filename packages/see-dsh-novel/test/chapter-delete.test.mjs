@@ -72,6 +72,8 @@ async function workspace() {
     observations: [{ code: 'C1', summary: '观察', assessment: 'unavailable', category: 'quality' }],
   })
   const settle = tool(root, installSettleTool)
+  const { writeSettleApproval } = await import('../src/core/settle-approval.ts')
+  await writeSettleApproval(root, 1)
   const proposal = await settle.execute({
     chapter: 1,
     postSettlement: '甲上山。',

@@ -76,12 +76,12 @@
   ],
   "tests": [
     "packages/see-dsh-novel/test/workbench.test.mjs（11 例：动作条、阶段导航、诊断折叠、JSON 键值树、删除内联确认、完成后根修订动作）",
-    "packages/see-dsh-novel/test/panel-index.test.mjs（6 例：索引 v6、白名单／摘要分离、latestChapter 与坏索引、foundation-ready 动作、空作品、恢复后 review target）",
+    "packages/see-dsh-novel/test/panel-index.test.mjs（8 例：索引 v7、已结算/写作态/待确认、白名单／摘要分离、latestChapter 与坏索引、foundation-ready 动作、空作品、恢复后 review target）",
     "packages/see-dsh-novel/test/client.test.mjs（索引驱动、动作派发、导出回执、审阅目标、索引重载）",
-    "packages/see-dsh-novel/test/panel-projection.test.mjs（v6 重建与预热）"
+    "packages/see-dsh-novel/test/panel-projection.test.mjs（v6→v7 重建与预热）"
   ],
   "realRunLevel": "P",
-  "realRunBasis": "artifacts/real-runs/panel.workbench.json：date=2026-11-14，sessionId=process:panel.workbench，receipts 明说「该回执是 process-level 工具/状态测试，不是 DSH 会话」；没有真实 DSH 会话 id 或会话回执。",
+  "realRunBasis": "artifacts/real-runs/panel.workbench.json：date=2026-11-15，sessionId=process:panel.workbench，回执包含真实工作区 D:\\\\workspace\\\\see-dsh-novel-runtime 的 v7 投影（已结算六阶段 done、根 start-chapter、confirmation none/done、章节 artifact stages write/review/settle）；仍是 process-level，不是 DSH 会话。",
   "deviations": [
     "真值文件只读：源 TruthFiles 可 Edit/Save（TruthFiles.tsx:54、server.ts:5761），复刻所有产物 readonly（panel-index.ts:198），已登记 D39。",
     "源 BookDetail 的作品设置、删除作品、重修基础设定、章节重写、按正文同步 truth/state、章节版本恢复与本章 brief 编辑，在复刻面板没有控件或命令；账本与 fidelity-audit 未把这些记为债或偏差。",
@@ -93,6 +93,7 @@
     "workbench 测试用 react-test-renderer + 注入假索引，不断言宿主投影与客户端在同一真实会话中的联动。",
     "panel.logs 与 panel.analysis 仍是 missing 行，源工作台的日志／分析入口不在本行交付。",
     "面板从不重建索引（设计如此）；索引未生成时只显示兜底卡片，源面板每次请求实时读 API。",
-    "对照：capabilities.yaml:379-386 标 verified；docs/fidelity-audit.md:500-506 判「机制差异已登记 + 未关闭差异 D39」；该判定只承认真值编辑一项，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据，差异与判定见 docs/fidelity-audit.md 的审计表。"
+    "对照：capabilities.yaml:379-386 标 verified；docs/fidelity-audit.md:500-506 判「机制差异已登记 + 未关闭差异 D39」；该判定只承认真值编辑一项，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据，差异与判定见 docs/fidelity-audit.md 的审计表。",
+    "2026-11-15：面板索引升到 v7，已结算章节投影修正（六阶段 done、根动作开始下一章、不再显示确认基础设定）；真实工作区回执是 process-level，没有 GUI 会话截图或会话日志。"
   ]
 }

@@ -192,7 +192,7 @@ Status: implemented
 - `test/chapter-review.test.mjs`：已发布章无章纲/章纲损坏时 `reviewSources` 只返回正文并成功落盘审稿记录；草稿态缺章纲仍拒绝。
 - `test/review-contract.test.mjs`：`renderReviewContract(root, chapter)` 的新签名与目标章来源；章纲缺失/损坏但正文存在时输出「要求 + 章节正文」并注明缺章纲；缺正文仍为空。
 - `test/chapter-revise.test.mjs` 或 `test/write-tool.test.mjs`：修订已发布章后阶段为 review 目标该章；已有他章 start 时被替换。
-- `test/panel-index.test.mjs`、`test/workbench.test.mjs`、`test/client.test.mjs`：`reviewChapter` 投影、`PANEL_INDEX_VERSION=6`、提示词、按钮文案。
+- `test/panel-index.test.mjs`、`test/workbench.test.mjs`、`test/client.test.mjs`：`reviewChapter` 投影、`PANEL_INDEX_VERSION=7`、提示词、按钮文案。
 - `test/chapter-delete.test.mjs`、`test/recovery.test.mjs`：重开/恢复相关回归与 `story_recover` 补齐路径。
 - 只能由文本断言的部分：协议文案、面板提示词。
 

@@ -300,6 +300,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     if (action.id === 'review-foundation') { await command('查看待确认', '/story-review'); return }
     if (action.id === 'delete-chapter') { await command('删除本章', '/story-delete'); return }
     if (action.id === 'start-chapter') { await command('开始下一章', '/story-write'); return }
+    if (action.id === 'settle-chapter') { await command('结算本章', '/story-settle'); return }
     if (action.id === 'plan-chapter' || action.id === 'write-chapter' || action.id === 'review-chapter' || action.id === 'revise-chapter') {
       await advanceStage(action)
     }

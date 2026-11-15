@@ -176,7 +176,7 @@ async function mountEligible(binding, files, commands) {
 /** 一份 foundation-ready 的索引；动作与宿主投影的形状一致。 */
 function panelIndex(overrides = {}) {
   return {
-    version: 6,
+    version: 7,
     generatedAt: '2026-11-10T00:00:00.000Z',
     revision: 'r1',
     work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },
@@ -552,6 +552,17 @@ test('the stage prompts go through advance instead of tool approvals', async () 
   await act(async () => { buttonByLabel(tree, '规划下一章').props.onClick() })
   assert.equal(advances.length, 1)
   assert.match(advances[0].text, /规划第 1 章/)
+})
+
+test('the root settle action sends the settle command', async () => {
+  installDocumentStub()
+  const settleIndex = panelIndex({
+    stages: panelIndex().stages.map((stage) => (stage.id === 'foundation' ? { ...stage, status: 'done', action: null } : stage)),
+    action: { id: 'settle-chapter', label: '结算本章', enabled: true, reason: '' },
+  })
+  const { tree, calls } = await renderView({ indexText: JSON.stringify(settleIndex) })
+  await act(async () => { buttonByLabel(tree, '结算本章').props.onClick() })
+  assert.deepEqual(calls, [{ sessionId: SESSION, line: '/story-settle' }])
 })
 
 test('the root revise action asks the host to run the revision flow', async () => {

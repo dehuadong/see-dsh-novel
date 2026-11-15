@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 2026-11-15 修订：新增作品级 `source/story/runtime/foundation-approval.json`，`/story-approve`、`story_foundation_signoff` 成功后写入，`/story-reject` 与原生退回清除；`/story-write` 每次开章前按基础设定摘要校验。它取代本 Note 的「回执只在会话里」与「不把确认写进作品目录」两处；签核两条通道与回执格式不变。见 [`2026-11-15-mandatory-foundation-signoff.md`](../../proposed/feature/2026-11-15-mandatory-foundation-signoff.md)。
+
 ## Problem
 
 前三段能力已经把大纲、规则与角色卡写进作品，但写进去就等于定了：没有任何一步停下来问作者「这版你认不认」。参考做法是提议与执行分离：工具只提议，只有作者确认过的动作才带来执行权。这套分离在本项目里缺两头——确认没有入口，判断「这一版被批准过」也没有可查询的留痕。

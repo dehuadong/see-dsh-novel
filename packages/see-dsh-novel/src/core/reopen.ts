@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import { chapterArtifactWrite, currentChapterArtifact } from './artifact-store.js'
 import { chapterVersionsDir, readChapterVersion } from './chapter-versions.js'
 import { commitFoundation } from './commit.js'
+import { settleApprovalPath } from './settle-approval.js'
 import {
   loadChapterDocument,
   roughChapterLength,
@@ -96,6 +97,7 @@ async function chapterRuntimePaths(
     .filter((path) => path.startsWith(`${RUNTIME_DIR}/${prefix}`) && !keepPaths.has(path))
     .sort()
     .concat(existsSync(join(root, '.drafts', `chapter-${padded}.md`)) ? [`.drafts/chapter-${padded}.md`] : [])
+    .concat(existsSync(join(root, settleApprovalPath(chapter))) ? [settleApprovalPath(chapter)] : [])
 }
 
 /** 已发布章节里的最大章号；没有时为 0。 */

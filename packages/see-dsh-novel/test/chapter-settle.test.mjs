@@ -9,6 +9,7 @@ import { applySettlement } from '../src/core/settle.ts'
 import { writeChapterDraft } from '../src/core/chapter-draft.ts'
 import { existsSync } from 'node:fs'
 import { chapterReviewPath, reviewChapter } from '../src/core/chapter-review.ts'
+import { writeSettleApproval, clearSettleApproval, readSettleApproval } from '../src/core/settle-approval.ts'
 import { chapterUsagePath } from '../src/core/chapter-usage.ts'
 import { saveChapterPlan } from '../src/core/chapter-plan.ts'
 import { inspectState, readStateSnapshot, snapshotWrites } from '../src/core/state.ts'
@@ -70,6 +71,7 @@ async function workspace(options = {}) {
     summary: '初审',
     observations: [{ code: 'C1', summary: '观察', assessment: 'unavailable' }],
   })
+  await writeSettleApproval(root, 1)
   return root
 }
 
@@ -99,6 +101,7 @@ function resettleTool(root) {
 /** 两阶段结算：提案 + 一致收据提交。 */
 async function settle(root, args = delta(), options = {}) {
   const target = tool(root)
+  await writeSettleApproval(root, args.chapter)
   const proposal = await target.execute(args, exec)
   return target.execute({
     chapter: args.chapter,
@@ -164,6 +167,43 @@ function delta(overrides = {}) {
 async function readJson(root, path) {
   return JSON.parse(await readFile(join(root, path), 'utf8'))
 }
+
+test('the settle proposal requires the author confirmation marker', async () => {
+  const root = await workspace()
+  try {
+    clearSettleApproval(root, 1)
+    await assert.rejects(tool(root).execute(delta(), exec), /作者结算确认/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a settled chapter consumes the confirmation marker', async () => {
+  const root = await workspace()
+  try {
+    await settle(root)
+    assert.equal(readSettleApproval(root, 1), null)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('a held publish also consumes the marker, while a pre-commit failure keeps it', async () => {
+  const held = await workspace()
+  try {
+    await settle(held, delta(), { outcome: 'unavailable' })
+    assert.equal(readSettleApproval(held, 1), null)
+  } finally {
+    await rm(held, { recursive: true, force: true })
+  }
+  const failed = await workspace()
+  try {
+    await assert.rejects(settle(failed, delta(), { outcome: 'reconciliation-required' }))
+    assert.equal(readSettleApproval(failed, 1)?.chapter, 1)
+  } finally {
+    await rm(failed, { recursive: true, force: true })
+  }
+})
 
 test('settle writes facts, hooks, summary, manifest and projections', async () => {
   const root = await workspace()

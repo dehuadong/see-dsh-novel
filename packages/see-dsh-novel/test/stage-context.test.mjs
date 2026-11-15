@@ -8,6 +8,7 @@ import { dirname } from 'node:path'
 
 import { installStageContext, detectStage, renderStageProtocol } from '../src/pipelines/long/stages/index.ts'
 import { writeWorkflowStart } from '../src/core/workflow-start.ts'
+import { writeFoundationApproval } from '../src/core/foundation-approval.ts'
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..')
 const PRESET = 'see-dsh-novel'
@@ -220,7 +221,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(craftText, /参考：foundation-design/)
       }
       if (kind === 'foundation-ready') {
-        assert.match(stageText, /等待作者发起一章的 workflow start/)
+        assert.match(stageText, /开章前先确认基础设定/)
+        assert.match(stageText, /\/story-approve/)
         assert.match(stageText, /不要自行调用 `story_plan_chapter`/)
         assert.doesNotMatch(stageText, /story_context_candidates/)
         assert.match(craftText, /创作方法（longform-writing）/)
@@ -243,6 +245,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /story_revise_chapter/)
         assert.doesNotMatch(stageText, /story_summarize_chapter/)
         assert.match(stageText, /story_settle_chapter/)
+        assert.match(stageText, /\/story-settle/)
+        assert.match(stageText, /只有作者已用 `\/story-settle`/)
         assert.match(stageText, /不带 validation/)
         assert.match(stageText, /state-check 子代理读提案文件/)
         assert.match(stageText, /failureReport/)
@@ -279,6 +283,16 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
       }
       if (kind === 'write') {
         assert.match(stageText, /story_write_chapter/)
+        assert.match(stageText, /四行摘要/)
+        assert.match(stageText, /标题：/)
+        assert.match(stageText, /字数：/)
+        assert.match(stageText, /草稿：/)
+        assert.match(stageText, /注意：/)
+        assert.match(stageText, /不要回传正文/)
+        assert.match(stageText, /摘要的标题、字数、草稿路径/)
+        assert.match(stageText, /`glob` 确认草稿存在/)
+        assert.match(stageText, /不要把正文复述到主会话/)
+        assert.doesNotMatch(stageText, /^5\. 调 `story_write_chapter`/m)
         assert.match(stageText, /## 权威顺序/)
         assert.match(stageText, /## 字数/)
         assert.match(craftText, /参考：scene-dialogue-and-length-budget/)
@@ -348,9 +362,64 @@ test('an English work gets English stage protocols at foundation-ready, plan, wr
       if (kind === 'review' || kind === 'chapter-done') {
         assert.match(craftText, /# Craft guidance \(story-review\)/)
       }
+      if (kind === 'write') {
+        assert.match(stageText, /Title:/)
+        assert.match(stageText, /Words:/)
+        assert.match(stageText, /Draft:/)
+        assert.match(stageText, /Notes:/)
+        assert.match(stageText, /do not return the prose/)
+        assert.match(stageText, /writer summary \(title, word count, draft path\)/)
+        assert.match(stageText, /`glob` to confirm the draft exists/)
+        assert.doesNotMatch(stageText, /^5\. Call `story_write_chapter`/m)
+      }
+      if (kind === 'foundation-ready') {
+        assert.match(stageText, /Confirm the foundation first/)
+        assert.match(stageText, /\/story-approve/)
+      }
+      if (kind === 'chapter-done') {
+        assert.match(stageText, /Only after the author confirms with `\/story-settle`/)
+      }
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  }
+})
+
+test('a writer subagent that already wrote the draft gets a stop instruction instead of review context', async () => {
+  const root = await workspace('review')
+  try {
+    const { ctx, entries } = fakeContext(root)
+    installStageContext(ctx, packageRoot, PRESET)
+    const events = [{ type: 'tool/call', data: { name: 'story_write_chapter' } }]
+    const subagentSession = { header: { origin: 'subagent', delegationDepth: 1 }, snapshotEvents: () => events }
+    const textWith = (contribution, session) => contribution.text({ agent: { ctx: {}, session } })
+    const stageText = textWith(entries.get('story:stage'), subagentSession)
+    assert.match(stageText, /## 草稿已落盘/)
+    assert.match(stageText, /只回四行摘要/)
+    assert.doesNotMatch(stageText, /## 当前阶段：章后审阅/)
+    assert.equal(textWith(entries.get('story:craft'), subagentSession), '')
+    const mainSession = { header: {}, snapshotEvents: () => events }
+    assert.match(textWith(entries.get('story:stage'), mainSession), /## 当前阶段：章后审阅/)
+    assert.match(textOf(entries.get('story:stage')), /## 当前阶段：章后审阅/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('the foundation-ready protocol reflects the work-level approval', async () => {
+  const root = await workspace('foundation-ready')
+  try {
+    await writeFoundationApproval(root)
+    const facts = detectStage(root)
+    assert.equal(facts.stage, 'foundation-ready')
+    assert.equal(facts.foundationApproved, true)
+    const { ctx, entries } = fakeContext(root)
+    installStageContext(ctx, packageRoot, PRESET)
+    const text = textOf(entries.get('story:stage'))
+    assert.match(text, /基础设定已由作者确认/)
+    assert.doesNotMatch(text, /开章前先确认基础设定/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })
 

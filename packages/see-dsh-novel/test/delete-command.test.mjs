@@ -65,6 +65,8 @@ async function workspace() {
   }
   installSettleTool(ctx)
   const settleTool = tools.get('story_settle_chapter')
+  const { writeSettleApproval } = await import('../src/core/settle-approval.ts')
+  await writeSettleApproval(root, 1)
   const proposal = await settleTool.execute({
     chapter: 1,
     postSettlement: '甲上山。',

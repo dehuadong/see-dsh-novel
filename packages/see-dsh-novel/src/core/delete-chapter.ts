@@ -8,6 +8,7 @@ import { join } from 'node:path'
 
 import { CHAPTER_INDEX_PATH, readChapterIndexStrict } from './chapter-index.js'
 import { commitFoundation } from './commit.js'
+import { settleApprovalPath } from './settle-approval.js'
 import { STORY_ROOT } from './story-paths.js'
 
 export interface DeleteChapterResult {
@@ -186,7 +187,7 @@ export async function deleteLatestChapter(root: string, chapter: number): Promis
   try {
     await commitFoundation(root, {
       writes: [...restore.writes, { relativePath: CHAPTER_INDEX_PATH, content: `${JSON.stringify(kept, null, 2)}\n` }],
-      deletes: [...restore.deletes, ...await staleDeletes(root, target), `.drafts/chapter-${String(chapter).padStart(4, '0')}.md`],
+      deletes: [...restore.deletes, ...await staleDeletes(root, target), `.drafts/chapter-${String(chapter).padStart(4, '0')}.md`, settleApprovalPath(chapter)],
     })
   } catch (error) {
     const restoreErrors: unknown[] = []

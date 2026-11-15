@@ -37,6 +37,7 @@ import { installStateCheckTool } from '../pipelines/long/state-check-tool.js'
 import { installReopenTools } from '../pipelines/long/reopen-tool.js'
 import { installDeleteTool } from '../pipelines/long/delete-tool.js'
 import { installWriteCommand } from './write-command.js'
+import { installSettleCommand } from './settle-command.js'
 import { installDeleteCommand } from './delete-command.js'
 import { installWorkTools } from './work-tools.js'
 
@@ -132,6 +133,7 @@ export function apply(ctx: PluginContext): Disposer {
   const disposeReopen = installReopenTools(ctx)
   const disposeDelete = installDeleteTool(ctx)
   const disposeWrite = installWriteCommand(ctx)
+  const disposeSettleCommand = installSettleCommand(ctx)
   const disposeDeleteCommand = installDeleteCommand(ctx)
   const disposeWork = installWorkTools(ctx)
   const disposeTelemetry = installTelemetryTool(ctx)
@@ -163,6 +165,7 @@ export function apply(ctx: PluginContext): Disposer {
     disposeReopen()
     disposeDelete()
     disposeWrite()
+    disposeSettleCommand()
     disposeDeleteCommand()
     disposeCommands()
     disposeGate()

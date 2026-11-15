@@ -8,6 +8,8 @@
  * 「不」当成「没听见」。
  */
 import { readArtifacts, shortDigest } from '../../core/artifacts.js'
+import { foundationApprovalDigest, isFoundationApproved, readFoundationApproval, rejectFoundationApproval, writeFoundationApproval } from '../../core/foundation-approval.js'
+import { withWorkAction } from '../../core/work-mutation.js'
 import type { ArtifactSet } from '../../core/artifacts.js'
 import { approvalMarkerLine, latestDecision } from '../../core/receipts.js'
 import type { ApprovalChannel, ApprovalDecision } from '../../core/receipts.js'
@@ -174,6 +176,15 @@ export function installGateTools(ctx: PluginContext): Disposer {
     const agent = exec.agent
     if (agent === undefined) throw new Error('签核需要所属 agent 会话；无归属时拒绝')
     const root = await ctx.workingDirectory.ensure(agent)
+    const existing = readFoundationApproval(root)
+    if (existing?.state === 'approved' && isFoundationApproved(root)) {
+      const artifacts = await readArtifacts(root)
+      return { signed: true, channel: 'receipt', digest: artifacts.digest, files: artifacts.files }
+    }
+    if (existing?.state === 'rejected') {
+      throw new Error('作者退回了这一版基础设定；改完先 /story-approve 重新确认')
+    }
+    const digestBefore = foundationApprovalDigest(root)
     const result = await evaluateSignoff({
       root,
       agent,
@@ -181,7 +192,11 @@ export function installGateTools(ctx: PluginContext): Disposer {
       ...exec.callId === undefined ? {} : { callId: exec.callId },
       ...exec.signal === undefined ? {} : { signal: exec.signal },
     })
-    if (result.kind === 'denied') throw new Error(result.message)
+    if (result.kind === 'denied') {
+      if (result.reason === 'rejected') await withWorkAction(root, async () => { await rejectFoundationApproval(root) })
+      throw new Error(result.message)
+    }
+    await withWorkAction(root, async () => { await writeFoundationApproval(root, digestBefore) })
     return {
       signed: true,
       channel: result.channel,
@@ -216,18 +231,23 @@ export function installGateTools(ctx: PluginContext): Disposer {
       const policy = confirmationPolicy(service, agent)
       const decision = latestDecision(agent.session.snapshotEvents(), DECISION_SOURCES)
       const approved = confirmedBy(artifacts, decision)
-      const confirmed = approved !== undefined
+      const record = readFoundationApproval(root)
+      const recordApproved = isFoundationApproved(root)
+      const rejected = record?.state === 'rejected'
+      const confirmed = !rejected && (approved !== undefined || recordApproved)
       return {
         stage: FOUNDATION_STAGE,
         files: artifacts.files,
         digest: artifacts.digest,
         confirmed,
-        decision: decision?.kind ?? 'none',
-        channel: approved === undefined ? 'none' : approved.channel,
+        decision: rejected ? 'reject' : decision?.kind ?? 'none',
+        channel: rejected ? 'none' : approved?.channel ?? (recordApproved ? 'receipt' : 'none'),
         receiptAt: decision === undefined ? '' : new Date(decision.time).toISOString(),
         policy,
         canPrompt: service !== undefined && policy === 'ask',
-        hint: hintFor(artifacts, decision, policy),
+        hint: rejected
+          ? '作者退回了这一版基础设定；改完先 /story-approve 重新确认。'
+          : recordApproved ? '这一版已被作者确认，可以签核定稿。' : hintFor(artifacts, decision, policy),
       }
     },
   } as ToolDefinition<Record<string, never>, {

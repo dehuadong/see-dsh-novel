@@ -8,6 +8,7 @@ import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/ty
 import type { WorkLanguage } from '../../../core/work.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
 import { draftPath } from '../../../core/chapter-draft.js'
+import { isFoundationApproved } from '../../../core/foundation-approval.js'
 import { renderArchitectContract } from './architect.js'
 import { renderWriterContract } from './writer.js'
 import { renderNumberedSources, renderReviewContract } from './review.js'
@@ -45,6 +46,8 @@ export interface StageFacts {
   /** 作品语言；无 work.json（proposal）时为 zh。 */
   language?: WorkLanguage
   currentChapter: number
+  /** 作品级基础设定确认是否有效；只在 foundation-ready 判定。 */
+  foundationApproved?: boolean
   /** 章节索引里已有章；状态损坏、currentChapter 回落 0 时仍可据此注入。 */
   hasChapters: boolean
   /** 下一章是否已有已发布正文（扣下或遗留的「已发布未结算」）。 */
@@ -201,7 +204,7 @@ export function detectStage(root: string): StageFacts {
     return { stage: 'chapter-done', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   if (!workflowStartedSync(root, nextChapter)) {
-    return { stage: 'foundation-ready', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
+    return { stage: 'foundation-ready', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0, foundationApproved: isFoundationApproved(root) }
   }
   const nextPlan = chapterPlanPath(nextChapter)
   if (!existsSync(join(root, nextPlan))) {
@@ -248,10 +251,15 @@ function renderStageBaseZh(facts: StageFacts): string {
     case 'foundation-ready':
       return [
         header,
-        '目标：基础设定已齐，等待作者发起一章的 workflow start；现在不规划、不写正文。',
+        facts.foundationApproved === true
+          ? '目标：基础设定已由作者确认；等作者发起一章的 workflow start。'
+          : '目标：基础设定已齐；开章前先确认基础设定，再由作者开始一章的 workflow start。',
         '1. 如果作者只是问候/讨论，正常回答，不改作品。',
-        '2. 只有作者明确要求开始写下一章（panel.confirm 或命令）后，才进入 plan/write；workflow start 由作者确认写入。',
-        '3. 不要自行调用 `story_plan_chapter`／`story_write_chapter`；没有 start 时它们会拒绝。',
+        facts.foundationApproved === true
+          ? '2. 基础设定已由作者确认；等作者用 `/story-write` 开始下一章。'
+          : '2. 开章前先确认基础设定：作者用 `/story-approve`（或面板「确认基础设定」）；没有有效确认时 `/story-write` 会拒绝。',
+        '3. 确认后由作者用 `/story-write` 开始下一章；workflow start 由作者确认写入。',
+        '4. 不要自行调用 `story_plan_chapter`／`story_write_chapter`；没有 start 时它们会拒绝。',
         common,
       ].join('\n')
     case 'plan':
@@ -302,8 +310,8 @@ function renderStageBaseZh(facts: StageFacts): string {
         '1. 调 `story_context_candidates`（purpose=writer）。',
         '2. 对 tasks 里的每个任务用原生 `subagent` 派发 composer；mode=complete 时跳过。拿回 {memory, role, state, storyFrame, volumeMap} 的 id 集合。',
         '3. 调 `story_context_package`（purpose=writer，selection=上一步的 id 集合）。若返回 compressionTask：对每个 chunk 派 subagent 压缩，合并后超预算重压一次；把最终文本作为 compressedText 重调 package；package 与 trace 会落盘。',
-        `4. 读 \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`、plan 与 context 作为章纲与上下文，派 writer 写正文。`,
-        '5. 调 `story_write_chapter`（chapter、title、content）落盘；字数偏差只报告，不据此拒稿。',
+        `4. 读 \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`、plan 与 context 作为章纲与上下文，派 writer 写正文；派发提示里写明：writer 调 \`story_write_chapter\`（chapter、title、content）落盘，只回四行摘要：\`标题：\`、\`字数：\`、\`草稿：\`、\`注意：\`；不要回传正文。`,
+        '5. 核对 writer 摘要的标题、字数、草稿路径，并用 `glob` 确认草稿存在；不读正文，不要把正文复述到主会话；字数偏差只报告，不据此拒稿。',
         '已发布章拒绝写草稿；草稿已有审稿记录时走 story_revise_chapter。',
         '草稿写完后即停，不自动审稿或进入下一章。',
         common,
@@ -325,7 +333,7 @@ function renderStageBaseZh(facts: StageFacts): string {
         header,
         `目标：第 ${next} 章审稿已落盘，本章 workflow 结束；不要自动结算或开下一章。`,
         '1. 如果作者只是问候/讨论，正常回答，不改作品。',
-        '2. 作者要求结算本章时，按两阶段走：',
+        '2. 只有作者已用 `/story-settle` 或面板「结算本章」确认后，才按两阶段走；不要在作者未确认时自行开始：',
         '   a. 派 settler 子代理按正文与审稿记录产出 postSettlement／factOps／hookOps／newHookCandidates 与七字段摘要。',
         `   b. 用这份增量调 \`story_settle_chapter\`（不带 validation）生成结算提案：它只写 \`.drafts/settlement-${String(next).padStart(4, '0')}.json\`，此时不发布。`,
         '   c. 派 state-check 子代理读提案文件、本章正文（`.drafts/chapter-NNNN.md`）、`source/story/outline/story_frame.md` 与 `source/story/book_rules.md`，按下面的判据只回 {reconciliationRequired, reportMarkdown}；结算前不要调用 `story_state_check`（本章未结算，会因前置被拒）。',
@@ -368,10 +376,15 @@ function renderStageBaseEn(facts: StageFacts): string {
     case 'foundation-ready':
       return [
         header,
-        'Goal: the foundation is complete; wait for the author to start one chapter. Do not plan or write now.',
+        facts.foundationApproved === true
+          ? 'Goal: the foundation is approved by the author; wait for the author to start one chapter.'
+          : 'Goal: the foundation is complete; confirm the foundation first, then let the author start a chapter.',
         '1. If the author is only greeting or discussing, answer normally and do not change the work.',
-        '2. Enter plan/write only after the author explicitly asks to start the next chapter (panel.confirm or command); the workflow start is written by author confirmation.',
-        '3. Do not call `story_plan_chapter`/`story_write_chapter` on your own; they reject without a start.',
+        facts.foundationApproved === true
+          ? '2. The foundation is already approved by the author; wait for the author to start the next chapter with `/story-write`.'
+          : '2. Confirm the foundation first: the author uses `/story-approve` (or the panel confirm action); `/story-write` rejects without a valid approval.',
+        '3. After confirmation the author starts the next chapter with `/story-write`; the workflow start is written by author confirmation.',
+        '4. Do not call `story_plan_chapter`/`story_write_chapter` on your own; they reject without a start.',
         common,
       ].join('\n')
     case 'plan':
@@ -422,8 +435,8 @@ function renderStageBaseEn(facts: StageFacts): string {
         '1. Call `story_context_candidates` (purpose=writer).',
         '2. For each task, dispatch a composer through the native `subagent`; skip when mode=complete. Take back the id sets for {memory, role, state, storyFrame, volumeMap}.',
         '3. Call `story_context_package` (purpose=writer, selection = the previous id sets). If it returns a compressionTask: dispatch a subagent per chunk to compress, merge, re-compress once if over budget, and call package again with the final text as compressedText; the package and trace are persisted.',
-        `4. Read \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`, the plan and the context as the chapter plan and context, and dispatch a writer to write the prose.`,
-        '5. Call `story_write_chapter` (chapter, title, content) to persist; report word-count deviation only, do not reject on it.',
+        `4. Read \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`, the plan and the context as the chapter plan and context, and dispatch a writer to write the prose; in the dispatch prompt, require the writer to call \`story_write_chapter\` (chapter, title, content) to persist and return only four lines: \`Title:\`, \`Words:\`, \`Draft:\`, \`Notes:\`; do not return the prose.`,
+        '5. Check the writer summary (title, word count, draft path) and use `glob` to confirm the draft exists; do not read the prose, do not repeat it in the main conversation; report word-count deviation only, do not reject on it.',
         'A published chapter rejects a draft write; when a draft already has a review record, go through story_revise_chapter.',
         'Stop after the draft is written; do not review or start the next chapter automatically.',
         common,
@@ -445,7 +458,7 @@ function renderStageBaseEn(facts: StageFacts): string {
         header,
         `Goal: chapter ${next} review is persisted and this chapter's workflow ends; do not settle or start the next chapter automatically.`,
         '1. If the author is only greeting or discussing, answer normally and do not change the work.',
-        '2. When the author asks to settle this chapter, follow the two phases:',
+        '2. Only after the author confirms with `/story-settle` or the panel "settle this chapter" action, follow the two phases; do not start without that confirmation:',
         '   a. Dispatch a settler subagent to produce postSettlement/factOps/hookOps/newHookCandidates and the seven-field summary from the prose and the review record.',
         `   b. Call \`story_settle_chapter\` (without validation) with that delta to generate the settlement proposal: it writes only \`.drafts/settlement-${String(next).padStart(4, '0')}.json\` and publishes nothing yet.`,
         "   c. Dispatch a state-check subagent to read the proposal file, this chapter's prose (`.drafts/chapter-NNNN.md`), `source/story/outline/story_frame.md` and `source/story/book_rules.md`, and return only {reconciliationRequired, reportMarkdown} under the criteria below; do not call `story_state_check` before settlement (the chapter is not settled and the precondition rejects it).",
@@ -530,6 +543,28 @@ export function renderCraft(packageRoot: string, stage: Stage, language: WorkLan
   return parts.join('\n')
 }
 
+const WRITER_STOP_ZH = '## 草稿已落盘\n正文已写入草稿。现在停止：只回四行摘要（`标题：`、`字数：`、`草稿：`、`注意：`），不要调用其它工具，不要审稿、修订或结算。'
+const WRITER_STOP_EN = '## Draft persisted\nThe prose is already in the draft. Stop now: return only four lines (`Title:`, `Words:`, `Draft:`, `Notes:`); do not call other tools, review, revise or settle.'
+
+function writerDraftDone(agent: { session: unknown } | undefined): boolean {
+  if (agent === undefined) return false
+  try {
+    const session = agent.session as {
+      header?: { origin?: string, delegationDepth?: number }
+      origin?: string
+      delegationDepth?: number
+      snapshotEvents?: () => ReadonlyArray<{ type?: string, data?: { name?: string } }>
+    }
+    const header = session.header ?? session
+    const subagent = header.origin === 'subagent' || (header.delegationDepth ?? 0) > 0
+    if (!subagent) return false
+    const events = session.snapshotEvents?.() ?? []
+    return events.some((event) => event.type === 'tool/call' && event.data?.name === 'story_write_chapter')
+  } catch {
+    return false
+  }
+}
+
 /** 注册阶段协议与创作技能两个上下文条目。 */
 export function installStageContext(ctx: PluginContext, packageRoot: string, presetId: string): Disposer {
   const presets = (): AgentPresetsLike | undefined => ctx.get('agentPresets') as AgentPresetsLike | undefined
@@ -551,6 +586,9 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     text: (assembly) => {
       const facts = forAgent(assembly)
       if (facts === undefined) return ''
+      if ((facts.stage === 'review' || facts.stage === 'chapter-done') && writerDraftDone(assembly.agent as { session: unknown } | undefined)) {
+        return facts.language === 'en' ? WRITER_STOP_EN : WRITER_STOP_ZH
+      }
       if (facts.stage !== 'foundation' && facts.stage !== 'write' && facts.stage !== 'review' && facts.stage !== 'plan' && facts.stage !== 'chapter-done') return renderStageProtocol(facts)
       let root = ''
       try {
@@ -581,7 +619,9 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     required: true,
     text: (assembly) => {
       const facts = forAgent(assembly)
-      return facts === undefined ? '' : renderCraft(packageRoot, facts.stage, facts.language ?? 'zh')
+      if (facts === undefined) return ''
+      if ((facts.stage === 'review' || facts.stage === 'chapter-done') && writerDraftDone(assembly.agent as { session: unknown } | undefined)) return ''
+      return renderCraft(packageRoot, facts.stage, facts.language ?? 'zh')
     },
   })
   return (): void => {

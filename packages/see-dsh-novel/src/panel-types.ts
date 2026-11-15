@@ -6,7 +6,7 @@ export interface PanelStage {
   status: 'done' | 'current' | 'locked'
   summary: string
   action: PanelAction | null
-  /** 主按钮之外的作者动作；只有 `foundation-ready` 节点有。 */
+  /** 主按钮之外的作者动作；只有 `foundation-ready` 且待确认的节点有。 */
   secondary: PanelAction[]
 }
 
@@ -34,7 +34,7 @@ export interface PanelArtifact {
 }
 
 export interface PanelIndex {
-  version: 6
+  version: 7
   generatedAt: string
   revision: string
   work: {
@@ -50,7 +50,7 @@ export interface PanelIndex {
   } | null
   stages: PanelStage[]
   artifacts: PanelArtifact[]
-  /** 没有当前阶段时给出的动作（chapter-done 的「修订本章」）；其余时候为 null。 */
+  /** 没有当前阶段时给出的动作（chapter-done 的「结算本章／修订本章」或已结算后的「开始下一章」）；其余时候为 null。 */
   action: PanelAction | null
   confirmation: {
     kind: 'proposal' | 'foundation-signoff' | 'workflow-start' | 'chapter' | 'none'

@@ -1,17 +1,17 @@
 {
   "capability": "panel.workbench",
-  "date": "2026-11-14",
+  "date": "2026-11-15",
   "sessionId": "process:panel.workbench",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "484 passed／1 skipped（symlink）— panel-index 6 例（索引 v6、展示集合与审批摘要分离、白名单四项与 planner-context 不出现、latestChapter 与坏索引按 0、foundation-ready 主/次动作、提案无动作、恢复后 review 目标）、panel-projection 7 例（v6 重建）、workbench 11 例、client 33 例、delete-command 与 host 回归"
+    "summary": "554 tests／553 pass／1 skipped（symlink）— panel-index 8 例（v7、基础设定写作中、待确认、已结算、恢复后 review 目标、展示集合与审批摘要分离）、panel-projection 7 例（v6→v7 重建）、workbench 11 例、client 34 例"
   },
   "receipts": [
-    "`panel.index.json` 版本 6 由宿主 `buildPanelIndex` 从文件重建：stages（主 `action` + `secondary`）、artifacts（`class` + `stages`）、work（含 `latestChapter`、`nextChapter`、`reviewChapter`）、confirmation；索引被 `readArtifacts` 排除，不作为作品产物。",
-    "`work.reviewChapter` 在 review 阶段取 `StageFacts.reviewTarget`（可能是更早的已发布章），其它阶段为 `currentChapter + 1`；审阅按钮文案改为「审阅本章」，`StoryView` 的审阅提示使用 `reviewChapter`。",
-    "面板产物是白名单展示集合，与审批摘要分离：状态 JSON、`memory.db`、`workflow-start.json` 不进面板；章节正文归正文/审阅；运行时诊断默认收进折叠分组。",
-    "阶段轨道、主/次动作、删除内联确认、JSON 键值树与版本重读保持原行为。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话。"
+    "真实工作区 `D:\\workspace\\see-dsh-novel-runtime`（第 1 章已结算，`status: active`、`currentChapter: 1`、`latestChapter: 1`）用当前 `buildPanelIndex` 在内存重建：`version: 7`；proposal/foundation/plan/write/review/settle 全 `done`；根动作 `start-chapter`「开始下一章」；`confirmation: none/done`；章节 artifact 的 `stages` 为 `['write','review','settle']`；不再出现「确认基础设定/退回/查看待确认」。未写回工作区；磁盘上的 `panel.index.json` 仍是 v6，按 `indexStale` 在会话创建或下一次作品写动作时重建为 v7。",
+    "`foundation-ready` 且 `currentChapter=0` 仍保留「确认基础设定」主按钮与「开始下一章/退回/查看待确认/稍后」次动作；`currentChapter>=1` 时六个阶段全 done，基础设定无动作、无次动作。",
+    "`chapter-done` 保持原行为（根动作「修订本章」，settle 仍 locked）；结算按钮留给后续 `chapter.settle` 工作项。",
+    "`PANEL_INDEX_VERSION` 升到 7；`panel-projection` 在版本不等时（含 v6 旧索引）于会话创建/下一次作品写动作重建；`normalizeIndex` 不做版本迁移。",
+    "该回执是 process-level 真实工作区投影检查，不是 DSH 会话；没有新的 GUI 会话截图/会话日志。"
   ]
 }

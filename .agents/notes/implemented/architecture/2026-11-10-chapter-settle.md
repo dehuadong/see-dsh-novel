@@ -17,6 +17,8 @@ P4 只剩 `chapter.settle` 与 `chapter.finalize`。章节摘要已经能单独�
 - `inkos/packages/core/src/state/state-validator.ts:15-100`：整份状态校验——重复 hookId、重复摘要章节、`currentState.chapter > manifest.lastAppliedChapter` 都是错误。
 - `inkos/packages/core/src/agents/settler-prompts.ts:5-41`：settler 的系统提示（“把正文明确事实投影为增量运行时 truth，保留无关状态和稳定 id，不把计划当成已发生事件”）与用户提示（正文、治理控制块、校验反馈）。
 
+> 2026-11-15：首版结算增加作者显式确认（面板「结算本章」+ `/story-settle` + `.drafts` 标记）；`chapter-done` 首版根动作从「修订本章」改为「结算本章」，修订仍走协议/命令。见 [`2026-11-15-explicit-settlement-gate.md`](../../proposed/feature/2026-11-15-explicit-settlement-gate.md)。
+
 ## Decision
 
 ### 核心：`applySettlement`

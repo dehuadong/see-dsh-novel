@@ -9,6 +9,7 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
+import { isFirstVersionSettle } from './settle-approval.js'
 import { readChapterIndex } from './chapter-index.js'
 import { detectStage } from '../pipelines/long/stages/index.js'
 import {
@@ -71,6 +72,7 @@ function artifactType(path: string): PanelArtifact['type'] {
 /** 展示类别决定它出现在哪些阶段。 */
 const DISPLAY_STAGES: Readonly<Record<PanelArtifact['class'], PanelStage['id'][]>> = {
   truth: ['foundation'],
+  // source/chapters 只存已发布章；发布后由 buildPanelArtifacts 追加 settle。
   chapter: ['write', 'review'],
   plan: ['plan'],
   review: ['review'],
@@ -186,12 +188,15 @@ async function buildPanelArtifacts(root: string): Promise<PanelArtifact[]> {
     const absolute = join(root, file.path)
     const info = await stat(absolute)
     const content = await readFile(absolute)
+    const stages = file.class === 'chapter'
+      ? [...DISPLAY_STAGES[file.class], 'settle' as const]
+      : DISPLAY_STAGES[file.class]
     rows.push({
       path: file.path,
       title: file.title,
       type: artifactType(file.path),
       class: file.class,
-      stages: DISPLAY_STAGES[file.class],
+      stages,
       modifiedAt: info.mtime.toISOString(),
       bytes: content.byteLength,
       revision: createHash('sha256').update(content).digest('hex').slice(0, 8),
@@ -202,13 +207,17 @@ async function buildPanelArtifacts(root: string): Promise<PanelArtifact[]> {
 }
 
 /** 索引格式版本；加字段时同步 `panel-types.ts`。 */
-export const PANEL_INDEX_VERSION = 6
+export const PANEL_INDEX_VERSION = 7
 
-function stageAction(stage: PanelStage['id'], status: PanelStage['status'], current: string): PanelAction | null {
+interface StageFlags {
+  foundationAwaitingSignoff: boolean
+}
+
+function stageAction(stage: PanelStage['id'], status: PanelStage['status'], flags: StageFlags): PanelAction | null {
   if (status !== 'current') return null
   if (stage === 'proposal') return null
   if (stage === 'foundation') {
-    if (current === 'foundation-ready') return { id: 'confirm-foundation', label: '确认基础设定', enabled: true, reason: '' }
+    if (flags.foundationAwaitingSignoff) return { id: 'confirm-foundation', label: '确认基础设定', enabled: true, reason: '' }
     return { id: 'start-foundation', label: '开始基础设定', enabled: true, reason: '' }
   }
   if (stage === 'plan') return { id: 'plan-chapter', label: '规划下一章', enabled: true, reason: '' }
@@ -221,10 +230,10 @@ function stageAction(stage: PanelStage['id'], status: PanelStage['status'], curr
  * 除主按钮外的作者动作；只在基础设定齐全、等工作流开始的节点上出现。
  * @param stage 阶段 id
  * @param status 阶段状态
- * @param current 阶段探针给出的当前阶段
+ * @param flags 基础设定待确认的投影标记
  */
-function stageSecondary(stage: PanelStage['id'], status: PanelStage['status'], current: string): PanelAction[] {
-  if (status !== 'current' || stage !== 'foundation' || current !== 'foundation-ready') return []
+function stageSecondary(stage: PanelStage['id'], status: PanelStage['status'], flags: StageFlags): PanelAction[] {
+  if (status !== 'current' || stage !== 'foundation' || !flags.foundationAwaitingSignoff) return []
   return [
     { id: 'start-chapter', label: '开始下一章', enabled: true, reason: '' },
     { id: 'reject-foundation', label: '退回', enabled: true, reason: '' },
@@ -243,38 +252,59 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
   const stage = facts?.stage ?? 'proposal'
   const currentChapter = work === null ? 0 : await readCurrentChapter(root)
   const latestChapter = work === null ? 0 : await readLatestChapter(root)
+  const foundationWriting = stage === 'foundation'
+  const foundationApproved = facts?.foundationApproved === true
+  const foundationReadyApproved = stage === 'foundation-ready' && currentChapter === 0 && foundationApproved
+  const foundationAwaitingSignoff = stage === 'foundation-ready' && !foundationApproved
+  const settledTarget = stage === 'foundation-ready' && currentChapter >= 1
+  const chapterSettled = settledTarget && foundationApproved
+  const flags: StageFlags = { foundationAwaitingSignoff }
   // 摘要仍是 source/story 全量（签核语义），面板只显示白名单里的展示集合。
   const digest = await readArtifacts(root)
   const rows = await buildPanelArtifacts(root)
 
   const stages: PanelStage[] = STAGES.map(({ id, label }) => {
     if (id === 'settle') {
-      return { id, label, status: 'locked', summary: '本章结算/发布尚未完成', action: null, secondary: [] }
+      const status: PanelStage['status'] = chapterSettled ? 'done' : 'locked'
+      return {
+        id,
+        label,
+        status,
+        summary: status === 'done' ? '已完成' : '本章结算/发布尚未完成',
+        action: null,
+        secondary: [],
+      }
     }
     let status: PanelStage['status'] = 'locked'
     if (id === 'proposal') status = work === null ? 'current' : 'done'
-    else if (id === 'foundation') status = stage === 'foundation' || stage === 'foundation-ready' ? 'current' : ['plan', 'write', 'review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
-    else if (id === 'plan') status = stage === 'plan' ? 'current' : ['write', 'review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
-    else if (id === 'write') status = stage === 'write' ? 'current' : ['review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
-    else if (id === 'review') status = stage === 'review' ? 'current' : stage === 'chapter-done' ? 'done' : 'locked'
+    else if (id === 'foundation') status = foundationWriting || foundationAwaitingSignoff ? 'current' : foundationReadyApproved || chapterSettled || ['plan', 'write', 'review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
+    else if (id === 'plan') status = stage === 'plan' ? 'current' : chapterSettled || ['write', 'review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
+    else if (id === 'write') status = stage === 'write' ? 'current' : chapterSettled || ['review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
+    else if (id === 'review') status = stage === 'review' ? 'current' : chapterSettled || stage === 'chapter-done' ? 'done' : 'locked'
     const summary = status === 'done' ? '已完成' : status === 'current' ? '当前阶段' : '等待前一阶段'
-    return { id, label, status, summary, action: stageAction(id, status, stage), secondary: stageSecondary(id, status, stage) }
+    return { id, label, status, summary, action: stageAction(id, status, flags), secondary: stageSecondary(id, status, flags) }
   })
 
   const confirmation: PanelIndex['confirmation'] = work === null
     ? { kind: 'proposal', state: 'pending', reason: '还没有作品' }
-    : stage === 'foundation-ready'
-      ? { kind: 'foundation-signoff', state: 'pending', reason: '基础设定已齐，等待作者确认' }
-      : stage === 'chapter-done'
-        ? { kind: 'chapter', state: 'done', reason: '本章审稿已落盘' }
-        : ['plan', 'write', 'review'].includes(stage)
-          ? { kind: 'workflow-start', state: 'started', reason: '本章 workflow 已开始' }
-          : { kind: 'none', state: 'pending', reason: '' }
+    : chapterSettled || foundationReadyApproved
+      ? { kind: 'none', state: 'done', reason: '' }
+      : foundationAwaitingSignoff
+        ? { kind: 'foundation-signoff', state: 'pending', reason: '基础设定已齐，等待作者确认' }
+        : stage === 'chapter-done'
+          ? { kind: 'chapter', state: 'done', reason: '本章审稿已落盘' }
+          : ['plan', 'write', 'review'].includes(stage)
+            ? { kind: 'workflow-start', state: 'started', reason: '本章 workflow 已开始' }
+            : { kind: 'none', state: 'pending', reason: '' }
 
-  // 一章审完后没有「当前阶段」，修订动作挂在索引根上。
-  const action: PanelAction | null = stage === 'chapter-done'
-    ? { id: 'revise-chapter', label: '修订本章', enabled: true, reason: '' }
-    : null
+  // 一章审完后没有「当前阶段」；已确认或已结算后只有开始下一章，修订动作不挂根。
+  const action: PanelAction | null = chapterSettled || foundationReadyApproved
+    ? { id: 'start-chapter', label: '开始下一章', enabled: true, reason: '' }
+    : stage === 'chapter-done'
+      ? isFirstVersionSettle(facts ?? {})
+        ? { id: 'settle-chapter', label: '结算本章', enabled: true, reason: '' }
+        : { id: 'revise-chapter', label: '修订本章', enabled: true, reason: '' }
+      : null
 
   return {
     version: PANEL_INDEX_VERSION,

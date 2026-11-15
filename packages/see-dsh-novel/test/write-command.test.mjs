@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { acquireWorkLock } from '../src/core/work-lock.ts'
+import { writeFoundationApproval, rejectFoundationApproval } from '../src/core/foundation-approval.ts'
 import { COMMAND_WRITE, installWriteCommand, parseInstruction, startChapter } from '../src/plugin/write-command.ts'
 import { WORKFLOW_START_PATH } from '../src/core/workflow-start.ts'
 import { WORK_FILE } from '../src/core/story-paths.ts'
@@ -34,6 +35,7 @@ async function workspace() {
 test('the command confirms one workflow start and rejects a second one', async () => {
   const root = await workspace()
   try {
+    await writeFoundationApproval(root)
     const first = await startChapter(root)
     assert.equal(first.chapter, 1)
     const start = JSON.parse(await readFile(join(root, WORKFLOW_START_PATH), 'utf8'))
@@ -65,6 +67,7 @@ test('the command reports BOOK_BUSY while another holder owns the lock', async (
 test('installWriteCommand registers one handler and follows up with a user message', async () => {
   const root = await workspace()
   try {
+    await writeFoundationApproval(root)
     const commands = new Map()
     installWriteCommand({
       commands: { register: (definition) => { commands.set(definition.name, definition); return () => commands.delete(definition.name) } },
@@ -93,6 +96,7 @@ test('parseInstruction trims and treats empty as undefined', () => {
 test('the command writes the author instruction into workflow start', async () => {
   const root = await workspace()
   try {
+    await writeFoundationApproval(root)
     const commands = new Map()
     installWriteCommand({
       commands: { register: (definition) => { commands.set(definition.name, definition); return () => commands.delete(definition.name) } },
@@ -114,9 +118,31 @@ test('the command writes the author instruction into workflow start', async () =
   }
 })
 
+test('foundation approval is required for every chapter and invalidated by foundation edits', async () => {
+  const root = await workspace()
+  try {
+    await assert.rejects(startChapter(root), /基础设定还没有作者确认/)
+    await writeFoundationApproval(root)
+    await rejectFoundationApproval(root)
+    await assert.rejects(startChapter(root), /作者退回了这一版基础设定/)
+    await writeFoundationApproval(root)
+    await startChapter(root)
+    await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1 }))
+    await rm(join(root, WORKFLOW_START_PATH), { force: true })
+    await writeFile(join(root, 'source/story/outline/volume_map.md'), 'changed\n')
+    await assert.rejects(startChapter(root), /确认已失效/)
+    await writeFoundationApproval(root)
+    const second = await startChapter(root)
+    assert.equal(second.chapter, 2)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('the empty command writes a system default instruction', async () => {
   const root = await workspace()
   try {
+    await writeFoundationApproval(root)
     const commands = new Map()
     installWriteCommand({
       commands: { register: (definition) => { commands.set(definition.name, definition); return () => commands.delete(definition.name) } },
