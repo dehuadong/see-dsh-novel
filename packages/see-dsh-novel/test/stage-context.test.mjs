@@ -223,6 +223,7 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /等待作者发起一章的 workflow start/)
         assert.match(stageText, /不要自行调用 `story_plan_chapter`/)
         assert.doesNotMatch(stageText, /story_context_candidates/)
+        assert.match(craftText, /创作方法（longform-writing）/)
       }
       // 本夹具没有已定稿/已结算的章，重算块不应出现；注入条件由下面的专门用例覆盖。
       assert.doesNotMatch(stageText, /## 重新结算（重算）/)
@@ -254,6 +255,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /只作观察/)
         assert.doesNotMatch(stageText, /story_write_chapter/)
         assert.match(craftText, /创作方法（story-review）/)
+        assert.match(craftText, /创作方法（longform-writing）/)
+        assert.match(craftText, /state-projection/)
       }
       if (kind === 'plan') {
         assert.match(stageText, /story_context_candidates/)
@@ -261,7 +264,8 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /## planner 契约/)
         assert.match(stageText, /# 第1章 memo 请求/)
         assert.match(stageText, /story_revise_chapter/)
-        assert.equal(craftText, '')
+        assert.match(craftText, /创作方法（longform-writing）/)
+        assert.match(craftText, /reader-contract-and-progression/)
       }
       if (kind === 'review') {
         assert.match(stageText, /派审稿子代理/)
@@ -271,12 +275,14 @@ test('the stage protocol switches with the phase and the craft follows it', asyn
         assert.match(stageText, /## 来源 governed-context/)
         assert.match(stageText, /`ranges`／`replacements`/)
         assert.match(craftText, /创作方法（story-review）/)
+        assert.match(craftText, /创作方法（longform-writing）/)
       }
       if (kind === 'write') {
         assert.match(stageText, /story_write_chapter/)
         assert.match(stageText, /## 权威顺序/)
         assert.match(stageText, /## 字数/)
         assert.match(craftText, /参考：scene-dialogue-and-length-budget/)
+        assert.match(craftText, /创作方法（longform-writing）/)
       }
     } finally {
       await rm(root, { recursive: true, force: true })
@@ -297,7 +303,7 @@ test('another preset gets no stage text', async () => {
   }
 })
 
-test('an English work gets the English contract and its brief', async () => {
+test('an English work gets the English protocol, craft and contract', async () => {
   const root = await workspace('foundation')
   try {
     const workJson = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
@@ -308,10 +314,138 @@ test('an English work gets the English contract and its brief', async () => {
     const { ctx, entries } = fakeContext(root)
     installStageContext(ctx, packageRoot, PRESET)
     const stageText = textOf(entries.get('story:stage'))
+    const craftText = textOf(entries.get('story:craft'))
+    assert.match(stageText, /## Current stage: Foundation setup/)
+    assert.doesNotMatch(stageText, /## 当前阶段/)
     assert.match(stageText, /## External Instructions/)
     assert.match(stageText, /Write a rainy-night mystery\./)
     assert.match(stageText, /Platform: 番茄|Platform: /)
     assert.match(stageText, /Target chapters: 10/)
+    assert.match(craftText, /# Craft guidance \(longform-writing\)/)
+    assert.match(craftText, /## Reference: foundation-design/)
+    assert.doesNotMatch(craftText, /## 参考：/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('an English work gets English stage protocols at foundation-ready, plan, write, review and chapter-done', async () => {
+  for (const kind of ['foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    const root = await workspace(kind)
+    try {
+      const workJson = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+      workJson.language = 'en'
+      await writeFile(join(root, 'work.json'), JSON.stringify(workJson))
+      const facts = detectStage(root)
+      assert.equal(facts.language, 'en')
+      const { ctx, entries } = fakeContext(root)
+      installStageContext(ctx, packageRoot, PRESET)
+      const stageText = textOf(entries.get('story:stage'))
+      const craftText = textOf(entries.get('story:craft'))
+      assert.match(stageText, /## Current stage: /)
+      assert.doesNotMatch(stageText, /## 当前阶段/)
+      assert.match(craftText, /# Craft guidance \(longform-writing\)/)
+      if (kind === 'review' || kind === 'chapter-done') {
+        assert.match(craftText, /# Craft guidance \(story-review\)/)
+      }
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('the repair block and the general sentence are bilingual', () => {
+  const facts = (language) => ({
+    stage: 'chapter-done', title: '', language, currentChapter: 1, hasChapters: true,
+    chapterPublished: false, chapterSnapshot: false, reviewTarget: 0,
+  })
+  const zh = renderStageProtocol(facts('zh'))
+  const en = renderStageProtocol(facts('en'))
+  assert.match(zh, /## 重新结算（重算）/)
+  assert.match(zh, /必须使用/)
+  assert.match(zh, /按需/)
+  assert.doesNotMatch(zh, /不需要再调用技能工具加载/)
+  assert.match(en, /## Resettle \(recompute\)/)
+  assert.match(en, /must be used/)
+  assert.match(en, /genuinely needed/)
+  assert.doesNotMatch(en, /do not need to load/)
+  assert.match(en, /story_resettle_chapter/)
+})
+
+test('Chinese and English stage protocols share tools and numbered steps', async () => {
+  const tools = (text) => [...new Set(text.match(/story_[a-z_]+/g) ?? [])].sort().join(',')
+  const steps = (text) => (text.match(/^\s*\d+\./gm) ?? []).length
+  for (const kind of ['foundation', 'foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    const root = await workspace(kind)
+    try {
+      const zh = renderStageProtocol(detectStage(root))
+      const workJson = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+      workJson.language = 'en'
+      await writeFile(join(root, 'work.json'), JSON.stringify(workJson))
+      const en = renderStageProtocol(detectStage(root))
+      assert.equal(tools(en), tools(zh), `${kind}: tool sets differ`)
+      assert.equal(steps(en), steps(zh), `${kind}: numbered step counts differ`)
+      assert.match(en, /## Current stage: /)
+      assert.doesNotMatch(en, /## 当前阶段/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('proposal stays Chinese even when the fact carries English', () => {
+  const text = renderStageProtocol({
+    stage: 'proposal', title: '', language: 'en', currentChapter: 0, hasChapters: false,
+    chapterPublished: false, chapterSnapshot: false, reviewTarget: 0,
+  })
+  assert.match(text, /## 当前阶段：提案/)
+  assert.doesNotMatch(text, /## Current stage/)
+})
+
+test('English revision review and revision chapter-done use the revision protocol', async () => {
+  const root = await workspace('chapter-done')
+  try {
+    await writeFile(join(root, 'source/chapters/index.json'), JSON.stringify([{
+      number: 1, title: 'Rain', wordCount: 4, createdAt: '2026-11-10T00:00:00.000Z', updatedAt: '2026-11-10T00:00:00.000Z',
+      observations: [], provenance: 'generated',
+    }], null, 2) + '\n')
+    const content = 'Revision prose.'
+    const digest = (await import('node:crypto')).createHash('sha256').update(content, 'utf8').digest('hex')
+    await mkdir(join(root, '.drafts'), { recursive: true })
+    await writeFile(join(root, '.drafts/revision-0001.json'), JSON.stringify({
+      version: 1, chapter: 1, title: 'Rain', content, contentDigest: digest,
+      baseDigest: 'base', changed: true, mode: 'rewrite', createdAt: '2026-11-10T00:00:00.000Z',
+    }, null, 2) + '\n')
+    const tools = (text) => [...new Set(text.match(/story_[a-z_]+/g) ?? [])].sort().join(',')
+    const steps = (text) => (text.match(/^\s*\d+\./gm) ?? []).length
+    const protocolIn = async (language) => {
+      const workJson = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+      workJson.language = language
+      await writeFile(join(root, 'work.json'), JSON.stringify(workJson))
+      return renderStageProtocol(detectStage(root))
+    }
+    let facts = detectStage(root)
+    assert.equal(facts.stage, 'review')
+    assert.equal(facts.revisionProposed, true)
+    const zhReview = await protocolIn('zh')
+    const enReview = await protocolIn('en')
+    assert.equal(tools(enReview), tools(zhReview))
+    assert.equal(steps(enReview), steps(zhReview))
+    assert.match(enReview, /## Current stage: Chapter review/)
+    assert.match(enReview, /review the revision proposal/)
+    await writeFile(join(root, 'source/story/runtime/chapter-0001.review.json'), JSON.stringify({
+      version: 1, chapter: 1, summary: 'Revision review', observations: [], counts: { issue: 0, resolved: 0, observation: 0, unavailable: 0 },
+      reviewedRevisionDigest: digest,
+    }, null, 2) + '\n')
+    facts = detectStage(root)
+    assert.equal(facts.stage, 'chapter-done')
+    assert.equal(facts.revisionReviewed, true)
+    const zhDone = await protocolIn('zh')
+    const enDone = await protocolIn('en')
+    assert.equal(tools(enDone), tools(zhDone))
+    assert.equal(steps(enDone), steps(zhDone))
+    assert.match(enDone, /## Current stage: Chapter complete/)
+    assert.match(enDone, /commit the revision transaction/)
   } finally {
     await rm(root, { recursive: true, force: true })
   }

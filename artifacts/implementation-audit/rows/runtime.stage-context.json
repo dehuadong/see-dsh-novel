@@ -108,8 +108,8 @@
     "packages/see-dsh-novel/test/review-contract.test.mjs:33-83 审稿要求、双来源、缺章纲降级",
     "本次审计运行 node --import tsx --test stage-context/planner-contract/writer-contract/review-contract 全过（测试通过不等价）"
   ],
-  "realRunLevel": "P",
-  "realRunBasis": "artifacts/real-runs/runtime.stage-context.json：date=2026-11-14，sessionId=process:runtime.stage-context（process:*），receipts 自述「该回执是 process-level 工具/状态测试，不是 DSH 会话」。补充会话证据：2026-11-09 的 session-e96508fc（.artifacts/work-context）真实 runtime-context 消息含「## 当前阶段：章前规划/正文写作」与旧的 planner 契约；同日 session-e68354ce 含「章后审阅」，同日 work-init 的 session-5a588638 含「本章完成」，2026-11-14T06:15Z 的 repo-root session-4e5e6e81 含「提案」。这些证明 systemPrompt.context 注入在真实会话中生效，但文本是变更前的版本；当前的两阶段修订、reviewTarget、用量步骤、storyFrame/volumeMap 任务等协议文本没有会话回执，故本行按 process-level 记 P。",
+  "realRunLevel": "S",
+  "realRunBasis": "artifacts/real-runs/runtime.stage-context.json：date=2026-11-15，sessionId=session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e（非 process:*，see-dsh-novel 预设，cwd D:\\\\workspace\\\\see-dsh-novel-runtime）。会话从提案/基础设定走到结算发布：seq 12 基础设定、65/97 等待开工、121 章前规划、146/159 正文写作、241/265 章后审阅、176/287 本章完成、375 结算后等待开工；各阶段 runtime context 含阶段协议与 craft，chapter-done 含 longform-writing/story-review，settlement 的提案/state-check/提交均成功。",
   "deviations": [
     "plan 阶段没有创作方法：源 planner 经 base.ts:131-164 拿到 longform-novel 的 requiredSkill inkos-long-writing 及其参考段；复刻 craftSkillsFor(plan) 返回 []（stages/index.ts:355-361），测试还断言 plan 的 craftText 为空（stage-context.test.mjs:264）。planner 契约仍写「专业规划方法只来自随阶段提供的创作方法」（stages/planner.ts:80），而 staging 的通用行又说「本阶段的创作方法已随上下文提供；不需要再调用技能工具加载」（stages/index.ts:210），与实际注入矛盾。",
     "chapter-done 的结算方法缺失：源 settler/reviser 也经 submitStructured 拿 long-writing 方法（writer.ts:298-313；base.ts:131-164），其中 state-projection.md 是结算参考；复刻 chapter-done 只注入 story-review（stages/index.ts:358），协议第 1 步要求派 settler 却没有给出结算方法。",
@@ -117,7 +117,8 @@
     "整份注入 vs 按需参考：复刻 renderCraft 把 SKILL.md 与 references/*.md 全部拼入（stages/index.ts:363-381）；源按 SKILL.md 字面链接 + 任务 query 检索 top 4 段再注入（skill-tool.ts:221-261；base.ts:167-190）。整份注入本身已登记在 skill.references 行，本行只把它作为阶段上下文的行为差异引用，不重复记债。",
     "planner 契约把全部 hook id 当可用集合：renderPlannerContract 从 state/hooks.json 列出所有 hookId（stages/planner.ts:69-76,89-97）；源 planner user message 没有 hook 列表，只声明「use only supplied hook ids」（planner-prompts.ts:25-42），id 的权威来自 governed context。复刻可能让 memo 引用不在 context package 里的 hook。",
     "writer/planner 的章纲、上一章与已选上下文从源的 user message 移进了系统契约：源 writer 的 buildGovernedUserPrompt 把 user direction、memo、selected context、length requirement 放 user message（writer.ts:453-513），planner 的 user message 同样（planner.ts:129-146）；复刻把它们放进 story:stage 注入的系统文本（stages/writer.ts:81-102；stages/planner.ts:83-97）。内容大体在场，但提示层级与权威位置不同，尤其是源把 author_intent/current_focus 提升成绑定块（writer.ts:463-478），复刻只平铺在已选上下文。",
-    "「不需要再调用技能工具加载」是复刻自创的全局禁令（stages/index.ts:210）；源主 agent 的规则是技能只在语义确有需要时用 use_skill，强制技能才必须用（system-prompt.ts:65-68,100-101）。阶段主动注入是项目裁决（AGENTS.md），但把「不要再调技能工具」写成所有阶段的一律规则，没有源依据。"
+    "「不需要再调用技能工具加载」是复刻自创的全局禁令（stages/index.ts:210）；源主 agent 的规则是技能只在语义确有需要时用 use_skill，强制技能才必须用（system-prompt.ts:65-68,100-101）。阶段主动注入是项目裁决（AGENTS.md），但把「不要再调技能工具」写成所有阶段的一律规则，没有源依据。",
+    "2026-11-15 AU-18 修复：craftSkillsFor 给 plan/review/chapter-done/foundation-ready 补方法；阶段协议与重算块中英双语；通用句改为「强制方法必须用、其它按需」；planner 删除 hook id 列表、指令只取 author；writer 方向块按源格式并从已选上下文排除、章级指令只取 author；craft 段标题按语言输出。旧 deviations 的对应差异不再成立。"
   ],
   "limitations": [
     "realRun 是 process-level；补充的真实会话（2026-11-09/10、2026-11-14 repo-root）只证明注入生效，文本早于当前代码；当前协议文本没有会话回执。",
@@ -125,6 +126,7 @@
     "模型的对话历史里仍可能保留前一阶段注入的技能正文（runtime context 快照会 supersede，但旧 user message 仍在），因此 plan 阶段无 craft 的影响可能被历史文本部分掩盖；不能把这种残留当作等价实现。",
     "阶段协议里的工具顺序、停点与各步判据是复刻自创的流程文本，其逐步正确性由 plan.chapter/write/review/settle 等行裁决；本行只审计注入机制、方法与语言。",
     "源角色 prompt 是「角色调用点的 system prompt + 独立 user message」；复刻把契约放进 system context、把数据放进工具回执，提示层级差异见 deviations 第 6 项，本行不能证明两种放置对模型行为等价。",
-    "对照：capabilities.yaml:219-226 标 verified；docs/fidelity-audit.md:298-306 判「等价 — 阶段注入机制差异已登记」；本审计确认机制差异已登记，但因 plan/chapter-done 方法缺失、英文协议缺失与 planner hook id 集合不同，判 保真差异。"
+    "对照：capabilities.yaml:219-226 标 verified；docs/fidelity-audit.md:298-306 判「等价 — 阶段注入机制差异已登记」；本审计确认机制差异已登记，但因 plan/chapter-done 方法缺失、英文协议缺失与 planner hook id 集合不同，判 保真差异。",
+    "2026-11-15 修复后的真实会话为 zh 作品；英文协议与英文 craft 标题由重写后的文本断言与中英结构对照覆盖，没有英文真实会话回执（按验收 7 的裁决记为 limitation）。"
   ]
 }

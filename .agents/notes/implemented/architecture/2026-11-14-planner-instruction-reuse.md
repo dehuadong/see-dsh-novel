@@ -34,7 +34,7 @@ AU-11 已让 `/story-write` 写入作者附言，但 `plan.chapter` 仍有两处
 - 不实现索引进度（仍 current_state+1，AU-22 残余）。
 - 不实现 `detectStage` 索引进度。
 - 不做 chapterCount N>1、不做 review 现场重编排。
-- 不改 writer/revise/settle；writer 仍把 instruction 当最高优先级，默认句处理归 AU-11/AU-18 债。
+- 不改 writer/revise/settle；writer 的默认句处理已由 2026-11-15 AU-18 关闭（章级指令只取 author 来源，系统默认句不再渲染为最高优先级；见 [`2026-11-15-stage-context-craft-language.md`](./2026-11-15-stage-context-craft-language.md)），其余 writer/revise/settle 未改。
 
 ### 产品行为与验收
 

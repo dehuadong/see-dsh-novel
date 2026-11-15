@@ -2,6 +2,8 @@
 
 Status: implemented
 
+> 2026-11-15 AU-18 关闭了本 Note 遗留的 planner hook id 与 brief／current_focus／author_intent 指令段：见 [`2026-11-15-stage-context-craft-language.md`](./2026-11-15-stage-context-craft-language.md)。
+
 ## Problem
 
 2026-11-14 审计把 `plan.chapter` 判为保真债。本行只处理可在 `plan.chapter` 内闭合的差异：

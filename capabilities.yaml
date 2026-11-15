@@ -218,7 +218,7 @@ capabilities:
     status: verified
   - id: runtime.stage-context
     title: 阶段上下文：按阶段主动注入协议与创作技能，技能只留方法
-    source: inkos:packages/core/src/agents/writer-prompts.ts
+    source: inkos:packages/core/src/agent/agent-session.ts + inkos:packages/core/src/harness/system-prompt.ts + inkos:packages/core/src/agents/planner-prompts.ts + inkos:packages/core/src/agents/writer-prompts.ts
     dsh: systemPrompt.context() + skills
     implementation: packages/see-dsh-novel/src/pipelines/long/stages/index.ts
     consumer: packages/see-dsh-novel/test/stage-context.test.mjs

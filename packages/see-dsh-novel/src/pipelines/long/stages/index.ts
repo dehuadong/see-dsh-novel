@@ -5,6 +5,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import type { AgentPresetsLike, Disposer, PluginContext } from '../../../core/types.js'
+import type { WorkLanguage } from '../../../core/work.js'
 import { chapterPlanPath } from '../../../core/chapter-plan.js'
 import { draftPath } from '../../../core/chapter-draft.js'
 import { renderArchitectContract } from './architect.js'
@@ -41,6 +42,8 @@ const FOUNDATION_FILES = [
 export interface StageFacts {
   stage: Stage
   title: string
+  /** 作品语言；无 work.json（proposal）时为 zh。 */
+  language?: WorkLanguage
   currentChapter: number
   /** 章节索引里已有章；状态损坏、currentChapter 回落 0 时仍可据此注入。 */
   hasChapters: boolean
@@ -122,13 +125,17 @@ function revisionContentSync(root: string, chapter: number): string | undefined 
 /** 同步判定阶段：`systemPrompt.context` 的文本提供函数是同步的。 */
 export function detectStage(root: string): StageFacts {
   if (!existsSync(join(root, 'work.json'))) {
-    return { stage: 'proposal', title: '', currentChapter: 0, hasChapters: false, ...NO_CHAPTER }
+    return { stage: 'proposal', title: '', language: 'zh', currentChapter: 0, hasChapters: false, ...NO_CHAPTER }
   }
   let title = ''
+  let language: WorkLanguage = 'zh'
   try {
-    title = (JSON.parse(readFileSync(join(root, 'work.json'), 'utf8')) as { title?: string }).title ?? ''
+    const work = JSON.parse(readFileSync(join(root, 'work.json'), 'utf8')) as { title?: string, language?: WorkLanguage }
+    title = work.title ?? ''
+    language = work.language === 'en' ? 'en' : 'zh'
   } catch {
     title = ''
+    language = 'zh'
   }
   let currentChapter = 0
   try {
@@ -138,7 +145,7 @@ export function detectStage(root: string): StageFacts {
   }
   const hasChapters = hasIndexedChapter(root)
   if (!FOUNDATION_FILES.every((file) => existsSync(join(root, file)))) {
-    return { stage: 'foundation', title, currentChapter, hasChapters, ...NO_CHAPTER }
+    return { stage: 'foundation', title, language, currentChapter, hasChapters, ...NO_CHAPTER }
   }
   const nextChapter = currentChapter + 1
   const chapterPublished = chapterFileExists(root, nextChapter)
@@ -153,6 +160,7 @@ export function detectStage(root: string): StageFacts {
     return {
       stage: 'review',
       title,
+      language,
       currentChapter,
       hasChapters,
       chapterPublished,
@@ -164,6 +172,7 @@ export function detectStage(root: string): StageFacts {
     return {
       stage: 'chapter-done',
       title,
+      language,
       currentChapter,
       hasChapters,
       chapterPublished,
@@ -177,6 +186,7 @@ export function detectStage(root: string): StageFacts {
     return {
       stage: 'review',
       title,
+      language,
       currentChapter,
       hasChapters,
       chapterPublished,
@@ -188,27 +198,32 @@ export function detectStage(root: string): StageFacts {
   }
   const review = chapterReviewPath(nextChapter)
   if (existsSync(join(root, review))) {
-    return { stage: 'chapter-done', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
+    return { stage: 'chapter-done', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   if (!workflowStartedSync(root, nextChapter)) {
-    return { stage: 'foundation-ready', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
+    return { stage: 'foundation-ready', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   const nextPlan = chapterPlanPath(nextChapter)
   if (!existsSync(join(root, nextPlan))) {
-    return { stage: 'plan', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
+    return { stage: 'plan', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
   const hasDraft = existsSync(join(root, draftPath(nextChapter)))
   if (!chapterPublished && !hasDraft) {
-    return { stage: 'write', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
+    return { stage: 'write', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: 0 }
   }
-  return { stage: 'review', title, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: nextChapter }
+  return { stage: 'review', title, language, currentChapter, hasChapters, chapterPublished, chapterSnapshot, reviewTarget: nextChapter }
 }
 
 /** 阶段协议：只写做什么、按什么顺序调什么、产出什么。 */
 function renderStageBase(facts: StageFacts): string {
+  if (facts.stage === 'proposal') return renderStageBaseZh(facts)
+  return facts.language === 'en' ? renderStageBaseEn(facts) : renderStageBaseZh(facts)
+}
+
+function renderStageBaseZh(facts: StageFacts): string {
   const next = facts.currentChapter + 1
   const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', 'foundation-ready': '等待开工', plan: '章前规划', write: '正文写作', review: '章后审阅', 'chapter-done': '本章完成' }[facts.stage]}`
-  const common = '本阶段的创作方法已随上下文提供；不需要再调用技能工具加载。'
+  const common = '本阶段强制注入的创作方法必须使用；其它方法只在确有需要时加载，不要机械加载无关方法。'
   switch (facts.stage) {
     case 'proposal':
       return [
@@ -334,8 +349,131 @@ function renderStageBase(facts: StageFacts): string {
   }
 }
 
+function renderStageBaseEn(facts: StageFacts): string {
+  const next = facts.currentChapter + 1
+  const header = `## Current stage: ${{ proposal: 'Proposal', foundation: 'Foundation setup', 'foundation-ready': 'Ready to start', plan: 'Chapter planning', write: 'Chapter writing', review: 'Chapter review', 'chapter-done': 'Chapter complete' }[facts.stage]}`
+  const common = 'The craft methods injected for this stage must be used; load other skills only when they are genuinely needed, and do not load unrelated methods mechanically.'
+  switch (facts.stage) {
+    case 'foundation':
+      return [
+        header,
+        'Goal: complete the foundation in four steps; when complete, stop here and wait for the author to start a workflow.',
+        '1. `story_foundation_outline`: submit storyFrame and volumeMap.',
+        '2. `story_foundation_details`: pass the storyFrame/volumeMap from step 1 and submit bookRules, bookRulesData and pendingHooks.',
+        '3. `story_foundation_cast_index`: pass storyFrame/volumeMap/bookRules and submit only names and major/minor tiers.',
+        '4. `story_foundation_cast_documents`: submit one card per person from step 3 (current motive, known information, relationship pressure, capability boundaries; about 150–250 Chinese characters / 80–120 English words).',
+        'A completed foundation is only `foundation-ready`; do not plan or write prose automatically.',
+        common,
+      ].join('\n')
+    case 'foundation-ready':
+      return [
+        header,
+        'Goal: the foundation is complete; wait for the author to start one chapter. Do not plan or write now.',
+        '1. If the author is only greeting or discussing, answer normally and do not change the work.',
+        '2. Enter plan/write only after the author explicitly asks to start the next chapter (panel.confirm or command); the workflow start is written by author confirmation.',
+        '3. Do not call `story_plan_chapter`/`story_write_chapter` on your own; they reject without a start.',
+        common,
+      ].join('\n')
+    case 'plan':
+      return [
+        header,
+        `Goal: plan chapter ${next}.`,
+        "1. Call `story_context_candidates` (purpose=planner, instruction = this round's author instruction).",
+        '2. For each task, dispatch a composer through the native `subagent`; skip when mode=complete. Take back the id sets for {memory, role, state, storyFrame, volumeMap}.',
+        '3. Call `story_context_package` (purpose=planner, same instruction as the previous step, selection = the previous id sets). If it returns a compressionTask: dispatch a subagent per chunk to compress, merge, re-compress once if over budget, and call package again with the final text as compressedText.',
+        `4. Write the memo (goal / body / threadRefs) from the package, then call \`story_plan_chapter\` to persist chapter ${next}; the host reads plannerInputs from the planner package.`,
+        '5. When the chapter prose already exists (a reopen kept the old draft): stop after the plan is persisted; when the author asks for a full rewrite, use `story_revise_chapter` (rewrite/rework), not the first-writing entry.',
+        'Plan only the next chapter; reuse an existing plan when there is no author note, and replan/overwrite when the author note exists.',
+        'Stop once the plan is persisted; do not write prose automatically. The prose still belongs to the same workflow start and continues in the current stage.',
+        common,
+      ].join('\n')
+    case 'review': {
+      const target = facts.reviewTarget || next
+      if (facts.revisionProposed) {
+        return [
+          header,
+          `Goal: review the revision proposal for chapter ${target}.`,
+          '1. Dispatch a review subagent to read the injected numbered sources (the proposal body) and review per the craft method; take back observations and summary.',
+          '2. Each observation gives code, summary, assessment and sourceRefs; cite only injected sources.',
+          `3. Call \`story_review_chapter\` (chapter=${target}, revisionDigest) to persist; do not review the published old prose.`,
+          '4. After the review persists, enter revision commit: settler delta → `story_commit_revision` C1 → state-check → C2; do not call resettle.',
+          'Do not start the next chapter before the revision proposal is committed.',
+          common,
+        ].join('\n')
+      }
+      return [
+        header,
+        `Goal: review the first-version prose of chapter ${target}.`,
+        '1. Dispatch a review subagent to read the chapter document and the chapter plan, review per the injected craft method; take back observations and summary, then persist.',
+        '2. Each observation gives code, summary, assessment (issue/resolved/observation/unavailable) and sourceRefs.',
+        '3. Quotes may cite only the injected numbered sources (sourceId plus line numbers or an exact quote); do not submit entries without evidence.',
+        `4. Call \`story_review_chapter\` to persist the review record for chapter ${target}.`,
+        '5. When the review fails and moves to revision: spot-fix selects ranges from the numbered sources below and passes `ranges`/`replacements` (an empty string deletes a range, a non-empty one splits by line); other modes pass the whole content, optionally with a unique targetText.',
+        'The same chapter may be re-reviewed; a re-review overwrites the record and replaces the index observations; after revision the chapter must be reviewed again.',
+        'If this chapter is a "reopen-kept old draft", first ask the author whether to revise: revision goes through `story_revise_chapter`, do not review the old prose directly; a direct review only confirms the existing prose.',
+        'Stop after the review persists; do not revise, settle, or start the next chapter automatically.',
+        common,
+      ].join('\n')
+    }
+    case 'write':
+      return [
+        header,
+        `Goal: write the first-version prose of chapter ${next}.`,
+        '1. Call `story_context_candidates` (purpose=writer).',
+        '2. For each task, dispatch a composer through the native `subagent`; skip when mode=complete. Take back the id sets for {memory, role, state, storyFrame, volumeMap}.',
+        '3. Call `story_context_package` (purpose=writer, selection = the previous id sets). If it returns a compressionTask: dispatch a subagent per chunk to compress, merge, re-compress once if over budget, and call package again with the final text as compressedText; the package and trace are persisted.',
+        `4. Read \`source/story/runtime/chapter-${String(next).padStart(4, '0')}.intent.md\`, the plan and the context as the chapter plan and context, and dispatch a writer to write the prose.`,
+        '5. Call `story_write_chapter` (chapter, title, content) to persist; report word-count deviation only, do not reject on it.',
+        'A published chapter rejects a draft write; when a draft already has a review record, go through story_revise_chapter.',
+        'Stop after the draft is written; do not review or start the next chapter automatically.',
+        common,
+      ].join('\n')
+    case 'chapter-done':
+      if (facts.revisionReviewed) {
+        return [
+          header,
+          `Goal: the revision proposal for chapter ${facts.reviewTarget} has been reviewed; commit the revision transaction.`,
+          '1. Dispatch a settler subagent to produce postSettlement/factOps/hookOps/newHookCandidates and the seven-field summary from the revision proposal body and the review record.',
+          `2. Call \`story_commit_revision\` (chapter=${facts.reviewTarget}, revisionDigest, delta) to generate the revision settlement proposal (C1); it writes only \`.drafts/revision-NNNN.settlement.json\`.`,
+          '3. Dispatch a state-check subagent to read the settlement proposal, the revision proposal body, story_frame and book_rules, and return only {reconciliationRequired, reportMarkdown} under the settlement criteria.',
+          `4. When consistent, call \`story_commit_revision\` again (C2) with validation={proposalDigest, outcome: consistent, reportMarkdown} and proposalDigest to commit prose/index/artifact/state/snapshot in one transaction; when the first reconciliation fails, dispatch the settler again with the report and repeat C1/C2.`,
+          'Do not call `story_resettle_chapter` for a revision order; held/recovery still use resettle.',
+          common,
+        ].join('\n')
+      }
+      return [
+        header,
+        `Goal: chapter ${next} review is persisted and this chapter's workflow ends; do not settle or start the next chapter automatically.`,
+        '1. If the author is only greeting or discussing, answer normally and do not change the work.',
+        '2. When the author asks to settle this chapter, follow the two phases:',
+        '   a. Dispatch a settler subagent to produce postSettlement/factOps/hookOps/newHookCandidates and the seven-field summary from the prose and the review record.',
+        `   b. Call \`story_settle_chapter\` (without validation) with that delta to generate the settlement proposal: it writes only \`.drafts/settlement-${String(next).padStart(4, '0')}.json\` and publishes nothing yet.`,
+        "   c. Dispatch a state-check subagent to read the proposal file, this chapter's prose (`.drafts/chapter-NNNN.md`), `source/story/outline/story_frame.md` and `source/story/book_rules.md`, and return only {reconciliationRequired, reportMarkdown} under the criteria below; do not call `story_state_check` before settlement (the chapter is not settled and the precondition rejects it).",
+        "   d. Record this chapter's usage (optional): call `story_telemetry` to find the direct child session ids of this chapter's writer/review, then call `story_record_chapter_usage`; settlement writes the index `tokenUsage` and deletes the usage file. Use the delegation receipts for this chapter; skip when usage is unavailable.",
+        '   e. When consistent, call `story_settle_chapter` again with validation={proposalDigest, outcome: consistent, reportMarkdown} to commit: the chapter, four state JSON files, three projections, the snapshot, the index, the artifact and active in one transaction.',
+        "   f. When recompute is needed, submit with outcome: reconciliation-required: the tool records the report in the proposal and rejects; hand the proposal file's failureReport to the settler to redo once, then propose, reconcile and submit again. If the second pass still requires recompute, the tool publishes the chapter but leaves the state on the previous chapter; tell the author to repair it with `story_resettle_chapter`.",
+        '   g. When the validation subagent fails or is unavailable, submit with outcome: unavailable: the chapter is published but the state is not advanced, and the observation is recorded as state-validation-unavailable.',
+        '   Criteria: reconciliationRequired is true only when a different truth projection can resolve the mismatch; contradictions in the prose or between authorities remain observations and do not authorize another settlement; verify superseded hooks against notes and the withdrawal authority rather than requiring the original premise to occur in the chapter; answer in the work language.',
+        ...(facts.chapterPublished
+          ? [facts.chapterSnapshot
+            ? `This chapter is published but the state did not advance (the last settlement was held): rebuild with \`story_resettle_chapter\` from the chapter ${next - 1} snapshot; do not settle again and do not reopen the previous chapter.`
+            : 'This chapter is published but the state did not advance and the snapshot is missing (an old workspace): run `story_recover` first and follow its manual steps.']
+          : []),
+        '3. When the author wants to revise this chapter: first clarify what to change and the mode (polish/rewrite/rework/anti-detect/spot-fix). spot-fix selects ranges from the numbered prose below and dispatches a reviser subagent to produce each replacement (an empty string deletes a range, a non-empty one splits by line), then calls `story_revise_chapter` (ranges/replacements and the whole content); other modes pass the whole content, optionally with a unique targetText. Revision invalidates the old review and the chapter must be reviewed again before stopping.',
+        "4. When the author wants to reopen or restore an old version: first call `story_chapter_versions` to list the archive; restore with `story_reopen_chapter` and a versionId, available for any chapter, replacing only the prose, clearing runtime (keeping the plan), writing the index manual-edit observation and this chapter's review start, without touching the state; reopen-rollback without a versionId only applies to the latest published and last settled chapter, rolling the state back from the chapter N-1 snapshot (facts/hooks/summaries together); reject when a later chapter is published, or the N-1 snapshot/this chapter snapshot, the index entry or the artifact is missing. After reopening, return to chapter planning; revise through `story_revise_chapter` (the write entry rejects a published chapter) and do not review the old prose directly.",
+        '5. When the author wants to delete the latest chapter: call `story_delete_chapter`; the prose moves to `chapters/.trash/` and the state rolls back to the previous chapter.',
+        "6. When the author asks to check the state: dispatch a state-check subagent to read this chapter's prose, the current state and projections, the previous chapter snapshot and the authority documents, submit `reconciliationRequired` and an evidence report, then call `story_state_check`; the criteria are the same; findings go only to the author and never trigger an automatic resettle.",
+        '7. The next chapter is a later capability/author action; do not start it on your own.',
+        common,
+      ].join('\n')
+    default:
+      // proposal 没有作品身份，协议恒中文。
+      return renderStageBaseZh(facts)
+  }
+}
+
 /** 重算入口：只在已开过章的工作区注入。 */
-const CHAPTER_REPAIR = [
+const CHAPTER_REPAIR_ZH = [
   '## 重新结算（重算）',
   '作者在修订、恢复正文或重开回退后要求「重新结算／同步状态」时：',
   '1. 先按需复审（修订、恢复正文或重开都会写或替换本章 workflow start，复审会消费它；没有复审就重算会挡住下一章的 start）。',
@@ -345,36 +483,47 @@ const CHAPTER_REPAIR = [
   '5. 只支持最新章；重算刷新第 N 章快照，不改正文、章节索引与 workflow-start；重开已把状态回退到 N-1，重算基线仍是 `snapshots/<N-1>`；已结算章不要调 `story_settle_chapter`。',
 ].join('\n')
 
+const CHAPTER_REPAIR_EN = [
+  '## Resettle (recompute)',
+  'When the author asks to "resettle / sync state" after a revision, a prose restore, or a reopen rollback:',
+  "1. Review again as needed (revision, restoring prose, or reopening writes or replaces this chapter's workflow start; the review consumes it; resettling without a review blocks the next chapter's start).",
+  '2. Before dispatching the settler, paste the raw baseline of chapter N-1 (`source/story/snapshots/<N-1>/state/`: the four JSON files and the three snapshot projections) into the settler prompt and declare it the only baseline; the current projection in `source/story/state/` is reference only.',
+  '3. Call `story_resettle_chapter` (without validation) with the delta to generate a resettle proposal; dispatch a state-check subagent to reconcile the proposal, the published prose, `story_frame` and `book_rules`, returning only {reconciliationRequired, reportMarkdown} under the same criteria as settlement; do not call `story_state_check` before settling.',
+  "4. When consistent, submit with validation; when recompute is needed, the tool records the report and rejects; hand the proposal file's failureReport to the settler to redo once, then propose and reconcile again; a second failure or an unavailable validator rejects without writing any work file.",
+  '5. Only the latest chapter is supported; resettling refreshes the chapter N snapshot and does not change the prose, the chapter index, or workflow-start; reopening already rolled the state back to N-1 and the baseline is still `snapshots/<N-1>`; do not call `story_settle_chapter` for a settled chapter.',
+].join('\n')
+
 /** 阶段协议：基础协议 + 已开过章时的重算入口。 */
 export function renderStageProtocol(facts: StageFacts): string {
   const base = renderStageBase(facts)
   const hasChapterWork = facts.stage !== 'proposal' && facts.stage !== 'foundation'
     && (facts.currentChapter >= 1 || facts.hasChapters)
-  return hasChapterWork ? `${base}\n${CHAPTER_REPAIR}` : base
+  if (!hasChapterWork) return base
+  return `${base}\n${facts.language === 'en' ? CHAPTER_REPAIR_EN : CHAPTER_REPAIR_ZH}`
 }
 
-/** 本阶段主动加载的创作技能；空数组表示不注入。 */
+/** 本阶段主动加载的创作技能。 */
 export function craftSkillsFor(stage: Stage): string[] {
   if (stage === 'proposal') return ['story-proposal']
-  if (stage === 'review' || stage === 'chapter-done') return ['story-review']
-  if (stage === 'foundation' || stage === 'write') return ['longform-writing']
-  return []
+  if (stage === 'review' || stage === 'chapter-done') return ['longform-writing', 'story-review']
+  return ['longform-writing']
 }
 
 /** 读取技能正文与 references；缺失时返回空串而不是抛错。 */
-export function renderCraft(packageRoot: string, stage: Stage): string {
+export function renderCraft(packageRoot: string, stage: Stage, language: WorkLanguage = 'zh'): string {
   const parts: string[] = []
   for (const skill of craftSkillsFor(stage)) {
     const dir = join(packageRoot, 'skills', skill)
     try {
-      parts.push(`# 创作方法（${skill}）`, '', readFileSync(join(dir, 'SKILL.md'), 'utf8').trim())
+      parts.push(language === 'en' ? `# Craft guidance (${skill})` : `# 创作方法（${skill}）`, '', readFileSync(join(dir, 'SKILL.md'), 'utf8').trim())
     } catch {
       continue
     }
     const references = join(dir, 'references')
     if (existsSync(references)) {
       for (const file of readdirSync(references).filter((name) => name.endsWith('.md')).sort()) {
-        parts.push('', `## 参考：${file.replace(/\.md$/u, '')}`, '', readFileSync(join(references, file), 'utf8').trim())
+        const label = language === 'en' ? `## Reference: ${file.replace(/\.md$/u, '')}` : `## 参考：${file.replace(/\.md$/u, '')}`
+        parts.push('', label, '', readFileSync(join(references, file), 'utf8').trim())
       }
     }
   }
@@ -432,7 +581,7 @@ export function installStageContext(ctx: PluginContext, packageRoot: string, pre
     required: true,
     text: (assembly) => {
       const facts = forAgent(assembly)
-      return facts === undefined ? '' : renderCraft(packageRoot, facts.stage)
+      return facts === undefined ? '' : renderCraft(packageRoot, facts.stage, facts.language ?? 'zh')
     },
   })
   return (): void => {

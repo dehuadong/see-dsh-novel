@@ -39,7 +39,7 @@
 | 能力状态与证据指针 | `capabilities.yaml` | 行为判定、债、偏差正文 |
 | 产品范围、阶段入口/出口、非目标、债 | `scope.md` | 逐行行为判定、偏差细节、状态 |
 | 每行行为判定与跨能力不变量 | `fidelity-audit.md` | 状态、债表、偏差正文 |
-| 偏差（源→DSH→原因→验证） | `dsh-mapping.md` | 等价判定、债、状态 |
+| 偏差结论（源→DSH→原因摘要→验证入口） | `dsh-mapping.md`；逐项四段明细在 `artifacts/implementation-audit/dsh-deviations.md` | 等价判定、债、状态 |
 | 审计证据与限制 | `artifacts/implementation-audit/`、`artifacts/real-runs/` | 判定、债、状态 |
 | 设计决定与理由 | `.agents/notes/` | 状态、债表、范围 |
 | 历史评审 | `artifacts/plan-review-11-*` | 当前判定 |

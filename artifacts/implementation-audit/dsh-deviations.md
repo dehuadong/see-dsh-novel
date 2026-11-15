@@ -28,6 +28,27 @@
 - 原因：DSH 的阶段上下文只提供模型上下文，不是授权；把描述当命令会绕过作者确认。
 - 验证：`runtime.stage-context` 的测试与真实回执；workflow start 由 `/story-write`/`panel.confirm` 写入前，阶段停在 `foundation-ready`，不得自动 plan/write。
 
+### 阶段角色提示词折进阶段协议（2026-11-15 方向复审）
+
+- 源工程做法：`settler` 与 `state-validator` 各有独立 system prompt（`inkos/packages/core/src/agents/settler-prompts.ts:4-17`；`state-validator.ts:46-47`），按角色说明投影规则与对账判据；`reviser` 的模式约束在 `reviser.ts:167-178`。
+- 复刻做法：`systemPrompt.context()` 只按预设注入同一份阶段协议；settler 的规则由 `longform-writing` 的 `state-projection` 参考承担，state-validator 的判据折进 chapter-done 协议；reviser 的模式约束未注入（D63，见 `docs/scope.md`）。
+- 原因：DSH 的上下文注入按预设／agent 作用域，没有按角色定位子代理的入口；host 无法为一次 worker 调用单独构造 system prompt。
+- 验证：协议文本断言（结算步骤、validator 判据、模式名）；真实会话回执待补（当前按 process-level 记录）。
+
+### 阶段数据的提示层级（2026-11-15，AU-18）
+
+- 源工程做法：worker 调用由 host 构造 system prompt（角色与方法）与 user message（章号、用户指令、governed context、上一章、字数遥测）；数据只进入这次 worker 调用的 user message。
+- 复刻做法：host 通过 `systemPrompt.context()` 把阶段协议与契约注入每个预设内 agent 的 system context；worker 的 user 消息由主代理在 `subagent` 委派提示里构造。
+- 原因：DSH 的会话 system prompt 由 provider 按会话装配，不能为一次 worker 调用单独构造；worker 是主代理创建的独立会话，阶段上下文没有源的角色身份（与「逐阶段并集」同源）；`agent/pre-step` 可替换 step 的进入消息，但无法只对目标 worker 注入，合并成源的单条 user message 等于 host 改写主代理的委派内容；`subagents.sendMessage` 面向已存在子会话、排队或新回合；`binding.session.prompt(..., 'queue')` 新开作者可见回合。
+- 验证：阶段文本断言证明落点；真实会话回执待补（当前按 process-level 记录）。
+
+### 逐角色技能分发变逐阶段并集（2026-11-15，AU-18）
+
+- 源工程做法：`workerSkills` 按角色分发——architect／writer 拿 required，auditor／reviser 拿 required + recommended（`inkos-long-writing` + `inkos-story-review`），其它角色为空；主代理按 turn 级强制技能拿 required。
+- 复刻做法：`craftSkillsFor` 按阶段给并集并注入同预设所有 agent（主代理与子代理同组）；review／chapter-done 另带 `story-review`，子代理同时收到 `story:stage` 与当前阶段 contract。
+- 原因：阶段上下文的过滤维度是预设与 agent 作用域，没有源的角色身份，worker 由主代理任意命名创建。可见后果：settler 会拿到 `story-review`；composer 子代理会拿到 `longform-writing`；源的 recommended 在复刻被整段注入并按强制处理。
+- 验证：各阶段 `craftSkillsFor` 与 `story:craft` 文本断言；子代理 runtime context 回执待补（当前按 process-level 记录）。
+
 ### 面板：确认语义与工作台
 
 - 源工程做法：Studio 的作品页由确认卡（动作）与 `TruthFiles`／`ChapterWorkspacePanel`（产物浏览）组成，同属一个页面；立项在对话里由提案工具完成。

@@ -16,6 +16,8 @@ Status: implemented
 - 读当前章（`current_state.chapter + 1`）的 plan 与 `intent.md` 作为「本章章纲」；
 - 输出固定顺序六段：权威顺序、字数、叙事人称、主角权威、本书规则、风格指南、本章章纲；空段省略；中英两版。
 
+> 2026-11-15 修订：writer 契约增加「用户方向（优先于模型默认，必须遵循）」块（`author_intent`／`current_focus` 用 `### 证据 N` 源格式，位于章级指令之后），普通已选上下文同格式，章级指令只取 author 来源。见 [`2026-11-15-stage-context-craft-language.md`](./2026-11-15-stage-context-craft-language.md)。
+
 `stages/index.ts` 在 `write` 阶段把契约拼在阶段协议之后，与 foundation 的架构契约同一注入路径。
 
 `story_write_chapter` 拒绝以 `第N章`／`Chapter N` 开头的标题（大小写不敏感），章号前缀由章节文档头提供。

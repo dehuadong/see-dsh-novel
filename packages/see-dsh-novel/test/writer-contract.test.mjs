@@ -55,7 +55,7 @@ test('the Chinese contract carries the genre, authority and six context sections
     assert.match(text, /## 本书规则\n# 本书规则/)
     assert.match(text, /## 风格指南\n# 风格指南/)
     assert.match(text, /## 本章章纲\n# Chapter Intent/)
-    assert.match(text, /## 已选上下文\n### runtime\/chapter_memo/)
+    assert.match(text, /## 已选上下文\n### 证据 1\n- 原因: 章纲/)
     assert.match(text, /场景一：雨夜接案。/)
   } finally {
     await cleanup(root)
@@ -85,6 +85,73 @@ test('an English work gets the English contract', async () => {
     assert.match(text, /## Narrative person\n第三人称限知/)
     assert.match(text, /## Protagonist authority\nName: 沈砚/)
     assert.match(text, /## Chapter memo/)
+    assert.match(text, /## Selected context\n### Evidence 1\n- reason: 章纲/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('the direction block is hoisted, uses the source format and leaves the selected context', async () => {
+  const root = await workspace('zh')
+  try {
+    await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '写冷一点', instructionSource: 'author', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    await writeFile(join(root, chapterContextPath(1)), JSON.stringify({
+      chapter: 1,
+      selectedContext: [
+        { source: 'source/story/current_focus.md', reason: '当前焦点', excerpt: '盯住账本。', protection: 'protected' },
+        { source: 'source/story/author_intent.md', reason: '作者意图', excerpt: '写冷一点。', protection: 'protected' },
+        { source: 'runtime/chapter_memo', reason: '章纲', excerpt: '场景一', protection: 'protected' },
+      ],
+    }))
+    const text = renderWriterContract(root)
+    assert.match(text, /## 用户方向（优先于模型默认，必须遵循）\n### 证据 1\n- 原因: 当前焦点\n- 细节: 盯住账本。/)
+    assert.match(text, /### 证据 2\n- 原因: 作者意图\n- 细节: 写冷一点。/)
+    assert.match(text, /## 已选上下文\n### 证据 1\n- 原因: 章纲/)
+    assert.doesNotMatch(text, /## 已选上下文[\s\S]*盯住账本/)
+    const instructionIndex = text.indexOf('## 本章指令')
+    const directionIndex = text.indexOf('## 用户方向')
+    const lengthIndex = text.indexOf('## 字数')
+    assert.ok(instructionIndex > 0 && instructionIndex < directionIndex && directionIndex < lengthIndex)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('an English work gets the English direction block', async () => {
+  const root = await workspace('en')
+  try {
+    await writeFile(join(root, chapterContextPath(1)), JSON.stringify({
+      chapter: 1,
+      selectedContext: [
+        { source: 'source/story/current_focus.md', reason: 'Current focus', excerpt: 'Watch the ledger.', protection: 'protected' },
+        { source: 'source/story/author_intent.md', reason: 'Author intent', excerpt: 'Keep it cold.', protection: 'protected' },
+        { source: 'runtime/chapter_memo', reason: 'Chapter memo', excerpt: 'Scene one', protection: 'protected' },
+      ],
+    }))
+    const text = renderWriterContract(root)
+    assert.match(text, /## User direction \(overrides model defaults — must follow\)\n### Evidence 1\n- reason: Current focus\n- detail: Watch the ledger\./)
+    assert.match(text, /### Evidence 2\n- reason: Author intent\n- detail: Keep it cold\./)
+    assert.match(text, /## Selected context\n### Evidence 1\n- reason: Chapter memo/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('only an author start instruction becomes the chapter instruction', async () => {
+  const root = await workspace('zh')
+  try {
+    await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '开始写作', instructionSource: 'system', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    assert.doesNotMatch(renderWriterContract(root), /## 本章指令/)
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 1, instruction: '写冷一点', instructionSource: 'author', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    assert.match(renderWriterContract(root), /## 本章指令\n该指令最高优先级[\s\S]*写冷一点/)
   } finally {
     await cleanup(root)
   }

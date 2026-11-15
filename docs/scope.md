@@ -112,7 +112,7 @@ P7 短篇、P8 剧本、P9 雷达/预演不进入 v1 阶段合同；`materials.i
 
 P1 的前四行是内容生成的前提：作品先有身份，才谈基础设定；本项目以 `work.json` 落在工作区根替代源的多作品目录。历史次序偏差与逐行证据见 [`2026-11-14-docs-governance-v1.md`](../.agents/notes/implemented/architecture/2026-11-14-docs-governance-v1.md) 与 [`implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)；本页只保留当前合同与债。
 
-源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
+源工程还有历史修订的下游影响（`upstream-revision` 标记与重放）、风格指纹（`generate_style_guide`）、剧情预演与雷达，这些不在 v1 范围内，账本也没有对应行——它们是 v1 之后的独立能力，不靠「补齐」混进当前阶段。
 
 ## 非目标（v1）
 
@@ -138,6 +138,8 @@ P1 的前四行是内容生成的前提：作品先有身份，才谈基础设�
 | D39 | `panel.workbench` 真值编辑 | 源 `TruthFiles` 有 Edit/Save 与 PUT 落盘；复刻所有产物 `readonly`，作者不能在面板改真值 | 作者裁决 v1 保留只读；后续补面板写通道 |
 | D54 | `skill.references` 参考边界 | 源校验越界、符号链接、非文件、512KB、UTF-8 并自动带 references；复刻未复刻失败行为 | 补校验与失败回执 |
 | D57 | `export.work` EPUB 包结构 | 源 `epub-gen-memory` 产出 `style.css`、`toc.ncx`／`toc.xhtml`、完整 `content.opf` 元数据（identifier／creator／publisher／date／rights／description／guide）、章文件名 `N_slug.xhtml`、DEFLATE 压缩、`container.xml` 序列化与包级 `xml:lang`；复刻是最小 EPUB3（无 CSS、无 ncx、全 store） | 另立工作项逐模板复刻（是否引入打包库届时裁决） |
+| D62 | `skill.references` | 随包技能正文为中文，源技能为英文；英文作品拿到中文方法与参考正文（该行从此兼有参考检索与内容语言两项） | 技能内容语言项：按作品语言提供方法正文或中英双份；关闭判据=英文会话里方法与参考为英文 |
+| D63 | `chapter.revise` | 源 reviser 的 system prompt 按模式给一句约束（polish／rewrite／rework／anti-detect／spot-fix）；复刻的 `REVISE_MODE_GUIDE` 定义后没有任何消费者，阶段协议只列模式名与 spot-fix 输出格式 | 把五句模式约束注入 review／chapter-done 阶段协议或修订入口（中英双语）并补文本断言；删除或复用死导出 |
 
 ## 边界
 
@@ -152,7 +154,7 @@ AU 号是 2026-11-14 审计细分号；同一差异已有 D 号时，AU 行是�
 | 债号 | 能力行 | 债 | 关闭判据 |
 | --- | --- | --- | --- |
 | AU-01 | runtime.agent-tools | 写作工具面与 persona 的源证据指向错文件，工具面替换与 artifact 读面缺失未登记 | 把 capabilities.yaml 与 docs/fidelity-audit.md 的源证据改到 inkos/packages/core/src/harness/production-capabilities.ts:232-295 与 system-prompt.ts:13-103；在 docs/dsh-mapping.md 登记工具面替换（含未搬的源工具、read 的 artifactId/revision 模式、persona 文本）；补运行时工具集与 persona 行为对照测试；重录 artifacts/real-runs/runtime.agent-tools.json。 |
-| AU-02 | skill.references | D23 use_skill.query 参考检索未实现；D54 参考边界校验与失败回执未实现 | 注册一个按技能取参考的工具/入口：收集 md/txt、按标题切段、对 query 检索 top N 并返回带区间与来源的段落；同时复刻 resourcePath 的 safe-child、符号链接、非文件、512KB、UTF-8 与失败回执。停止把整份 references 注入当作 query 的等价；补检索与拒绝用例。 |
+| AU-02 | skill.references | D23 use_skill.query 参考检索未实现；D54 参考边界校验与失败回执未实现；D62 技能内容语言（源英文、复刻中文；见 D62 行，不在 AU-02 判据内） | 注册一个按技能取参考的工具/入口：收集 md/txt、按标题切段、对 query 检索 top N 并返回带区间与来源的段落；同时复刻 resourcePath 的 safe-child、符号链接、非文件、512KB、UTF-8 与失败回执。停止把整份 references 注入当作 query 的等价；补检索与拒绝用例。 |
 | AU-03 | runtime.client-ui | 客户端 real-run 回执过期（9325B/8 例 → 43507B/34 例） | 重录 artifacts/real-runs/runtime.client-ui.json：当前 lib/client.js 大小与 sha256、client.test.mjs 与 workbench.test.mjs 的通过数、真实会话里面板注册与命令回执的 seq。 |
 | AU-04 | runtime.package-check | package-check 的 source 不属冻结源工程、检查集合只覆盖标题要求且回执过期 | 把 source 改为 `none:仓库工具` 或 pin dsh-webnovel-writer@<commit>；逐条登记源脚本里不适用的检查与未复刻的通用检查；重录 artifacts/real-runs/runtime.package-check.json 的 files/patchRows。 |
 | AU-05 | runtime.boundary-check | check-boundary 回执过期（33→100 文件），扫描范围未覆盖 tests/scripts/清单 | 重录 artifacts/real-runs/runtime.boundary-check.json 的 files 数；在文档写明扫描范围仅限 src，或把 tests/、scripts/、package.json 纳入检查并补测试。 |
@@ -168,11 +170,10 @@ AU 号是 2026-11-14 审计细分号；同一差异已有 D 号时，AU 行是�
 | AU-15 | cast.single-authority | 人物权威的目录覆盖、同名冲突、空卡与上下文格式均未贴源；英文档位目录的卡不计入上下文，唯一权威在就绪判定与模型侧不一致 | 1) readCast/roleCandidates 读四个档位目录（或把 major/minor 迁移/别名成中文目录并拒绝并存），保证『就绪有卡』与『上下文有卡』同一集合；2) 同名跨档位、空卡、读失败的处置按源行为（合并/抛错）复刻，或由作者裁决后登记为偏差并写清源行为→DSH 落点→原因→验证；3) 上下文格式与结尾规则行改贴源 readCharacterContext，或登记为方法注入偏差；4) 补英文作品、英文目录、空卡三类测试与真实回执。关闭判据=上述用例通过且 capabilities.yaml 的 source 从 reference-context.ts 改为 outline-paths.ts/composer.ts 后重录回执。 |
 | AU-16 | foundation.control-docs | 章节执行前不补方向文档：源在每个章节执行前 ensureControlDocuments，复刻只有 foundation／truth 写入路径补，章前读取缺文件即空 | 在 plan／write 入口（或 context 装配前）调用 controlDocumentWrites 或 readControlDocs；新增测试：删除 author_intent.md／current_focus.md 后构建 planner／writer 上下文，文件应被补默认模板且上下文包含该模板。 |
 | AU-17 | runtime.work-lock | work-lock 旧 lease 的 stale 基准与源不一致：源回退 startedAt，复刻回退文件 mtime | parseLockMetadata 在缺 heartbeatAt 时回退 startedAt（与源一致）；测试覆盖 startedAt 与 mtime 不一致的两个方向（startedAt 旧／mtime 新应 stale，startedAt 新／mtime 旧应不 stale）；重录 process-level 回执。 |
-| AU-18 | runtime.stage-context | plan 阶段没有创作方法、chapter-done 结算没有 state-projection 方法、英文作品仍注入中文阶段协议；planner 契约把全部 hook id 当可用集合，且 stage 文本的提示层级与源 user message 不同 | 按源每个角色调用点的 requiredSkillIds 映射阶段→技能：plan 注入 longform-writing（或新建 story-plan 方法）并带 planning 参考，chapter-done 注入 longform-writing 的 state-projection；把 renderStageBase/CHAPTER_REPAIR 做成中英双语并补英文协议用例；删除或收窄「不需要再调用技能工具加载」；planner 的可用 hook id 改为 planner 包/selectedContext 中的集合；把 writer 的 author_intent/current_focus 绑定块放回注入；每项用文本断言 + 真实回执关闭。 |
 | AU-19 | plan.retrieval | D22 素材过渡候选仍在 story-memory scope；检索读取用自写校验（hook 重复拒绝、摘要未知字段/非整数章放行）与源 zod strict 不一致；trace 文档 id 命名不同；源 MemorySelection 单入口被拆到 context-select | P6 把素材移出 story-memory（materials scope / search.unified）并补跨 scope 用例；检索入口改用与源等价的 strict schema（拒未知字段、chapter 为 int≥1、title 非空；hook 唯一性按作者裁决）；trace candidates/semanticSelectedIds 使用源 document id；或补一个与源同形的 retrieveMemorySelection 入口承接选择与 trace；重录真实回执覆盖三类型与素材分离。 |
 | AU-20 | plan.context-select | 已修：上一章 context 全文去标题、强制 N-1 摘要、source-id 顺序/reason、referenced hook 双语、context strict 读入、planner-context 登记。未关：D24 book reference（依赖 P6 materials/search） | D24 随 `materials.import`/`search.unified` 偿还；roleCandidates 英文目录归 AU-15、trace id 归 AU-19、planner 契约上一章全文归 AU-22；D24 完成前 AU-20 维持保真债。 |
 | AU-21 | plan.compression | D26 真压缩没有会话回执；重压一次只在阶段协议文本、宿主不执行；压缩也作用于 planner pass；压缩分块缺 Source id/pointer；缺 onContextCompression 回执；预算派生缺失时静默跳过 | 补一条真实会话回执覆盖 selection→compression→package（小窗口模型或专用夹具），记录 sessionId 与回执；把重压一次做成宿主可验证的下一步（例如 package 返回 recompress 指令或压缩任务），并断言超预算拒绝；与源对齐只对 writer 压缩，或把 planner 压缩登记为偏差；分块输入补 Source id/Source pointer；补压缩进度回执或登记为不可观测；预算不可得时按源记录/报错而不是静默 complete；重录 real-run，并在 docs/dsh-mapping.md 增加压缩编排（非 D25）的偏差行，否则不满足机制等价的门槛。 |
-| AU-22 | plan.chapter | 已修：删除独立上一章提示段、空白/字节/threadRefs 对齐源、planner 读作者指令；plan 工具直调时可覆盖。未关：阶段入口仍不重规划（detectStage 有 plan 即进 write/review）、索引进度（仍 current_state+1）、`detectStage` 仍 current_state、brief/current_focus/author_intent 作指令段 | 索引进度按源 `resolveDurableStoryProgress` 补 helper 并统一调用方；阶段入口重规划需新增 replan 入口（独立工作项）；brief 指令段并入 AU-18；完成前 AU-22 维持保真债。 |
+| AU-22 | plan.chapter | 已修：删除独立上一章提示段、空白/字节/threadRefs 对齐源、planner 读作者指令、plan 工具直调时可覆盖、brief/current_focus/author_intent 不再作指令段（AU-18）。未关：阶段入口仍不重规划（detectStage 有 plan 即进 write/review）、索引进度（仍 current_state+1）、`detectStage` 仍 current_state | 索引进度按源 `resolveDurableStoryProgress` 补 helper 并统一调用方；阶段入口重规划需新增 replan 入口（独立工作项）；完成前 AU-22 维持保真债。 |
 | AU-23 | chapter.write | 已修：detectStage 复用 draftPath、writer 契约题材/平台/指令/minmax、write 回执 delivery、标题前缀拒绝删除、账本 implementation。未关：D61（阻塞 `chapter.import`）、`safeChapterTitle` 空标题/清洗差异 | D61 随改标题写入路径（import_chapters）关闭；`safeChapterTitle` 与源 sanitize 对齐或登记偏差；两者完成前 AU-23 维持保真债。 |
 | AU-24 | chapter.review | 已修：重复审替换索引、修订 before/current 与 scope 双源校验、unavailable 可落盘、delivery、evidence 空数组。未关：源重审以 review brief 现场重编排 governed context；复刻读 context 包/回退章纲；unavailable 父代理兜底未实现；无章纲拒绝是复刻限制 | 重审入口按源现场重编排（review brief + book_rules 追加）；补 context 缺包/reopen 回退的长期路径；父代理失败兜底；完成前 AU-24 维持保真债。 |
 | AU-25 | chapter.revise | 已关闭：长度 spec/硬校验、spot-fix 与 targetText 预算、回执 delivery、非显式入口与更早章观察已登记 | 见 `docs/fidelity-audit.md`、`artifacts/implementation-audit/dsh-deviations.md`；测试 `chapter-revise`/`chapter-revision-commit` |

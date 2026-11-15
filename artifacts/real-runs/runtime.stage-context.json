@@ -1,21 +1,21 @@
 {
   "capability": "runtime.stage-context",
-  "date": "2026-11-14",
-  "sessionId": "process:runtime.stage-context",
+  "date": "2026-11-15",
+  "sessionId": "session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "523 passed／1 skipped（symlink）— stage-context 7 例（阶段判定与 reviewTarget、已发布章 start 命中 review 目标、重算块注入条件、扣下/遗留两态、chapter-done 两阶段协议、英文契约、其它预设不注入）＋ 结算/恢复/面板回归"
+    "summary": "551 tests／550 pass／1 skipped（symlink）；stage-context 14 例、planner-contract 5 例、writer-contract 6 例；另有一次 see-dsh-novel 真实会话（本回执的 sessionId）"
   },
   "receipts": [
-    "detectStage 的草稿判定改用 draftPath()（.drafts/chapter-NNNN.md），与 chapter.write 的写入路径一致；chapter-write.test 写后 review。",
-    "`revisionProposed`/`revisionReviewed`：提案无审稿→review，有审稿→chapter-done 修订分支；source 与 renderReviewContract 从提案正文注入，协议给 C1/C2 与 `story_commit_revision`。",
-    "`StageFacts` 增加 `reviewTarget`：`detectStage` 在 `chapter-done` 判断之前检查「start 指向已发布章（startChapter <= currentChapter）且该章无审稿记录」，命中则阶段为 `review`、目标为该章；普通下一章的 review 目标仍是 `currentChapter + 1`；其它阶段为 0。",
-    "`chapter-done` 协议写两阶段：派 settler → 不带 validation 生成提案 → 派 state-check 子代理读提案/正文/story_frame/book_rules 对账 → 带 {proposalDigest, outcome, reportMarkdown} 提交；含判据、failureReport 原文用法、attempt 2 扣下含义与修复入口，并注明结算前不得调用 `story_state_check`。",
-    "`chapter-done` 第 4 步更新：重开只限最新已发布且最后已结算章、状态从 N-1 快照回退、三件套缺失指向 `story_recover`；恢复保留章纲并写复审 start；重开后改稿走 `story_revise_chapter`，不直接审旧稿。",
-    "`review` 阶段文案按目标章编号；协议要求派审稿子代理产出 observations；「重开保留的旧稿」提示先问作者是否改稿，改稿走修订；审阅完回到等待下一章。",
-    "`chapter-done` 结算步骤新增「记录本章用量（可选）」：`story_telemetry` 找 writer／review 直接子会话 id → `story_record_chapter_usage`；结算写索引 `tokenUsage` 并删除 usage 文件；拿不到就跳过。",
-    "扣下态（章在、快照在）追加「用 story_resettle_chapter 重建，不要再次结算/重开上一章」；遗留「已发布未结算」（章在、快照缺）保持 `story_recover` 人工步骤。",
-    "该回执是 process-level 工具/状态测试，不是 DSH 会话。"
+    "真实会话 `session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e`（cwd `D:\\workspace\\see-dsh-novel-runtime`，预设 `see-dsh-novel`，作品《夜行测试》，语言 zh，目标 1 章／1200 字）走完提案→基础设定→规划→正文→审稿→修订→复审→结算发布；会话日志的 `agent-preset/selected` 为 `see-dsh-novel`。",
+    "seq 12（基础设定）：runtime context 含 `## 当前阶段：基础设定` 与 `# 创作方法（longform-writing）`，参考含 foundation-design／reader-contract-and-progression／scene-dialogue-and-length-budget／state-projection。",
+    "seq 65/97（等待开工）：`## 当前阶段：等待开工` + `longform-writing`；seq 375 结算后再次回到等待开工，并注入 `## 重新结算（重算）`。",
+    "seq 121（章前规划）：`## 当前阶段：章前规划` + `## planner 契约` + `longform-writing`（含 reader-contract-and-progression 参考）；`## 当前用户指令` 只有作者的 `开始第 1 章`，没有 `## 可用 hook id`。",
+    "seq 146/159（正文写作）：writer 契约注入；seq 159 含 `## 用户方向（优先于模型默认，必须遵循）`，`### 证据 1` 为 current_focus、`### 证据 2` 为 author_intent，随后才是 `## 字数`；`## 本章指令` 只有作者的 `开始第 1 章`；已选上下文不含方向条目。",
+    "seq 241/265（章后审阅）：`## 当前阶段：章后审阅` + `longform-writing` + `story-review`（含 review-matrix 参考）；审稿工具 `story_review_chapter` 成功落盘。",
+    "seq 176/287（本章完成）：`## 当前阶段：本章完成` + `longform-writing` + `story-review`；协议含 settler 增量→提案→state-check 对账→带 validation 提交的两阶段结算；seq 331 `story_settle_chapter` 生成提案、seq 337 派 state-check、seq 371 带 validation 提交成功；发布后索引第 1 章 1383 字、status active、快照 0/1、observations 已解决。",
+    "各阶段通用句为「本阶段强制注入的创作方法必须使用；其它方法只在确有需要时加载，不要机械加载无关方法」，不再出现「不需要再调用技能工具加载」。",
+    "本会话作品为 zh，未覆盖英文真实会话；英文协议与英文 craft 标题按验收 7 的裁决由 `stage-context` 的文本断言与中英结构对照覆盖（session 未取得英文回执，记为 limitation，不记为未取得）。"
   ]
 }

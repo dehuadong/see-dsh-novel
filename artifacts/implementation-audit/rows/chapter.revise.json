@@ -91,9 +91,9 @@
   ],
   "limitations": [
     "只有 process-level 证据，没有真实 DSH 会话；修订提案与 C1／C2 是 DSH 机制拆分（已登记），源在同一事务内跑 settler／validator／review。",
-    "ranges 由主编把 reviser 子代理的选择原样提交，宿主只负责构造与逐字节比较；无法验证子代理是否遵守模式协议。",
+    "ranges 由主编把 reviser 子代理的选择原样提交，宿主只负责构造与逐字节比较；复刻的 `REVISE_MODE_GUIDE` 定义后无消费者，源 reviser 的模式约束未注入，无法验证子代理是否遵守模式协议（2026-11-15 方向复审，D63）。",
     "长度硬校验只对作品显式 min／max 生效，源也是如此；本章账本未把 min／max 的读取列成消费者。",
     "更早章即时修订不推进状态（源一致），但复刻要求随后走复审 start 才能继续。",
-    "对照：capabilities.yaml:291-298 标 verified；docs/fidelity-audit.md:402-408 判「机制差异已登记 + D59 注销」，只讲事务拆分，未覆盖 reviser 的长度硬校验与预算冲突，差异与判定见 docs/fidelity-audit.md 的审计表。"
+    "对照：capabilities.yaml:291-298 标 verified；docs/fidelity-audit.md 本行现判「保真债」（D63），事务拆分等机制差异与 D63 分开记录。"
   ]
 }

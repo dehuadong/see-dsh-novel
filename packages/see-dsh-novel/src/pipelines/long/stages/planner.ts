@@ -1,25 +1,12 @@
 /**
- * 规划阶段的 planner 契约：方法句、memo 请求骨架与可用 hook id。
+ * 规划阶段的 planner 契约：方法句、memo 请求骨架与作者指令。
  */
-import { existsSync, readFileSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { authorInstructionSync } from '../../../core/workflow-start.js'
 import { join } from 'node:path'
 
 import { defaultChapterLength } from '../../../core/length.js'
-import {
-  AUTHOR_INTENT_FILE,
-  CURRENT_FOCUS_FILE,
-  STORY_EXTERNAL_BRIEF,
-} from '../../../core/story-paths.js'
 import type { WorkLanguage } from '../../../core/work.js'
-
-function readText(path: string): string {
-  try {
-    return readFileSync(path, 'utf8').trim()
-  } catch {
-    return ''
-  }
-}
 
 interface WorkLike {
   language?: WorkLanguage
@@ -49,18 +36,7 @@ export function renderPlannerContract(root: string): string {
     }
   })()
   const next = chapter + 1
-  const author = authorInstructionSync(root, next)
-  const instruction = [author ?? '', ...[STORY_EXTERNAL_BRIEF, CURRENT_FOCUS_FILE, AUTHOR_INTENT_FILE].map((file) => readText(join(root, file)))]
-    .filter((text) => text !== '')
-    .join('\n\n')
-  const hooks = (() => {
-    try {
-      const state = JSON.parse(readFileSync(join(root, 'source/story/state/hooks.json'), 'utf8')) as { hooks?: Array<{ hookId?: string }> }
-      return (state.hooks ?? []).map((hook) => hook.hookId ?? '').filter((id) => id !== '')
-    } catch {
-      return []
-    }
-  })()
+  const instruction = authorInstructionSync(root, next) ?? ''
   const target = work.metadata?.chapterWordCount ?? defaultChapterLength(language)
 
   const method = language === 'en'
@@ -72,13 +48,11 @@ export function renderPlannerContract(root: string): string {
     if (instruction !== '') parts.push('', '## Current user instruction', instruction)
     parts.push('', '## Governed context', 'Use the selectedContext returned by story_context_package here.')
     parts.push('', '## Host length telemetry', `User target: ${target} words. Treat it as a creative constraint, not a host quality verdict.`)
-    if (hooks.length > 0) parts.push('', '## Available hook ids', hooks.join(', '))
     return parts.join('\n')
   }
   const parts = ['## planner 契约', method, '', `# 第${next}章 memo 请求`]
   if (instruction !== '') parts.push('', '## 当前用户指令', instruction)
   parts.push('', '## 权威上下文', '把 story_context_package 返回的 selectedContext 放在这里。')
   parts.push('', '## 宿主字数遥测', `用户目标：${target} 字。这是创作约束，不是宿主质量判决。`)
-  if (hooks.length > 0) parts.push('', '## 可用 hook id', hooks.join('、'))
   return parts.join('\n')
 }

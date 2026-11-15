@@ -3,6 +3,8 @@
 Status: implemented
 
 > 2026-11-14 由 [`2026-11-14-planner-instruction-reuse.md`](2026-11-14-planner-instruction-reuse.md) 修订：planner 读取作者附言；plan 工具按 author/system 覆盖或复用；上一章独立段已删除；hook id/技能归 AU-18。本 Note 的“不覆盖/无入参变化覆盖”已失效。
+>
+> 2026-11-15 AU-18 关闭：planner 契约删除全量 hook id 列表；当前用户指令只取 author 来源，`brief`／`current_focus`／`author_intent` 不再拼入。见 [`2026-11-15-stage-context-craft-language.md`](./2026-11-15-stage-context-craft-language.md)。
 
 ## Problem（D14／D15）
 

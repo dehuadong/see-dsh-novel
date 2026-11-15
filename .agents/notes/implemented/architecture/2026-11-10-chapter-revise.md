@@ -53,7 +53,7 @@ P3 已经能写首版、能审稿，但审稿发现问题后没有修订入口�
 
 - `chapter-done` 阶段协议：先问清要改哪里与模式，派 reviser 子代理，调 `story_revise_chapter`，修订后必须重新审稿。
 - `review` 阶段协议：审稿不通过可转修订，修订后必须重新审稿。
-- `craftSkillsFor('chapter-done')` 注入 `story-review`；源 reviser 的 workerSkills 也是 review 技能，不新增技能。
+- `craftSkillsFor('chapter-done')` 注入 `longform-writing` + `story-review`；源 reviser 的 workerSkills 是 required + recommended，2026-11-15 修订见 [`2026-11-15-stage-context-craft-language.md`](./2026-11-15-stage-context-craft-language.md)。
 - **索引根动作**：`chapter-done` 时没有「当前阶段」节点，`PanelStage.action` 挂不上；索引根加 `action`（只在没有当前阶段时给出，v1 就是「修订本章」），动作条渲染 `current?.action ?? index.action`。索引版本升到 `4`。
 - 面板点击「修订本章」走 `advance`：提示「作者在工作台点了修订本章；先确认要改哪里与模式，再派 reviser 并调用 `story_revise_chapter`；修订后必须重新审稿」。会话运行时按钮与其他动作一样禁用。
 

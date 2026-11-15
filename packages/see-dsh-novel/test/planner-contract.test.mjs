@@ -20,7 +20,7 @@ async function workspace(language = 'zh') {
 
 const cleanup = (root) => rm(root, { recursive: true, force: true })
 
-test('the Chinese contract carries the method, the memo skeleton and hook ids', async () => {
+test('the Chinese contract carries the method and the memo skeleton', async () => {
   const root = await workspace('zh')
   try {
     const text = renderPlannerContract(root)
@@ -28,9 +28,11 @@ test('the Chinese contract carries the method, the memo skeleton and hook ids', 
     assert.match(text, /不写正文/)
     assert.match(text, /只使用输入中存在的 hook id/)
     assert.match(text, /# 第2章 memo 请求/)
-    assert.match(text, /## 当前用户指令\n写《夜行》的基础设定/)
+    assert.doesNotMatch(text, /## 当前用户指令/)
+    assert.doesNotMatch(text, /写《夜行》的基础设定/)
     assert.match(text, /## 宿主字数遥测\n用户目标：3000 字/)
-    assert.match(text, /## 可用 hook id\nH-01、H-02/)
+    assert.doesNotMatch(text, /## 可用 hook id/)
+    assert.doesNotMatch(text, /H-01/)
   } finally {
     await cleanup(root)
   }
@@ -44,6 +46,7 @@ test('the English contract uses the English method and request header', async ()
     assert.match(text, /Do not write prose/)
     assert.match(text, /# Chapter 2 memo request/)
     assert.match(text, /## Host length telemetry\nUser target: 3000 words/)
+    assert.doesNotMatch(text, /## Available hook ids/)
   } finally {
     await cleanup(root)
   }
@@ -52,13 +55,14 @@ test('the English contract uses the English method and request header', async ()
 test('missing instruction, previous chapter and hooks omit their sections', async () => {
   const root = await workspace('zh')
   try {
-    await rm(join(root, 'source/story/brief.md'))
+    await writeFile(join(root, 'source/story/current_focus.md'), '# 当前焦点\n\n盯住账本。\n')
+    await writeFile(join(root, 'source/story/author_intent.md'), '# 作者意图\n\n写冷一点。\n')
     await rm(join(root, 'source/chapters/0001_雨夜.md'))
-    await writeFile(join(root, 'source/story/state/hooks.json'), JSON.stringify({ hooks: [] }))
     const text = renderPlannerContract(root)
     assert.match(text, /# 第2章 memo 请求/)
     assert.doesNotMatch(text, /## 当前用户指令/)
-    assert.doesNotMatch(text, /## 上一章正文/)
+    assert.doesNotMatch(text, /盯住账本/)
+    assert.doesNotMatch(text, /写冷一点/)
     assert.doesNotMatch(text, /## 可用 hook id/)
   } finally {
     await cleanup(root)
@@ -74,6 +78,21 @@ test('the planner contract carries the author start instruction', async () => {
     }))
     const text = renderPlannerContract(root)
     assert.match(text, /## 当前用户指令\n写得更冷/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a system start instruction is not the chapter instruction', async () => {
+  const root = await workspace('zh')
+  try {
+    await mkdir(join(root, 'source/story/runtime'), { recursive: true })
+    await writeFile(join(root, 'source/story/runtime/workflow-start.json'), JSON.stringify({
+      version: 1, action: 'write_next', chapter: 2, instruction: '开始第 2 章', instructionSource: 'system', createdAt: '2026-11-14T00:00:00.000Z',
+    }))
+    const text = renderPlannerContract(root)
+    assert.doesNotMatch(text, /## 当前用户指令/)
+    assert.doesNotMatch(text, /开始第 2 章/)
   } finally {
     await cleanup(root)
   }

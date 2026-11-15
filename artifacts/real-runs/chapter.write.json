@@ -1,19 +1,20 @@
 {
   "capability": "chapter.write",
-  "date": "2026-11-14",
-  "sessionId": "process:chapter.write",
+  "date": "2026-11-15",
+  "sessionId": "session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "523 passed／1 skipped（symlink） — chapter-document 5 例（源字数口径：`第一段。`=4、`one two three`=3、去标题/围栏/frontmatter、charCount）＋ writer-contract 3 例（中文题材/平台+六段、缺省省略、英文版）＋ chapter-write 3 例（写后 review/指令/minmax、无界省略 delivery、越界 needs_revision）＋ host 工具清单"
+    "summary": "551 tests／550 pass／1 skipped（symlink）— chapter-document 5 例＋ writer-contract 6 例（六段、缺省省略、英文版、方向块中英与位置、指令只取 author）＋ chapter-write 3 例＋ host 工具清单"
   },
   "receipts": [
+    "真实会话 seq 146/159（正文写作）：writer 契约注入 `## 用户方向（优先于模型默认，必须遵循）`（`### 证据 1` current_focus、`### 证据 2` author_intent，位于 `## 字数` 之前）；`## 本章指令` 只有作者 `开始第 1 章`；方向条目不在已选上下文中；`story_write_chapter` 写草稿、修订后 `story_revise_chapter` 落盘，最终 1383 字并结算发布。",
     "detectStage 复用 draftPath：写 .drafts/chapter-NNNN.md 后阶段为 review，不再停在 write；chapter-write.test 覆盖。",
-    "writer 契约首段含题材/平台/专业 Skill，含本章 workflow-start 指令（最高优先级、标题原样）与显式 min/max 区间；无指令时省略指令段。",
+    "2026-11-15 AU-18：writer 契约把 author_intent／current_focus 从 selectedContext 抽出，渲染「用户方向（优先于模型默认，必须遵循）」块，位置紧跟章级指令；条目用 `### 证据 N`／`- 原因:`／`- 细节:`；普通已选上下文同格式；方向条目不再出现在已选上下文。旧回执的「已选上下文」平铺描述失效。",
+    "2026-11-15 AU-18：章级指令只取 workflow-start 的 author 来源；system 默认句（开始第 N 章／开始写作）不再渲染为最高优先级指令。旧回执的「任意 start 指令最高优先级」描述失效。",
     "story_write_chapter 回执含 wordCount 与源形状 delivery（仅显式 min/max）；标题章号前缀不再拒稿。",
-    "write 阶段的 writer 契约由 `stages/writer.ts` 注入（题材/平台+权威／字数／人称／主角／规则／风格六段）；writer pass 的 `chapter-0001.context.json` selectedContext 注入「已选上下文」段。",
     "`story_write_chapter` 只写 `.drafts/chapter-NNNN.md`，不创建 `source/chapters/` 文件；`charCount` 用源口径（去 frontmatter／围栏／标题后，中文数全部非空白字符、英文按正则分词），`target` 取作品 `metadata.chapterWordCount`（缺省回退语言默认章长），字数偏差只报告、不拒稿。",
-    "本次口径切换后未重新跑真实会话；旧会话回执的 2363 是 CJK 口径，已失效。新口径由 `chapter-document` 与 `write-tool` 的测试覆盖，回执为 process-level。",
+    "2026-11-15 真实会话已跑完第 1 章并结算发布（本回执 sessionId）：1383 字，snapshots 0/1，status active；旧会话回执的 2363 是 CJK 口径，已失效。",
     "章节文档头由宿主生成：`# 第1章 无尸`；正文为 writer 子代理的叙事文本。"
   ]
 }
