@@ -11,6 +11,7 @@
     "2026-11-16 阶段协议通用段（中英）增加工作区读取边界：所有读写留在当前工作区；工具怎么用看它的 schema 与报错；不读宿主安装目录（resources／app.asar）或别人的作品目录。zh 覆盖七个阶段、en 覆盖 foundation 起的六个阶段，均由 test/stage-context.test.mjs 断言。",
     "2026-11-16 foundation 第 4 步（中英）追加「一次提交全部角色、字段 role_1_content 起」，保留原句与字数规格（150–250／80–120）。",
     "2026-11-16 偏差登记：作者裁决「写小说的会话不翻宿主安装目录」记入 docs/dsh-mapping.md 的作者裁决偏差；机制事实（fs-sandbox 读放行、tools.guard 缝可用但未用）与原因记入 artifacts/implementation-audit/dsh-deviations.md。",
-    "未取得真实 DSH 会话回执（本环境不能重启宿主载入新 lib）：BLOCKED，「foundation 阶段不再出现工作区外读取」尚待真实会话观察。已知边界：writer 子会话落盘后阶段条目整段被 writer-stop 文案替换，该阶段不再携带本约束。"
+    "未取得真实 DSH 会话回执（本环境不能重启宿主载入新 lib）：BLOCKED，「foundation 阶段不再出现工作区外读取」尚待真实会话观察。已知边界：writer 子会话落盘后阶段条目整段被 writer-stop 文案替换，该阶段不再携带本约束。",
+    "2026-11-16 作者决定暂不重跑真实会话（需从头走一遍流程）；本节观察项保持 BLOCKED，待下次真实运行时补。"
   ]
 }
