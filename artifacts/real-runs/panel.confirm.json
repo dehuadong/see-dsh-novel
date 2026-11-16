@@ -5,11 +5,11 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "579 tests／578 pass／1 skipped（symlink）— write-command 7 例（确认一章、重复拒绝、BOOK_BUSY、followup source、无确认/退回/失效拒绝且文案只指 /story-approve、重新确认后第 2 章通过）、client 36 例（开始下一章取回处理器回执、拒绝文本可见）、approval 25 例、panel-index 14 例"
+    "summary": "582 tests／581 pass／1 skipped（symlink）— write-command 7 例（确认一章、重复拒绝、BOOK_BUSY、followup source、无确认/退回/失效拒绝且文案只指 /story-approve、重新确认后第 2 章通过）、client 36 例（开始下一章取回处理器回执、拒绝文本可见）、approval 28 例、panel-index 14 例"
   },
   "receipts": [
     "2026-11-16 真实会话 `session-607ecdcb-5e6d-44ff-8c29-3a75c09fe026`（工作区 `E:\\novelist\\test-novel\\t001`）：`/story-approve` 在 09:27:34 成功，`foundation-approval.json` 写出 approved；磁盘 `panel.index.json` 的 `generatedAt` 仍停在 09:18:47，`confirmation` 仍是 `foundation-signoff/pending`，面板一直显示确认按钮。对同一工作区重建索引得到 `confirmation: none/done`、根 `start-chapter`，说明作品文件与投影逻辑正确，缺的是那一次投影写入。",
-    "修复后 `/story-approve` 与 `/story-reject` 以 `project: false` 进入作品动作、成功后自行 `refreshPanelIndex`（最多 3 次重试）：确认命令回执保证磁盘索引在同一动作内与作品文件一致；仍失败时回执附「面板索引没能刷新（原因）；重新打开作品页或运行 `/story-index` 可恢复显示」，确认本身不回滚。",
+    "修复后 `/story-approve` 与 `/story-reject` 以 `project: false` 进入作品动作，并在**同一次动作的锁内**调 `refreshPanel`（瞬时错误最多重试 3 次）：索引与作品文件在同一次动作里落定；仍失败时回执附「面板索引没能刷新（原因）；重新打开作品页或运行 `/story-index` 可恢复显示」，确认本身不回滚。",
     "`/story-write` 在基础设定未确认/已退回/确认后改过三种情况下都在 `withWorkAction` 锁内、`detectStage` 之后拒绝且不写 workflow start；拒绝文本只指 `/story-approve`（例如「基础设定在确认后改过，确认已失效；先 `/story-approve` 重新确认」），不再指已结算状态下不存在的面板「确认基础设定」按钮。",
     "面板「开始下一章」改为经 `executeCommand` 派发 `/story-write`：命令拒绝时动作条直接显示处理器文本（测试断言含「确认已失效」与 `/story-approve`，且不含通用「提交失败，稍后再试」）；命令成功时回执同样来自处理器。",
     "已确认后 `/story-write` 写 `workflow-start.json`，followup 的 source 是 `{kind:'story-command',command:'story-write'}`；重复命令与未到 foundation-ready 都拒绝；另一持锁者存在时返回 `BOOK_BUSY` 且不写 start。",

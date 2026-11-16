@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { readArtifacts } from '../src/core/artifacts.ts'
-import { isFoundationApproved } from '../src/core/foundation-approval.ts'
+import { isFoundationApproved, writeFoundationApproval } from '../src/core/foundation-approval.ts'
 import { buildPanelIndex, writePanelIndex } from '../src/core/panel-index.ts'
 import { approvalMarkerLine } from '../src/core/receipts.ts'
 import { PANEL_INDEX_PATH, WORK_FILE } from '../src/core/story-paths.ts'
@@ -508,6 +508,72 @@ test('/story-approve still stands when the panel index cannot be written, and sa
     assert.match(result.text, /story-index/)
     // 确认本身仍然成立：不能因为面板刷新失败而回滚作者的确认。
     assert.equal(isFoundationApproved(root), true)
+  } finally {
+    dispose()
+    await workCleanup(root)
+  }
+})
+
+test('/story-reject refreshes the panel index to the rejected state', async () => {
+  const root = await identifiedWork()
+  const { registered, agent, dispose } = host({ root })
+  try {
+    await registered.get('/story-approve').handler({ agent, rawInput: '', signal: new AbortController().signal })
+    const approved = JSON.parse(await readFile(join(root, PANEL_INDEX_REL), 'utf8'))
+    assert.equal(approved.confirmation.kind, 'none')
+
+    const result = await registered.get('/story-reject').handler({ agent, rawInput: '', signal: new AbortController().signal })
+    assert.equal(result.kind, 'success')
+    assert.doesNotMatch(result.text, /面板索引没能刷新/)
+
+    // 退回后索引必须反映退回，而不是继续显示「已确认」。
+    const rejected = JSON.parse(await readFile(join(root, PANEL_INDEX_REL), 'utf8'))
+    assert.equal(rejected.confirmation.kind, 'foundation-signoff')
+    assert.match(rejected.confirmation.reason, /作者退回了这一版基础设定/)
+    const foundation = rejected.stages.find((stage) => stage.id === 'foundation')
+    assert.equal(foundation.status, 'current')
+    assert.equal(foundation.action.id, 'confirm-foundation')
+  } finally {
+    dispose()
+    await workCleanup(root)
+  }
+})
+
+test('a signoff on an already-approved record refreshes the panel index', async () => {
+  const root = await identifiedWork()
+  const { registered, agent, dispose } = host({ root })
+  try {
+    // 记录已有效（真实会话里就是这条早退分支），索引却仍停在等待确认。
+    await writeFoundationApproval(root)
+    const before = JSON.parse(await readFile(join(root, PANEL_INDEX_REL), 'utf8'))
+    assert.equal(before.confirmation.kind, 'foundation-signoff')
+
+    const signed = await registered.get('story_foundation_signoff').execute({}, { agent })
+    assert.equal(signed.panelWarning, '')
+    const after = JSON.parse(await readFile(join(root, PANEL_INDEX_REL), 'utf8'))
+    assert.deepEqual(after.confirmation, { kind: 'none', state: 'done', reason: '' })
+    assert.equal(after.action.id, 'start-chapter')
+  } finally {
+    dispose()
+    await workCleanup(root)
+  }
+})
+
+test('a signoff reports a panel index it could not refresh', async () => {
+  const root = await identifiedWork()
+  const { registered, agent, dispose } = host({ root })
+  try {
+    await writeFoundationApproval(root)
+    await rm(join(root, PANEL_INDEX_REL), { force: true })
+    await mkdir(join(root, PANEL_INDEX_REL), { recursive: true })
+
+    const signed = await registered.get('story_foundation_signoff').execute({}, { agent })
+    assert.equal(signed.signed, true)
+    assert.match(signed.panelWarning, /面板索引没能刷新/)
+    assert.match(signed.panelWarning, /story-index/)
+    // 说明写进渲染文本，作者在会话里看得到。
+    const rendered = registered.get('story_foundation_signoff').output.render({}, signed)
+    assert.match(rendered[0].text, /面板索引没能刷新/)
   } finally {
     dispose()
     await workCleanup(root)

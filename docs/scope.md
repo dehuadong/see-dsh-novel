@@ -140,6 +140,7 @@ P1 的前四行是内容生成的前提：作品先有身份，才谈基础设�
 | D57 | `export.work` EPUB 包结构 | 源 `epub-gen-memory` 产出 `style.css`、`toc.ncx`／`toc.xhtml`、完整 `content.opf` 元数据（identifier／creator／publisher／date／rights／description／guide）、章文件名 `N_slug.xhtml`、DEFLATE 压缩、`container.xml` 序列化与包级 `xml:lang`；复刻是最小 EPUB3（无 CSS、无 ncx、全 store） | 另立工作项逐模板复刻（是否引入打包库届时裁决） |
 | D62 | `skill.references` | 随包技能正文为中文，源技能为英文；英文作品拿到中文方法与参考正文（该行从此兼有参考检索与内容语言两项） | 技能内容语言项：按作品语言提供方法正文或中英双份；关闭判据=英文会话里方法与参考为英文 |
 | D63 | `chapter.revise` | 源 reviser 的 system prompt 按模式给一句约束（polish／rewrite／rework／anti-detect／spot-fix）；复刻的 `REVISE_MODE_GUIDE` 定义后没有任何消费者，阶段协议只列模式名与 spot-fix 输出格式 | 把五句模式约束注入 review／chapter-done 阶段协议或修订入口（中英双语）并补文本断言；删除或复用死导出 |
+| D64 | `panel.workbench` | 除确认、退回、定稿之外的写动作，投影失败仍被静默吞掉（索引停在旧版本，面板与作品不一致而无提示）；2026-11-16 真实会话里确认路径的同类失败也未能留下原因 | 让通用投影失败可观测（宿主告警或索引新鲜度提示），并把「确认路径为何未写入」作为可复现用例补齐；关闭判据=投影失败在面板或日志可见且有用例 |
 
 ## 边界
 

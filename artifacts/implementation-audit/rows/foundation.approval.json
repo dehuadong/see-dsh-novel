@@ -113,10 +113,10 @@
     "packages/see-dsh-novel/test/approval.test.mjs:485 the gate reports a rejection instead of hiding it",
     "packages/see-dsh-novel/test/approval.test.mjs:510 the gate tools refuse an execution without an owning agent",
     "packages/see-dsh-novel/test/panel-index.test.mjs:241 已结算 + stale/rejected/none 三态保持六阶段 done、根 start-chapter、顶部提示",
-    "本次审计运行 pnpm run verify：577 tests／576 pass／1 skipped（symlink），其中 approval.test.mjs 23 例、foundation-approval.test.mjs 3 例、panel-index.test.mjs 14 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
+    "本次审计运行 pnpm run verify：582 tests／581 pass／1 skipped（symlink），其中 approval.test.mjs 28 例、foundation-approval.test.mjs 3 例、panel-index.test.mjs 14 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
   ],
   "realRunLevel": "P",
-  "realRunBasis": "artifacts/real-runs/foundation.approval.json：2026-11-04 的 session-974fa00e 覆盖签核两条通道与退回作废；2026-11-15 新增作品级确认记录与 /story-write 门禁，2026-11-16 real-run 更新为 process:foundation.approval（process-level，577 tests／576 pass／1 skip），覆盖 foundationApprovalState 四态与面板已结算失效不回退；本机不能重启宿主，真实 DSH 会话仍未取得（BLOCKED）。",
+  "realRunBasis": "artifacts/real-runs/foundation.approval.json：2026-11-04 的 session-974fa00e 覆盖签核两条通道与退回作废；2026-11-15 新增作品级确认记录与 /story-write 门禁，2026-11-16 real-run 更新为 process:foundation.approval（process-level，582 tests／581 pass／1 skip），覆盖 foundationApprovalState 四态与面板已结算失效不回退；本机不能重启宿主，真实 DSH 会话仍未取得（BLOCKED）。",
   "deviations": [
     "源没有 foundation 定稿闸门：作者确认只针对 workflow start（propose_action 的 15 个 action 与 confirmed-production 的 button/slash 判定），确认后 host 执行 action；复刻新增 story_gate/story_foundation_signoff 与 /story-approve、/story-reject 的『基础设定这一版定稿』确认面（gate.ts:168-262、commands.ts:61-101），并把 receipt 写进会话日志供后续读取。源无对应行为，也没有作者对基础设定产物的确认步骤。",
     "确认对象不同：源确认 PendingProposedAction（action/targetSessionKind/instruction/title/summary/actionPayload，session.ts:13-22），确认时重新校验并执行；复刻确认 source/story/ 工件的 stage/files/digest（readArtifacts + receipt），签核只返回 signed，不执行任何 workflow。",
@@ -124,7 +124,8 @@
     "退回语义不同：源没有『退回确认面』；pending action 由后续提案替换或取消。复刻 /story-reject 成功即记 reject，并使更早 approve 回执作废（receipts.ts:107-118、commands.ts:75-85），新增了一条源不存在的决定通道。",
     "本行 source 指向 interaction/session.ts，但 session.ts 的核心是 PendingProposedAction 与 InteractionSession；复刻 gate.ts 没有 pending action，也不负责 workflow start 的确认-执行（那部分在 panel.confirm/proposal.creative）。因此本行不能证明 session.ts 的确认语义被等价复刻。",
     "闸门强度不同：源 propose_action 返回 proposed_action 后必须由 host 带确认执行；复刻 signoff 不阻断阶段推进（阶段仍由文件探针判定），只是模型被 RESUME_TEXT 提示去调用，拒绝时以工具错误结束本轮，不改变工作区。",
-    "2026-11-15：新增作品级 foundation-approval.json（作者裁决，见 dsh-mapping「作者裁决偏差」）；source 指针改为 agent-tools.ts／action-envelope.ts／confirmed-production.ts／agent-session.ts／server.ts，implementation 改为 core/foundation-approval.ts；AU-14 子项1（作者裁决/偏差/source）关闭，子项3（自由文本无执行权/actionSource）仍开。"
+    "2026-11-15：新增作品级 foundation-approval.json（作者裁决，见 dsh-mapping「作者裁决偏差」）；source 指针改为 agent-tools.ts／action-envelope.ts／confirmed-production.ts／agent-session.ts／server.ts，implementation 改为 core/foundation-approval.ts；AU-14 子项1（作者裁决/偏差/source）关闭，子项3（自由文本无执行权/actionSource）仍开。",
+    "写确认记录后在同一次作品动作里重建面板索引，失败经回执或 panelWarning 说明、不回滚；story_foundation_signoff 的「记录已有效」早退分支同样重建（机制偏差，见 dsh-mapping「面板投影的写入归属」）。"
   ],
   "limitations": [
     "真实回执是 2026-11-04 的单会话（session-974fa00e），gate.ts 在 2026-11-05 的 commit 2b8528f 里改过 DECISION_SOURCES 的位置（行为文本未变）；之后 approval.test.mjs 未再改动，因此回执与当前行为基本一致，但没有覆盖 2026-11-06 之后的提交。",

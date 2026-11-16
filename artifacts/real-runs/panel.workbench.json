@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "579 tests／578 pass／1 skipped（symlink）— panel-index 14 例（v8、基础设定写作中、待确认、首次/已结算 stale/rejected/none、草稿产物、恢复后 review 目标、展示集合与摘要分离）、panel-projection 7 例（v7→v8 重建）、workbench 14 例（确认提示只一次、已结算顶部提示、草稿行与警示）、client 36 例"
+    "summary": "582 tests／581 pass／1 skipped（symlink）— panel-index 14 例（v8、基础设定写作中、待确认、首次/已结算 stale/rejected/none、草稿产物、恢复后 review 目标、展示集合与摘要分离）、panel-projection 7 例（v7→v8 重建）、workbench 14 例（确认提示只一次、已结算顶部提示、草稿行与警示）、client 36 例"
   },
   "receipts": [
     "面板索引 v8：已结算夹具（`currentState=1`、`source/chapters` 有第 1 章）在基础设定 `stale`/`rejected`/`none` 三种状态下，proposal/foundation/plan/write/review/settle 全部 done，根动作 `start-chapter`「开始下一章」`enabled: true`；基础设定阶段 `action: null`、`secondary: []`，不再出现「确认基础设定/退回/查看待确认/稍后」五连排。`confirmation` 均为 `foundation-signoff/pending`，reason 分别是「基础设定在确认后修改过；开始下一章前请 `/story-approve` 重新确认」「作者退回了这一版基础设定；开始下一章前请 `/story-approve` 重新确认」「基础设定尚未确认；开始下一章前请 `/story-approve`」。",

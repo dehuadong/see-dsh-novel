@@ -402,26 +402,27 @@ export async function rebuildPanelIndex(root: string): Promise<PanelIndex> {
   return index
 }
 
+/** 文件被占用一类的瞬时错误才值得重试；路径类型错误重试也没用。 */
+function isTransientWriteError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | undefined)?.code
+  return code === 'EBUSY' || code === 'EPERM' || code === 'EAGAIN' || code === 'EMFILE' || code === 'ENFILE'
+}
+
 /**
- * 立刻重建索引，失败重试几次；最终仍失败时返回一句给作者看的说明。
+ * 重建索引并对瞬时写入失败重试几次；最终仍失败时抛出最后一次错误。
  *
- * 确认、退回这类动作改的正是面板要显示的事实；只靠「下一次动作再投影」，
- * 一旦写索引失败，面板会一直停在旧按钮上（2026-11-16 真实会话：
- * `/story-approve` 成功但 `panel.index.json` 没变）。所以这些动作自己重建并报错。
+ * 重试策略放在这里，是因为「写索引可能被占用」是文件系统事实；给作者看的说明
+ * 与恢复入口由调用方（`pipelines/long/panel-refresh.ts`）负责。
  * @param root 作品根目录
  * @param attempts 最多尝试次数
- * @returns 成功后为空串
  */
-export async function refreshPanelIndex(root: string, attempts = 3): Promise<string> {
-  let reason = ''
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
+export async function rebuildPanelIndexWithRetry(root: string, attempts = 3): Promise<PanelIndex> {
+  for (let attempt = 0; ; attempt += 1) {
     try {
-      await rebuildPanelIndex(root)
-      return ''
+      return await rebuildPanelIndex(root)
     } catch (error) {
-      reason = error instanceof Error ? error.message : String(error)
-      if (attempt + 1 < attempts) await new Promise((resolve) => { setTimeout(resolve, 50 * (attempt + 1)) })
+      if (attempt + 1 >= attempts || !isTransientWriteError(error)) throw error
+      await new Promise((resolve) => { setTimeout(resolve, 50 * (attempt + 1)) })
     }
   }
-  return `面板索引没能刷新（${reason}）；重新打开作品页或运行 /story-index 可恢复显示。`
 }

@@ -49,8 +49,14 @@
 - 原因：阶段上下文的过滤维度是预设与 agent 作用域，没有源的角色身份，worker 由主代理任意命名创建。可见后果：settler 会拿到 `story-review`；composer 子代理会拿到 `longform-writing`；源的 recommended 在复刻被整段注入并按强制处理。
 - 验证：各阶段 `craftSkillsFor` 与 `story:craft` 文本断言；子代理 runtime context 回执待补（当前按 process-level 记录）。
 
-### 面板：确认语义与工作台
+### 面板：投影写入归属与失败语义（2026-11-16）
 
+- 源工程做法：Studio 由宿主进程直接提供作品状态，界面不读派生文件；确认由宿主执行 pending action 并在同一会话继续（`inkos/packages/studio/src/api/server.ts:4931-5013`；`inkos/packages/core/src/agent/agent-session.ts:1220-1267`），不存在「状态写了、界面读另一份文件」的窗口。
+- 复刻做法：界面读宿主投影的 `panel.index.json`。确认、退回、定稿三类动作在**同一个作品动作的锁内**重建索引并把失败写进回执（命令文本附一行说明，或签核工具的 `panelWarning`）；重建失败不回滚确认，说明里给 `/story-index` 作为恢复入口。其余动作仍在动作成功后尽力重建，失败保持旧索引。
+- 原因：DSH 的界面只能按路径订阅派生文件，投影与作品状态天生两处；确认是作者唯一盯着看结果的地方，必须同一次动作落定并把失败说出来，否则会出现「确认成功但按钮不退」且没有任何线索（真实会话 `session-607ecdcb`：记录 09:27:34 写入，索引停在 09:18:47）。
+- 验证：`test/approval.test.mjs` 覆盖确认、退回、定稿（含「记录已有效」早退分支）都会刷新索引，以及索引写失败时命令仍成功、回执含说明、确认不回滚；通用投影失败仍无声的部分记 D64（`docs/scope.md`）。
+
+### 面板：确认语义与工作台
 - 源工程做法：Studio 的作品页由确认卡（动作）与 `TruthFiles`／`ChapterWorkspacePanel`（产物浏览）组成，同属一个页面；立项在对话里由提案工具完成。
 - 复刻做法：`panel.confirm` 只拥有确认与拒绝的语义；`panel.workbench`（P6）是唯一作品页，承载阶段栏、本阶段产物列表与详情，当前阶段的动作在右栏顶部动作条。阶段、产物与确认状态来自宿主投影的只读 `panel.index.json`（`withWorkAction` 成功后重建、会话发布时补建缺失/过旧索引），面板只读该投影，不调用 `/story-index`，也不给新建表单。
 - 原因：确认是授权入口，产物浏览是读取面；面板若自己触发投影或重算阶段协议，就会和宿主判定分叉，失败时还会静默回退旧卡。

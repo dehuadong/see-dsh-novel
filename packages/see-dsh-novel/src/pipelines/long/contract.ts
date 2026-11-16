@@ -161,4 +161,4 @@ export const SIGNOFF_OUTPUT: JsonSchema = OBJECT({
   digest: { type: 'string' },
   files: STRING_ARRAY(),
   panelWarning: { type: 'string', description: '面板索引没能刷新时的说明；刷新成功为空串' },
-}, ['signed', 'channel', 'digest', 'files'])
+}, ['signed', 'channel', 'digest', 'files', 'panelWarning'])

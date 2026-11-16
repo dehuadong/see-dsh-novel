@@ -12,36 +12,37 @@ Status: implemented
 
 ## Decision
 
-- **确认类命令自己重建索引并报告失败。** `/story-approve` 与 `/story-reject` 以 `{ project: false }` 调用 `withWorkAction`（避免同一次动作写两遍索引），动作成功后调 `refreshPanelIndex(root)`：内部最多重试 3 次，仍失败时把一句「面板索引没能刷新（原因）；重新打开作品页或运行 `/story-index` 可恢复显示」附在命令回执末尾。确认本身不回滚——面板是显示面，不能因为刷新失败而否认作者已经做出的确认。
-- **`story_foundation_signoff` 同样处理。** 它写记录后也调 `refreshPanelIndex`，失败说明经输出字段 `panelWarning` 出现在工具回执里；`SIGNOFF_OUTPUT` 增加可选的 `panelWarning`。
-- **通用投影也重试用尽。** `core/work-mutation.ts` 的 `projectPanel` 改为最多 3 次尝试（每次间隔 50ms、100ms），仍失败保持旧索引并由下一次动作或 `/story-index` 修复；它继续不改变动作结果，因为多数动作不需要为面板显示失败。
-- **`rebuildPanelIndex` 是唯一的重建入口。** `core/panel-index.ts` 导出 `rebuildPanelIndex`（构建 + 写入，失败抛出）与 `refreshPanelIndex`（重试 + 返回说明）；`plugin/panel-projection.ts` 的预热与 `/story-index` 走同一条路径。
-- 范围：只改「确认状态变化后索引如何落到磁盘」。不改索引内容与阶段投影口径，不改确认闸门与回执格式，不改 `/story-write` 校验。
+- **三类确认动作在作品动作的锁内重建索引。** `/story-approve`、`/story-reject`、`story_foundation_signoff` 写状态后，在同一次 `withWorkAction`（`project: false`，避免重复投影）里调用 `refreshPanel`。重建落在锁内，避免释放锁后被并发动作覆盖。
+- **「记录已有效」的早退分支同样重建。** 真实会话走的正是这条：名字已经在 `/story-approve` 写过，签核只做确认。该分支此前返回 `panelWarning: ''` 却不重建，等于对旧索引报「已定稿」；现在它也重建并如实回报。
+- **失败只告警，不回滚确认。** `refreshPanel` 返回空串表示已刷新，否则返回「面板索引没能刷新（原因）；重新打开作品页或运行 `/story-index` 可恢复显示」。命令回执附这一行；签核工具经输出字段 `panelWarning` 带到渲染文本里。确认记录不回滚——面板是显示面，不能因为刷新失败而否认作者已做出的确认。
+- **重试只针对瞬时错误。** `core/panel-index.ts` 的 `rebuildPanelIndexWithRetry` 只对 `EBUSY`／`EPERM`／`EAGAIN`／`EMFILE`／`ENFILE` 重试（最多 3 次），路径类型错误直接失败，不做无意义重试。
+- **通用投影保持原语义。** `core/work-mutation.ts` 的 `projectPanel` 仍是动作成功后一次尝试、失败静默：多数动作不需要为面板显示失败，静默失败的可观测性缺口记为 D64。需要「失败也要让作者看见」的动作自己调 `pipelines/long/panel-refresh.ts`。
 
 ## 源工程证据与偏差
 
-- 源工程 Studio 的确认由宿主执行 pending action，并在同一会话里继续（`inkos/packages/studio/src/api/server.ts:4931-5013`；`agent-session.ts:1220-1267`）；面板与状态读的是同一份宿主状态，不存在「确认写了一个地方、界面读另一个地方」的窗口。
-- 复刻的界面读的是磁盘上的 `panel.index.json`，它是投影而不是状态（见 [`2026-11-10-panel-workbench-dialogue-first.md`](../architecture/2026-11-10-panel-workbench-dialogue-first.md)），所以「状态写了但投影没写」会直接表现为按钮不退。这次修复让确认类动作把「状态 + 投影」当成一次动作的两半，属于投影机制内的修正，不新增产品限制，也不改变与源的等价判定。
-- 与 [`2026-11-15-panel-draft-and-foundation-change.md`](./2026-11-15-panel-draft-and-foundation-change.md) 的关系：那篇决定「已结算 + 确认失效只在顶部提示、不回退阶段轨」；本篇保证这些判断真的会出现在面板上，两者合起来才是作者看到的最终行为。
+- 源工程 Studio 由宿主进程直接提供作品状态，确认由宿主执行 pending action 并在同一会话继续（`inkos/packages/studio/src/api/server.ts:4931-5013`；`inkos/packages/core/src/agent/agent-session.ts:1220-1267`），不存在「状态写了、界面读另一份文件」的窗口。
+- 复刻的界面读磁盘上的 `panel.index.json`，它是投影而不是状态（见 [`2026-11-10-panel-workbench-dialogue-first.md`](../architecture/2026-11-10-panel-workbench-dialogue-first.md)），所以「状态写了但投影没写」会直接表现为按钮不退。偏差结论在 `docs/dsh-mapping.md` 的「面板投影的写入归属」行，四段明细在 `artifacts/implementation-audit/dsh-deviations.md`。
+- 与 [`2026-11-15-panel-draft-and-foundation-change.md`](./2026-11-15-panel-draft-and-foundation-change.md) 的关系：那篇决定「已结算 + 确认失效只在顶部提示、不回退阶段轨」；本篇保证这些判断真的会出现在面板上。
 
 ## Alternatives considered
 
-- **只让客户端轮询索引。** 否掉：磁盘上的索引本身就是旧的，轮询只会反复读到同一份旧内容；根因在写入侧。
-- **客户端在动作成功后自动跑 `/story-index`。** 否掉：那会让面板成为投影触发者，与「投影由宿主在写 action 里完成」的既有决定冲突，并多一条并发写路径。
-- **给面板加「刷新」按钮。** 否掉：作者不该为一次确认手动补一步；而且这与已登记的「面板无刷新索引按钮」冲突。
-- **把投影失败升级为动作失败。** 否掉：确认已经落盘，回滚它等于否认作者的确认；正确做法是动作成功、失败可见、给恢复入口。
+- **客户端在动作成功后自动跑 `/story-index`。** 最强理由是它不需要改宿主、也不依赖锁：面板读到的就是刚重建的文件。否掉的原因是它让面板成为投影触发者，与「投影由宿主在写 action 里完成」的既有决定冲突，并多一条并发写路径；作者也不该为一次确认手动补一步。
+- **给面板加「刷新」按钮。** 最强理由是把恢复权交给作者、实现最省。否掉：这与已登记的「面板无刷新索引按钮」决定冲突，而且作者点完确认还要再点一次刷新，等于把宿主的缺陷外化成作者的步骤。
+- **把投影失败升级为动作失败。** 最强理由是失败必须可见，失败即失败最直白。否掉：确认已经落盘，回滚它等于否认作者的确认；正确做法是动作成功、失败可见、给恢复入口。
+- **只让通用投影带重试，确认路径照旧。** 最强理由是不新增调用点。否掉：通用投影失败照样静默，作者看到的仍是旧按钮，且重试无法让失败可见。
 - **继续静默吞掉投影异常。** 否掉：这正是本次问题能持续存在而没有任何线索的原因。
 
 ## Consequences
 
-- `/story-approve`、`/story-reject`、`story_foundation_signoff` 成功后，磁盘索引与作品文件在同一动作内一致；面板下一次读取就离开确认状态。
-- 索引写入失败不再无声：命令回执或工具回执里会有一句说明并指向 `/story-index`，作者不用猜。代价是命令回执可能比原来多一行。
-- 通用动作的投影多了重试，最坏情况为两次 50/100ms 等待；动作结果不受影响。
-- 同一动作不再重复投影（确认命令传 `project: false`），索引写入次数从「动作 + 可能的重建」降为一次。
-- 兜底：真实会话里那条已失效的旧索引已用 `rebuildPanelIndex` 就地重建（`generatedAt` 09:18:47 → 09:39:45，`confirmation` 变为 `none/done`），面板刷新后即可看到「开始下一章」。
+- 作者点确认、退回或签核后，磁盘索引与作品文件在同一次作品动作内落定；面板下一次读取就离开确认状态。
+- 索引写入失败不再无声：命令回执或签核文本里会有一句说明并指向 `/story-index`。代价是确认命令的回执在失败时可能比原来多一行；`SIGNOFF_OUTPUT` 多了一个必填字段 `panelWarning`（成功为空串）。
+- 瞬时写入错误会重试两次（间隔 50ms、100ms），最坏多等 150ms；路径类型错误不重试。
+- 通用写动作的投影失败仍无声（D64），面板可能显示旧索引；`/story-index` 仍是修复入口。
+- 真实会话里那条旧索引已用 `rebuildPanelIndex` 就地重建（`generatedAt` 09:18:47 → 09:39:45，`confirmation` 变为 `none/done`），面板刷新后即可看到「开始下一章」。
+- 未复现的根因：那次投影写入为什么没发生，日志里没有痕迹（旧代码静默吞异常）；本记录只覆盖「不再依赖那条静默路径」，不宣称已解释根因。D64 承接可观测性与复现用例。
 
 ## Testing
 
-- `test/approval.test.mjs`：`/story-approve` 前索引为 `foundation-signoff/pending`，命令成功后同一文件变为 `none/done`、根动作 `start-chapter`、foundation `done`；把索引路径占成目录（写必失败）时命令仍成功、回执含「面板索引没能刷新」与 `/story-index`，且确认记录仍然有效；`story_foundation_signoff` 的回执含 `panelWarning`（成功为空串）。
-- `test/panel-index.test.mjs`、`test/panel-projection.test.mjs`：`rebuildPanelIndex` / 预热路径行为不变。
-- `pnpm run verify`：579 tests／578 pass／1 skip。
+- `test/approval.test.mjs`：`/story-approve` 前索引为 `foundation-signoff/pending`，成功后同一文件变为 `none/done`、根动作 `start-chapter`；`/story-reject` 后索引变为退回态（foundation `current`、`confirm-foundation` 动作、文案含「作者退回了这一版基础设定」）；`story_foundation_signoff` 在「记录已有效」的早退分支也把 pending 索引重建为 `none/done`；把索引路径占成目录（写必失败）时，确认命令与签核工具都成功、回执含「面板索引没能刷新」与 `/story-index`，确认记录仍然有效，签核的说明出现在渲染文本里。
+- `test/panel-index.test.mjs`、`test/panel-projection.test.mjs`：`rebuildPanelIndex`／预热路径行为不变。
+- `pnpm run verify`：见 `artifacts/real-runs/panel.confirm.json` 的当前计数。

@@ -9,7 +9,7 @@
  */
 import { readArtifacts, shortDigest } from '../../core/artifacts.js'
 import { foundationApprovalDigest, isFoundationApproved, readFoundationApproval, rejectFoundationApproval, writeFoundationApproval } from '../../core/foundation-approval.js'
-import { refreshPanelIndex } from '../../core/panel-index.js'
+import { refreshPanel } from './panel-refresh.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import type { ArtifactSet } from '../../core/artifacts.js'
 import { approvalMarkerLine, latestDecision } from '../../core/receipts.js'
@@ -180,7 +180,9 @@ export function installGateTools(ctx: PluginContext): Disposer {
     const existing = readFoundationApproval(root)
     if (existing?.state === 'approved' && isFoundationApproved(root)) {
       const artifacts = await readArtifacts(root)
-      return { signed: true, channel: 'receipt', digest: artifacts.digest, files: artifacts.files, panelWarning: '' }
+      // 记录早就是有效的（例如面板刚确认过）：这一次不写盘，但面板仍需要按当前状态显示。
+      const panelWarning = await refreshPanel(root)
+      return { signed: true, channel: 'receipt', digest: artifacts.digest, files: artifacts.files, panelWarning }
     }
     if (existing?.state === 'rejected') {
       throw new Error('作者退回了这一版基础设定；改完先 /story-approve 重新确认')
@@ -197,9 +199,12 @@ export function installGateTools(ctx: PluginContext): Disposer {
       if (result.reason === 'rejected') await withWorkAction(root, async () => { await rejectFoundationApproval(root) })
       throw new Error(result.message)
     }
-    await withWorkAction(root, async () => { await writeFoundationApproval(root, digestBefore) }, { project: false })
-    // 定稿改的是面板上的确认状态：这里自己重建索引，失败要能出现在工具回执里。
-    const panelWarning = await refreshPanelIndex(root)
+    let panelWarning = ''
+    await withWorkAction(root, async () => {
+      await writeFoundationApproval(root, digestBefore)
+      // 定稿改的是面板上的确认状态：在同一个作品动作里重建索引，失败要能出现在工具回执里。
+      panelWarning = await refreshPanel(root)
+    }, { project: false })
     return {
       signed: true,
       channel: result.channel,
