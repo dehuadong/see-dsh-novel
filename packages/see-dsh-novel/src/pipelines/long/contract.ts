@@ -160,4 +160,5 @@ export const SIGNOFF_OUTPUT: JsonSchema = OBJECT({
   channel: { type: 'string', enum: ['receipt', 'approval'], description: '确认来自面板命令还是原生确认条' },
   digest: { type: 'string' },
   files: STRING_ARRAY(),
+  panelWarning: { type: 'string', description: '面板索引没能刷新时的说明；刷新成功为空串' },
 }, ['signed', 'channel', 'digest', 'files'])

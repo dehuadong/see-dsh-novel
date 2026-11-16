@@ -134,6 +134,7 @@
     "fidelity-audit.md:202-208 把本行判为『机制差异已登记 — foundation 签核是 DSH 侧附加面』，但『附加面』没有被登记为偏差，且与本行 source 指向的 session.ts 的 pending action 语义不对应。",
     "docs/dsh-mapping.md『作者确认：原生确认条与面板命令双通道』只登记 receipt 双通道，未登记『新增 foundation 定稿闸门』；按 AGENTS.md 偏差只有 DSH 机制强制或源不可观测两种合法来源，本行的新增闸门两者都不满足。",
     "2026-11-15：作品级 foundation-approval.json、/story-write 任意章开写校验、面板已确认/已结算失效三态是 process-level 测试；没有新的 DSH 会话回执，真实拒绝/通过/第 2 章取证留 batch。",
-    "2026-11-16：面板已结算后确认失效改为「阶段保持 done + 顶部提示」，不再回到 foundation 确认；新增只读 foundationApprovalState。回执仍是 process-level（本机没有运行时工作区、不能重启宿主），真实会话未取得（BLOCKED）。"
+    "2026-11-16：面板已结算后确认失效改为「阶段保持 done + 顶部提示」，不再回到 foundation 确认；新增只读 foundationApprovalState。回执仍是 process-level（本机没有运行时工作区、不能重启宿主），真实会话未取得（BLOCKED）。",
+    "2026-11-16：真实会话 session-607ecdcb 取得确认类证据（/story-approve 写入 approved 记录、story_gate 读到「已被作者确认」），同时暴露写记录后未重建面板索引；确认/退回/签核三条路径已改为动作内强制重建索引。"
   ]
 }

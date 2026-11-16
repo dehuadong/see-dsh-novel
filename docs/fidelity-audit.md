@@ -13,6 +13,7 @@
 - 2026-11-15 作者裁决：首版结算增加显式确认 marker（见 dsh-mapping「作者裁决偏差」），不改变本行机制等价判定。
 - 2026-11-15 AU-18 关闭：`runtime.stage-context` 由保真债改为机制等价（真实会话 `session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e` 覆盖阶段注入、方法、配置与结算；英文协议由文本断言与结构对照覆盖）。
 - 2026-11-15 面板：`panel.workbench` 增加结算前只读草稿、结算事实与基础设定确认解耦（已结算不再回退）、确认提示只在顶部一次；`panel.confirm` 的 `/story-write` 拒绝文案只指 `/story-approve`，面板在动作条直接显示该拒绝文本（不落到通用「提交失败」）；`foundation.approval` 的确认失效只拦下一章。三行判定与债号不变（`panel.workbench` 保真债 AU-31、`panel.confirm` 机制等价 AU-11、`foundation.approval` 保真债 AU-14）；草稿阅读面按作者裁决记入 `docs/dsh-mapping.md`「作者裁决偏差」。
+- 2026-11-16 索引新鲜度：`/story-approve`、`/story-reject`、`story_foundation_signoff` 成功后自行重建 `panel.index.json`（失败重试并把原因写进回执），不再只靠写 action 的静默投影；真实会话 `session-607ecdcb` 的证据是确认记录已写、索引 mtime 停在确认前、面板仍显示确认按钮。三行判定与债号不变。
 - 审计只读，不改 `capabilities.yaml` 状态；本节的 45 行判定表取代下方同名 `###` 段的旧判定；冲突以本表为准，旧段待按 AU 债修复。
 
 **判定唯一表**：以下 45 行是当前判定；下方同名 `###` 段的旧判定已失效。

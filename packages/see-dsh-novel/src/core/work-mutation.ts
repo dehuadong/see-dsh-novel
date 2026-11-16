@@ -17,14 +17,23 @@ const queues = new Map<string, Promise<void>>()
  * 写 action 成功后重建面板索引。
  *
  * 用动态 import 避开 `work-mutation → panel-index → stages → workflow-start →
- * work-mutation` 的静态环；投影失败不改变动作结果，索引保持上一版，下次动作重试。
+ * work-mutation` 的静态环；投影失败不改变动作结果。写索引可能被占用或瞬时失败，
+ * 所以重试几次；仍失败时保持旧索引，由下一次动作或 `/story-index` 修复。
+ * 确认类动作另走 `refreshPanelIndex`（失败会告诉作者），不依赖这里的静默重试。
  * @param root 作品根目录
  */
 async function projectPanel(root: string): Promise<void> {
   try {
-    const { buildPanelIndex, writePanelIndex } = await import('./panel-index.js')
-    const index = await buildPanelIndex(root)
-    await writePanelIndex(root, index)
+    const { rebuildPanelIndex } = await import('./panel-index.js')
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        await rebuildPanelIndex(root)
+        return
+      } catch (error) {
+        if (attempt >= 2) throw error
+        await new Promise((resolve) => { setTimeout(resolve, 50 * (attempt + 1)) })
+      }
+    }
   } catch (error) {
     // 投影不是作品写：失败由面板的 generatedAt 与下一次动作暴露。
     void error

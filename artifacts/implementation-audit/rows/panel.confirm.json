@@ -102,6 +102,7 @@
     "2026-11-14 已改 write-command.ts 与测试；进程级回执对应当前命令行为，但真实 DSH 会话仍缺。",
     "作者附言已由 /story-write 写入 workflow-start.instruction；chapterCount 与真实会话仍为 AU-11 残余。",
     "2026-11-14 AU-11 修复：/story-write 声明 input.hint，接收作者附言并写入 workflow-start.instruction；chapterCount 与真实 DSH 会话仍开放，AU-11 维持债。",
-    "2026-11-16：面板「开始下一章」改走 executeCommand，拒绝文本从命令处理器直接显示；/story-write 的拒绝文案不再指面板「确认基础设定」（已结算时该按钮不存在）。本机不能重启宿主，真实会话回执仍缺（BLOCKED）。"
+    "2026-11-16：面板「开始下一章」改走命令回执执行器，拒绝文本直接显示；/story-write 的拒绝文案不再指面板「确认基础设定」（已结算时该按钮不存在）。",
+    "2026-11-16：真实会话 session-607ecdcb 暴露 /story-approve 成功但 panel.index.json 未重建（mtime 停在确认前），面板仍显示确认按钮；确认/退回命令改为动作内强制重建索引，失败时回执说明并指向 /story-index。真实会话证据已取得（confirm 记录、索引 mtime、会话日志 seq 200-203），面板修复后的会话回执仍待下一次实测。"
   ]
 }

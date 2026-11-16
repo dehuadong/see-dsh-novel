@@ -1,17 +1,20 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 import { readArtifacts } from '../src/core/artifacts.ts'
 import { isFoundationApproved } from '../src/core/foundation-approval.ts'
+import { buildPanelIndex, writePanelIndex } from '../src/core/panel-index.ts'
 import { approvalMarkerLine } from '../src/core/receipts.ts'
+import { PANEL_INDEX_PATH, WORK_FILE } from '../src/core/story-paths.ts'
 import { installApprovalCommands } from '../src/pipelines/long/commands.ts'
 import { evaluateSignoff, installGateTools } from '../src/pipelines/long/gate.ts'
 
 const FRAME = 'source/story/outline/story_frame.md'
 const MAP = 'source/story/outline/volume_map.md'
+const PANEL_INDEX_REL = PANEL_INDEX_PATH
 
 /** 一根只有基础设定的作品。 */
 async function work(files = { [FRAME]: '框架\n', [MAP]: '卷图\n' }) {
@@ -20,6 +23,32 @@ async function work(files = { [FRAME]: '框架\n', [MAP]: '卷图\n' }) {
     await mkdir(dirname(join(root, path)), { recursive: true })
     await writeFile(join(root, path), content, 'utf8')
   }
+  return root
+}
+
+/**
+ * 一根已立项、基础设定齐全的作品，并写好一份「等待确认」的面板索引。
+ * 用于验证确认类命令会让面板索引真的离开确认状态。
+ */
+async function identifiedWork() {
+  const root = await mkdtemp(join(tmpdir(), 'see-dsh-novel-approval-work-'))
+  await writeFile(join(root, WORK_FILE), JSON.stringify({
+    version: 1, id: 'w', title: '标题', profile: 'longform-novel', language: 'zh', status: 'draft',
+    metadata: {}, createdAt: '2026-11-16T00:00:00.000Z', updatedAt: '2026-11-16T00:00:00.000Z',
+  }))
+  for (const path of [
+    FRAME,
+    MAP,
+    'source/story/book_rules.md',
+    'source/story/book_rules.json',
+    'source/story/pending_hooks.md',
+  ]) {
+    await mkdir(dirname(join(root, path)), { recursive: true })
+    await writeFile(join(root, path), 'x\n')
+  }
+  await mkdir(join(root, 'source/story/state'), { recursive: true })
+  await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 0 }))
+  await writePanelIndex(root, await buildPanelIndex(root))
   return root
 }
 
@@ -438,6 +467,53 @@ test('/story-reject records a rejection without a marker', async () => {
   }
 })
 
+test('/story-approve rebuilds the panel index so the panel leaves the confirm state', async () => {
+  const root = await identifiedWork()
+  const { registered, agent, dispose } = host({ root })
+  try {
+    // 确认前：索引停在 foundation-signoff/pending（面板显示确认按钮）。
+    const before = JSON.parse(await readFile(join(root, PANEL_INDEX_REL), 'utf8'))
+    assert.deepEqual(before.confirmation, {
+      kind: 'foundation-signoff',
+      state: 'pending',
+      reason: '基础设定已齐，等待作者确认',
+    })
+
+    const result = await registered.get('/story-approve').handler({ agent, rawInput: '', signal: new AbortController().signal })
+    assert.equal(result.kind, 'success')
+    assert.doesNotMatch(result.text, /面板索引没能刷新/)
+
+    // 确认后：同一份索引文件已经重建，面板会离开确认状态。
+    const after = JSON.parse(await readFile(join(root, PANEL_INDEX_REL), 'utf8'))
+    assert.deepEqual(after.confirmation, { kind: 'none', state: 'done', reason: '' })
+    assert.equal(after.action.id, 'start-chapter')
+    assert.equal(after.stages.find((stage) => stage.id === 'foundation').status, 'done')
+  } finally {
+    dispose()
+    await workCleanup(root)
+  }
+})
+
+test('/story-approve still stands when the panel index cannot be written, and says so', async () => {
+  const root = await identifiedWork()
+  const { registered, agent, dispose } = host({ root })
+  try {
+    // 让索引写入必然失败：把索引路径占成目录。
+    await rm(join(root, PANEL_INDEX_REL), { force: true })
+    await mkdir(join(root, PANEL_INDEX_REL), { recursive: true })
+
+    const result = await registered.get('/story-approve').handler({ agent, rawInput: '', signal: new AbortController().signal })
+    assert.equal(result.kind, 'success')
+    assert.match(result.text, /面板索引没能刷新/)
+    assert.match(result.text, /story-index/)
+    // 确认本身仍然成立：不能因为面板刷新失败而回滚作者的确认。
+    assert.equal(isFoundationApproved(root), true)
+  } finally {
+    dispose()
+    await workCleanup(root)
+  }
+})
+
 test('a rejected record blocks an older session receipt from rebuilding approval', async () => {
   const root = await work()
   const artifacts = await readArtifacts(root)
@@ -480,6 +556,7 @@ test('the gate reports a confirmed version and the signoff tool signs it', async
       channel: 'receipt',
       digest: artifacts.digest,
       files: artifacts.files,
+      panelWarning: '',
     })
     assert.equal(isFoundationApproved(root), true)
 

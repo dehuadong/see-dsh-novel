@@ -7,6 +7,7 @@
  */
 import { readArtifacts, shortDigest } from '../../core/artifacts.js'
 import { writeFoundationApproval, rejectFoundationApproval } from '../../core/foundation-approval.js'
+import { refreshPanelIndex } from '../../core/panel-index.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import { approvalMarkerLine, latestDecision } from '../../core/receipts.js'
 import type { CommandInvocationLike, CommandResultLike, Disposer, PluginContext } from '../../core/types.js'
@@ -26,6 +27,13 @@ import {
 function noteOf(rawInput: string): string {
   const note = rawInput.trim()
   return note === '' ? '' : `\n作者备注：${note}`
+}
+
+/** 确认/退回改了面板要显示的确认状态：动作成功后自己重建索引，失败要让作者看见。 */
+async function withPanelRefresh(root: string, result: CommandResultLike): Promise<CommandResultLike> {
+  if (result.kind !== 'success') return result
+  const warning = await refreshPanelIndex(root)
+  return warning === '' ? result : { ...result, text: `${result.text ?? ''}\n${warning}` }
 }
 
 /** 注册三条命令；返回一个注销函数。 */
@@ -62,10 +70,10 @@ export function installApprovalCommands(ctx: PluginContext): Disposer {
 
   async function approve(invocation: CommandInvocationLike): Promise<CommandResultLike> {
     const root = await ctx.workingDirectory.ensure(invocation.agent)
-    return withWorkAction(root, async () => {
+    const result = await withWorkAction(root, async () => {
       const artifacts = await readArtifacts(root)
       if (artifacts.files.length === 0) {
-        return { kind: 'error', text: '还没有基础设定可以确认：source/story/ 下没有任何文件。' }
+        return { kind: 'error', text: '还没有基础设定可以确认：source/story/ 下没有任何文件。' } as const
       }
       await writeFoundationApproval(root)
       const head = `作者确认 ${FOUNDATION_STAGE}：${artifacts.files.length} 个文件，摘要 ${shortDigest(artifacts.digest)}`
@@ -73,13 +81,14 @@ export function installApprovalCommands(ctx: PluginContext): Disposer {
         kind: 'success',
         text: `${head}${noteOf(invocation.rawInput)}\n`
           + approvalMarkerLine(FOUNDATION_STAGE, artifacts.digest, artifacts.files.length, 'receipt'),
-      }
-    })
+      } as const
+    }, { project: false })
+    return withPanelRefresh(root, result)
   }
 
   async function reject(invocation: CommandInvocationLike): Promise<CommandResultLike> {
     const root = await ctx.workingDirectory.ensure(invocation.agent)
-    return withWorkAction(root, async () => {
+    const result = await withWorkAction(root, async () => {
       const artifacts = await readArtifacts(root)
       await rejectFoundationApproval(root)
       const head = artifacts.files.length === 0
@@ -88,8 +97,9 @@ export function installApprovalCommands(ctx: PluginContext): Disposer {
       return {
         kind: 'success',
         text: `${head}${noteOf(invocation.rawInput)}\n退回会作废之前的确认，改完需要重新确认。`,
-      }
-    })
+      } as const
+    }, { project: false })
+    return withPanelRefresh(root, result)
   }
 
   const reviewCommand = ctx.commands.register({

@@ -9,6 +9,7 @@
  */
 import { readArtifacts, shortDigest } from '../../core/artifacts.js'
 import { foundationApprovalDigest, isFoundationApproved, readFoundationApproval, rejectFoundationApproval, writeFoundationApproval } from '../../core/foundation-approval.js'
+import { refreshPanelIndex } from '../../core/panel-index.js'
 import { withWorkAction } from '../../core/work-mutation.js'
 import type { ArtifactSet } from '../../core/artifacts.js'
 import { approvalMarkerLine, latestDecision } from '../../core/receipts.js'
@@ -171,7 +172,7 @@ export function installGateTools(ctx: PluginContext): Disposer {
   const approvalService = (): ApprovalService | undefined => approvalServiceOf(ctx)
 
   async function signoff(args: Record<string, never>, exec: ExecuteContext): Promise<{
-    signed: boolean, channel: ApprovalChannel, digest: string, files: string[]
+    signed: boolean, channel: ApprovalChannel, digest: string, files: string[], panelWarning: string
   }> {
     const agent = exec.agent
     if (agent === undefined) throw new Error('签核需要所属 agent 会话；无归属时拒绝')
@@ -179,7 +180,7 @@ export function installGateTools(ctx: PluginContext): Disposer {
     const existing = readFoundationApproval(root)
     if (existing?.state === 'approved' && isFoundationApproved(root)) {
       const artifacts = await readArtifacts(root)
-      return { signed: true, channel: 'receipt', digest: artifacts.digest, files: artifacts.files }
+      return { signed: true, channel: 'receipt', digest: artifacts.digest, files: artifacts.files, panelWarning: '' }
     }
     if (existing?.state === 'rejected') {
       throw new Error('作者退回了这一版基础设定；改完先 /story-approve 重新确认')
@@ -196,12 +197,15 @@ export function installGateTools(ctx: PluginContext): Disposer {
       if (result.reason === 'rejected') await withWorkAction(root, async () => { await rejectFoundationApproval(root) })
       throw new Error(result.message)
     }
-    await withWorkAction(root, async () => { await writeFoundationApproval(root, digestBefore) })
+    await withWorkAction(root, async () => { await writeFoundationApproval(root, digestBefore) }, { project: false })
+    // 定稿改的是面板上的确认状态：这里自己重建索引，失败要能出现在工具回执里。
+    const panelWarning = await refreshPanelIndex(root)
     return {
       signed: true,
       channel: result.channel,
       digest: result.artifacts.digest,
       files: result.artifacts.files,
+      panelWarning,
     }
   }
 
@@ -262,17 +266,18 @@ export function installGateTools(ctx: PluginContext): Disposer {
     parameters: NO_PARAMETERS,
     output: {
       schema: SIGNOFF_OUTPUT,
-      render: (_args: unknown, value: { channel: ApprovalChannel, files: string[], digest: string }) => [{
+      render: (_args: unknown, value: { channel: ApprovalChannel, files: string[], digest: string, panelWarning?: string }) => [{
         // 标记行让「这一版已签核」成为可读回的事实；人读说明放在它前面。
         type: 'text' as const,
         text: `已定稿 ${FOUNDATION_STAGE}：${value.files.length} 个文件，摘要 ${shortDigest(value.digest)}`
           + `（${value.channel === 'receipt' ? '作者在面板确认' : '作者在确认条确认'}）`
-          + `\n${approvalMarkerLine(FOUNDATION_STAGE, value.digest, value.files.length, value.channel)}`,
+          + `\n${approvalMarkerLine(FOUNDATION_STAGE, value.digest, value.files.length, value.channel)}`
+          + (value.panelWarning === undefined || value.panelWarning === '' ? '' : `\n${value.panelWarning}`),
       }],
     },
     execute: signoff,
   } as ToolDefinition<Record<string, never>, {
-    signed: boolean, channel: ApprovalChannel, digest: string, files: string[],
+    signed: boolean, channel: ApprovalChannel, digest: string, files: string[], panelWarning: string,
   }>)
 
   return (): void => {

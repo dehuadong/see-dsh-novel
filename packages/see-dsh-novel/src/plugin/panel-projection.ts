@@ -8,7 +8,7 @@ import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-import { PANEL_INDEX_VERSION, buildPanelIndex, writePanelIndex } from '../core/panel-index.js'
+import { PANEL_INDEX_VERSION, rebuildPanelIndex } from '../core/panel-index.js'
 import { PANEL_INDEX_PATH } from '../core/story-paths.js'
 import { withWorkAction } from '../core/work-mutation.js'
 
@@ -35,8 +35,7 @@ export interface PanelHostContext {
  * @param root 作品根目录
  */
 export async function projectPanelIndex(root: string): Promise<void> {
-  const index = await buildPanelIndex(root)
-  await writePanelIndex(root, index)
+  await rebuildPanelIndex(root)
 }
 
 /** 索引缺失、读不通或格式版本过旧时都要补建。 */

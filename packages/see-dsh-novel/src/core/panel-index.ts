@@ -391,3 +391,37 @@ export async function writePanelIndex(root: string, index: PanelIndex): Promise<
   const { commitFile } = await import('./commit.js')
   await commitFile(root, PANEL_INDEX_PATH, `${JSON.stringify(index, null, 2)}\n`)
 }
+
+/**
+ * 从作品文件重建并写回索引；失败照常抛出。
+ * @param root 作品根目录
+ */
+export async function rebuildPanelIndex(root: string): Promise<PanelIndex> {
+  const index = await buildPanelIndex(root)
+  await writePanelIndex(root, index)
+  return index
+}
+
+/**
+ * 立刻重建索引，失败重试几次；最终仍失败时返回一句给作者看的说明。
+ *
+ * 确认、退回这类动作改的正是面板要显示的事实；只靠「下一次动作再投影」，
+ * 一旦写索引失败，面板会一直停在旧按钮上（2026-11-16 真实会话：
+ * `/story-approve` 成功但 `panel.index.json` 没变）。所以这些动作自己重建并报错。
+ * @param root 作品根目录
+ * @param attempts 最多尝试次数
+ * @returns 成功后为空串
+ */
+export async function refreshPanelIndex(root: string, attempts = 3): Promise<string> {
+  let reason = ''
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    try {
+      await rebuildPanelIndex(root)
+      return ''
+    } catch (error) {
+      reason = error instanceof Error ? error.message : String(error)
+      if (attempt + 1 < attempts) await new Promise((resolve) => { setTimeout(resolve, 50 * (attempt + 1)) })
+    }
+  }
+  return `面板索引没能刷新（${reason}）；重新打开作品页或运行 /story-index 可恢复显示。`
+}
