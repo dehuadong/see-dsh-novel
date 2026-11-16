@@ -5,11 +5,11 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "582 tests／581 pass／1 skipped（symlink）— panel-index 14 例（v8、基础设定写作中、待确认、首次/已结算 stale/rejected/none、草稿产物、恢复后 review 目标、展示集合与摘要分离）、panel-projection 7 例（v7→v8 重建）、workbench 14 例（确认提示只一次、已结算顶部提示、草稿行与警示）、client 36 例"
+    "summary": "585 tests／584 pass／1 skipped（symlink）— panel-index 15 例（v8、基础设定写作中、待确认、首次/已结算 stale/rejected/none、草稿产物、恢复后 review 目标、展示集合与摘要分离）、panel-projection 7 例（v7→v8 重建）、workbench 14 例（确认提示只一次、已结算顶部提示、草稿行与警示）、client 36 例"
   },
   "receipts": [
     "面板索引 v8：已结算夹具（`currentState=1`、`source/chapters` 有第 1 章）在基础设定 `stale`/`rejected`/`none` 三种状态下，proposal/foundation/plan/write/review/settle 全部 done，根动作 `start-chapter`「开始下一章」`enabled: true`；基础设定阶段 `action: null`、`secondary: []`，不再出现「确认基础设定/退回/查看待确认/稍后」五连排。`confirmation` 均为 `foundation-signoff/pending`，reason 分别是「基础设定在确认后修改过；开始下一章前请 `/story-approve` 重新确认」「作者退回了这一版基础设定；开始下一章前请 `/story-approve` 重新确认」「基础设定尚未确认；开始下一章前请 `/story-approve`」。",
-    "索引新鲜度：确认类命令（`/story-approve`、`/story-reject`）与 `story_foundation_signoff` 成功后自己重建索引；2026-11-16 真实会话里 `/story-approve` 成功但索引未重建（mtime 停在确认前），本行据此补上强制重建与失败说明。",
+    "索引新鲜度：确认类命令（`/story-approve`、`/story-reject`）与 `story_foundation_signoff` 成功后自己重建索引；2026-11-16 真实会话里 `/story-approve` 成功但索引未重建（mtime 停在确认前），该会话是现场证据而非修复验证；本行据此补上强制重建与失败说明。",
     "首次 `foundation-ready`（`currentChapter=0`）在 `stale`/`rejected` 记录下保持 foundation current、「确认基础设定」主按钮与四个次动作，根动作仍为 null；提示文案同样指 `/story-approve`。",
     "已结算且基础设定 `approved` 时 `confirmation: none/done`；`/story-approve` 后下一次投影清除提示（`an approved foundation clears the settled-chapter hint`）。",
     "结算前草稿：`write`/`review` 阶段且 `.drafts/chapter-NNNN.md` 存在时，产物列表出现 `path: '.drafts/chapter-NNNN.md'`、`class: 'draft'`、`title: '第 N 章 · 草稿'`、`stages: ['write','review']`、`readonly: true`，排在已发布章节之后、章纲之前；同一章进入 `source/chapters` 后草稿行消失，改为章节产物。详情页对草稿显示「草稿：这一章还没有结算发布」警示。",

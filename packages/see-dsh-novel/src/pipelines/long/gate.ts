@@ -180,8 +180,9 @@ export function installGateTools(ctx: PluginContext): Disposer {
     const existing = readFoundationApproval(root)
     if (existing?.state === 'approved' && isFoundationApproved(root)) {
       const artifacts = await readArtifacts(root)
-      // 记录早就是有效的（例如面板刚确认过）：这一次不写盘，但面板仍需要按当前状态显示。
-      const panelWarning = await refreshPanel(root)
+      // 记录早就是有效的（例如面板刚确认过）：这一次不写状态，但面板仍要按当前状态显示。
+      let panelWarning = ''
+      await withWorkAction(root, async () => { panelWarning = await refreshPanel(root) }, { project: false })
       return { signed: true, channel: 'receipt', digest: artifacts.digest, files: artifacts.files, panelWarning }
     }
     if (existing?.state === 'rejected') {
@@ -196,7 +197,15 @@ export function installGateTools(ctx: PluginContext): Disposer {
       ...exec.signal === undefined ? {} : { signal: exec.signal },
     })
     if (result.kind === 'denied') {
-      if (result.reason === 'rejected') await withWorkAction(root, async () => { await rejectFoundationApproval(root) })
+      if (result.reason === 'rejected') {
+        // 退回同样改了面板要显示的确认状态：同一次作品动作里写记录并重建索引。
+        let warning = ''
+        await withWorkAction(root, async () => {
+          await rejectFoundationApproval(root)
+          warning = await refreshPanel(root)
+        }, { project: false })
+        throw new Error(warning === '' ? result.message : `${result.message}\n${warning}`)
+      }
       throw new Error(result.message)
     }
     let panelWarning = ''

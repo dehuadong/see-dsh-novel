@@ -6,7 +6,7 @@ import { join } from 'node:path'
 
 import { readArtifacts } from '../src/core/artifacts.ts'
 import { rejectFoundationApproval, writeFoundationApproval } from '../src/core/foundation-approval.ts'
-import { buildPanelIndex, writePanelIndex } from '../src/core/panel-index.ts'
+import { buildPanelIndex, rebuildPanelIndexWithRetry, writePanelIndex } from '../src/core/panel-index.ts'
 import { PANEL_INDEX_PATH, WORK_FILE } from '../src/core/story-paths.ts'
 
 async function workspace(kind = 'foundation') {
@@ -384,6 +384,18 @@ test('a first foundation-ready with a stale or rejected record keeps the confirm
     } finally {
       await rm(root, { recursive: true, force: true })
     }
+  }
+})
+
+test('a panel index write that cannot succeed surfaces the error instead of retrying forever', async () => {
+  const root = await workspace()
+  try {
+    // 把索引路径占成目录：写入必然失败，重试也没有意义。
+    await rm(join(root, PANEL_INDEX_PATH), { force: true })
+    await mkdir(join(root, PANEL_INDEX_PATH), { recursive: true })
+    await assert.rejects(rebuildPanelIndexWithRetry(root, 1))
+  } finally {
+    await rm(root, { recursive: true, force: true })
   }
 })
 

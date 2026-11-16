@@ -107,6 +107,7 @@
     "面板从不重建索引（设计如此）；索引未生成时只显示兜底卡片，源面板每次请求实时读 API。",
     "对照：capabilities.yaml 标 verified；docs/fidelity-audit.md 判「机制差异已登记 + 未关闭差异 D39/AU-31」；该判定只承认真值编辑与缺失动作，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据。",
     "2026-11-16：面板索引升到 v8（结算前草稿、确认提示位置、结算与确认解耦）；本机没有交接文档里的真实工作区，也不能在会话内重启宿主，真实 DSH 会话的「第 3 章落盘后读草稿」「补卷章后第 2 章仍完成」取证未取得（BLOCKED）。",
-    "2026-11-16 索引新鲜度：真实会话 session-607ecdcb 里 /story-approve 已成功写 foundation-approval.json，但 panel.index.json 的 mtime 与 generatedAt 仍停在确认前，面板因此继续显示确认按钮；据此把确认类命令与 story_foundation_signoff 改为成功后强制重建索引（失败重试并在回执里说明）。"
+    "2026-11-16 索引新鲜度：真实会话 session-607ecdcb 里 /story-approve 已成功写 foundation-approval.json，但 panel.index.json 的 mtime 与 generatedAt 仍停在确认前，面板因此继续显示确认按钮；据此把确认类命令与 story_foundation_signoff 改为成功后强制重建索引（失败重试并在回执里说明）。",
+    "2026-11-16：D64 未偿还——确认类动作之外的写动作投影失败仍被静默吞掉，面板可能显示旧索引；真实会话修复后回执未取得。"
   ]
 }

@@ -8,7 +8,7 @@
 import { rebuildPanelIndexWithRetry } from '../../core/panel-index.js'
 
 /** 面板索引没能刷新时给作者的说明；成功后为空串。 */
-export const PANEL_REFRESH_FAILED_HINT = '重新打开作品页或运行 /story-index 可恢复显示。'
+const PANEL_REFRESH_FAILED_HINT = '重新打开作品页或运行 /story-index 可恢复显示。'
 
 /**
  * 重建面板索引；成功返回空串，失败返回一句说明。

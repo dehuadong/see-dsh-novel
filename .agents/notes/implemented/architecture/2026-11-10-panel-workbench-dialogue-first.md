@@ -34,7 +34,7 @@ Status: implemented
   1. **作品写 action 成功后**：`withWorkAction` 在最外层成功返回前**就地**构建并原子写索引（动态 import `panel-index`，避开 `work-mutation → panel-index → stages → workflow-start → work-mutation` 的静态环）。投影跟着写 action 所在的进程走，不依赖跨进程观察者。
   2. **会话发布时**：根插件监听宿主 `session/created`；当 `delegationDepth` 为 0、`header.cwd` 下 `work.json` 存在，且索引缺失/读不通/格式版本过旧时，在 `withWorkAction` 锁内补建一次（同 root 去重）。判据只看工作区文件，不看会话头的 `agentPreset`——它是创建时的组成，会话后来换过预设时可能落后于界面上生效的预设（真机里 `work-real` 会话头写着 `standard`，面板却按 `see-dsh-novel` 注册）。新建与恢复都会触发，所以旧作品首次打开也有索引。
   3. **`/story-index`**：内部/测试兜底，手工重建；作者流程不依赖它，面板不调用它。
-- **投影失败不影响动作结果**：`withWorkAction` 捕获异常（错误由面板的 `generatedAt` 与下一次动作暴露）；索引保持上一版；需要修复时走 `/story-index`。
+- **投影失败不影响动作结果**：`withWorkAction` 捕获异常（错误由面板的 `generatedAt` 与下一次动作暴露）；索引保持上一版；需要修复时走 `/story-index`。例外是确认、退回、定稿三类动作：它们在同一个作品动作的锁内重建索引，失败会写进命令回执或 `panelWarning`，但同样不回滚作品状态（见 [`2026-11-16-panel-index-refresh-after-approval.md`](../../implemented/bug-fix/2026-11-16-panel-index-refresh-after-approval.md)）。其余动作的静默失败记 D64。
 - **投影边界**：索引不是作品产物；`readArtifacts`、foundation digest、内容包、导出、备份排除 `source/story/runtime/panel.index.json`（`core/artifacts.ts:56`）。
 - **面板读取**：`useResource` 订阅 `panel.index.json` 的 stat；`version` 变化时用 `readArtifact` 重读正文。宿主的 `workspaceFiles.read` 按行分页、`offset` 从 1 开始，所以 `readArtifact` 从第 1 行开始逐页读到 `eof` 再拼接；读取/解析失败在面板显示具体原因（通道不可用、索引未生成、读取失败、JSON 解析失败），不把旧内容当新内容。
 - **状态判定**：`work.json` 的 stat 决定「有没有作品」；无作品 → 对话引导；有作品而索引缺失 → 索引未生成。阶段、产物、确认状态一律来自索引，client 不重算阶段协议。

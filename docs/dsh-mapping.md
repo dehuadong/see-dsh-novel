@@ -31,7 +31,7 @@
 | 阶段数据层级 | 源 worker 调用的 user message 承载章号／指令／governed context／上一章／长度 | 协议与契约进 `systemPrompt.context()`；worker user 消息由主代理委派提示构造 | 会话 system prompt 不能按单次 worker 调用构造；用户消息通道不满足同轮与角色语义 | 阶段文本断言；子代理会话回执待补 |
 | 阶段技能分发 | 源按角色分 required／recommended | 复刻按阶段取并集，注入同预设所有 agent | 阶段上下文只有预设／agent 过滤，没有源的角色身份 | `craftSkillsFor` 与 `story:craft` 断言；子代理会话回执待补 |
 | 面板 | 独立前端服务；文件/阶段确认/只读产物 | `client` 插件 + slots；`panel.workbench`（P6）是唯一作品页，承载阶段栏、产物列表、详情与动作条；确认语义仍归 `panel.confirm` | 从会话进入，与对话、轨迹并列；UI 用 React；DSH resource 只能按路径订阅，阶段与产物清单由宿主投影的 `panel.index.json` 提供；面板只读、不触发投影 | 索引驱动渲染；动作经宿主命令/提示；`workbench`/`client`/`panel-projection` 测试 |
-| 面板投影的写入归属 | 源 Studio 由宿主进程直接提供状态，界面不读派生文件 | 投影由宿主在作品动作内重建：确认、退回、定稿三类动作在同一动作里重建 `panel.index.json` 并报告失败（说明不回滚确认）；其余动作在动作成功后尽力重建，失败保持旧索引 | 复刻的界面读派生文件，状态与投影可能分叉；确认类动作是作者唯一会盯着看结果的地方，必须同一次动作落定并把失败说出来；其余动作按 D64 偿还 | `approval`／`panel-index`／`panel-projection` 测试；真实会话 `session-607ecdcb` 复现了确认后索引未变的旧行为 |
+| 面板投影的写入归属 | 源 Studio 由宿主进程直接提供状态，界面不读派生文件 | 投影由宿主在作品动作内重建：确认、退回、定稿三类动作（含签核的「记录已有效」早退分支与退回分支）在同一作品动作的锁内重建 `panel.index.json` 并报告失败（说明不回滚确认）；其余动作在动作成功后尽力重建，失败保持旧索引 | 复刻的界面读派生文件，状态与投影可能分叉；确认类动作是作者唯一会盯着看结果的地方，必须同一次动作落定并把失败说出来；其余动作按 D64 偿还 | `approval`／`panel-index`／`panel-projection` 测试；真实会话 `session-607ecdcb` 复现了确认后索引未变的旧行为 |
 
 ## 作者裁决偏差
 

@@ -113,10 +113,10 @@
     "packages/see-dsh-novel/test/approval.test.mjs:485 the gate reports a rejection instead of hiding it",
     "packages/see-dsh-novel/test/approval.test.mjs:510 the gate tools refuse an execution without an owning agent",
     "packages/see-dsh-novel/test/panel-index.test.mjs:241 已结算 + stale/rejected/none 三态保持六阶段 done、根 start-chapter、顶部提示",
-    "本次审计运行 pnpm run verify：582 tests／581 pass／1 skipped（symlink），其中 approval.test.mjs 28 例、foundation-approval.test.mjs 3 例、panel-index.test.mjs 14 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
+    "本次审计运行 pnpm run verify：585 tests／584 pass／1 skipped（symlink），其中 approval.test.mjs 30 例、foundation-approval.test.mjs 3 例、panel-index.test.mjs 15 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
   ],
   "realRunLevel": "P",
-  "realRunBasis": "artifacts/real-runs/foundation.approval.json：2026-11-04 的 session-974fa00e 覆盖签核两条通道与退回作废；2026-11-15 新增作品级确认记录与 /story-write 门禁，2026-11-16 real-run 更新为 process:foundation.approval（process-level，582 tests／581 pass／1 skip），覆盖 foundationApprovalState 四态与面板已结算失效不回退；本机不能重启宿主，真实 DSH 会话仍未取得（BLOCKED）。",
+  "realRunBasis": "artifacts/real-runs/foundation.approval.json：2026-11-04 的 session-974fa00e 覆盖签核两条通道与退回作废；2026-11-15 新增作品级确认记录与 /story-write 门禁，2026-11-16 real-run 更新为 process:foundation.approval（process-level，585 tests／584 pass／1 skip），覆盖 foundationApprovalState 四态与面板已结算失效不回退；本机不能重启宿主，真实 DSH 会话仍未取得（BLOCKED）。",
   "deviations": [
     "源没有 foundation 定稿闸门：作者确认只针对 workflow start（propose_action 的 15 个 action 与 confirmed-production 的 button/slash 判定），确认后 host 执行 action；复刻新增 story_gate/story_foundation_signoff 与 /story-approve、/story-reject 的『基础设定这一版定稿』确认面（gate.ts:168-262、commands.ts:61-101），并把 receipt 写进会话日志供后续读取。源无对应行为，也没有作者对基础设定产物的确认步骤。",
     "确认对象不同：源确认 PendingProposedAction（action/targetSessionKind/instruction/title/summary/actionPayload，session.ts:13-22），确认时重新校验并执行；复刻确认 source/story/ 工件的 stage/files/digest（readArtifacts + receipt），签核只返回 signed，不执行任何 workflow。",
@@ -136,6 +136,6 @@
     "docs/dsh-mapping.md『作者确认：原生确认条与面板命令双通道』只登记 receipt 双通道，未登记『新增 foundation 定稿闸门』；按 AGENTS.md 偏差只有 DSH 机制强制或源不可观测两种合法来源，本行的新增闸门两者都不满足。",
     "2026-11-15：作品级 foundation-approval.json、/story-write 任意章开写校验、面板已确认/已结算失效三态是 process-level 测试；没有新的 DSH 会话回执，真实拒绝/通过/第 2 章取证留 batch。",
     "2026-11-16：面板已结算后确认失效改为「阶段保持 done + 顶部提示」，不再回到 foundation 确认；新增只读 foundationApprovalState。回执仍是 process-level（本机没有运行时工作区、不能重启宿主），真实会话未取得（BLOCKED）。",
-    "2026-11-16：真实会话 session-607ecdcb 取得确认类证据（/story-approve 写入 approved 记录、story_gate 读到「已被作者确认」），同时暴露写记录后未重建面板索引；确认/退回/签核三条路径已改为动作内强制重建索引。"
+    "2026-11-16：真实会话 session-607ecdcb 是缺陷现场证据（确认记录写入成功、面板索引未重建），不是修复后的验证；确认/退回/定稿在作品动作内重建索引的行为由 approval.test.mjs 覆盖，真实会话回执仍缺（BLOCKED）。"
   ]
 }

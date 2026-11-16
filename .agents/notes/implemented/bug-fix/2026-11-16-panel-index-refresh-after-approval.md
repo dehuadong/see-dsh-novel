@@ -14,7 +14,8 @@ Status: implemented
 
 - **三类确认动作在作品动作的锁内重建索引。** `/story-approve`、`/story-reject`、`story_foundation_signoff` 写状态后，在同一次 `withWorkAction`（`project: false`，避免重复投影）里调用 `refreshPanel`。重建落在锁内，避免释放锁后被并发动作覆盖。
 - **「记录已有效」的早退分支同样重建。** 真实会话走的正是这条：名字已经在 `/story-approve` 写过，签核只做确认。该分支此前返回 `panelWarning: ''` 却不重建，等于对旧索引报「已定稿」；现在它也重建并如实回报。
-- **失败只告警，不回滚确认。** `refreshPanel` 返回空串表示已刷新，否则返回「面板索引没能刷新（原因）；重新打开作品页或运行 `/story-index` 可恢复显示」。命令回执附这一行；签核工具经输出字段 `panelWarning` 带到渲染文本里。确认记录不回滚——面板是显示面，不能因为刷新失败而否认作者已做出的确认。
+- **失败只告警，不回滚确认。** `refreshPanel` 返回空串表示已刷新，否则返回「面板索引没能刷新（原始错误）；重新打开作品页或运行 `/story-index` 可恢复显示」——原始错误会带出系统错误码与路径，便于排障。命令回执附这一行；签核工具经输出字段 `panelWarning` 带到渲染文本里。确认记录不回滚——面板是显示面，不能因为刷新失败而否认作者已做出的确认。
+- **签核的两条非写入分支也重建。** 「记录已有效」的早退分支和「原生确认条被拒」的退回分支都在同一个作品动作里重建索引；退回分支的失败说明附在抛出的错误里。
 - **重试只针对瞬时错误。** `core/panel-index.ts` 的 `rebuildPanelIndexWithRetry` 只对 `EBUSY`／`EPERM`／`EAGAIN`／`EMFILE`／`ENFILE` 重试（最多 3 次），路径类型错误直接失败，不做无意义重试。
 - **通用投影保持原语义。** `core/work-mutation.ts` 的 `projectPanel` 仍是动作成功后一次尝试、失败静默：多数动作不需要为面板显示失败，静默失败的可观测性缺口记为 D64。需要「失败也要让作者看见」的动作自己调 `pipelines/long/panel-refresh.ts`。
 
@@ -43,6 +44,7 @@ Status: implemented
 
 ## Testing
 
-- `test/approval.test.mjs`：`/story-approve` 前索引为 `foundation-signoff/pending`，成功后同一文件变为 `none/done`、根动作 `start-chapter`；`/story-reject` 后索引变为退回态（foundation `current`、`confirm-foundation` 动作、文案含「作者退回了这一版基础设定」）；`story_foundation_signoff` 在「记录已有效」的早退分支也把 pending 索引重建为 `none/done`；把索引路径占成目录（写必失败）时，确认命令与签核工具都成功、回执含「面板索引没能刷新」与 `/story-index`，确认记录仍然有效，签核的说明出现在渲染文本里。
-- `test/panel-index.test.mjs`、`test/panel-projection.test.mjs`：`rebuildPanelIndex`／预热路径行为不变。
+- `test/approval.test.mjs`：`/story-approve` 前索引为 `foundation-signoff/pending`，成功后同一文件变为 `none/done`、根动作 `start-chapter`；`/story-reject` 后索引变为退回态（foundation `current`、`confirm-foundation` 动作、文案含「作者退回了这一版基础设定」、根动作 `null`）；`story_foundation_signoff` 在「记录已有效」的早退分支也把 pending 索引重建为 `none/done`；把索引路径占成目录（写必失败）时，确认命令、退回命令与签核（早退分支与写入分支）都成功/照常返回，回执含「面板索引没能刷新」与 `/story-index`，确认记录仍然有效，签核的说明出现在渲染文本里。
+- `test/panel-index.test.mjs`：`rebuildPanelIndexWithRetry(root, 1)` 在写入必失败时抛出，钉住「失败会浮出来」。
+- 未覆盖：瞬时错误的重试本身没有可注入的失败点，测试只钉住「最终失败会浮出来」，重试次数与退避未由用例证明。
 - `pnpm run verify`：见 `artifacts/real-runs/panel.confirm.json` 的当前计数。

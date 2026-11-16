@@ -83,7 +83,7 @@
     "packages/see-dsh-novel/test/client.test.mjs 开始下一章经 executeCommand、拒绝文本可见（不落到通用提交失败）与『稍后』不写",
     "packages/see-dsh-novel/test/workflow-start.test.mjs 生命周期与读取",
     "packages/see-dsh-novel/test/workbench.test.mjs:77 动作条只带当前动作",
-    "artifacts/real-runs/panel.confirm.json 记录 2026-11-16 的 pnpm run verify（582 tests／581 pass／1 skip）"
+    "artifacts/real-runs/panel.confirm.json 记录 2026-11-16 的 pnpm run verify（585 tests／584 pass／1 skip）"
   ],
   "realRunLevel": "P",
   "realRunBasis": "artifacts/real-runs/panel.confirm.json：date=2026-11-16，sessionId=process:panel.confirm（process:* 前缀，不是 DSH 会话 id），tests.command=pnpm run verify、passed=true；receipts 是进程级命令/面板测试的断言（/story-write 写 start、重复与未到 foundation-ready 拒绝、BOOK_BUSY 不写、followup source、基础设定未确认/退回/失效拒绝文本只指 /story-approve、面板开始下一章通过命令回执执行器显示拒绝文本、面板稍后不写）。本机没有交接文档里的运行时工作区，也不能在会话内重启宿主：没有该行的非 process 会话回执（BLOCKED）。",
@@ -104,6 +104,6 @@
     "作者附言已由 /story-write 写入 workflow-start.instruction；chapterCount 与真实会话仍为 AU-11 残余。",
     "2026-11-14 AU-11 修复：/story-write 声明 input.hint，接收作者附言并写入 workflow-start.instruction；chapterCount 与真实 DSH 会话仍开放，AU-11 维持债。",
     "2026-11-16：面板「开始下一章」改走命令回执执行器，拒绝文本直接显示；/story-write 的拒绝文案不再指面板「确认基础设定」（已结算时该按钮不存在）。",
-    "2026-11-16：真实会话 session-607ecdcb 暴露 /story-approve 成功但 panel.index.json 未重建（mtime 停在确认前），面板仍显示确认按钮；确认/退回命令改为动作内强制重建索引，失败时回执说明并指向 /story-index。真实会话证据已取得（confirm 记录、索引 mtime、会话日志 seq 200-203），面板修复后的会话回执仍待下一次实测。"
+    "2026-11-16：真实会话 session-607ecdcb 是缺陷现场证据（/story-approve 成功、索引 mtime 停在确认前、会话日志 seq 200-203），不是修复后的验证；确认/退回命令已改为动作内强制重建索引，失败时回执说明并指向 /story-index。修复后的真实会话回执仍缺（BLOCKED）。"
   ]
 }

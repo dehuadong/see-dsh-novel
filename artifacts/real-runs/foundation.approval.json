@@ -5,7 +5,7 @@
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "582 tests／581 pass／1 skipped（symlink）— foundation-approval 3 例（基础设定摘要、pending_hooks 不参与、改分卷地图失效、approve/reject/四种状态、readArtifacts 排除）、approval 28 例（含 /story-approve 写记录、/story-reject 写退回记录、signoff 写记录）、write-command 7 例（无确认拒绝且文案只指 /story-approve、确认后通过、改基础设定失效、重新确认、第 2 章通过）、panel-index 14 例（待确认/已确认/已结算后 stale/rejected/none）、stage-context foundation-ready 分支"
+    "summary": "585 tests／584 pass／1 skipped（symlink）— foundation-approval 3 例（基础设定摘要、pending_hooks 不参与、改分卷地图失效、approve/reject/四种状态、readArtifacts 排除）、approval 30 例（含 /story-approve 写记录、/story-reject 写退回记录、signoff 写记录）、write-command 7 例（无确认拒绝且文案只指 /story-approve、确认后通过、改基础设定失效、重新确认、第 2 章通过）、panel-index 15 例（待确认/已确认/已结算后 stale/rejected/none）、stage-context foundation-ready 分支"
   },
   "receipts": [
     "作品级记录 source/story/runtime/foundation-approval.json：/story-approve 与 story_foundation_signoff 成功后写 approved，/story-reject 与原生退回写 rejected 墓碑；旧会话回执不能重建确认；记录跨会话有效。",

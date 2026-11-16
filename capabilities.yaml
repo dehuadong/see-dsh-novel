@@ -140,8 +140,8 @@ capabilities:
     title: 作者确认闸门与回执
     source: inkos:packages/core/src/agent/agent-tools.ts + inkos:packages/core/src/interaction/action-envelope.ts + inkos:packages/studio/src/shared/confirmed-production.ts + inkos:packages/core/src/agent/agent-session.ts + inkos:packages/studio/src/api/server.ts
     dsh: client + tools.register + commands + approval
-    implementation: packages/see-dsh-novel/src/core/foundation-approval.ts
-    consumer: packages/see-dsh-novel/test/foundation-approval.test.mjs
+    implementation: packages/see-dsh-novel/src/pipelines/long
+    consumer: packages/see-dsh-novel/test/approval.test.mjs
     realRun: artifacts/real-runs/foundation.approval.json
     status: verified
   - id: cast.single-authority
