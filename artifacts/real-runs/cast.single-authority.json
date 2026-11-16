@@ -1,17 +1,16 @@
 {
   "capability": "cast.single-authority",
   "date": "2026-11-16",
-  "sessionId": "process:cast.single-authority-four-dirs",
+  "sessionId": "process:cast.single-authority-context-format",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "594 tests／593 pass／1 skipped（symlink）— cast 新增 7 例：四目录各一张全读、只在英文别名目录的卡进上下文、同名双卡读入两次（同档位与跨档位）、英文目录空卡带真实路径报问题、跨档位同名不再丢弃；原有空卡、读失败与渲染断言保持"
+    "summary": "601 tests／600 pass／1 skipped（symlink）— cast 26 例：两组形态整段比对、只主角色一组时不含次要标题、无卡有问题只输出问题段、有卡有问题问题段前恰一空行、trim 边界、四目录读取与同名双卡保持"
   },
   "receipts": [
-    "2026-11-16 读取面：readCast 改为按 ROLE_DIRS_BY_TIER 读四个目录（主要角色+major、次要角色+minor），中文目录在前；目录不存在按空处理，读失败与空卡仍记 problems，措辞带真实目录名（例如 roles/major/空卡.md 是空卡）。",
-    "2026-11-16 删除自造丢弃：原 readCast 在「同名跨档位」时丢掉两张卡并报错，源没有这个行为。现在同名双卡都读入、都进上下文；renderCastContext 出现两个同名 [role:…] 块，与源 readRoleCards 不去重的行为一致。",
-    "2026-11-16 真实工作区 E:\\novelist\\test-novel\\t001 的形态（roles/主要角色/苏晚星.md 与 roles/major/苏晚星.md）由测试夹具覆盖：两张都读入、problems 为空；面板与就绪判定本就按四目录工作，三面集合一致。",
-    "未取得真实 DSH 会话回执（本环境不能重启宿主）；本条为 process-level + 夹具证据，真实会话部分记 BLOCKED。",
-    "2026-11-16 作者决定暂不重跑真实会话（需从头走一遍流程）；本节观察项保持 BLOCKED，待下次真实运行时补。"
+    "2026-11-16 人物档案上下文改为两段式：主要角色与次要角色各一段，每卡 `### <名>` + 空行 + `content.trim()`，卡与组之间空行，整段末尾不带换行；外层标题、`[roles:index]`、`[role:…]` 与收尾句都已删除。",
+    "2026-11-16 卡内容由「只去尾部换行」改为 `trim()`：行尾空格与前导空行不再进入上下文。真实工作区 E:\\novelist\\test-novel\\t001 的 12 张卡按此形态渲染，渲染顺序按名字码位升序（登记的不可观测偏差）。",
+    "2026-11-16 保留 `[cast-problem]`：无卡且有问题时整段只有问题段（无前导空行、末尾不带换行）；有卡且有问题时问题段在卡块后、前恰一个空行。这是不抛错策略的出口，空卡/读失败该抛错还是报问题仍归 AU-15 剩余第 1 条。",
+    "真实 DSH 会话回执未取得（作者 2026-11-16 决定暂不重跑，宿主未重启载入新 lib）：本条为 process-level + 夹具证据，真实会话部分记 BLOCKED。"
   ]
 }

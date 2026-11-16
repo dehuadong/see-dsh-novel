@@ -73,20 +73,45 @@ test('readCast reports a missing roles directory as just an empty cast', async (
   }
 })
 
-test('renderCastContext writes the index, one block per card, and the closing rule', async () => {
+test('renderCastContext writes two tier sections with ### cards and trimmed content', async () => {
   const root = await work({
-    [`${MAJOR}/沈砚.md`]: '# 沈砚\n\n**身份**：收骨吏。  \n\n',
+    [`${MAJOR}/沈砚.md`]: '\n\n# 沈砚\n\n**身份**：收骨吏。  \n\n',
     [`${MINOR}/韩九.md`]: '# 韩九\n\n**身份**：掮客。\n',
   })
   try {
     const text = renderCastContext(readCast(root))
-    assert.match(text, /^## 人物档案（唯一来源：source\/story\/roles\/）/)
-    assert.match(text, /\[roles:index\]\n主要角色：沈砚\n次要角色：韩九/)
-    // 卡内容逐字进入：行尾空格保留，只去掉卡末尾的换行。
-    assert.ok(text.includes('[role:沈砚]\n# 沈砚\n\n**身份**：收骨吏。  \n\n[role:韩九]'))
-    assert.match(text, /\[role:韩九\]\n# 韩九/)
-    assert.match(text, /以上人物档案是唯一来源/)
-    assert.doesNotMatch(text, /\[cast-problem\]/)
+    // 形态贴源：分组标题中英并列、每卡 ### 名、卡内容 trim、组间空行、末尾无换行。
+    assert.equal(
+      text,
+      [
+        '## 主要角色 / Major characters',
+        '',
+        '### 沈砚',
+        '',
+        '# 沈砚',
+        '',
+        '**身份**：收骨吏。',
+        '',
+        '## 次要角色 / Minor characters',
+        '',
+        '### 韩九',
+        '',
+        '# 韩九',
+        '',
+        '**身份**：掮客。',
+      ].join('\n'),
+    )
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a cast with only major characters omits the minor section', async () => {
+  const root = await work({ [`${MAJOR}/沈砚.md`]: '# 沈砚\n' })
+  try {
+    const text = renderCastContext(readCast(root))
+    assert.equal(text, '## 主要角色 / Major characters\n\n### 沈砚\n\n# 沈砚')
+    assert.doesNotMatch(text, /次要角色/)
   } finally {
     await cleanup(root)
   }
@@ -115,7 +140,7 @@ test('the same name in two tiers is read twice instead of being dropped', async 
     assert.deepEqual(cast.problems, [])
 
     const text = renderCastContext(cast)
-    assert.equal(text.match(/\[role:沈砚\]/g)?.length, 2)
+    assert.equal(text.match(/### 沈砚/g)?.length, 2)
     assert.doesNotMatch(text, /\[cast-problem\]/)
   } finally {
     await cleanup(root)
@@ -137,7 +162,7 @@ test('a card that only exists in the English alias directory is read too', async
     // 实际路径要带上真实目录名，作者才知道该改哪个文件。
     assert.match(cast.major.find((card) => card.name === '裴照').path, /roles\/major\/裴照\.md$/)
     assert.match(cast.minor[0].path, /roles\/minor\/韩九\.md$/)
-    assert.match(renderCastContext(cast), /\[role:裴照\]/)
+    assert.match(renderCastContext(cast), /### 裴照/)
   } finally {
     await cleanup(root)
   }
@@ -155,7 +180,7 @@ test('all four role directories are read', async () => {
     assert.deepEqual(cast.major.map((card) => card.name), ['乙', '甲'].sort())
     assert.deepEqual(cast.minor.map((card) => card.name), ['丁', '丙'].sort())
     assert.equal(cast.major.length + cast.minor.length, 4)
-    assert.equal(renderCastContext(cast).match(/\[role:/g)?.length, 4)
+    assert.equal(renderCastContext(cast).match(/^### /gm)?.length, 4)
   } finally {
     await cleanup(root)
   }
@@ -186,7 +211,7 @@ test('the same name in a canonical and an alias directory is read twice', async 
     const cast = readCast(root)
     assert.deepEqual(cast.major.map((card) => card.name), ['苏晚星', '苏晚星'])
     assert.equal(cast.problems.length, 0)
-    assert.equal(renderCastContext(cast).match(/\[role:苏晚星\]/g)?.length, 2)
+    assert.equal(renderCastContext(cast).match(/### 苏晚星/g)?.length, 2)
   } finally {
     await cleanup(root)
   }
@@ -206,13 +231,44 @@ test('an empty card is reported instead of being injected', async () => {
   }
 })
 
+test('a problem block follows the card blocks after exactly one blank line', async () => {
+  const root = await work({
+    [`${MAJOR}/沈砚.md`]: '# 沈砚\n\n**身份**：收骨吏。\n',
+    [`${MAJOR}/空卡.md`]: '  \n\n',
+  })
+  try {
+    const text = renderCastContext(readCast(root))
+    // 卡块在前；问题段与卡块之间恰一个空行；整段文本可逐一比对。
+    assert.equal(
+      text,
+      [
+        '## 主要角色 / Major characters',
+        '',
+        '### 沈砚',
+        '',
+        '# 沈砚',
+        '',
+        '**身份**：收骨吏。',
+        '',
+        '[cast-problem]',
+        `source/story/roles/主要角色/空卡.md 是空卡：补上内容或删掉它。`,
+      ].join('\n'),
+    )
+  } finally {
+    await cleanup(root)
+  }
+})
+
 test('a work whose only card is empty still reports the problem block', async () => {
   const root = await work({ [`${MAJOR}/沈砚.md`]: '  \n\n' })
   try {
     const text = renderCastContext(readCast(root))
-    assert.match(text, /^## 人物档案/)
-    assert.doesNotMatch(text, /\[roles:index\]/)
-    assert.match(text, /\[cast-problem\]\n.*是空卡/)
+    // 没有卡就只输出问题段：无前导空行、无分组标题、末尾不带换行。
+    assert.equal(
+      text,
+      `[cast-problem]\nsource/story/roles/主要角色/沈砚.md 是空卡：补上内容或删掉它。`,
+    )
+    assert.doesNotMatch(text, /^## /m)
   } finally {
     await cleanup(root)
   }
@@ -253,7 +309,7 @@ test('the context contribution carries the agreed placement flags', async () => 
     const session = { snapshotEvents: () => [] }
     assert.equal(contribution.text({}), '')
     assert.equal(contribution.text({ agent: { session, ctx: {} } }), '')
-    assert.match(contribution.text({ agent: { session, ctx: ours } }), /\[role:沈砚\]/)
+    assert.match(contribution.text({ agent: { session, ctx: ours } }), /### 沈砚/)
   } finally {
     await cleanup(root)
   }

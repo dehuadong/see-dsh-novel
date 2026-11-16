@@ -42,6 +42,12 @@
 - 原因：作者 2026-11-16 裁决——写小说的会话不应翻宿主安装目录（真实会话里去读 `app.asar` 查工具实现）。DSH 侧没有读路径限制：`fs-sandbox` 的注释写明 "Reads pass through untouched"，写检查只在 mutation 上；`tools.guard()`／`tools/pre-execute` 虽能拿到工具名与参数、理论上可拦内置检索，但由作品插件改写宿主工具分派属于新的产品限制，需要单独裁决与路径判定（符号链接、盘符大小写、UNC），不在本批做。
 - 验证：`stage-context` 测试断言中英通用段含该约束；真实会话观察（foundation 阶段不再出现工作区外读取）记 BLOCKED。
 
+### 人物档案顺序（2026-11-16，源行为不可观测）
+
+- 源工程做法：`readRoleCards` 对四个角色目录并发 `collectRoleDir`（`Promise.all`），目录内按 `readdir` 原样顺序过滤 `.md`，既不排序也不去重；`readCharacterContext` 按收集结果分组渲染，因此渲染顺序取决于并发完成顺序与文件系统返回顺序。
+- 复刻做法：`readCast` 读同样的四个目录，但按名字的 Unicode 码位升序排序后渲染；同名双卡各渲染一段（不去重）。
+- 原因：源顺序不可观测，无法作为可比对的规格；排序是确定性选择，便于上下文可复现与测试稳定。
+- 验证：`test/cast.test.mjs` 的名字排序断言与「同档位/跨档位同名各渲染一段」用例；回执见 `artifacts/real-runs/cast.single-authority.json`。若日后确认源有确定顺序，改判并更新本行。
 ### 阶段数据的提示层级（2026-11-15，AU-18）
 
 - 源工程做法：worker 调用由 host 构造 system prompt（角色与方法）与 user message（章号、用户指令、governed context、上一章、字数遥测）；数据只进入这次 worker 调用的 user message。

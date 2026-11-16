@@ -40,8 +40,8 @@
     },
     {
       "file": "packages/see-dsh-novel/src/pipelines/long/cast.ts",
-      "line": "124-140",
-      "behavior": "renderCastContext：标题『## 人物档案（唯一来源：source/story/roles/）』＋『[roles:index]』名册（主要角色：…、次要角色：…）＋每卡『[role:<name>]』逐字内容（仅去掉末尾换行）＋『[cast-problem]』问题块＋结尾规则行『以上人物档案是唯一来源：已有角色不得改设定，新人物先建档再写。』；没有卡也没有问题时返回空串。"
+      "line": "102-123",
+      "behavior": "renderCastContext：每个非空档位一段『## 主要角色 / Major characters』『## 次要角色 / Minor characters』，每卡『### <名>』+ 空行 + content.trim()，卡与组之间空行，整段末尾不带换行；问题存在时追加『[cast-problem]』段（无卡时只有该段）；没有卡也没有问题时返回空串。"
     },
     {
       "file": "packages/see-dsh-novel/src/pipelines/long/cast.ts",
@@ -78,7 +78,8 @@
     "packages/see-dsh-novel/test/cast.test.mjs:300 an empty card body is refused before anything is written",
     "packages/see-dsh-novel/test/foundation.test.mjs:190 cast index rebuilds the card schema and cards land in tier directories",
     "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 cast.test.mjs 16 例；没有英文档位目录、源渲染格式或空卡抛错的用例",
-    "2026-11-16：test/cast.test.mjs 新增 7 例覆盖四目录读取、英文目录空卡带真实路径、同名双卡（同档位/跨档位）都读入；pnpm run verify 594 tests／593 pass／1 skipped"
+    "2026-11-16：test/cast.test.mjs 新增 7 例覆盖四目录读取、英文目录空卡带真实路径、同名双卡（同档位/跨档位）都读入；pnpm run verify 594 tests／593 pass／1 skipped",
+    "2026-11-16 形态贴源：test/cast.test.mjs 26 例，四种形态整段比对 + trim 边界；pnpm run verify 601 tests／600 pass／1 skipped"
   ],
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/cast.single-authority.json：date=2026-11-04，sessionId=session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*），tests.passed=true（pnpm run verify，76 passed）。receipts：seq 332 runtime-context 快照（source=runtime-context，5419 字符）包含『## 人物档案（唯一来源：source/story/roles/）』与 [roles:index]（主要角色 崔无咎/沈砚/苏芜/裴照；次要角色 小满/韩九），同一快照含 6 个 [role:*] 块与『以上人物档案是唯一来源』规则行；写入侧 cast_index 拒绝空名/重复名/安全化同名，cast_documents 拒绝空卡并删除换档旧卡。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-demo--/session-974fa00e-.../session.v4.jsonl.zstd 存在（286136 字节，2026-11-05 写入）。",
@@ -90,7 +91,8 @@
     "语言：复刻 renderCastContext 恒为中文标题与中文规则行（cast.ts:128-139），没有按作品 language 切换；源 readCharacterContext 为中英双语标题，composer 的候选片段由计划语言决定。",
     "注入范围：源角色卡经 composer 的 per-chapter 语义选择进入 ContextPackage（composer.ts:780-826）；复刻额外把整份 cast 常驻注入 systemPrompt.context（cast.ts:150-163），同一份卡既整体注入又作为 plan.context-select 的候选，模型窗口内容与源不同。",
     "读取失败语义：源读目录非 ENOENT 错误直接抛出；复刻把读目录/读文件失败降级成 problem 文本并把其余卡继续注入（cast.ts:41-57）。",
-    "复刻缺少源 readCharacterContext 的『没有卡就抛错』行为（cast.ts:126 返回空串）；该差异被客户端预设守卫掩盖，但函数级行为不同。"
+    "复刻缺少源 readCharacterContext 的『没有卡就抛错』行为（cast.ts:126 返回空串）；该差异被客户端预设守卫掩盖，但函数级行为不同。",
+    "2026-11-16 人物档案顺序：源并发收集、渲染顺序不可观测；复刻按名字码位升序（登记于 docs/dsh-mapping.md 映射表与 dsh-deviations.md）。"
   ],
   "limitations": [
     "capabilities.yaml 的 source 指向 inkos:packages/core/src/references/reference-context.ts；该文件实际是书籍参考资料（materials）的分节选择（reference/<materialId>#<anchor>），与人物档案无关。真正的源证据在 utils/outline-paths.ts 与 agents/composer.ts。fidelity-audit.md:212 同样把本行源证据写成 reference-context.ts，需要修正。",
@@ -100,6 +102,7 @@
     "写入侧换档删卡（tools.ts:93-125）在 init 模式也删，与 foundation.architect 的偏离同源；本行注意点只在读侧。",
     "本次审计没有运行 DSH 宿主；cast 的 preset 守卫与 systemPrompt.context 装配由 cast.test.mjs 的 stub 覆盖。",
     "2026-11-16 本项只补读取面：readCast 读四目录、删除自造同名丢弃；roleCandidates 仍两目录，上下文格式与空卡/读失败源行为对照留在 AU-15 剩余子项。",
-    "2026-11-16 真实 DSH 会话回执未取得（环境不能重启宿主），process-level + 夹具证据；同名双卡重复占预算属源行为，合并需另立工作项。"
+    "2026-11-16 真实 DSH 会话回执未取得（环境不能重启宿主），process-level + 夹具证据；同名双卡重复占预算属源行为，合并需另立工作项。",
+    "2026-11-16 已贴源：上下文形态改为两段式、去掉自造标记与收尾句、卡内容 trim；仍未还的两项是空卡/读失败该抛错还是报问题（[cast-problem] 暂留）与真实回执。"
   ]
 }

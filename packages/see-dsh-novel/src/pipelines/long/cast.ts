@@ -1,7 +1,7 @@
 /**
  * 人物档案：唯一权威的读取与上下文渲染。
  *
- * 名字是身份，档位是属性。读取认四个角色目录（中文规范名 + 英文别名），与源工程一致：
+ * 名字是身份，档位是属性。读取认四个角色目录（中文规范名 + 英文别名）：
  * 同一名字在两处各有一张卡时两张都读入，不替作者挑选；空卡与读失败记成问题。
  *
  * 读取用同步文件 API：`systemPrompt.context` 的文本提供函数是同步的，而且每次
@@ -65,11 +65,6 @@ function readTier(root: string, tier: RoleTier, problems: string[]): RoleCard[] 
   return cards
 }
 
-/** 只去掉卡末尾的换行；最后一行行尾空格保留——卡内容是逐字进入上下文的。 */
-function withoutTrailingNewlines(content: string): string {
-  return content.replace(/[\r\n]+$/u, '')
-}
-
 /** 按 Unicode 码位比较名字，避免代理对在 UTF-16 顺序里排错。 */
 function compareCodePoints(left: string, right: string): number {
   const a = Array.from(left)
@@ -88,8 +83,8 @@ const byName = (left: RoleCard, right: RoleCard): number => compareCodePoints(le
 /**
  * 读取作品的人物档案。
  *
- * 四个角色目录都读（规范名 + 英文别名），同名双卡都返回——源工程不去重，
- * 复刻也不替作者挑一张；需要合并时由作者改文件。
+ * 四个角色目录都读（规范名 + 英文别名），同名双卡都返回、不去重；
+ * 需要合并时由作者改文件。
  * @param root 作品根目录
  */
 export function readCast(root: string): Cast {
@@ -99,29 +94,32 @@ export function readCast(root: string): Cast {
   return { major: major.sort(byName), minor: minor.sort(byName), problems }
 }
 
+/** 两个分组的标题：中英并列，与作品语言无关。 */
+const TIER_HEADINGS: Readonly<Record<RoleTier, string>> = {
+  major: '主要角色 / Major characters',
+  minor: '次要角色 / Minor characters',
+}
+
 /**
  * 把人物档案渲染成一段 runtime context。
  *
- * 形态固定：`[roles:index]` 名册、每卡一个 `[role:<name>]` 块、必要时一条
- * `[cast-problem]`。没有任何卡也没有问题时返回空串，不贡献空块。
+ * 形态固定：每个非空档位一段 `## <标题>`，每卡 `### <名>` + 空行 + 卡内容（trim 后）；
+ * 档位之间空行。问题段是不抛错策略的出口，追加在卡块之后（`[cast-problem]`）。
+ * 没有卡也没有问题时返回空串，不贡献空块。
  * @param cast 已读取的人物档案
  */
 export function renderCastContext(cast: Cast): string {
-  const cards = [...cast.major, ...cast.minor]
-  if (cards.length === 0 && cast.problems.length === 0) return ''
+  const renderTier = (cards: ReadonlyArray<RoleCard>, heading: string): string =>
+    cards.length === 0
+      ? ''
+      : `## ${heading}\n\n${cards.map((card) => `### ${card.name}\n\n${card.content.trim()}`).join('\n\n')}`
 
-  const parts: string[] = ['## 人物档案（唯一来源：source/story/roles/）']
-  if (cards.length > 0) {
-    parts.push('', '[roles:index]')
-    if (cast.major.length > 0) parts.push(`主要角色：${cast.major.map((card) => card.name).join('、')}`)
-    if (cast.minor.length > 0) parts.push(`次要角色：${cast.minor.map((card) => card.name).join('、')}`)
-  }
-  for (const card of cards) {
-    parts.push('', `[role:${card.name}]`, withoutTrailingNewlines(card.content))
-  }
-  if (cast.problems.length > 0) parts.push('', '[cast-problem]', ...cast.problems)
-  parts.push('', '以上人物档案是唯一来源：已有角色不得改设定，新人物先建档再写。')
-  return parts.join('\n')
+  const blocks = [
+    renderTier(cast.major, TIER_HEADINGS.major),
+    renderTier(cast.minor, TIER_HEADINGS.minor),
+  ].filter((block) => block !== '')
+  if (cast.problems.length > 0) blocks.push(`[cast-problem]\n${cast.problems.join('\n')}`)
+  return blocks.join('\n\n')
 }
 
 /**
