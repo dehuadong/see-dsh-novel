@@ -1,13 +1,14 @@
 {
   "capability": "runtime.stage-context",
-  "date": "2026-11-15",
+  "date": "2026-11-16",
   "sessionId": "session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "551 tests／550 pass／1 skipped（symlink）；stage-context 14 例、planner-contract 5 例、writer-contract 6 例；另有一次 see-dsh-novel 真实会话（本回执的 sessionId）"
+    "summary": "590 tests／589 pass／1 skipped（symlink）；stage-context 15 例（新增中英协议含 role_1_content、一次提交全部、150–250／80–120）、planner-contract 5 例、writer-contract 6 例；2026-11-15 的 see-dsh-novel 真实会话仍作为阶段注入的历史回执保留"
   },
   "receipts": [
+    "2026-11-16 foundation 协议第 4 步（中英）追加「一次提交全部角色、字段 role_1_content 起」并保留字数规格；文本断言见 test/stage-context.test.mjs。",
     "真实会话 `session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e`（cwd `D:\\workspace\\see-dsh-novel-runtime`，预设 `see-dsh-novel`，作品《夜行测试》，语言 zh，目标 1 章／1200 字）走完提案→基础设定→规划→正文→审稿→修订→复审→结算发布；会话日志的 `agent-preset/selected` 为 `see-dsh-novel`。",
     "seq 12（基础设定）：runtime context 含 `## 当前阶段：基础设定` 与 `# 创作方法（longform-writing）`，参考含 foundation-design／reader-contract-and-progression／scene-dialogue-and-length-budget／state-projection。",
     "seq 65/97（等待开工）：`## 当前阶段：等待开工` + `longform-writing`；seq 375 结算后再次回到等待开工，并注入 `## 重新结算（重算）`。",

@@ -97,11 +97,11 @@ export function castDocumentsParameters(roles: ReadonlyArray<IndexedRole>): Json
   const cardFields: Record<string, JsonSchema> = {}
   for (const [index, role] of roles.entries()) {
     cardFields[`role_${index + 1}_content`] =
-      STRING(`${role.name} 的角色卡：当下动机、已知信息、关系压力与能力边界`)
+      STRING(`${role.name} 的角色卡：当下动机、已知信息、关系压力与能力边界；缺这张卡或内容为空时，整次调用失败`)
   }
   return OBJECT({
     ...cardFields,
-    mode: { type: 'string', enum: ['init', 'revise'], description: 'revise 会删除本次未重写的角色卡' },
+    mode: { type: 'string', enum: ['init', 'revise'], description: 'revise 会删除不在本次提交里的旧角色卡' },
   }, roles.map((_, index) => `role_${index + 1}_content`))
 }
 

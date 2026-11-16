@@ -13,6 +13,7 @@
 - 2026-11-15 作者裁决：首版结算增加显式确认 marker（见 dsh-mapping「作者裁决偏差」），不改变本行机制等价判定。
 - 2026-11-15 AU-18 关闭：`runtime.stage-context` 由保真债改为机制等价（真实会话 `session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e` 覆盖阶段注入、方法、配置与结算；英文协议由文本断言与结构对照覆盖）。
 - 2026-11-15 面板：`panel.workbench` 增加结算前只读草稿、结算事实与基础设定确认解耦（已结算不再回退）、确认提示只在顶部一次；`panel.confirm` 的 `/story-write` 拒绝文案只指 `/story-approve`，面板在动作条直接显示该拒绝文本（不落到通用「提交失败」）；`foundation.approval` 的确认失效只拦下一章。三行判定与债号不变（`panel.workbench` 保真债 AU-31、`panel.confirm` 机制等价 AU-11、`foundation.approval` 保真债 AU-14）；草稿阅读面按作者裁决记入 `docs/dsh-mapping.md`「作者裁决偏差」。
+- 2026-11-16 角色卡契约：`foundation.architect` 的 cast-documents 工具描述与缺卡错误按源 `submit_foundation_cast_documents` 语义改写（一次提交全部、字段 `role_1_content` 起），`runtime.stage-context` 的 foundation 第 4 步同步；只改文案与错误收集，不改参数形状与 `revise` 删除集合。AU-12 其余子项不关闭，`runtime.stage-context` 判定不变（机制等价）。
 - 2026-11-16 索引新鲜度：`/story-approve`、`/story-reject` 与 `story_foundation_signoff`（含「记录已有效」早退分支）在作品动作的锁内重建 `panel.index.json`，索引写失败时命令仍成功、回执附说明并指 `/story-index`，确认不回滚；机制偏差见 `docs/dsh-mapping.md`「面板投影的写入归属」与 `dsh-deviations.md`。其余写动作的投影失败仍无声，记 D64（`docs/scope.md`）。真实会话 `session-607ecdcb` 是本缺陷的现场证据（确认记录 09:27:34、索引 mtime 停在 09:18:47、面板仍显示确认按钮），不是修复后的验证。三行判定不变；`panel.workbench` 的债号增 D64（通用投影失败仍无声）。
 - 审计只读，不改 `capabilities.yaml` 状态；本节的 45 行判定表取代下方同名 `###` 段的旧判定；冲突以本表为准，旧段待按 AU 债修复。
 

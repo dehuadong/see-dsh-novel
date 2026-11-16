@@ -244,7 +244,7 @@ function renderStageBaseZh(facts: StageFacts): string {
         '1. `story_foundation_outline`：提交 storyFrame 与 volumeMap。',
         '2. `story_foundation_details`：入参带上第 1 步的 storyFrame／volumeMap，提交 bookRules、bookRulesData 与 pendingHooks。',
         '3. `story_foundation_cast_index`：入参带上 storyFrame／volumeMap／bookRules，只提交姓名与主次级别。',
-        '4. `story_foundation_cast_documents`：为第 3 步的每个人提交一张卡（当下动机、已知信息、关系压力、能力边界，中文约 150–250 字／英文 80–120 词）。',
+        '4. `story_foundation_cast_documents`：为第 3 步的每个人提交一张卡（当下动机、已知信息、关系压力、能力边界，中文约 150–250 字／英文 80–120 词）；字段 `role_1_content` 起、顺序与第 3 步一致，一次提交全部角色，缺一张整次失败。',
         '基础设定写全后只是 `foundation-ready`；不要自动规划或写正文。',
         common,
       ].join('\n')
@@ -369,7 +369,7 @@ function renderStageBaseEn(facts: StageFacts): string {
         '1. `story_foundation_outline`: submit storyFrame and volumeMap.',
         '2. `story_foundation_details`: pass the storyFrame/volumeMap from step 1 and submit bookRules, bookRulesData and pendingHooks.',
         '3. `story_foundation_cast_index`: pass storyFrame/volumeMap/bookRules and submit only names and major/minor tiers.',
-        '4. `story_foundation_cast_documents`: submit one card per person from step 3 (current motive, known information, relationship pressure, capability boundaries; about 150–250 Chinese characters / 80–120 English words).',
+        '4. `story_foundation_cast_documents`: submit one card per person from step 3 (current motive, known information, relationship pressure, capability boundaries; about 150–250 Chinese characters / 80–120 English words); one field per person, `role_1_content` onwards, in step-3 order; submit every role in one call — a missing card fails the whole call.',
         'A completed foundation is only `foundation-ready`; do not plan or write prose automatically.',
         common,
       ].join('\n')

@@ -106,7 +106,8 @@
     "packages/see-dsh-novel/test/planner-contract.test.mjs:23-51 planner 契约方法、memo 骨架、上一章、hook id 与英文",
     "packages/see-dsh-novel/test/writer-contract.test.mjs:45-88 writer 六段、缺省省略与英文",
     "packages/see-dsh-novel/test/review-contract.test.mjs:33-83 审稿要求、双来源、缺章纲降级",
-    "本次审计运行 node --import tsx --test stage-context/planner-contract/writer-contract/review-contract 全过（测试通过不等价）"
+    "本次审计运行 node --import tsx --test stage-context/planner-contract/writer-contract/review-contract 全过（测试通过不等价）",
+    "本次实现改动：foundation 第 4 步中英断言 role_1_content、一次提交全部／submit every role in one call、150–250／80–120；pnpm run verify 590 tests／589 pass／1 skipped"
   ],
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/runtime.stage-context.json：date=2026-11-15，sessionId=session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e（非 process:*，see-dsh-novel 预设，cwd D:\\\\workspace\\\\see-dsh-novel-runtime）。会话从提案/基础设定走到结算发布：seq 12 基础设定、65/97 等待开工、121 章前规划、146/159 正文写作、241/265 章后审阅、176/287 本章完成、375 结算后等待开工；各阶段 runtime context 含阶段协议与 craft，chapter-done 含 longform-writing/story-review，settlement 的提案/state-check/提交均成功。",
@@ -127,6 +128,8 @@
     "阶段协议里的工具顺序、停点与各步判据是复刻自创的流程文本，其逐步正确性由 plan.chapter/write/review/settle 等行裁决；本行只审计注入机制、方法与语言。",
     "源角色 prompt 是「角色调用点的 system prompt + 独立 user message」；复刻把契约放进 system context、把数据放进工具回执，提示层级差异见 deviations 第 6 项，本行不能证明两种放置对模型行为等价。",
     "对照：capabilities.yaml:219-226 标 verified；docs/fidelity-audit.md:298-306 判「等价 — 阶段注入机制差异已登记」；本审计确认机制差异已登记，但因 plan/chapter-done 方法缺失、英文协议缺失与 planner hook id 集合不同，判 保真差异。",
-    "2026-11-15 修复后的真实会话为 zh 作品；英文协议与英文 craft 标题由重写后的文本断言与中英结构对照覆盖，没有英文真实会话回执（按验收 7 的裁决记为 limitation）。"
+    "2026-11-15 修复后的真实会话为 zh 作品；英文协议与英文 craft 标题由重写后的文本断言与中英结构对照覆盖，没有英文真实会话回执（按验收 7 的裁决记为 limitation）。",
+    "2026-11-16 协议文本补充：只追加字段与「一次提交全部」，保留原句与字数规格；common 段未动（工作区读取边界项另行处理）。",
+    "2026-11-16 real-run 重录为 process-level（session 部分沿用 2026-11-15 的真实会话），新增文本证据不依赖真实会话。"
   ]
 }

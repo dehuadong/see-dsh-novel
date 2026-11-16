@@ -144,17 +144,25 @@ export function installFoundationTools(ctx: PluginContext): Disposer {
     cardsDisposer = ctx.tools.register({
       name: 'story_foundation_cast_documents',
       description:
-        'Write one character card per indexed role under source/story/roles/. In revise mode, cards not resubmitted are deleted.',
+        'Submit every indexed role in one call as text in its named field: role_1_content … role_N_content, in the order story_foundation_cast_index returned them. Every indexed role must be submitted. With mode=revise, cards in 主要角色/次要角色 that are not part of this submission are deleted; moving a role to another tier deletes its old card in either mode.',
       parameters: castDocumentsParameters(roles),
       output: { schema: COMMIT_OUTPUT, render: renderCommit },
       async execute(args: CastDocumentsArgs, exec: ExecuteContext): Promise<CommitResult> {
         const root = await workRoot(exec)
         return withWorkAction(root, async () => {
-          const writes = indexedRoles.map((role, index) => {
-            const content = String(args[`role_${index + 1}_content`] ?? '').trim()
-            if (content === '') throw new Error(`角色卡内容不能为空：${role.name}`)
-            return { relativePath: roleCardPath(role.tier, role.name), content: `${content}\n` }
+          const submitted = indexedRoles.map((role, index) => {
+            const field = `role_${index + 1}_content` as const
+            return { role, field, content: String(args[field] ?? '').trim() }
           })
+          const missing = submitted.filter(({ content }) => content === '')
+          if (missing.length > 0) {
+            const listed = missing.map(({ role, field }) => `${field}（${role.name}）`).join('、')
+            throw new Error(`缺少 ${missing.length} 张角色卡：${listed}；请一次提交全部已索引角色`)
+          }
+          const writes = submitted.map(({ role, content }) => ({
+            relativePath: roleCardPath(role.tier, role.name),
+            content: `${content}\n`,
+          }))
           const written = writes.map((write) => write.relativePath)
           // revise 删掉本次没重写的卡；换档写入再删掉另一档位里的同名旧卡。两者可能重叠，去重。
           const deleted = args.mode === 'revise' ? await staleRoleCards(root, written) : []

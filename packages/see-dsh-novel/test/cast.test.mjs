@@ -297,15 +297,89 @@ test('init still keeps unrelated cards that are not re-submitted', async () => {
   }
 })
 
-test('an empty card body is refused before anything is written', async () => {
+test('a missing or blank card is refused before anything is written', async () => {
   const { root, tools, dispose, exec } = await harness()
   try {
     await tools.get('story_foundation_cast_index').execute({ roles: [{ tier: 'major', name: '甲' }] }, exec)
     await assert.rejects(
       tools.get('story_foundation_cast_documents').execute({ role_1_content: '   ', mode: 'init' }, exec),
-      /角色卡内容不能为空：甲/,
+      /缺少 1 张角色卡：role_1_content（甲）；请一次提交全部已索引角色/,
     )
     await assert.rejects(read(root, `${MAJOR}/甲.md`))
+  } finally {
+    dispose()
+    await cleanup(root)
+  }
+})
+
+test('the missing-card error lists every missing card, not just the first', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await tools.get('story_foundation_cast_index').execute({
+      roles: [{ tier: 'major', name: '甲' }, { tier: 'major', name: '乙' }, { tier: 'minor', name: '丙' }],
+    }, exec)
+    // 只提交第一张：错误必须一次点出后两张，模型才知道要补哪些字段。
+    await assert.rejects(
+      tools.get('story_foundation_cast_documents').execute({ role_1_content: '卡甲', mode: 'init' }, exec),
+      /缺少 2 张角色卡：role_2_content（乙）、role_3_content（丙）；请一次提交全部已索引角色/,
+    )
+    await assert.rejects(read(root, `${MAJOR}/甲.md`))
+  } finally {
+    dispose()
+    await cleanup(root)
+  }
+})
+
+test('submitting none of several indexed roles lists them all', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await tools.get('story_foundation_cast_index').execute({
+      roles: [{ tier: 'major', name: '甲' }, { tier: 'major', name: '乙' }, { tier: 'minor', name: '丙' }],
+    }, exec)
+    await assert.rejects(
+      tools.get('story_foundation_cast_documents').execute({ mode: 'init' }, exec),
+      /缺少 3 张角色卡：role_1_content（甲）、role_2_content（乙）、role_3_content（丙）；请一次提交全部已索引角色/,
+    )
+  } finally {
+    dispose()
+    await cleanup(root)
+  }
+})
+
+test('a partial revise submission is rejected instead of deleting the unsubmitted cards', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await tools.get('story_foundation_cast_index').execute({
+      roles: [{ tier: 'major', name: '甲' }, { tier: 'major', name: '乙' }],
+    }, exec)
+    await tools.get('story_foundation_cast_documents').execute({
+      role_1_content: '卡甲', role_2_content: '卡乙', mode: 'init',
+    }, exec)
+    // 「一次提交全部」是契约：修订也只提交一张时拒绝，且不删掉没提交的那张旧卡。
+    await assert.rejects(
+      tools.get('story_foundation_cast_documents').execute({ role_1_content: '改过的甲', mode: 'revise' }, exec),
+      /缺少 1 张角色卡：role_2_content（乙）/,
+    )
+    assert.equal(await read(root, `${MAJOR}/甲.md`), '卡甲\n')
+    assert.equal(await read(root, `${MAJOR}/乙.md`), '卡乙\n')
+  } finally {
+    dispose()
+    await cleanup(root)
+  }
+})
+
+test('the tool and field descriptions state the submission contract', async () => {
+  const { root, tools, dispose, exec } = await harness()
+  try {
+    await tools.get('story_foundation_cast_index').execute({ roles: [{ tier: 'major', name: '甲' }] }, exec)
+    const definition = tools.get('story_foundation_cast_documents')
+    assert.match(definition.description, /role_1_content/)
+    assert.match(definition.description, /Every indexed role must be submitted/)
+    assert.match(definition.description, /mode=revise/)
+    const field = definition.parameters.properties.role_1_content
+    assert.equal(field.type, 'string')
+    assert.match(field.description, /甲/)
+    assert.match(field.description, /缺这张卡或内容为空时，整次调用失败/)
   } finally {
     dispose()
     await cleanup(root)

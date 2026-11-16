@@ -317,6 +317,29 @@ test('another preset gets no stage text', async () => {
   }
 })
 
+test('the cast-documents step states the field contract in both languages', async () => {
+  const root = await workspace('foundation')
+  try {
+    const zh = renderStageProtocol(detectStage(root))
+    // 字段名、一次提交全部、原句的字数规格三样都要在：缺哪样模型都会重新猜参数或丢掉卡片长度要求。
+    assert.match(zh, /role_1_content/)
+    assert.match(zh, /一次提交全部角色/)
+    assert.match(zh, /150–250/)
+    assert.match(zh, /80–120/)
+
+    const workJson = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+    workJson.language = 'en'
+    await writeFile(join(root, 'work.json'), JSON.stringify(workJson))
+    const en = renderStageProtocol(detectStage(root))
+    assert.match(en, /role_1_content/)
+    assert.match(en, /submit every role in one call/)
+    assert.match(en, /150–250/)
+    assert.match(en, /80–120/)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
 test('an English work gets the English protocol, craft and contract', async () => {
   const root = await workspace('foundation')
   try {
