@@ -12,4 +12,4 @@
 # 位置由插件配置决定，项目侧改不了，这里只负责不入库
 /.artifacts/
 .agents/state/*
- 
+/.scratch/
