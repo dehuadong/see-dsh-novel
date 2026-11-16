@@ -195,7 +195,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
 
   /**
    * 提交一条命令；成功后读回宿主已重建的索引。
-   * @param runner 命令执行器；默认走 admission 语义，导出传能拿回处理器回执的 `executeCommand`
+   * @param runner 命令执行器；默认走 admission 语义，需要处理器文本时传带回执的执行器
    */
   async function command(
     label: string,
@@ -290,6 +290,11 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     }
   }
 
+  /** 取回命令处理器回执的执行器；动作条要显示拒绝或成功原文。 */
+  function runWithReceipt(line: string): Promise<CommandReceipt> {
+    return executeCommand(sessionId, line)
+  }
+
   /** 阶段动作的总入口；面板只派发，不写文件。 */
   async function handleAction(action: PanelAction): Promise<void> {
     if (busy || sessionRunning) return
@@ -299,7 +304,11 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
     if (action.id === 'reject-foundation') { await command('退回', '/story-reject'); return }
     if (action.id === 'review-foundation') { await command('查看待确认', '/story-review'); return }
     if (action.id === 'delete-chapter') { await command('删除本章', '/story-delete'); return }
-    if (action.id === 'start-chapter') { await command('开始下一章', '/story-write'); return }
+    // 开始下一章可能被命令层拒绝（基础设定确认失效）：走能拿回处理器文本的执行器，把原因显示出来。
+    if (action.id === 'start-chapter') {
+      await command('开始下一章', '/story-write', false, runWithReceipt)
+      return
+    }
     if (action.id === 'settle-chapter') { await command('结算本章', '/story-settle'); return }
     if (action.id === 'plan-chapter' || action.id === 'write-chapter' || action.id === 'review-chapter' || action.id === 'revise-chapter') {
       await advanceStage(action)
@@ -324,7 +333,7 @@ export function StoryView(props: ConvViewProps & InjectFace<ViewInjected>): Reac
         onOpenArtifact={(artifact) => { void openArtifact(artifact) }}
         onCloseArtifact={() => setSelectedArtifact(null)}
         onAction={(action) => { void handleAction(action) }}
-        onExport={(format) => { void command('导出', `/story-export ${format}`, false, (line) => executeCommand(sessionId, line)) }}
+        onExport={(format) => { void command('导出', `/story-export ${format}`, false, runWithReceipt) }}
       />
     )
   }

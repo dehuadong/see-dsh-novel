@@ -329,8 +329,8 @@
 ### foundation.approval：作品级开章确认
 
 - 源工程做法：写章前只检查基础设定完整；作者确认一次 `write_next` 后整章 pipeline 继续，没有作品级基础设定确认记录。
-- 复刻做法：`source/story/runtime/foundation-approval.json` 记录大纲/分卷/规则/角色卡摘要；`/story-approve` 与 `story_foundation_signoff` 写入，`/story-reject` 与原生退回清除；`/story-write` 每次开章前校验，含第 2 卷。
-- 原因：作者 2026-11-15 决定「全书计划确认后才能写章」，属于产品裁决，不是 DSH 机制强制。
+- 复刻做法：`source/story/runtime/foundation-approval.json` 记录大纲/分卷/规则/角色卡摘要；`/story-approve` 与 `story_foundation_signoff` 写入，`/story-reject` 与原生退回清除；`/story-write` 每次开章前校验，含第 2 卷。确认失效只拦下一章：面板阶段轨保持六阶段 done，只在顶部提示重新确认，不改根动作、不置灰。
+- 原因：作者 2026-11-15 决定「全书计划确认后才能写章」，属于产品裁决，不是 DSH 机制强制；结算事实与确认状态是两件事，已结算章节不因基础设定再次修改而回退。
 - 验证：`foundation-approval.test.mjs`、`approval.test.mjs`、`write-command.test.mjs`、`panel-index.test.mjs`；真实会话取证待 batch。
 
 ### chapter.write：正文不进入主会话
@@ -339,6 +339,13 @@
 - 复刻做法：writer 子代理调 `story_write_chapter` 落盘，只回四行摘要；writer 子会话落盘后不再注入审稿阶段；主会话不显示整章正文。
 - 原因：作者 2026-11-15 决定主会话只给摘要与路径，避免整章正文占据对话。
 - 验证：`stage-context.test.mjs`（write 协议四行摘要、writer stop、主编反例）；真实会话取证待 batch。
+
+### panel.workbench：结算前的草稿阅读面
+
+- 源工程做法：写作中在聊天流式显示 `draft:delta`（`studio/src/api/server.ts:5104,5276` 广播，`store/chat/parts-builder.ts:202-214` 追加），作者边写边读；作品页的 `ChapterWorkspacePanel` 只列 brief/plan/versions，不列首版草稿。
+- 复刻做法：正文落盘后在 `write`/`review` 阶段的面板产物里出现只读「第 N 章 · 草稿」（`class: 'draft'`，标题与警示都标「草稿」，同一章已发布时不出草稿行）；结算删除草稿后改显示已发布章节；主会话只给四行摘要。读取走既有 `readArtifact`，`.drafts` 不进签核摘要与备份。
+- 原因：作者 2026-11-15 决定「正文移出主会话」并同时要求「结算前必须能读到正文」；正文移出主会话后，聊天不再是阅读面，面板必须承接。这是产品裁决，不是保真债。
+- 验证：`panel-index.test.mjs` 的草稿产物与「发布后不再出现」用例；`workbench.test.mjs` 的草稿行与只读警示；真实会话取证（第 3 章落盘后在正文/审阅读草稿）待 batch。
 
 ### chapter.settle：首版结算的显式确认
 

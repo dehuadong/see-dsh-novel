@@ -46,10 +46,10 @@ export async function startChapter(root: string, instruction?: string): Promise<
     if (!isFoundationApproved(root)) {
       const previous = readFoundationApproval(root)
       throw new Error(previous === null
-        ? '基础设定还没有作者确认；先 `/story-approve`（或面板「确认基础设定」）再开章'
+        ? '基础设定还没有作者确认；先 `/story-approve` 再开章'
         : previous.state === 'rejected'
-          ? '作者退回了这一版基础设定；先 `/story-approve`（或面板「确认基础设定」）重新确认'
-          : '基础设定在确认后改过，确认已失效；先 `/story-approve`（或面板「确认基础设定」）重新确认')
+          ? '作者退回了这一版基础设定；先 `/story-approve` 重新确认'
+          : '基础设定在确认后改过，确认已失效；先 `/story-approve` 重新确认')
     }
     let current = 0
     try {

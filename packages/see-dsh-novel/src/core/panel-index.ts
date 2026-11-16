@@ -9,9 +9,13 @@ import { readFile, readdir, stat } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 
 import { readArtifacts } from './artifacts.js'
+import { DRAFT_DIR, draftChapterOf, draftPath } from './chapter-draft.js'
+import { foundationApprovalState } from './foundation-approval.js'
+import type { FoundationApprovalState } from './foundation-approval.js'
 import { isFirstVersionSettle } from './settle-approval.js'
 import { readChapterIndex } from './chapter-index.js'
 import { detectStage } from '../pipelines/long/stages/index.js'
+import type { Stage } from '../pipelines/long/stages/index.js'
 import {
   AUTHOR_INTENT_FILE,
   CURRENT_FOCUS_FILE,
@@ -74,6 +78,8 @@ const DISPLAY_STAGES: Readonly<Record<PanelArtifact['class'], PanelStage['id'][]
   truth: ['foundation'],
   // source/chapters 只存已发布章；发布后由 buildPanelArtifacts 追加 settle。
   chapter: ['write', 'review'],
+  // 结算前的正文只存在于 .drafts；发布后草稿删除，改由 chapter 行显示。
+  draft: ['write', 'review'],
   plan: ['plan'],
   review: ['review'],
   diagnostic: ['plan', 'write', 'review'],
@@ -128,18 +134,49 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-function chapterTitle(name: string): string | undefined {
+/** `NNNN_标题.md` 的章号与标题；不是章节文件名时返回 undefined。 */
+function chapterParts(name: string): { chapter: number, title: string } | undefined {
   const match = /^(\d{4})_(.+)\.md$/.exec(name)
   if (match === null) return undefined
-  return `第 ${Number(match[1])} 章 · ${(match[2] ?? '').replaceAll('_', ' ')}`
+  return { chapter: Number(match[1]), title: (match[2] ?? '').replaceAll('_', ' ') }
+}
+
+function chapterTitle(name: string): string | undefined {
+  const parts = chapterParts(name)
+  return parts === undefined ? undefined : `第 ${parts.chapter} 章 · ${parts.title}`
 }
 
 /**
- * 面板展示集合：真值文件白名单 + 角色卡 + 章节正文 + 章纲/审稿/运行时诊断。
+ * 结算前的草稿行：只有 write/review 阶段给出，且该章尚未出现在 source/chapters。
+ * 同一章不同时给出两份正文。
+ * @param root 作品根目录
+ * @param stage 当前阶段
+ */
+async function draftFiles(root: string, stage: Stage): Promise<DisplayFile[]> {
+  if (stage !== 'write' && stage !== 'review') return []
+  const published = new Set<number>()
+  for (const name of await listDir(join(root, 'source/chapters'))) {
+    const parts = chapterParts(name)
+    if (parts !== undefined) published.add(parts.chapter)
+  }
+  const files: DisplayFile[] = []
+  for (const name of await listDir(join(root, DRAFT_DIR))) {
+    const chapter = draftChapterOf(name)
+    if (chapter === undefined) continue
+    if (published.has(chapter)) continue
+    // 草稿排在已发布章节之后、章纲之前；标题必须能看出它不是成稿。
+    files.push({ path: draftPath(chapter), title: `第 ${chapter} 章 · 草稿`, order: 210, class: 'draft' })
+  }
+  return files
+}
+
+/**
+ * 面板展示集合：真值文件白名单 + 角色卡 + 章节正文 + 结算前草稿 + 章纲/审稿/运行时诊断。
  * 状态 JSON、`memory.db`、流程记账与索引本身都不在集合里。
  * @param root 作品根目录
+ * @param stage 当前阶段
  */
-async function displayFiles(root: string): Promise<DisplayFile[]> {
+async function displayFiles(root: string, stage: Stage): Promise<DisplayFile[]> {
   const files: DisplayFile[] = []
   for (const [path, order, title] of TRUTH_FILES) {
     if (await exists(join(root, path))) {
@@ -158,6 +195,7 @@ async function displayFiles(root: string): Promise<DisplayFile[]> {
     if (title === undefined) continue
     files.push({ path: `source/chapters/${name}`, title, order: 200, class: 'chapter' })
   }
+  files.push(...await draftFiles(root, stage))
   for (const name of await listDir(join(root, `${STORY_ROOT}/runtime`))) {
     const match = /^chapter-(\d{4})\.(plan|review|intent|context|trace)\.(json|md)$/.exec(name)
     if (match === null) continue
@@ -181,10 +219,11 @@ async function displayFiles(root: string): Promise<DisplayFile[]> {
 /**
  * 构建面板展示集合的元数据行。
  * @param root 作品根目录
+ * @param stage 当前阶段
  */
-async function buildPanelArtifacts(root: string): Promise<PanelArtifact[]> {
+async function buildPanelArtifacts(root: string, stage: Stage): Promise<PanelArtifact[]> {
   const rows: PanelArtifact[] = []
-  for (const file of await displayFiles(root)) {
+  for (const file of await displayFiles(root, stage)) {
     const absolute = join(root, file.path)
     const info = await stat(absolute)
     const content = await readFile(absolute)
@@ -207,7 +246,7 @@ async function buildPanelArtifacts(root: string): Promise<PanelArtifact[]> {
 }
 
 /** 索引格式版本；加字段时同步 `panel-types.ts`。 */
-export const PANEL_INDEX_VERSION = 7
+export const PANEL_INDEX_VERSION = 8
 
 interface StageFlags {
   foundationAwaitingSignoff: boolean
@@ -253,15 +292,18 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
   const currentChapter = work === null ? 0 : await readCurrentChapter(root)
   const latestChapter = work === null ? 0 : await readLatestChapter(root)
   const foundationWriting = stage === 'foundation'
-  const foundationApproved = facts?.foundationApproved === true
-  const foundationReadyApproved = stage === 'foundation-ready' && currentChapter === 0 && foundationApproved
-  const foundationAwaitingSignoff = stage === 'foundation-ready' && !foundationApproved
-  const settledTarget = stage === 'foundation-ready' && currentChapter >= 1
-  const chapterSettled = settledTarget && foundationApproved
+  const foundationState: FoundationApprovalState = stage === 'foundation-ready'
+    ? foundationApprovalState(root)
+    : 'none'
+  // 结算事实只看「章节已结算」，与基础设定确认是否还有效无关。
+  const chapterSettled = stage === 'foundation-ready' && currentChapter >= 1
+  const foundationReadyApproved = stage === 'foundation-ready' && currentChapter === 0 && foundationState === 'approved'
+  const foundationAwaitingSignoff = stage === 'foundation-ready' && currentChapter === 0 && foundationState !== 'approved'
+  const chapterInProgress = ['plan', 'write', 'review', 'chapter-done'].includes(stage)
   const flags: StageFlags = { foundationAwaitingSignoff }
   // 摘要仍是 source/story 全量（签核语义），面板只显示白名单里的展示集合。
   const digest = await readArtifacts(root)
-  const rows = await buildPanelArtifacts(root)
+  const rows = await buildPanelArtifacts(root, stage)
 
   const stages: PanelStage[] = STAGES.map(({ id, label }) => {
     if (id === 'settle') {
@@ -277,25 +319,37 @@ export async function buildPanelIndex(root: string): Promise<PanelIndex> {
     }
     let status: PanelStage['status'] = 'locked'
     if (id === 'proposal') status = work === null ? 'current' : 'done'
-    else if (id === 'foundation') status = foundationWriting || foundationAwaitingSignoff ? 'current' : foundationReadyApproved || chapterSettled || ['plan', 'write', 'review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
-    else if (id === 'plan') status = stage === 'plan' ? 'current' : chapterSettled || ['write', 'review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
+    // 已结算或本章已在流程里时基础设定不会再退回 current；失效只在顶部提示。
+    else if (id === 'foundation') status = foundationWriting || foundationAwaitingSignoff ? 'current' : chapterSettled || foundationReadyApproved || chapterInProgress ? 'done' : 'locked'
+    else if (id === 'plan') status = stage === 'plan' ? 'current' : chapterSettled || chapterInProgress ? 'done' : 'locked'
     else if (id === 'write') status = stage === 'write' ? 'current' : chapterSettled || ['review', 'chapter-done'].includes(stage) ? 'done' : 'locked'
     else if (id === 'review') status = stage === 'review' ? 'current' : chapterSettled || stage === 'chapter-done' ? 'done' : 'locked'
     const summary = status === 'done' ? '已完成' : status === 'current' ? '当前阶段' : '等待前一阶段'
     return { id, label, status, summary, action: stageAction(id, status, flags), secondary: stageSecondary(id, status, flags) }
   })
 
+  // 确认提示只有一条：阶段轨不再因为基础设定失效回退，提示放在面板顶部一次。
+  const noHint: PanelIndex['confirmation'] = { kind: 'none', state: 'done', reason: '' }
+  const signoffHint = (reason: string): PanelIndex['confirmation'] => ({ kind: 'foundation-signoff', state: 'pending', reason })
   const confirmation: PanelIndex['confirmation'] = work === null
     ? { kind: 'proposal', state: 'pending', reason: '还没有作品' }
-    : chapterSettled || foundationReadyApproved
-      ? { kind: 'none', state: 'done', reason: '' }
-      : foundationAwaitingSignoff
-        ? { kind: 'foundation-signoff', state: 'pending', reason: '基础设定已齐，等待作者确认' }
-        : stage === 'chapter-done'
-          ? { kind: 'chapter', state: 'done', reason: '本章审稿已落盘' }
-          : ['plan', 'write', 'review'].includes(stage)
-            ? { kind: 'workflow-start', state: 'started', reason: '本章 workflow 已开始' }
-            : { kind: 'none', state: 'pending', reason: '' }
+    : foundationState === 'rejected'
+      ? signoffHint('作者退回了这一版基础设定；开始下一章前请 `/story-approve` 重新确认')
+      : foundationState === 'stale'
+        ? signoffHint('基础设定在确认后修改过；开始下一章前请 `/story-approve` 重新确认')
+        : chapterSettled
+          ? foundationState === 'approved'
+            ? noHint
+            : signoffHint('基础设定尚未确认；开始下一章前请 `/story-approve`')
+          : foundationReadyApproved
+            ? noHint
+            : foundationAwaitingSignoff
+              ? signoffHint('基础设定已齐，等待作者确认')
+              : stage === 'chapter-done'
+                ? { kind: 'chapter', state: 'done', reason: '本章审稿已落盘' }
+                : ['plan', 'write', 'review'].includes(stage)
+                  ? { kind: 'workflow-start', state: 'started', reason: '本章 workflow 已开始' }
+                  : { kind: 'none', state: 'pending', reason: '' }
 
   // 一章审完后没有「当前阶段」；已确认或已结算后只有开始下一章，修订动作不挂根。
   const action: PanelAction | null = chapterSettled || foundationReadyApproved

@@ -2,7 +2,7 @@
 
 Status: implemented
 
-> 2026-11-15 修订：新增作品级 `source/story/runtime/foundation-approval.json`，`/story-approve`、`story_foundation_signoff` 成功后写入，`/story-reject` 与原生退回清除；`/story-write` 每次开章前按基础设定摘要校验。它取代本 Note 的「回执只在会话里」与「不把确认写进作品目录」两处；签核两条通道与回执格式不变。见 [`2026-11-15-mandatory-foundation-signoff.md`](../../proposed/feature/2026-11-15-mandatory-foundation-signoff.md)。
+> 2026-11-15 修订：新增作品级 `source/story/runtime/foundation-approval.json`，`/story-approve`、`story_foundation_signoff` 成功后写入，`/story-reject` 与原生退回清除；`/story-write` 每次开章前按基础设定摘要校验。它取代本 Note 的「回执只在会话里」与「不把确认写进作品目录」两处；签核两条通道与回执格式不变。见 [`2026-11-15-mandatory-foundation-signoff.md`](../../implemented/feature/2026-11-15-mandatory-foundation-signoff.md)。
 
 ## Problem
 

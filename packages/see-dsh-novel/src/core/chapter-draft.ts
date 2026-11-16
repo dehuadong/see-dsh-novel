@@ -23,6 +23,12 @@ export function draftPath(chapter: number): string {
   return `${DRAFT_DIR}/chapter-${pad(chapter)}.md`
 }
 
+/** 草稿文件名 → 章号；不是草稿文件名时返回 undefined。 */
+export function draftChapterOf(fileName: string): number | undefined {
+  const match = /^chapter-(\d{4})\.md$/.exec(fileName)
+  return match === null ? undefined : Number(match[1])
+}
+
 export interface ChapterDraft {
   path: string
   title: string

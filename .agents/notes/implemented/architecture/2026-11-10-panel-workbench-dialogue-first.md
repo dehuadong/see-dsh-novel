@@ -2,7 +2,7 @@
 
 Status: implemented
 
-> 2026-11-15 后续：确认状态在详情底部每阶段重复渲染的做法由 [`2026-11-15-panel-draft-and-foundation-change.md`](../../proposed/bug-fix/2026-11-15-panel-draft-and-foundation-change.md) 取代——确认提示只在面板顶部显示一次；索引版本由 7 升到 8。
+> 2026-11-15 后续：确认状态在详情底部每阶段重复渲染的做法由 [`2026-11-15-panel-draft-and-foundation-change.md`](../../implemented/bug-fix/2026-11-15-panel-draft-and-foundation-change.md) 取代——确认提示只在面板顶部显示一次；索引版本由 7 升到 8。
 
 ## Problem
 
@@ -59,6 +59,7 @@ Status: implemented
 | --- | --- | --- | --- |
 | truth | `author_intent.md`、`current_focus.md`、`book_rules.md`、`book_rules.json`、`current_state.md`、`pending_hooks.md`、`chapter_summaries.md`、`style_guide.md`、`parent_canon.md`、`fanfic_canon.md`、`outline/story_frame.md`、`outline/volume_map.md`、`roles/**/*.md`、`source/brief.md`（立项原文）、`source/story/brief.md`（外部简报，存在时） | foundation | Markdown 用 `<pre>`；`book_rules.json` 用键值树 |
 | chapter | `source/chapters/NNNN_*.md` | write、review | `<pre>`，标题取「第 N 章 + 文件名标题」 |
+| draft | `.drafts/chapter-NNNN.md` | write、review | `<pre>`，标题「第 N 章 · 草稿」，带「还没有结算发布」警示；同一章已发布时不出草稿行 |
 | plan | `runtime/chapter-NNNN.plan.json` | plan | 键值树 + 「原始 JSON」切换 |
 | review | `runtime/chapter-NNNN.review.json` | review | 键值树 + 「原始 JSON」切换 |
 | diagnostic | `runtime/chapter-NNNN.intent.md`、`.context.json`、`.trace.json`、`.planner-context.json` | plan、write、review | `<pre>` 原样，标「运行时诊断 · 只读」并给警示文案；列表里收进默认折叠的「运行时诊断」分组 |
@@ -92,7 +93,7 @@ Status: implemented
 | chapter-done（首版） | 结算本章 | 无 | `/story-settle`；修订仍可走协议/命令 |
 | chapter-done（修订/扣下） | 修订本章 | 无 | `advance` 提示，模型调 `story_revise_chapter`；结算入口归 P4 协议 |
 
-- `foundation-ready` 按 `currentChapter` 分两种：待确认（`currentChapter=0`）保留五个动作，索引看不到会话回执，前进入口作为次动作常驻；已结算（`currentChapter>=1`）六个阶段全 done，根动作只给「开始下一章」。见 [`2026-11-15-panel-settled-projection.md`](../../proposed/bug-fix/2026-11-15-panel-settled-projection.md)。
+- `foundation-ready` 按 `currentChapter` 分两种：待确认（`currentChapter=0`）保留五个动作，索引看不到会话回执，前进入口作为次动作常驻；已结算（`currentChapter>=1`）六个阶段全 done，根动作只给「开始下一章」，基础设定失效时只在顶部提示。见 [`2026-11-15-panel-settled-projection.md`](../../implemented/bug-fix/2026-11-15-panel-settled-projection.md) 与 [`2026-11-15-panel-draft-and-foundation-change.md`](../../implemented/bug-fix/2026-11-15-panel-draft-and-foundation-change.md)。
 - 面板是 `panel.confirm`、`foundation.approval`、`panel.gate-resume`、`panel.foundation-start` 的唯一 UI 入口；旧卡删除时这些动作原样搬进动作条，consumer 断言保留。
 - 动作条只呈现当前阶段的动作，与当前选中的产物无关。源的删除按钮在工作台页头；复刻已由 [工作台删除动作与白名单对齐](2026-11-13-workbench-delete-whitelist.md) 补上（D40 注销）。
 - 索引形状：`PanelStage.action` 是主按钮（`PanelAction | null`），`secondary` 是次按钮（`PanelAction[]`，0–4）；索引根级 `action` 承载 `chapter-done` 的「结算本章／修订本章」或已结算的「开始下一章」，阶段动作仍只在 `PanelStage.action`；host 与 client 两份类型定义同批维护。

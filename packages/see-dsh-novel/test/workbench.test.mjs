@@ -7,7 +7,7 @@ import { act, create } from 'react-test-renderer'
 import { Workbench } from '../src/client/Workbench.tsx'
 
 const index = {
-  version: 7,
+  version: 8,
   generatedAt: '2026-11-10T00:00:00.000Z',
   revision: 'r1',
   work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },
@@ -236,4 +236,68 @@ test('a finished chapter without a current node says so instead of falling back 
   const text = JSON.stringify(tree.toJSON())
   assert.match(text, /本章完成/)
   assert.match(text, /本章审稿已落盘/)
+})
+
+const confirmationHints = (node) => node.findAllByType('p')
+  .filter((hint) => hint.props.className === 'sdn-confirmation')
+
+test('the confirmation hint appears once at the top and never inside a stage detail', () => {
+  for (const selectedStage of ['', 'write', 'review', 'settle']) {
+    const { tree } = render({ selectedStage })
+    assert.equal(confirmationHints(tree.root).length, 1, `${selectedStage || '默认'}：确认行只出现一次`)
+    const rendered = JSON.stringify(tree.toJSON())
+    assert.equal(rendered.split('等待作者确认').length - 1, 1, `${selectedStage || '默认'}：文案只出现一次`)
+    // 顶部提示在阶段三列之外，选中阶段详情里没有第二份。
+    const detail = tree.root.findAllByType('main')[0]
+    assert.equal(confirmationHints(detail).length, 0, `${selectedStage || '默认'}：详情里不重复确认行`)
+  }
+})
+
+test('a settled chapter renders its foundation hint once, at the top', () => {
+  const settled = {
+    ...index,
+    stages: index.stages.map((stage) => ({ ...stage, status: 'done', action: null, secondary: [] })),
+    action: { id: 'start-chapter', label: '开始下一章', enabled: true, reason: '' },
+    confirmation: {
+      kind: 'foundation-signoff',
+      state: 'pending',
+      reason: '基础设定在确认后修改过；开始下一章前请 `/story-approve` 重新确认',
+    },
+  }
+  for (const selectedStage of ['', 'write', 'review', 'settle']) {
+    const { tree } = render({ index: settled, selectedStage })
+    assert.equal(confirmationHints(tree.root).length, 1, `${selectedStage || '默认'}：确认行只出现一次`)
+    const rendered = JSON.stringify(tree.toJSON())
+    assert.equal(rendered.split('基础设定在确认后修改过').length - 1, 1, `${selectedStage || '默认'}：文案只出现一次`)
+    assert.match(rendered, /开始下一章/u)
+  }
+})
+
+test('a draft artifact is labeled as a draft and opens with the readonly notice', () => {
+  const draft = {
+    path: '.drafts/chapter-0001.md',
+    title: '第 1 章 · 草稿',
+    type: 'markdown',
+    class: 'draft',
+    stages: ['write', 'review'],
+    modifiedAt: '2026-11-10T00:00:00.000Z',
+    bytes: 1,
+    revision: 'a9',
+    readonly: true,
+  }
+  const withDraft = { ...index, artifacts: [...index.artifacts, draft] }
+  assert.deepEqual(rowsOf(render({ index: withDraft, selectedStage: 'write' }).tree), [
+    '第 1 章 · 开端',
+    '第 1 章 · 草稿',
+  ])
+
+  const opened = render({
+    index: withDraft,
+    selectedStage: 'write',
+    selectedArtifact: draft,
+    artifactText: '# 第1章 开端\n\n第一版正文。\n',
+  })
+  const text = JSON.stringify(opened.tree.toJSON())
+  assert.match(text, /草稿：这一章还没有结算发布/)
+  assert.match(text, /第一版正文/)
 })

@@ -8,6 +8,7 @@ import {
   FOUNDATION_APPROVAL_PATH,
   clearFoundationApproval,
   foundationApprovalDigest,
+  foundationApprovalState,
   isFoundationApproved,
   readFoundationApproval,
   rejectFoundationApproval,
@@ -65,6 +66,25 @@ test('foundation approval covers the outline, rules and cast but not pending hoo
 
     clearFoundationApproval(root)
     assert.equal(isFoundationApproved(root), false)
+  } finally {
+    await rm(root, { recursive: true, force: true })
+  }
+})
+
+test('foundation approval has four states: none, approved, stale and rejected', async () => {
+  const root = await workspace()
+  try {
+    assert.equal(foundationApprovalState(root), 'none')
+    await writeFoundationApproval(root)
+    assert.equal(foundationApprovalState(root), 'approved')
+    await writeFile(join(root, 'source/story/outline/volume_map.md'), 'changed after approval\n')
+    assert.equal(foundationApprovalState(root), 'stale')
+    await writeFoundationApproval(root)
+    await rejectFoundationApproval(root)
+    assert.equal(foundationApprovalState(root), 'rejected')
+    // 墓碑优先于摘要匹配：退回后即使用旧摘要也仍是 rejected。
+    clearFoundationApproval(root)
+    assert.equal(foundationApprovalState(root), 'none')
   } finally {
     await rm(root, { recursive: true, force: true })
   }

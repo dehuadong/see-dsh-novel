@@ -1,19 +1,20 @@
 {
   "capability": "foundation.approval",
-  "date": "2026-11-15",
+  "date": "2026-11-16",
   "sessionId": "process:foundation.approval",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "561 tests／560 pass／1 skipped（symlink）— foundation-approval 2 例（基础设定摘要、pending_hooks 不参与、改分卷地图失效、approve/reject、readArtifacts 排除）、approval 23 例（含 /story-approve 写记录、/story-reject 写退回记录、signoff 写记录）、write-command 7 例（无确认拒绝、确认后通过、改基础设定失效、重新确认、第 2 章通过）、panel-index 10 例（待确认/已确认/已结算后失效）、stage-context foundation-ready 分支"
+    "summary": "577 tests／576 pass／1 skipped（symlink）— foundation-approval 3 例（基础设定摘要、pending_hooks 不参与、改分卷地图失效、approve/reject/四种状态、readArtifacts 排除）、approval 23 例（含 /story-approve 写记录、/story-reject 写退回记录、signoff 写记录）、write-command 7 例（无确认拒绝且文案只指 /story-approve、确认后通过、改基础设定失效、重新确认、第 2 章通过）、panel-index 14 例（待确认/已确认/已结算后 stale/rejected/none）、stage-context foundation-ready 分支"
   },
   "receipts": [
     "作品级记录 source/story/runtime/foundation-approval.json：/story-approve 与 story_foundation_signoff 成功后写 approved，/story-reject 与原生退回写 rejected 墓碑；旧会话回执不能重建确认；记录跨会话有效。",
+    "`foundationApprovalState(root)` 把确认状态分成 `none`（无记录）、`approved`（摘要命中）、`stale`（有 approved 记录但摘要不匹配）、`rejected`（墓碑）；面板用这四态决定提示文案，`isFoundationApproved` 与 `gate.ts` 的判定不变。",
     "`/story-write` 在 `withWorkAction` 锁内、`detectStage` 之后用 `isFoundationApproved` 校验；无记录或摘要失效时拒绝且不写 workflow start。第 1 章、第 2 章及以后都检查；基础设定不变则直接通过。",
     "摘要只覆盖故事框架、分卷地图、本书规则（md/json）、角色卡；`pending_hooks.md`、`state/`、章节 runtime、快照、章节摘要不参与，所以章节写入/结算不会让确认失效；改分卷地图会失效。",
-    "记录文件被 `readArtifacts` 排除，签核回执摘要不因它变化；旧 foundation-approval-gate Note 的『回执只在会话里／不写作品目录』已由本行取代并互链。",
-    "面板：`foundation-ready` 未确认时保留确认动作；已确认时 foundation done、根动作『开始下一章』；已结算后基础设定失效时回到 foundation 确认，不直接开始下一章。",
-    "本回执是 process-level 测试与真实工作区投影检查，没有新的 DSH 会话；真实会话拒绝/通过/第 2 章取证留到 batch。",
+    "面板：`foundation-ready` 未确认时保留确认动作；已确认时 foundation done、根动作「开始下一章」；已结算后基础设定失效（stale/rejected/none）时不再回到 foundation 确认，阶段轨保持六阶段 done、根动作仍是可点的「开始下一章」，只在顶部给一次性提示。",
+    "记录文件被 `readArtifacts` 排除，签核回执摘要不因它变化。",
+    "该回执是 process-level 测试与夹具投影检查，不是 DSH 会话；本机没有交接文档里的运行时工作区，也不能在会话内重启宿主，真实会话的拒绝/通过/第 2 章取证未取得（BLOCKED）。",
     "退回写成作品级 rejected 记录（墓碑），旧会话的 approve 回执不能把记录重建；签核写入时用确认开始时的基础设定摘要比对，期间变化则拒绝写入。"
   ]
 }

@@ -8,10 +8,11 @@
 
 - 工件：[`../artifacts/implementation-audit/2026-11-14.md`](../artifacts/implementation-audit/2026-11-14.md)，逐行证据在 `artifacts/implementation-audit/rows/<id>.json`。
 - 审计基线：仓库 `e3b7886`，源 `inkos` `8433323`；本表是该基线的 45 行判定，并含 2026-11-15 方向复审的改判（见下）。
-- 结论：等价 6、机制等价 14、保真债 25；realRun S 27、P 18、N 0；32 行有未关闭差异（AU-01–AU-35 与 D63）。
+- 结论：等价 6、机制等价 14、保真债 25；realRun S 25、P 20、N 0（2026-11-16 复核）；32 行有未关闭差异（AU-01–AU-35 与 D63）。
 - 2026-11-15 方向复审：`chapter.revise` 的 reviser 模式说明未注入（D63）改判保真债；settler／state-validator 的角色提示词折进阶段协议登记为偏差（`artifacts/implementation-audit/dsh-deviations.md`），不改变对应行的机制等价判定。
 - 2026-11-15 作者裁决：首版结算增加显式确认 marker（见 dsh-mapping「作者裁决偏差」），不改变本行机制等价判定。
 - 2026-11-15 AU-18 关闭：`runtime.stage-context` 由保真债改为机制等价（真实会话 `session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e` 覆盖阶段注入、方法、配置与结算；英文协议由文本断言与结构对照覆盖）。
+- 2026-11-15 面板：`panel.workbench` 增加结算前只读草稿、结算事实与基础设定确认解耦（已结算不再回退）、确认提示只在顶部一次；`panel.confirm` 的 `/story-write` 拒绝文案只指 `/story-approve`，面板在动作条直接显示该拒绝文本（不落到通用「提交失败」）；`foundation.approval` 的确认失效只拦下一章。三行判定与债号不变（`panel.workbench` 保真债 AU-31、`panel.confirm` 机制等价 AU-11、`foundation.approval` 保真债 AU-14）；草稿阅读面按作者裁决记入 `docs/dsh-mapping.md`「作者裁决偏差」。
 - 审计只读，不改 `capabilities.yaml` 状态；本节的 45 行判定表取代下方同名 `###` 段的旧判定；冲突以本表为准，旧段待按 AU 债修复。
 
 **判定唯一表**：以下 45 行是当前判定；下方同名 `###` 段的旧判定已失效。

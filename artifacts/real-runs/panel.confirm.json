@@ -1,18 +1,17 @@
 {
   "capability": "panel.confirm",
-  "date": "2026-11-15",
+  "date": "2026-11-16",
   "sessionId": "process:panel.confirm",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "561 tests／560 pass／1 skipped（symlink）— write-command 7 例（确认一章、重复拒绝、BOOK_BUSY、followup source、无基础设定确认拒绝、改基础设定失效、重新确认后第 2 章通过）、client 34 例、approval 22 例、foundation-approval 2 例、panel-index 10 例"
+    "summary": "577 tests／576 pass／1 skipped（symlink）— write-command 7 例（确认一章、重复拒绝、BOOK_BUSY、followup source、无确认/退回/失效拒绝且文案只指 /story-approve、重新确认后第 2 章通过）、client 36 例（开始下一章取回处理器回执、拒绝文本可见）、approval 23 例、panel-index 14 例"
   },
   "receipts": [
-    "/story-write 声明 input.hint；命令附言 entry 写入 workflow-start.instruction；空附言回退默认句。",
-    "`/story-write` 在 foundation-ready 写 `workflow-start.json`，followup 的 source 是 `{kind:'story-command',command:'story-write'}`；重复命令与未到 foundation-ready 都拒绝。",
-    "另一次 start 持锁时命令返回 `BOOK_BUSY`，不写 start；面板「稍后」不调命令、不写 start。",
-    "2026-11-15：`/story-write` 在任何章节开写前还要求作品级基础设定确认（`foundation-approval.json`）；无记录/退回/基础设定改过都拒绝。",
-    "面板「开始下一章」只在 foundation 齐、无 start、无 review 时出现；start 后显示已开始；review 后显示本章完成。P1 面板固定第 1 章，动态 currentChapter 依赖 P6 panel.workbench。",
-    "该回执是 process-level 命令/面板测试，不是 DSH 会话；D30 记录面板动态章节限制。"
+    "`/story-write` 在基础设定未确认/已退回/确认后改过三种情况下都在 `withWorkAction` 锁内、`detectStage` 之后拒绝且不写 workflow start；拒绝文本只指 `/story-approve`（例如「基础设定在确认后改过，确认已失效；先 `/story-approve` 重新确认」），不再指已结算状态下不存在的面板「确认基础设定」按钮。",
+    "面板「开始下一章」改为经 `executeCommand` 派发 `/story-write`：命令拒绝时动作条直接显示处理器文本（测试断言含「确认已失效」与 `/story-approve`，且不含通用「提交失败，稍后再试」）；命令成功时回执同样来自处理器。",
+    "已确认后 `/story-write` 写 `workflow-start.json`，followup 的 source 是 `{kind:'story-command',command:'story-write'}`；重复命令与未到 foundation-ready 都拒绝；另一持锁者存在时返回 `BOOK_BUSY` 且不写 start。",
+    "面板「稍后」不调命令、不写 start；`/story-approve`、`/story-reject`、`/story-review` 的派发不变。",
+    "该回执是 process-level 命令/面板测试，不是 DSH 会话；本机没有交接文档里的运行时工作区，也不能在会话内重启宿主，真实会话回执未取得（BLOCKED）。D30 记录面板动态章节限制；AU-11 的 chapterCount 仍开。"
   ]
 }

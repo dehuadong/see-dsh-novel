@@ -64,6 +64,11 @@
       "behavior": "注册 story_gate（只读：读工件、最近决定、策略与可否弹确认条）与 story_foundation_signoff（只取确认，不写作品；成功返回 signed/channel/digest/files，拒绝以工具错误返回）。"
     },
     {
+      "file": "packages/see-dsh-novel/src/core/foundation-approval.ts",
+      "line": "89-106",
+      "behavior": "foundationApprovalState 把作品级记录分成 none/approved/stale/rejected 四态，供面板提示文案使用；isFoundationApproved 与 gate.ts 的判定不变。"
+    },
+    {
       "file": "packages/see-dsh-novel/src/core/receipts.ts",
       "line": "15-62",
       "behavior": "回执标记固定形状 story-approval stage=<stage> digest=<64hex> files=<n> via=receipt|approval；parseApprovalMarker 取最后一处匹配，stage/digest 缺失或 via 非法忽略。"
@@ -107,10 +112,11 @@
     "packages/see-dsh-novel/test/approval.test.mjs:468 the signoff tool fails loud when the confirmation is missing",
     "packages/see-dsh-novel/test/approval.test.mjs:485 the gate reports a rejection instead of hiding it",
     "packages/see-dsh-novel/test/approval.test.mjs:510 the gate tools refuse an execution without an owning agent",
-    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 approval.test.mjs 22 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
+    "packages/see-dsh-novel/test/panel-index.test.mjs:241 已结算 + stale/rejected/none 三态保持六阶段 done、根 start-chapter、顶部提示",
+    "本次审计运行 pnpm run verify：577 tests／576 pass／1 skipped（symlink），其中 approval.test.mjs 23 例、foundation-approval.test.mjs 3 例、panel-index.test.mjs 14 例；测试使用 approvalStub 模拟原生确认，未接真实 DSH approval 服务"
   ],
-  "realRunLevel": "S",
-  "realRunBasis": "artifacts/real-runs/foundation.approval.json：2026-11-04 的 session-974fa00e 覆盖签核两条通道与退回作废；2026-11-15 新增作品级确认记录与 /story-write 门禁，real-run 更新为 process:foundation.approval（process-level，561 tests／560 pass／1 skip），旧会话不覆盖新门禁。",
+  "realRunLevel": "P",
+  "realRunBasis": "artifacts/real-runs/foundation.approval.json：2026-11-04 的 session-974fa00e 覆盖签核两条通道与退回作废；2026-11-15 新增作品级确认记录与 /story-write 门禁，2026-11-16 real-run 更新为 process:foundation.approval（process-level，577 tests／576 pass／1 skip），覆盖 foundationApprovalState 四态与面板已结算失效不回退；本机不能重启宿主，真实 DSH 会话仍未取得（BLOCKED）。",
   "deviations": [
     "源没有 foundation 定稿闸门：作者确认只针对 workflow start（propose_action 的 15 个 action 与 confirmed-production 的 button/slash 判定），确认后 host 执行 action；复刻新增 story_gate/story_foundation_signoff 与 /story-approve、/story-reject 的『基础设定这一版定稿』确认面（gate.ts:168-262、commands.ts:61-101），并把 receipt 写进会话日志供后续读取。源无对应行为，也没有作者对基础设定产物的确认步骤。",
     "确认对象不同：源确认 PendingProposedAction（action/targetSessionKind/instruction/title/summary/actionPayload，session.ts:13-22），确认时重新校验并执行；复刻确认 source/story/ 工件的 stage/files/digest（readArtifacts + receipt），签核只返回 signed，不执行任何 workflow。",
@@ -127,6 +133,7 @@
     "src/client/index.ts:56-58 的 RESUME_TEXT 是唯一把面板认可接到 signoff 的提示；如果模型不调用 signoff，闸门不生效（没有宿主强制）。",
     "fidelity-audit.md:202-208 把本行判为『机制差异已登记 — foundation 签核是 DSH 侧附加面』，但『附加面』没有被登记为偏差，且与本行 source 指向的 session.ts 的 pending action 语义不对应。",
     "docs/dsh-mapping.md『作者确认：原生确认条与面板命令双通道』只登记 receipt 双通道，未登记『新增 foundation 定稿闸门』；按 AGENTS.md 偏差只有 DSH 机制强制或源不可观测两种合法来源，本行的新增闸门两者都不满足。",
-    "2026-11-15：作品级 foundation-approval.json、/story-write 任意章开写校验、面板已确认/已结算失效三态是 process-level 测试；没有新的 DSH 会话回执，真实拒绝/通过/第 2 章取证留 batch。"
+    "2026-11-15：作品级 foundation-approval.json、/story-write 任意章开写校验、面板已确认/已结算失效三态是 process-level 测试；没有新的 DSH 会话回执，真实拒绝/通过/第 2 章取证留 batch。",
+    "2026-11-16：面板已结算后确认失效改为「阶段保持 done + 顶部提示」，不再回到 foundation 确认；新增只读 foundationApprovalState。回执仍是 process-level（本机没有运行时工作区、不能重启宿主），真实会话未取得（BLOCKED）。"
   ]
 }

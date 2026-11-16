@@ -176,7 +176,7 @@ async function mountEligible(binding, files, commands) {
 /** 一份 foundation-ready 的索引；动作与宿主投影的形状一致。 */
 function panelIndex(overrides = {}) {
   return {
-    version: 7,
+    version: 8,
     generatedAt: '2026-11-10T00:00:00.000Z',
     revision: 'r1',
     work: { title: '标题', status: 'draft', language: 'zh', currentChapter: 0, latestChapter: 0, nextChapter: 1 },
@@ -533,6 +533,19 @@ test('later writes nothing and start-chapter only writes the workflow start', as
   await act(async () => { buttonByLabel(start.tree, '开始下一章').props.onClick() })
   assert.deepEqual(start.calls, [{ sessionId: SESSION, line: '/story-write' }])
   assert.deepEqual(start.resumes, [])
+})
+
+test('a refused start-chapter shows the command refusal instead of a generic failure', async () => {
+  installDocumentStub()
+  const refused = await renderView({
+    executeCommand: async () => ({ outcome: 'error', text: '基础设定在确认后改过，确认已失效；先 `/story-approve` 重新确认' }),
+  })
+  await act(async () => { buttonByLabel(refused.tree, '开始下一章').props.onClick() })
+  assert.deepEqual(refused.calls, [{ sessionId: SESSION, line: '/story-write' }])
+  const text = textOf(refused.tree)
+  assert.match(text, /确认已失效/u)
+  assert.match(text, /\/story-approve/u)
+  assert.doesNotMatch(text, /提交失败，稍后再试/u)
 })
 
 test('the stage prompts go through advance instead of tool approvals', async () => {

@@ -1,17 +1,19 @@
 {
   "capability": "panel.workbench",
-  "date": "2026-11-15",
+  "date": "2026-11-16",
   "sessionId": "process:panel.workbench",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "554 tests／553 pass／1 skipped（symlink）— panel-index 8 例（v7、基础设定写作中、待确认、已结算、恢复后 review 目标、展示集合与审批摘要分离）、panel-projection 7 例（v6→v7 重建）、workbench 11 例、client 34 例"
+    "summary": "577 tests／576 pass／1 skipped（symlink）— panel-index 14 例（v8、基础设定写作中、待确认、首次/已结算 stale/rejected/none、草稿产物、恢复后 review 目标、展示集合与摘要分离）、panel-projection 7 例（v7→v8 重建）、workbench 14 例（确认提示只一次、已结算顶部提示、草稿行与警示）、client 36 例"
   },
   "receipts": [
-    "真实工作区 `D:\\workspace\\see-dsh-novel-runtime`（第 1 章已结算，`status: active`、`currentChapter: 1`、`latestChapter: 1`）用当前 `buildPanelIndex` 在内存重建：`version: 7`；proposal/foundation/plan/write/review/settle 全 `done`；根动作 `start-chapter`「开始下一章」；`confirmation: none/done`；章节 artifact 的 `stages` 为 `['write','review','settle']`；不再出现「确认基础设定/退回/查看待确认」。未写回工作区；磁盘上的 `panel.index.json` 仍是 v6，按 `indexStale` 在会话创建或下一次作品写动作时重建为 v7。",
-    "`foundation-ready` 且 `currentChapter=0` 仍保留「确认基础设定」主按钮与「开始下一章/退回/查看待确认/稍后」次动作；`currentChapter>=1` 时六个阶段全 done，基础设定无动作、无次动作。",
-    "`chapter-done` 保持原行为（根动作「修订本章」，settle 仍 locked）；结算按钮留给后续 `chapter.settle` 工作项。",
-    "`PANEL_INDEX_VERSION` 升到 7；`panel-projection` 在版本不等时（含 v6 旧索引）于会话创建/下一次作品写动作重建；`normalizeIndex` 不做版本迁移。",
-    "该回执是 process-level 真实工作区投影检查，不是 DSH 会话；没有新的 GUI 会话截图/会话日志。"
+    "面板索引 v8：已结算夹具（`currentState=1`、`source/chapters` 有第 1 章）在基础设定 `stale`/`rejected`/`none` 三种状态下，proposal/foundation/plan/write/review/settle 全部 done，根动作 `start-chapter`「开始下一章」`enabled: true`；基础设定阶段 `action: null`、`secondary: []`，不再出现「确认基础设定/退回/查看待确认/稍后」五连排。`confirmation` 均为 `foundation-signoff/pending`，reason 分别是「基础设定在确认后修改过；开始下一章前请 `/story-approve` 重新确认」「作者退回了这一版基础设定；开始下一章前请 `/story-approve` 重新确认」「基础设定尚未确认；开始下一章前请 `/story-approve`」。",
+    "首次 `foundation-ready`（`currentChapter=0`）在 `stale`/`rejected` 记录下保持 foundation current、「确认基础设定」主按钮与四个次动作，根动作仍为 null；提示文案同样指 `/story-approve`。",
+    "已结算且基础设定 `approved` 时 `confirmation: none/done`；`/story-approve` 后下一次投影清除提示（`an approved foundation clears the settled-chapter hint`）。",
+    "结算前草稿：`write`/`review` 阶段且 `.drafts/chapter-NNNN.md` 存在时，产物列表出现 `path: '.drafts/chapter-NNNN.md'`、`class: 'draft'`、`title: '第 N 章 · 草稿'`、`stages: ['write','review']`、`readonly: true`，排在已发布章节之后、章纲之前；同一章进入 `source/chapters` 后草稿行消失，改为章节产物。详情页对草稿显示「草稿：这一章还没有结算发布」警示。",
+    "确认提示只在面板顶部渲染一次：切到默认/正文/审阅/结算四个选中态，`.sdn-confirmation` 计数均为 1，详情区计数为 0。",
+    "`PANEL_INDEX_VERSION` 升到 8；`panel-projection` 在版本不等时（含旧 v7 索引）于会话创建/下一次作品写动作重建；`normalizeIndex` 不做版本迁移。",
+    "该回执是 process-level 真实夹具/工作区投影检查，不是 DSH 会话。本机没有交接文档里的 `D:\\workspace\\see-dsh-novel-runtime`，且不能在会话内重启宿主，所以「第 3 章落盘后在正文/审阅读草稿」「补卷章后第 2 章仍完成」两条真实会话回执未取得（BLOCKED）。"
   ]
 }

@@ -38,8 +38,9 @@
 
 | 决定 | 源工程做法 | 复刻做法 | 作者裁决 | 验证 |
 | --- | --- | --- | --- | --- |
-| 开章前基础设定确认 | 只检查基础设定完整；`write_next` 一次确认后跑完整章 | 作品级 `foundation-approval.json`（大纲/规则/角色卡摘要）；`/story-write` 每次开章前校验；改了基础设定要重新确认 | 2026-11-15：全书计划确认后才能开章，第 2 卷同样适用 | `foundation-approval`／`write-command`／`approval` 测试；真实回执待补 |
+| 开章前基础设定确认 | 只检查基础设定完整；`write_next` 一次确认后跑完整章 | 作品级 `foundation-approval.json`（大纲/规则/角色卡摘要）；`/story-write` 每次开章前校验；改了基础设定要重新确认；确认失效只拦下一章，不把已结算章节的阶段轨回退 | 2026-11-15：全书计划确认后才能开章，第 2 卷同样适用；结算事实与确认状态是两件事 | `foundation-approval`／`write-command`／`approval`／`panel-index` 测试；真实回执待补 |
 | 正文不进入主会话 | Studio 写作中流式显示 `draft:delta`，正文进作品页 | writer 子代理调 `story_write_chapter` 落盘，只回四行摘要；writer 子会话落盘后不再注入审稿阶段 | 2026-11-15：主会话只给摘要与路径，不显示整章正文 | `stage-context` 测试；真实回执待补 |
+| 结算前正文的阅读面 | Studio 写作中在聊天流式显示 `draft:delta`，作者边写边读；作品页章节工作台只列版本 | 正文落盘后，`write`/`review` 阶段在面板出现只读「第 N 章 · 草稿」；结算删除草稿后改为显示已发布章节；主会话只给摘要 | 2026-11-15：正文移出主会话后，结算前必须能在面板读到草稿 | `panel-index`／`workbench` 测试；真实会话回执待补 |
 | 首版结算显式确认 | `write_next` 内自动结算，无独立 settle 动作 | 面板「结算本章」+ `/story-settle` 写 `.drafts` 标记；`story_settle_chapter` 无标记拒绝，提交事务消费 | 2026-11-15：结算不能自动，也不能只靠对话语义 | `settle-command`／`chapter-settle`／`panel-index`／`client` 测试；真实回执待补 |
 
 ## 偏差登记

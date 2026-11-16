@@ -152,6 +152,18 @@ export function Workbench(props: WorkbenchProps): ReactNode {
           : null}
       </header>
 
+      {/* 确认/提示是索引级事实：只在页头下出现一次，不随选中阶段重复。 */}
+      {index.confirmation.kind !== 'none'
+        ? (
+            <p className="sdn-confirmation" data-kind={index.confirmation.kind}>
+              {index.confirmation.kind === 'foundation-signoff'
+                ? index.confirmation.reason
+                : `确认：${index.confirmation.kind} · ${index.confirmation.state}`
+                  + (index.confirmation.reason === '' ? '' : ` · ${index.confirmation.reason}`)}
+            </p>
+          )
+        : null}
+
       <div className="sdn-columns">
         <nav className="sdn-stages" aria-label="阶段">
           {index.stages.map((stage) => (
@@ -245,6 +257,13 @@ export function Workbench(props: WorkbenchProps): ReactNode {
                             </p>
                           )
                         : null}
+                      {selectedArtifact.class === 'draft'
+                        ? (
+                            <p className="sdn-warning">
+                              草稿：这一章还没有结算发布，这里只读显示结算前的正文；结算后草稿会被删除，改为显示已发布章节。
+                            </p>
+                          )
+                        : null}
                       {artifactError !== ''
                         ? <p className="sdn-muted">{artifactError}</p>
                         : selectedArtifact.type === 'json' && !diagnostic
@@ -256,14 +275,6 @@ export function Workbench(props: WorkbenchProps): ReactNode {
                     <>
                       <h3 className="sdn-detail-title">{active?.label ?? currentLabel}</h3>
                       <p>{active?.summary ?? index.confirmation.reason}</p>
-                      {index.confirmation.kind !== 'none'
-                        ? (
-                            <p className="sdn-muted">
-                              确认：{index.confirmation.kind} · {index.confirmation.state}
-                              {index.confirmation.reason === '' ? '' : ` · ${index.confirmation.reason}`}
-                            </p>
-                          )
-                        : null}
                     </>
                   )}
           </div>

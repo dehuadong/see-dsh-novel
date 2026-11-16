@@ -14,6 +14,8 @@ const STYLE_TEXT = `
 .sdn-export { display: flex; gap: 6px; align-items: center; margin-top: 2px; }
 .sdn-export select { padding: 2px 6px; border: 1px solid rgba(127, 127, 127, 0.3); border-radius: 8px; background: transparent; color: inherit; font: inherit; font-size: 12px; }
 .sdn-columns { display: grid; grid-template-columns: 148px 216px minmax(0, 1fr); gap: 0; flex: 1; min-height: 0; border-top: 1px solid rgba(127, 127, 127, 0.25); }
+.sdn-confirmation { margin: 0; padding: 8px 10px; border: 1px solid rgba(127, 127, 127, 0.25); border-radius: 8px; background: rgba(127, 127, 127, 0.08); font-size: 12px; }
+.sdn-confirmation[data-kind="foundation-signoff"] { border-color: rgba(214, 160, 64, 0.4); background: rgba(214, 160, 64, 0.12); }
 .sdn-stages { display: flex; flex-direction: column; gap: 2px; padding: 8px 8px 8px 0; overflow: auto; border-right: 1px solid rgba(127, 127, 127, 0.25); }
 .sdn-stage { appearance: none; display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .sdn-stage:hover { background: rgba(127, 127, 127, 0.12); }

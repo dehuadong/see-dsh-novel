@@ -82,12 +82,27 @@ export function readFoundationApproval(root: string): FoundationApproval | null 
   }
 }
 
+/**
+ * 基础设定确认的四种状态：从未确认、有效、确认后改过、已被作者退回。
+ * 未确认（`none`）与失效（`stale`）分开，界面才能说清是没确认过还是改了。
+ */
+export type FoundationApprovalState = 'none' | 'approved' | 'stale' | 'rejected'
+
+/**
+ * 读基础设定确认状态；只读，不写任何文件。
+ * @param root 作品根目录
+ */
+export function foundationApprovalState(root: string): FoundationApprovalState {
+  const record = readFoundationApproval(root)
+  if (record === null) return 'none'
+  if (record.state === 'rejected') return 'rejected'
+  const digest = foundationApprovalDigest(root)
+  return digest !== '' && record.digest === digest ? 'approved' : 'stale'
+}
+
 /** 当前基础设定是否已被作者确认；摘要不匹配即失效。 */
 export function isFoundationApproved(root: string): boolean {
-  const record = readFoundationApproval(root)
-  if (record === null || record.state === 'rejected') return false
-  const digest = foundationApprovalDigest(root)
-  return digest !== '' && record.digest === digest
+  return foundationApprovalState(root) === 'approved'
 }
 
 export async function writeFoundationApproval(root: string, expectedDigest?: string): Promise<FoundationApproval> {

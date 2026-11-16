@@ -121,16 +121,32 @@ test('the command writes the author instruction into workflow start', async () =
 test('foundation approval is required for every chapter and invalidated by foundation edits', async () => {
   const root = await workspace()
   try {
-    await assert.rejects(startChapter(root), /基础设定还没有作者确认/)
+    // 拒绝文案只指 /story-approve：已结算状态下没有「确认基础设定」按钮可指。
+    await assert.rejects(startChapter(root), (error) => {
+      assert.match(error.message, /基础设定还没有作者确认/)
+      assert.match(error.message, /\/story-approve/)
+      assert.doesNotMatch(error.message, /面板/)
+      return true
+    })
     await writeFoundationApproval(root)
     await rejectFoundationApproval(root)
-    await assert.rejects(startChapter(root), /作者退回了这一版基础设定/)
+    await assert.rejects(startChapter(root), (error) => {
+      assert.match(error.message, /作者退回了这一版基础设定/)
+      assert.match(error.message, /\/story-approve/)
+      assert.doesNotMatch(error.message, /面板/)
+      return true
+    })
     await writeFoundationApproval(root)
     await startChapter(root)
     await writeFile(join(root, 'source/story/state/current_state.json'), JSON.stringify({ chapter: 1 }))
     await rm(join(root, WORKFLOW_START_PATH), { force: true })
     await writeFile(join(root, 'source/story/outline/volume_map.md'), 'changed\n')
-    await assert.rejects(startChapter(root), /确认已失效/)
+    await assert.rejects(startChapter(root), (error) => {
+      assert.match(error.message, /确认已失效/)
+      assert.match(error.message, /\/story-approve/)
+      assert.doesNotMatch(error.message, /面板/)
+      return true
+    })
     await writeFoundationApproval(root)
     const second = await startChapter(root)
     assert.equal(second.chapter, 2)

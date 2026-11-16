@@ -23,8 +23,8 @@ export interface PanelArtifact {
   /** 列表里显示的名字；章节用「第 N 章 · 标题」。 */
   title: string
   type: 'markdown' | 'json' | 'text'
-  /** 展示类别：作者产物、章节正文、章纲、审稿、运行时诊断。 */
-  class: 'truth' | 'chapter' | 'plan' | 'review' | 'diagnostic'
+  /** 展示类别：作者产物、章节正文、结算前草稿、章纲、审稿、运行时诊断。 */
+  class: 'truth' | 'chapter' | 'draft' | 'plan' | 'review' | 'diagnostic'
   /** 出现在哪些阶段；由宿主投影给出。 */
   stages: PanelStage['id'][]
   modifiedAt: string
@@ -34,7 +34,7 @@ export interface PanelArtifact {
 }
 
 export interface PanelIndex {
-  version: 7
+  version: 8
   generatedAt: string
   revision: string
   work: {
