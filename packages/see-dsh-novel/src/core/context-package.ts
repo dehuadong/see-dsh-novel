@@ -14,11 +14,12 @@ import { searchStory, storyDocuments } from './story-index.js'
 import {
   AUTHOR_INTENT_FILE,
   CURRENT_FOCUS_FILE,
-  ROLE_DIR_NAMES,
+  ROLE_DIRS_IN_CANDIDATE_ORDER,
   STORY_EXTERNAL_BRIEF,
+  STORY_FANFIC_CANON_MD,
   STORY_FRAME_FILE,
   STORY_PARENT_CANON_MD,
-  STORY_FANFIC_CANON_MD,
+  STORY_ROLES_DIR,
   STORY_STYLE_GUIDE_MD,
   STORY_VOLUME_MAP_FILE,
 } from './story-paths.js'
@@ -373,8 +374,9 @@ async function memoryCandidates(root: string, query: string, chapter: number): P
 
 async function roleCandidates(root: string): Promise<Candidate[]> {
   const candidates: Candidate[] = []
-  for (const tier of Object.values(ROLE_DIR_NAMES)) {
-    const dir = join(root, 'source/story/roles', tier)
+  // 按源工程的候选顺序枚举：先两个中文档、再两个英文档；名字是身份，同名两份各算一个候选。
+  for (const dirName of ROLE_DIRS_IN_CANDIDATE_ORDER) {
+    const dir = join(root, STORY_ROLES_DIR, dirName)
     let entries
     try {
       entries = await readdir(dir, { withFileTypes: true })
@@ -394,7 +396,7 @@ async function roleCandidates(root: string): Promise<Candidate[]> {
         selectionId: `role:${source}`,
         kind: 'role',
         source,
-        title: name,
+        title: name.replace(/\.md$/u, ''),
         excerpt: await readText(file),
         score: 0,
       })

@@ -53,14 +53,28 @@ export const STORY_ROLES_DIR = `${STORY_ROOT}/roles`
 /** 角色级别 → 磁盘目录名（规范目录，写卡落这里）。 */
 export const ROLE_DIR_NAMES = { major: '主要角色', minor: '次要角色' } as const
 
+/** 英文别名目录名；历史作品与手工写入可能落这里，读取时一并认。 */
+const ROLE_DIR_ALIASES = { major: 'major', minor: 'minor' } as const
+
 /**
  * 角色级别 → 该档位要读的目录名，规范目录在前、英文别名在后。
- * 源工程读四目录（`outline-paths.ts` 的 `collectRoleDir`），英文名是它的兼容别名。
+ * 供按档位归档的读者使用（人物档案按主要/次要分组渲染）。
  */
 export const ROLE_DIRS_BY_TIER = {
-  major: [ROLE_DIR_NAMES.major, 'major'],
-  minor: [ROLE_DIR_NAMES.minor, 'minor'],
+  major: [ROLE_DIR_NAMES.major, ROLE_DIR_ALIASES.major],
+  minor: [ROLE_DIR_NAMES.minor, ROLE_DIR_ALIASES.minor],
 } as const
+
+/**
+ * 候选枚举顺序：先两个中文档、再两个英文档。
+ * 与 `ROLE_DIRS_BY_TIER` 不同——那个按档位分组，这个按语言平铺，对应源工程列候选的顺序。
+ */
+export const ROLE_DIRS_IN_CANDIDATE_ORDER: ReadonlyArray<string> = [
+  ROLE_DIR_NAMES.major,
+  ROLE_DIR_NAMES.minor,
+  ROLE_DIR_ALIASES.major,
+  ROLE_DIR_ALIASES.minor,
+]
 
 /** 角色卡目录：中文名与英文名都认，任一目录里有一张 `.md` 就算有角色卡。 */
 export const ROLE_TIER_DIRS: ReadonlyArray<string> = [

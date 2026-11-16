@@ -1,20 +1,17 @@
 {
   "capability": "plan.context-select",
-  "date": "2026-11-14",
-  "sessionId": "process:plan.context-select",
+  "date": "2026-11-16",
+  "sessionId": "process:plan.context-select-role-candidates",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "529 passed／1 skipped（symlink） — context-package 7 例（planner/writer 两 pass、previous chapter、五类任务、0/1 自动、complete/semantic、protected 分层、trace、planner/writer 包落盘、按文件校验）＋ story-index 2 例（role/outline 删除、material 保留）＋ writer-contract 3 例（selectedContext 注入）＋ plan-tool 1 例（plannerInputs 从 planner-context）"
+    "summary": "600 tests／599 pass／1 skipped（symlink）；context-package 19 例（新增：四目录候选按 主要角色→次要角色→major→minor 枚举、英文目录同名卡可选中且各自成候选、别名目录内按文件名排序、英文目录空卡仍成候选；既有两候选/protected/trace 断言保持）"
   },
   "receipts": [
-    "semantic 选择覆盖：N-1 摘要 required 强制、summary 按章号 #2→#10、context/writer strict、en referenced hook。",
-    "context-package 上一章取 N-1 全文去标题；semantic 强制 N-1 摘要；selectedContext 按 source id 源顺序；referenced hook 按语言双语；context strict 读入（未知字段/缺 reason/保护值非法拒绝）；planner-context 登记为 DSH 子代理产物。",
-    "真实运行（工作区 `.artifacts/work-context`，session `session-e96508fc-aff4-48b4-a934-5b70e4519e06`）：`story_context_candidates(purpose=planner, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=planner)` 回执「第 1 章上下文：43 条」，写入 `source/story/runtime/chapter-0001.planner-context.json`。",
-    "planner 包含 `runtime/chapter_memo`、`source/story/current_focus.md`、`author_intent.md`、`style_guide.md`、`parent_canon.md`、`fanfic_canon.md`、9 条 hook、8 张角色卡与两份大纲分节；planner-context 43 条与 `story_plan_chapter` 的 `plannerInputs` 完全一致，`plannerInputs` 由宿主从 planner-context 读取。",
-    "`story_context_candidates(purpose=writer, contextWindowTokens=128000)` 回执「第 1 章 complete 选择：0 个任务」；`story_context_package(purpose=writer)` 回执「第 1 章上下文：47 条」，写入 `chapter-0001.context.json`／`.trace.json`。",
-    "writer 包比 planner 包多出 4 条 `runtime/referenced_hook#H-01/H-02/H-03/H-08`；trace 的 `composerInputs` 为 `source/story/runtime/chapter-0001.intent.md`，`plannerInputs` 为 plan 的 plannerInputs；memory 为 compressible，固定来源／role／state／outline 为 protected。",
-    "两次 128k 窗口都命中源 `completeContextWithinBudget` 分支，因此没有 composer subagent；semantic 分支的五类任务、0/1 自动与 selection 校验由 `test/context-package.test.mjs` 覆盖。",
-    "writer 子代理按 `context.json` 的 selectedContext 与 plan 写出了 `source/chapters/0001_无尸.md`；`story_write_chapter` 回执「第 1 章已落盘：source/chapters/0001_无尸.md（2363 / 目标 3000）」。"
+    "2026-11-16 角色候选：roleCandidates 改为按 ROLE_DIRS_IN_CANDIDATE_ORDER 枚举四个角色目录，顺序与源 composer 的候选枚举一致；目录内按文件名排序，候选标题去掉 .md，source 仍为工作区相对路径，id／selectionId 为 role:<source>。",
+    "2026-11-16 真实工作区形态：E:\\novelist\\test-novel\\t001 的 12 张卡（含 roles/major/苏晚星.md）现在全部成为候选；同名双卡是两个不同 id 的候选，选英文目录那张不会带出中文目录那张的内容。",
+    "2026-11-16 空卡：仍进候选（源不排除），空摘要在候选里可见，由人物档案一侧报问题。",
+    "真实 DSH 会话回执仍未取得（作者 2026-11-16 决定暂不重跑，宿主未重启载入新 lib）：本条为 process-level + 夹具证据，真实会话部分记 BLOCKED，待下次真实运行补。",
+    "旧的 session-e96508fc… 回执描述的是「8 张角色卡、两目录」的旧行为，已随本次重录删除，不再作为角色枚举证据。"
   ]
 }

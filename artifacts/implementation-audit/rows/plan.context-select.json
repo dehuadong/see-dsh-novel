@@ -126,7 +126,7 @@
     {
       "file": "packages/see-dsh-novel/test/context-package.test.mjs",
       "line": "73-269",
-      "behavior": "测试两 pass、五组、complete/semantic、protected 分层、trace、按文件校验、planner/writer 落盘；不测 book reference、N-1 摘要强制、英文角色目录或真实子代理选择。"
+      "behavior": "测试两 pass、五组、complete/semantic、protected 分层、trace、按文件校验、planner/writer 落盘、角色候选按源顺序覆盖四目录（含英文目录、同名双卡、空卡）；不测 book reference、N-1 摘要强制或真实子代理选择。"
     }
   ],
   "tests": [
@@ -148,7 +148,7 @@
     "D24 book reference 上下文缺失：源 composeChapter 先 loadReferenceContext 并在 complete 预算与最终 selectedContext 里追加 compressible 引用段（composer.ts:93-104,569-578；reference-context.ts:40-84）；复刻 grep 不到 reference/referenceContextProvider，context-package 只装配固定来源与五组（docs/scope.md:145 的 D24，计划 P6 materials/search.unified）。",
     "已修（2026-11-14）：上一章 excerpt 与源不同：源取上一章去掉标题行后的全文（planning-materials.ts:20-51），复刻只取末尾 2000 字（context-package.ts:212-225），并且把下一章章号传给 chapterBodyForChapter，导致上一章的「第N-1章」标题没有被剥掉。planner 契约同样 slice(-2000)（stages/planner.ts:56-68）。",
     "已修（2026-11-14）：第 N-1 章摘要没有强制进入选择：源 selectSummariesById 在 semantic 模式下无条件包含 chapter===N-1 的摘要（memory-retrieval.ts:256-266）；复刻 memoryCandidates 把全部摘要当候选，选中与否由子代理/selection 决定，没有强制包含（context-package.ts:323-345,612-628）。",
-    "英文角色目录不参与选择：源扫 主要角色/次要角色/major/minor 四个目录（composer.ts:786-804）；复刻 roleCandidates 只迭代 ROLE_DIR_NAMES 的两个中文目录（context-package.ts:347-377；story-paths.ts:70）。使用 roles/major|minor 的作品在复刻上下文里没有角色卡。",
+    "已修（2026-11-16）：英文角色目录不参与选择——源扫 主要角色/次要角色/major/minor 四个目录（composer.ts:786-804），复刻 roleCandidates 原先只迭代两个中文目录。现在按 ROLE_DIRS_IN_CANDIDATE_ORDER 枚举四目录、目录内按文件名排序、候选标题去掉 .md，同名两份各自成候选。",
     "已修（2026-11-14）：选定条目的顺序、reason 与源不同：源顺序是 memo→focus→intent→style→state→outline→canon→role→referenced hook→summary→volume→hooks（composer.ts:722-734），reason 是各来源的完整说明；复刻是 fixed→memory→role→state→outline（context-package.ts:458-468,609-628），selected 的 reason 统一为「composer <kind>」（:623）。context.json、trace.selectedSources 与 token 统计随之不同，writer 看到的上下文顺序也不同。",
     "已修（2026-11-14）：referenced hook 文本只有中文：源按 language 输出中英两套 reason/excerpt（composer.ts:861-891）；复刻 context-package.ts:281-289 硬编码中文。英文作品会得到中文的读者承诺/种于/推进于文本。",
     "trace 的 memory 候选 id 命名与源不同：源是 summary:<chapter>/hook:<id>/volume-summary:<index>（memory-retrieval.ts:223-233）；复刻是 memory:<source>（context-package.ts:328,750）。ChapterTrace 的 retrieval.candidates/semanticSelectedIds 因此与源不可直接对读。",

@@ -77,6 +77,13 @@ test('tokens are estimated CJK-first', () => {
   assert.equal(estimateTokens('abcd'), 1)
 })
 
+/** 角色候选的来源列表，按分组内的既有顺序。 */
+function roleSources(built) {
+  return built.groups
+    .filter((group) => group.kind === 'role')
+    .flatMap((group) => group.candidates.map((candidate) => candidate.source))
+}
+
 test('planner pass builds fixed sources, previous chapter and five task groups', async () => {
   const root = await workspace()
   try {
@@ -92,6 +99,110 @@ test('planner pass builds fixed sources, previous chapter and five task groups',
     const tasks = await buildSelectionTasks(root, 'planner')
     assert.equal(tasks.mode, 'semantic')
     assert.equal(tasks.tasks.length, 5)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('role candidates come from every role directory, in candidate order', async () => {
+  const root = await workspace()
+  try {
+    // 每个目录各一张卡：候选顺序必须是「先两个中文档、再两个英文档」，目录内按文件名排序。
+    for (const [dir, name] of [
+      ['source/story/roles/次要角色', '丙.md'],
+      ['source/story/roles/major', '丁.md'],
+      ['source/story/roles/minor', '戊.md'],
+    ]) {
+      await mkdir(join(root, dir), { recursive: true })
+      await writeFile(join(root, dir, name), `# ${name.slice(0, -3)}\n`, 'utf8')
+    }
+    const built = await buildSelectionGroups(root, 'planner')
+    assert.deepEqual(roleSources(built), [
+      // 目录内按文件名字典序（UTF-16 码位）：乙（U+4E59）在甲（U+7532）之前。
+      'source/story/roles/主要角色/乙.md',
+      'source/story/roles/主要角色/甲.md',
+      'source/story/roles/次要角色/丙.md',
+      'source/story/roles/major/丁.md',
+      'source/story/roles/minor/戊.md',
+    ])
+    assert.deepEqual(
+      built.groups.filter((group) => group.kind === 'role')[0].candidates.map((candidate) => candidate.title),
+      ['乙', '甲', '丙', '丁', '戊'],
+    )
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a card only in an alias directory is selectable and keeps its own id', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
+    // 与主要角色/甲.md 同名：两个候选 id 不同，各进一次上下文。
+    await writeFile(join(root, 'source/story/roles/major/甲.md'), '# 甲\n\n别名目录版。\n', 'utf8')
+    const built = await buildSelectionGroups(root, 'writer')
+    const roles = built.groups.filter((group) => group.kind === 'role')[0].candidates
+    const aliasCandidate = roles.find((candidate) => candidate.source === 'source/story/roles/major/甲.md')
+    assert.ok(aliasCandidate)
+    assert.equal(aliasCandidate.id, 'role:source/story/roles/major/甲.md')
+    // 候选摘要是这张卡自己的内容，不是同名中文卡的。
+    assert.match(aliasCandidate.excerpt, /别名目录版/)
+    assert.equal(roles.filter((candidate) => candidate.title === '甲').length, 2)
+
+    const assembled = assembleContext({
+      chapter: built.chapter,
+      query: built.query,
+      fixedEntries: built.fixedEntries,
+      groups: built.groups,
+      selection: {
+        memory: [],
+        role: [aliasCandidate.id],
+        state: [],
+        storyFrame: [],
+        volumeMap: [],
+      },
+      mode: 'semantic',
+      plannerInputs: ['runtime/chapter_memo'],
+      composerInputs: [],
+    })
+    const selected = assembled.package.selectedContext
+    assert.ok(selected.some((entry) => entry.source === 'source/story/roles/major/甲.md' && entry.protection === 'protected'))
+    assert.equal(selected.some((entry) => entry.source === 'source/story/roles/主要角色/甲.md'), false)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('cards inside one alias directory are sorted by file name', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
+    await writeFile(join(root, 'source/story/roles/major/b.md'), '# b\n', 'utf8')
+    await writeFile(join(root, 'source/story/roles/major/a.md'), '# a\n', 'utf8')
+    const built = await buildSelectionGroups(root, 'planner')
+    assert.deepEqual(roleSources(built).slice(-2), [
+      'source/story/roles/major/a.md',
+      'source/story/roles/major/b.md',
+    ])
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('an empty card in an alias directory is still a candidate', async () => {
+  const root = await workspace()
+  try {
+    await mkdir(join(root, 'source/story/roles/major'), { recursive: true })
+    // 源不排除空卡：候选照列，空卡由人物档案那边报成问题，不在这里静默吞掉。
+    await writeFile(join(root, 'source/story/roles/major/空.md'), '  \n\n', 'utf8')
+    const built = await buildSelectionGroups(root, 'planner')
+    const empty = built.groups
+      .filter((group) => group.kind === 'role')
+      .flatMap((group) => group.candidates)
+      .find((candidate) => candidate.source === 'source/story/roles/major/空.md')
+    assert.ok(empty)
+    assert.equal(empty.title, '空')
+    assert.equal(empty.excerpt.trim(), '')
   } finally {
     await cleanup(root)
   }
