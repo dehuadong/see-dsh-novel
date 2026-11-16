@@ -88,7 +88,8 @@
     "packages/see-dsh-novel/test/workbench.test.mjs（14 例：动作条、阶段导航、诊断折叠、JSON 键值树、删除内联确认、完成后根修订动作、确认提示只一次、草稿行与只读警示）",
     "packages/see-dsh-novel/test/panel-index.test.mjs（14 例：索引 v8、基础设定写作中、待确认、首次/已结算 stale/rejected/none、草稿产物与发布后消失、白名单／摘要分离、latestChapter 与坏索引、恢复后 review target）",
     "packages/see-dsh-novel/test/client.test.mjs（36 例：索引驱动、动作派发、开始下一章拒绝文本、导出回执、审阅目标、索引重载）",
-    "packages/see-dsh-novel/test/panel-projection.test.mjs（7 例：v7→v8 重建与预热）"
+    "packages/see-dsh-novel/test/panel-projection.test.mjs（7 例：v7→v8 重建与预热）",
+    "2026-11-16 语义标注：test/panel-index.test.mjs 夹具补 source/story/author_intent.md，断言标题「作者意图（长期方向）」与 readonly；pnpm run verify 596 tests／595 pass／1 skipped"
   ],
   "realRunLevel": "P",
   "realRunBasis": "artifacts/real-runs/panel.workbench.json：date=2026-11-16，sessionId=process:panel.workbench，回执覆盖已结算夹具在 stale/rejected/none 三种基础设定状态下的 v8 投影（六阶段 done、根 start-chapter 可点、顶部一次性提示、基础设定无动作）、结算前草稿产物与发布后消失、确认提示只渲染一次；仍是 process-level，不是 DSH 会话。",
@@ -108,6 +109,7 @@
     "对照：capabilities.yaml 标 verified；docs/fidelity-audit.md 判「机制差异已登记 + 未关闭差异 D39/AU-31」；该判定只承认真值编辑与缺失动作，未覆盖设置／删书／重写／同步／版本恢复与 process-level 证据。",
     "2026-11-16：面板索引升到 v8（结算前草稿、确认提示位置、结算与确认解耦）；本机没有交接文档里的真实工作区，也不能在会话内重启宿主，真实 DSH 会话的「第 3 章落盘后读草稿」「补卷章后第 2 章仍完成」取证未取得（BLOCKED）。",
     "2026-11-16 索引新鲜度：真实会话 session-607ecdcb 里 /story-approve 已成功写 foundation-approval.json，但 panel.index.json 的 mtime 与 generatedAt 仍停在确认前，面板因此继续显示确认按钮；据此把确认类命令与 story_foundation_signoff 改为成功后强制重建索引（失败重试并在回执里说明）。",
-    "2026-11-16：D64 未偿还——确认类动作之外的写动作投影失败仍被静默吞掉，面板可能显示旧索引；真实会话修复后回执未取得。"
+    "2026-11-16：D64 未偿还——确认类动作之外的写动作投影失败仍被静默吞掉，面板可能显示旧索引；真实会话修复后回执未取得。",
+    "2026-11-16 只改显示名，不改种子行为、不扩白名单、不升 PANEL_INDEX_VERSION；brief 与 author_intent 建书时仍同源，区分靠显示名与 Note 说明。"
   ]
 }

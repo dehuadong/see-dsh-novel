@@ -23,6 +23,7 @@ async function workspace(kind = 'foundation') {
     'source/story/fanfic_canon.md',
     'source/brief.md',
     'source/story/brief.md',
+    'source/story/author_intent.md',
     'source/story/current_state.md',
     'source/story/pending_hooks.md',
   ]) {
@@ -109,6 +110,10 @@ test('the panel shows the curated set while the approval digest keeps every stor
     // 章节正文、章纲、审稿、运行时诊断各归各类与阶段。
     const frame = index.artifacts.find((artifact) => artifact.path === 'source/story/outline/story_frame.md')
     assert.equal(frame?.title, '故事框架')
+    // 长期方向与立项原文（story/brief.md）在建书时同源，显示名必须区分，否则作者分不清该改哪份。
+    const intent = index.artifacts.find((artifact) => artifact.path === 'source/story/author_intent.md')
+    assert.equal(intent?.title, '作者意图（长期方向）')
+    assert.equal(intent?.readonly, true)
     assert.equal(
       index.artifacts.find((artifact) => artifact.path === 'source/story/book_rules.md')?.title,
       '规则正文',

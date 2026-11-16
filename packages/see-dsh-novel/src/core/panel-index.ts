@@ -87,7 +87,7 @@ const DISPLAY_STAGES: Readonly<Record<PanelArtifact['class'], PanelStage['id'][]
 
 /** 真值文件浏览器的固定顺序与中文显示名；白名单与顺序来自源工程的真值文件列表。 */
 const TRUTH_FILES: ReadonlyArray<readonly [string, number, string]> = [
-  [AUTHOR_INTENT_FILE, 100, '作者意图'],
+  [AUTHOR_INTENT_FILE, 100, '作者意图（长期方向）'],
   [CURRENT_FOCUS_FILE, 101, '当前焦点'],
   [STORY_FRAME_FILE, 110, '故事框架'],
   [STORY_VOLUME_MAP_FILE, 111, '分卷地图'],
