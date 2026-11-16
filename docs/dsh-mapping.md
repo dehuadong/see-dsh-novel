@@ -33,6 +33,7 @@
 | 面板 | 独立前端服务；文件/阶段确认/只读产物 | `client` 插件 + slots；`panel.workbench`（P6）是唯一作品页，承载阶段栏、产物列表、详情与动作条；确认语义仍归 `panel.confirm` | 从会话进入，与对话、轨迹并列；UI 用 React；DSH resource 只能按路径订阅，阶段与产物清单由宿主投影的 `panel.index.json` 提供；面板只读、不触发投影 | 索引驱动渲染；动作经宿主命令/提示；`workbench`/`client`/`panel-projection` 测试 |
 | 面板投影的写入归属 | 源 Studio 由宿主进程直接提供状态，界面不读派生文件 | 投影由宿主在作品动作内重建：确认、退回、定稿三类动作（含签核的「记录已有效」早退分支与退回分支）在同一作品动作的锁内重建 `panel.index.json` 并报告失败（说明不回滚确认）；其余动作在动作成功后尽力重建，失败保持旧索引 | 复刻的界面读派生文件，状态与投影可能分叉；确认类动作是作者唯一会盯着看结果的地方，必须同一次动作落定并把失败说出来；其余动作按 D64 偿还 | `approval`／`panel-index`／`panel-projection` 测试；真实会话 `session-607ecdcb` 复现了确认后索引未变的旧行为 |
 | 人物档案顺序 | 角色卡按目录并发收集，渲染顺序不确定（`Promise.all` 收集四个目录、目录内不排序） | 人物档案按名字码位升序渲染 | 源行为不可观测：没有可比对的确定顺序；排序让上下文可复现 | `cast` 测试的名字排序与同卡用例；回执见 `artifacts/real-runs/cast.single-authority.json` |
+| 人物档案坏卡处置 | 物化人物档案时对空卡、读失败、目录读失败、零卡一律抛错（单次触发：foundation 重生成与叙事预测）；章前规划的候选选择对空卡宽容、对读失败抛错 | 候选选择侧四档与源一致；物化侧改为不注入 + `[cast-problem]`，任何动作都不因坏卡被拒 | 源的物化是单次触发，复刻的人物档案由 `systemPrompt.context()` 每步装配，没有对应落点；在提供者里抛错会打断无关对话 | `cast`／`context-package` 用例；回执见 `artifacts/real-runs/cast.single-authority.json`（真实会话部分仍 BLOCKED） |
 
 ## 作者裁决偏差
 

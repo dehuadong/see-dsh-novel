@@ -42,6 +42,12 @@
 - 原因：作者 2026-11-16 裁决——写小说的会话不应翻宿主安装目录（真实会话里去读 `app.asar` 查工具实现）。DSH 侧没有读路径限制：`fs-sandbox` 的注释写明 "Reads pass through untouched"，写检查只在 mutation 上；`tools.guard()`／`tools/pre-execute` 虽能拿到工具名与参数、理论上可拦内置检索，但由作品插件改写宿主工具分派属于新的产品限制，需要单独裁决与路径判定（符号链接、盘符大小写、UNC），不在本批做。
 - 验证：`stage-context` 测试断言中英通用段含该约束；真实会话观察（foundation 阶段不再出现工作区外读取）记 BLOCKED。
 
+### 人物档案坏卡处置（2026-11-16，源行为不可等价）
+
+- 源工程做法：`readRoleCards` 在物化人物档案时对目录读失败（`outline-paths.ts:81-88`）、卡文件读失败（`:92`）、空卡（`:93`）直接抛错，`readCharacterContext` 在零卡时抛（`:126`）；这两处物化只在 foundation 重生成（`pipeline/runner.ts:590`）与叙事预测（`forecast/context-builder.ts:62`）被调用。章前规划的候选选择走 `composer.ts` 的 `selectRoleCardEntries`：`readdir` 只 guard ENOENT（`:792`）、`readFile` 无 try/catch（`:801`）、空卡不检查（空 `excerpt` 也算候选）。
+- 复刻做法：候选选择侧与源一致（`context-package.ts` 的 `readText` 只吞 ENOENT，空卡照收）；物化侧改为不注入 + `[cast-problem]` 问题行，任何动作都不因坏卡被拒。
+- 原因：源的物化是单次触发点，复刻的人物档案由 `systemPrompt.context()` 在每个模型步骤装配，没有「一次性物化」的落点；在提供者里抛错会把无关对话步骤一起打断，失败范围远大于源的一次动作。
+- 验证：`test/cast.test.mjs`（空卡、目录读失败、零卡三种问题行）、`test/context-package.test.mjs`（读失败抛出、空卡仍成候选）；回执见 `artifacts/real-runs/cast.single-authority.json`，真实会话部分仍记 BLOCKED。
 ### 人物档案顺序（2026-11-16，源行为不可观测）
 
 - 源工程做法：`readRoleCards` 对四个角色目录并发 `collectRoleDir`（`Promise.all`），目录内按 `readdir` 原样顺序过滤 `.md`，既不排序也不去重；`readCharacterContext` 按收集结果分组渲染，因此渲染顺序取决于并发完成顺序与文件系统返回顺序。

@@ -1,16 +1,16 @@
 {
   "capability": "cast.single-authority",
   "date": "2026-11-16",
-  "sessionId": "process:cast.single-authority-context-format",
+  "sessionId": "process:cast.single-authority-bad-card-registration",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "601 tests／600 pass／1 skipped（symlink）— cast 26 例：两组形态整段比对、只主角色一组时不含次要标题、无卡有问题只输出问题段、有卡有问题问题段前恰一空行、trim 边界、四目录读取与同名双卡保持"
+    "summary": "601 tests／600 pass／1 skipped（symlink）— 本次无代码改动；行为由现有用例锁定：cast 26 例（空卡、目录读失败、零卡的问题行与上下文形态）、context-package 19 例（读失败抛出、空卡仍成候选）"
   },
   "receipts": [
-    "2026-11-16 人物档案上下文改为两段式：主要角色与次要角色各一段，每卡 `### <名>` + 空行 + `content.trim()`，卡与组之间空行，整段末尾不带换行；外层标题、`[roles:index]`、`[role:…]` 与收尾句都已删除。",
-    "2026-11-16 卡内容由「只去尾部换行」改为 `trim()`：行尾空格与前导空行不再进入上下文。真实工作区 E:\\novelist\\test-novel\\t001 的 12 张卡按此形态渲染，渲染顺序按名字码位升序（登记的不可观测偏差）。",
-    "2026-11-16 保留 `[cast-problem]`：无卡且有问题时整段只有问题段（无前导空行、末尾不带换行）；有卡且有问题时问题段在卡块后、前恰一个空行。这是不抛错策略的出口，空卡/读失败该抛错还是报问题仍归 AU-15 剩余第 1 条。",
-    "真实 DSH 会话回执未取得（作者 2026-11-16 决定暂不重跑，宿主未重启载入新 lib）：本条为 process-level + 夹具证据，真实会话部分记 BLOCKED。"
+    "2026-11-16 坏卡处置按两轴核对：候选选择侧四档（读失败、空卡、目录读失败、零卡）与源一致；物化侧（人物档案上下文）四档登记为机制偏差，见 docs/dsh-mapping.md 的「人物档案坏卡处置」行与 artifacts/implementation-audit/dsh-deviations.md 的对应四段。",
+    "2026-11-16 现状行为：空卡、读不出的卡不注入人物档案，`[cast-problem]` 一行一条；四个目录零个 `.md` 时不输出人物档案段；任何动作都不会因坏卡被拒。卡文件读不出时，候选枚举会抛出（与源一致）。",
+    "2026-11-16 不做的部分：不在 plan／write 加坏卡闸门——源对空卡在 plan／write 是宽容的，加闸门属新的产品限制；若作者要求「坏卡必须挡住写作」，需另立工作项裁决。",
+    "真实 DSH 会话回执未取得（作者 2026-11-16 决定暂不重跑）：真实会话部分记 BLOCKED；AU-15 的剩余回执三类（英文作品、英文目录、空卡与读失败）待补。"
   ]
 }
