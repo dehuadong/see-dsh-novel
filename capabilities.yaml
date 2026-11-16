@@ -145,8 +145,8 @@ capabilities:
     realRun: artifacts/real-runs/foundation.approval.json
     status: verified
   - id: cast.single-authority
-    title: roles:index／role:* 唯一人物权威，major/minor 均进入 brief/context
-    source: inkos:packages/core/src/references/reference-context.ts
+    title: roles:index／role:* 唯一人物权威，四个角色目录均进入 brief/context
+    source: inkos:packages/core/src/utils/outline-paths.ts + inkos:packages/core/src/references/reference-context.ts
     dsh: storage + systemPrompt.context()
     implementation: packages/see-dsh-novel/src/pipelines/long/cast.ts
     consumer: packages/see-dsh-novel/test/cast.test.mjs

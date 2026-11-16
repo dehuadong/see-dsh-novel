@@ -21,7 +21,10 @@ export type { BookRulesInput as BookRulesData } from './book-rules.js'
 
 export type { PendingHook }
 
-/** 角色级别 → 磁盘目录名。读取方与写入方共用同一张表。 */
+/**
+ * 角色级别 → **写入**目录名。写卡只落规范目录；读取方认的是
+ * `story-paths.ts` 的 `ROLE_DIRS_BY_TIER`（规范名 + 英文别名）。
+ */
 export const ROLE_DIRS: Record<RoleTier, string> = ROLE_DIR_NAMES
 
 /** Windows／POSIX 都不接受的文件名字符。 */

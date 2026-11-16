@@ -1,17 +1,18 @@
 /**
  * 人物档案：唯一权威的读取与上下文渲染。
  *
- * 名字是身份，档位是属性：一个名字只能有一张卡。读取方把「同一名字出现在
- * 两个档位」「空卡」「读失败」当作问题报出来，而不是替作者挑一张。
+ * 名字是身份，档位是属性。读取认四个角色目录（中文规范名 + 英文别名），与源工程一致：
+ * 同一名字在两处各有一张卡时两张都读入，不替作者挑选；空卡与读失败记成问题。
  *
  * 读取用同步文件 API：`systemPrompt.context` 的文本提供函数是同步的，而且每次
- * 装配都要重新读盘才能反映作者刚改过的卡；六个小文件的同步读可以接受。
+ * 装配都要重新读盘才能反映作者刚改过的卡；几个小目录的同步读可以接受。
  */
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
+import { ROLE_DIRS_BY_TIER, STORY_ROLES_DIR } from '../../core/story-paths.js'
 import type { AgentPresetsLike, Disposer, PluginContext } from '../../core/types.js'
-import { CAST_CONTEXT_NAME, CAST_CONTEXT_ORDER, ROLE_DIRS } from './contract.js'
+import { CAST_CONTEXT_NAME, CAST_CONTEXT_ORDER } from './contract.js'
 import type { RoleTier } from './contract.js'
 
 /** 一张角色卡。 */
@@ -30,36 +31,36 @@ export interface Cast {
   problems: string[]
 }
 
-const ROLES_DIR = 'source/story/roles'
-
-/** 读一个档位目录；目录不存在按空处理，其它读失败记成问题。 */
+/** 读一个档位：规范目录在前、英文别名在后；目录不存在按空处理，其它读失败记成问题。 */
 function readTier(root: string, tier: RoleTier, problems: string[]): RoleCard[] {
-  const dir = join(root, ROLES_DIR, ROLE_DIRS[tier])
-  let entries
-  try {
-    entries = readdirSync(dir, { withFileTypes: true })
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
-    problems.push(`读不了角色目录 ${ROLE_DIRS[tier]}/：${(error as Error).message}`)
-    return []
-  }
-
   const cards: RoleCard[] = []
-  for (const entry of entries) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue
-    const path = `${ROLES_DIR}/${ROLE_DIRS[tier]}/${entry.name}`
-    let content: string
+  for (const dirName of ROLE_DIRS_BY_TIER[tier]) {
+    const dir = join(root, STORY_ROLES_DIR, dirName)
+    let entries
     try {
-      content = readFileSync(join(dir, entry.name), 'utf8')
+      entries = readdirSync(dir, { withFileTypes: true })
     } catch (error) {
-      problems.push(`读不了 ${path}：${(error as Error).message}`)
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') continue
+      problems.push(`读不了角色目录 ${dirName}/：${(error as Error).message}`)
       continue
     }
-    if (content.trim() === '') {
-      problems.push(`${path} 是空卡：补上内容或删掉它。`)
-      continue
+
+    for (const entry of entries) {
+      if (!entry.isFile() || !entry.name.endsWith('.md')) continue
+      const path = `${STORY_ROLES_DIR}/${dirName}/${entry.name}`
+      let content: string
+      try {
+        content = readFileSync(join(dir, entry.name), 'utf8')
+      } catch (error) {
+        problems.push(`读不了 ${path}：${(error as Error).message}`)
+        continue
+      }
+      if (content.trim() === '') {
+        problems.push(`${path} 是空卡：补上内容或删掉它。`)
+        continue
+      }
+      cards.push({ name: entry.name.slice(0, -'.md'.length), tier, content, path })
     }
-    cards.push({ name: entry.name.slice(0, -'.md'.length), tier, content, path })
   }
   return cards
 }
@@ -87,30 +88,14 @@ const byName = (left: RoleCard, right: RoleCard): number => compareCodePoints(le
 /**
  * 读取作品的人物档案。
  *
- * 同一名字出现在两个档位时，两张卡都不返回，并在 `problems` 里点名——
- * 唯一权威不允许「挑一张算数」。
+ * 四个角色目录都读（规范名 + 英文别名），同名双卡都返回——源工程不去重，
+ * 复刻也不替作者挑一张；需要合并时由作者改文件。
  * @param root 作品根目录
  */
 export function readCast(root: string): Cast {
   const problems: string[] = []
-  let major = readTier(root, 'major', problems)
-  let minor = readTier(root, 'minor', problems)
-
-  const seen = new Set<string>()
-  const conflicts = new Set<string>()
-  for (const card of [...major, ...minor]) {
-    if (seen.has(card.name)) conflicts.add(card.name)
-    else seen.add(card.name)
-  }
-  if (conflicts.size > 0) {
-    for (const name of conflicts) {
-      problems.push(
-        `${name} 在${ROLE_DIRS.major}与${ROLE_DIRS.minor}各有一张卡：合并成一张再继续；冲突的卡没有注入。`,
-      )
-    }
-    major = major.filter((card) => !conflicts.has(card.name))
-    minor = minor.filter((card) => !conflicts.has(card.name))
-  }
+  const major = readTier(root, 'major', problems)
+  const minor = readTier(root, 'minor', problems)
   return { major: major.sort(byName), minor: minor.sort(byName), problems }
 }
 

@@ -47,13 +47,23 @@ export const STORY_CHAPTER_SUMMARIES_MD = `${STORY_ROOT}/chapter_summaries.md`
 /** 卷摘要；故事记忆的第三个来源。 */
 export const STORY_VOLUME_SUMMARIES_MD = `${STORY_ROOT}/volume_summaries.md`
 
-/** 角色级别 → 磁盘目录名。 */
+/** 角色卡根目录；读取方与写入方都从这里拼路径，避免各自写字面量。 */
+export const STORY_ROLES_DIR = `${STORY_ROOT}/roles`
+
+/** 角色级别 → 磁盘目录名（规范目录，写卡落这里）。 */
 export const ROLE_DIR_NAMES = { major: '主要角色', minor: '次要角色' } as const
 
+/**
+ * 角色级别 → 该档位要读的目录名，规范目录在前、英文别名在后。
+ * 源工程读四目录（`outline-paths.ts` 的 `collectRoleDir`），英文名是它的兼容别名。
+ */
+export const ROLE_DIRS_BY_TIER = {
+  major: [ROLE_DIR_NAMES.major, 'major'],
+  minor: [ROLE_DIR_NAMES.minor, 'minor'],
+} as const
+
 /** 角色卡目录：中文名与英文名都认，任一目录里有一张 `.md` 就算有角色卡。 */
-export const ROLE_TIER_DIRS = [
-  `${STORY_ROOT}/roles/${ROLE_DIR_NAMES.major}`,
-  `${STORY_ROOT}/roles/major`,
-  `${STORY_ROOT}/roles/${ROLE_DIR_NAMES.minor}`,
-  `${STORY_ROOT}/roles/minor`,
-] as const
+export const ROLE_TIER_DIRS: ReadonlyArray<string> = [
+  ...ROLE_DIRS_BY_TIER.major,
+  ...ROLE_DIRS_BY_TIER.minor,
+].map((dir) => `${STORY_ROLES_DIR}/${dir}`)

@@ -9,6 +9,8 @@ import { installFoundationTools } from '../src/pipelines/long/tools.ts'
 
 const MAJOR = 'source/story/roles/主要角色'
 const MINOR = 'source/story/roles/次要角色'
+const ALIAS_MAJOR = 'source/story/roles/major'
+const ALIAS_MINOR = 'source/story/roles/minor'
 
 /** 一根带若干角色卡的作品目录。 */
 async function work(files = {}) {
@@ -99,23 +101,92 @@ test('an empty cast renders nothing at all', async () => {
   }
 })
 
-test('the same name in both tiers is reported and neither card is rendered', async () => {
+test('the same name in two tiers is read twice instead of being dropped', async () => {
   const root = await work({
     [`${MAJOR}/沈砚.md`]: '# 沈砚\n\n主线版。\n',
     [`${MINOR}/沈砚.md`]: '# 沈砚\n\n支线版。\n',
     [`${MINOR}/韩九.md`]: '# 韩九\n\n配角。\n',
   })
   try {
+    // 源读四目录且不去重：同名两张卡都进上下文，不替作者挑一张。
     const cast = readCast(root)
-    assert.deepEqual(cast.major, [])
-    assert.deepEqual(cast.minor.map((card) => card.name), ['韩九'])
-    assert.equal(cast.problems.length, 1)
-    assert.match(cast.problems[0], /沈砚 在主要角色与次要角色各有一张卡/)
+    assert.deepEqual(cast.major.map((card) => card.name), ['沈砚'])
+    assert.deepEqual(cast.minor.map((card) => card.name), ['沈砚', '韩九'])
+    assert.deepEqual(cast.problems, [])
 
     const text = renderCastContext(cast)
-    assert.doesNotMatch(text, /\[role:沈砚\]/)
-    assert.match(text, /\[role:韩九\]/)
-    assert.match(text, /\[cast-problem\]\n.*沈砚/)
+    assert.equal(text.match(/\[role:沈砚\]/g)?.length, 2)
+    assert.doesNotMatch(text, /\[cast-problem\]/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('a card that only exists in the English alias directory is read too', async () => {
+  const root = await work({
+    [`${MAJOR}/沈砚.md`]: '# 沈砚\n\n主线版。\n',
+    [`${ALIAS_MAJOR}/裴照.md`]: '# 裴照\n\n英文目录里的卡。\n',
+    [`${ALIAS_MINOR}/韩九.md`]: '# 韩九\n\n英文次要目录。\n',
+  })
+  try {
+    const cast = readCast(root)
+    // 按码位排序：沈（U+6C88）在裴（U+88F4）之前。
+    assert.deepEqual(cast.major.map((card) => card.name), ['沈砚', '裴照'])
+    assert.deepEqual(cast.minor.map((card) => card.name), ['韩九'])
+    assert.deepEqual(cast.problems, [])
+    // 实际路径要带上真实目录名，作者才知道该改哪个文件。
+    assert.match(cast.major.find((card) => card.name === '裴照').path, /roles\/major\/裴照\.md$/)
+    assert.match(cast.minor[0].path, /roles\/minor\/韩九\.md$/)
+    assert.match(renderCastContext(cast), /\[role:裴照\]/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('all four role directories are read', async () => {
+  const root = await work({
+    [`${MAJOR}/甲.md`]: '# 甲\n',
+    [`${ALIAS_MAJOR}/乙.md`]: '# 乙\n',
+    [`${MINOR}/丙.md`]: '# 丙\n',
+    [`${ALIAS_MINOR}/丁.md`]: '# 丁\n',
+  })
+  try {
+    const cast = readCast(root)
+    assert.deepEqual(cast.major.map((card) => card.name), ['乙', '甲'].sort())
+    assert.deepEqual(cast.minor.map((card) => card.name), ['丁', '丙'].sort())
+    assert.equal(cast.major.length + cast.minor.length, 4)
+    assert.equal(renderCastContext(cast).match(/\[role:/g)?.length, 4)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('an empty or unreadable card in an alias directory is reported with its real path', async () => {
+  const root = await work({
+    [`${ALIAS_MAJOR}/空卡.md`]: '  \n\n',
+    [`${ALIAS_MAJOR}/正常.md`]: '# 正常\n',
+  })
+  try {
+    const cast = readCast(root)
+    assert.deepEqual(cast.major.map((card) => card.name), ['正常'])
+    assert.equal(cast.problems.length, 1)
+    assert.match(cast.problems[0], /roles\/major\/空卡\.md 是空卡/)
+  } finally {
+    await cleanup(root)
+  }
+})
+
+test('the same name in a canonical and an alias directory is read twice', async () => {
+  const root = await work({
+    [`${MAJOR}/苏晚星.md`]: '# 苏晚星\n\n规范目录版。\n',
+    [`${ALIAS_MAJOR}/苏晚星.md`]: '# 苏晚星\n\n别名目录版。\n',
+  })
+  try {
+    // 真实会话里就是这一种：roles/主要角色/苏晚星.md + roles/major/苏晚星.md。
+    const cast = readCast(root)
+    assert.deepEqual(cast.major.map((card) => card.name), ['苏晚星', '苏晚星'])
+    assert.equal(cast.problems.length, 0)
+    assert.equal(renderCastContext(cast).match(/\[role:苏晚星\]/g)?.length, 2)
   } finally {
     await cleanup(root)
   }

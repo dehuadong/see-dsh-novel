@@ -77,7 +77,8 @@
     "packages/see-dsh-novel/test/cast.test.mjs:280 init still keeps unrelated cards that are not re-submitted",
     "packages/see-dsh-novel/test/cast.test.mjs:300 an empty card body is refused before anything is written",
     "packages/see-dsh-novel/test/foundation.test.mjs:190 cast index rebuilds the card schema and cards land in tier directories",
-    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 cast.test.mjs 16 例；没有英文档位目录、源渲染格式或空卡抛错的用例"
+    "本次审计运行 node --import tsx --test 六个文件共 65 例通过，其中 cast.test.mjs 16 例；没有英文档位目录、源渲染格式或空卡抛错的用例",
+    "2026-11-16：test/cast.test.mjs 新增 7 例覆盖四目录读取、英文目录空卡带真实路径、同名双卡（同档位/跨档位）都读入；pnpm run verify 594 tests／593 pass／1 skipped"
   ],
   "realRunLevel": "S",
   "realRunBasis": "artifacts/real-runs/cast.single-authority.json：date=2026-11-04，sessionId=session-974fa00e-310f-4224-adcf-e752e8b513f6（非 process:*），tests.passed=true（pnpm run verify，76 passed）。receipts：seq 332 runtime-context 快照（source=runtime-context，5419 字符）包含『## 人物档案（唯一来源：source/story/roles/）』与 [roles:index]（主要角色 崔无咎/沈砚/苏芜/裴照；次要角色 小满/韩九），同一快照含 6 个 [role:*] 块与『以上人物档案是唯一来源』规则行；写入侧 cast_index 拒绝空名/重复名/安全化同名，cast_documents 拒绝空卡并删除换档旧卡。本机 DSH_HOME/sessions/--E-see-dsh-novel-.artifacts-work-demo--/session-974fa00e-.../session.v4.jsonl.zstd 存在（286136 字节，2026-11-05 写入）。",
@@ -97,6 +98,8 @@
     "复刻的 [cast-problem] 会把内部问题文本注入模型提示词；源没有该通道，问题要么抛错要么不出现。该文本对模型行为的影响未被测试覆盖。",
     "角色卡的选择与预算已另有 plan.context-select 行；本行只裁决『唯一权威 + major/minor 进入 context』，没有复核语义选择器与预算裁剪。",
     "写入侧换档删卡（tools.ts:93-125）在 init 模式也删，与 foundation.architect 的偏离同源；本行注意点只在读侧。",
-    "本次审计没有运行 DSH 宿主；cast 的 preset 守卫与 systemPrompt.context 装配由 cast.test.mjs 的 stub 覆盖。"
+    "本次审计没有运行 DSH 宿主；cast 的 preset 守卫与 systemPrompt.context 装配由 cast.test.mjs 的 stub 覆盖。",
+    "2026-11-16 本项只补读取面：readCast 读四目录、删除自造同名丢弃；roleCandidates 仍两目录，上下文格式与空卡/读失败源行为对照留在 AU-15 剩余子项。",
+    "2026-11-16 真实 DSH 会话回执未取得（环境不能重启宿主），process-level + 夹具证据；同名双卡重复占预算属源行为，合并需另立工作项。"
   ]
 }

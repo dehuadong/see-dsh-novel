@@ -16,7 +16,7 @@ Status: implemented
 
 契约与源一致（见下节），失败集中在两点：
 
-1. **错误只报第一张缺卡。** 校验逐张抛错，第一张空卡就中断；模型看不到还缺哪几张，也不知道按什么形状重试，于是去写 `roles/major/苏晚星.md`（见 [`2026-11-16-cast-reads-four-role-dirs.md`](../../proposed/bug-fix/2026-11-16-cast-reads-four-role-dirs.md)）并翻宿主安装目录（见 [`2026-11-16-out-of-workspace-reads.md`](../../proposed/architecture/2026-11-16-out-of-workspace-reads.md)）。
+1. **错误只报第一张缺卡。** 校验逐张抛错，第一张空卡就中断；模型看不到还缺哪几张，也不知道按什么形状重试，于是去写 `roles/major/苏晚星.md`（见 [`2026-11-16-cast-reads-four-role-dirs.md`](../bug-fix/2026-11-16-cast-reads-four-role-dirs.md)）并翻宿主安装目录（见 [`2026-11-16-out-of-workspace-reads.md`](../../proposed/architecture/2026-11-16-out-of-workspace-reads.md)）。
 2. **描述没有点明「按具名字段提交」。** 复刻原描述是 `Write one character card per indexed role under source/story/roles/`，源是 `Submit each character card as text in its named field.`——源这句直接说清提交形状。
 
 ## 源工程证据
