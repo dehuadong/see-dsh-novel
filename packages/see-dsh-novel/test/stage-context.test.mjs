@@ -317,6 +317,43 @@ test('another preset gets no stage text', async () => {
   }
 })
 
+/** 把工作区语言切成英文，其余不动。 */
+async function asEnglish(root) {
+  const workJson = JSON.parse(await readFile(join(root, 'work.json'), 'utf8'))
+  workJson.language = 'en'
+  await writeFile(join(root, 'work.json'), JSON.stringify(workJson))
+}
+
+test('every Chinese stage protocol keeps reads and writes inside the workspace', async () => {
+  for (const kind of ['proposal', 'foundation', 'foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    const root = await workspace(kind)
+    try {
+      const text = renderStageProtocol(detectStage(root))
+      // 三样缺一不可：工作区边界、不读宿主安装目录、工具契约以 schema 与报错为准。
+      assert.match(text, /所有读写都留在当前工作区内/)
+      assert.match(text, /不要读宿主安装目录/)
+      assert.match(text, /工具怎么用看它的 schema 与报错/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+})
+
+test('every English stage protocol carries the same workspace boundary', async () => {
+  for (const kind of ['foundation', 'foundation-ready', 'plan', 'write', 'review', 'chapter-done']) {
+    const root = await workspace(kind)
+    try {
+      await asEnglish(root)
+      const text = renderStageProtocol(detectStage(root))
+      assert.match(text, /Keep every read and write inside this workspace/)
+      assert.match(text, /do not inspect the host installation/)
+      assert.match(text, /other workspaces/)
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
+  }
+})
+
 test('the cast-documents step states the field contract in both languages', async () => {
   const root = await workspace('foundation')
   try {

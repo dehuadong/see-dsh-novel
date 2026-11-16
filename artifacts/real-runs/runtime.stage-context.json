@@ -1,23 +1,16 @@
 {
   "capability": "runtime.stage-context",
   "date": "2026-11-16",
-  "sessionId": "session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e",
+  "sessionId": "process:runtime.stage-context-read-boundary",
   "tests": {
     "command": "pnpm run verify",
     "passed": true,
-    "summary": "590 tests／589 pass／1 skipped（symlink）；stage-context 15 例（新增中英协议含 role_1_content、一次提交全部、150–250／80–120）、planner-contract 5 例、writer-contract 6 例；2026-11-15 的 see-dsh-novel 真实会话仍作为阶段注入的历史回执保留"
+    "summary": "596 tests／595 pass／1 skipped（symlink）— stage-context 19 例：七阶段中文通用段、六阶段英文通用段都断言「读写留在工作区／不读宿主安装目录／工具契约以 schema 与报错为准」；foundation 第 4 步断言字段名、一次提交全部与字数规格；planner-contract 5 例、writer-contract 6 例保持"
   },
   "receipts": [
-    "2026-11-16 foundation 协议第 4 步（中英）追加「一次提交全部角色、字段 role_1_content 起」并保留字数规格；文本断言见 test/stage-context.test.mjs。",
-    "真实会话 `session-abfe5ad6-b1cb-4165-bad0-52feb1c2156e`（cwd `D:\\workspace\\see-dsh-novel-runtime`，预设 `see-dsh-novel`，作品《夜行测试》，语言 zh，目标 1 章／1200 字）走完提案→基础设定→规划→正文→审稿→修订→复审→结算发布；会话日志的 `agent-preset/selected` 为 `see-dsh-novel`。",
-    "seq 12（基础设定）：runtime context 含 `## 当前阶段：基础设定` 与 `# 创作方法（longform-writing）`，参考含 foundation-design／reader-contract-and-progression／scene-dialogue-and-length-budget／state-projection。",
-    "seq 65/97（等待开工）：`## 当前阶段：等待开工` + `longform-writing`；seq 375 结算后再次回到等待开工，并注入 `## 重新结算（重算）`。",
-    "seq 121（章前规划）：`## 当前阶段：章前规划` + `## planner 契约` + `longform-writing`（含 reader-contract-and-progression 参考）；`## 当前用户指令` 只有作者的 `开始第 1 章`，没有 `## 可用 hook id`。",
-    "seq 146/159（正文写作）：writer 契约注入；seq 159 含 `## 用户方向（优先于模型默认，必须遵循）`，`### 证据 1` 为 current_focus、`### 证据 2` 为 author_intent，随后才是 `## 字数`；`## 本章指令` 只有作者的 `开始第 1 章`；已选上下文不含方向条目。",
-    "seq 241/265（章后审阅）：`## 当前阶段：章后审阅` + `longform-writing` + `story-review`（含 review-matrix 参考）；审稿工具 `story_review_chapter` 成功落盘。",
-    "seq 176/287（本章完成）：`## 当前阶段：本章完成` + `longform-writing` + `story-review`；协议含 settler 增量→提案→state-check 对账→带 validation 提交的两阶段结算；seq 331 `story_settle_chapter` 生成提案、seq 337 派 state-check、seq 371 带 validation 提交成功；发布后索引第 1 章 1383 字、status active、快照 0/1、observations 已解决。",
-    "各阶段通用句为「本阶段强制注入的创作方法必须使用；其它方法只在确有需要时加载，不要机械加载无关方法」，不再出现「不需要再调用技能工具加载」。",
-    "本会话作品为 zh，未覆盖英文真实会话；英文协议与英文 craft 标题按验收 7 的裁决由 `stage-context` 的文本断言与中英结构对照覆盖（session 未取得英文回执，记为 limitation，不记为未取得）。",
-    "2026-11-15 协议变更：foundation-ready 的中英文本改为「先 /story-approve 确认基础设定，再 /story-write」；本回执的真实会话仍是旧文本，新文本由 stage-context 测试覆盖，真实会话取证待 batch。"
+    "2026-11-16 阶段协议通用段（中英）增加工作区读取边界：所有读写留在当前工作区；工具怎么用看它的 schema 与报错；不读宿主安装目录（resources／app.asar）或别人的作品目录。zh 覆盖七个阶段、en 覆盖 foundation 起的六个阶段，均由 test/stage-context.test.mjs 断言。",
+    "2026-11-16 foundation 第 4 步（中英）追加「一次提交全部角色、字段 role_1_content 起」，保留原句与字数规格（150–250／80–120）。",
+    "2026-11-16 偏差登记：作者裁决「写小说的会话不翻宿主安装目录」记入 docs/dsh-mapping.md 的作者裁决偏差；机制事实（fs-sandbox 读放行、tools.guard 缝可用但未用）与原因记入 artifacts/implementation-audit/dsh-deviations.md。",
+    "未取得真实 DSH 会话回执（本环境不能重启宿主载入新 lib）：BLOCKED，「foundation 阶段不再出现工作区外读取」尚待真实会话观察。已知边界：writer 子会话落盘后阶段条目整段被 writer-stop 文案替换，该阶段不再携带本约束。"
   ]
 }

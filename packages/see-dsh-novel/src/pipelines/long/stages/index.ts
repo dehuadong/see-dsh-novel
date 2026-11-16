@@ -226,7 +226,7 @@ function renderStageBase(facts: StageFacts): string {
 function renderStageBaseZh(facts: StageFacts): string {
   const next = facts.currentChapter + 1
   const header = `## 当前阶段：${{ proposal: '提案', foundation: '基础设定', 'foundation-ready': '等待开工', plan: '章前规划', write: '正文写作', review: '章后审阅', 'chapter-done': '本章完成' }[facts.stage]}`
-  const common = '本阶段强制注入的创作方法必须使用；其它方法只在确有需要时加载，不要机械加载无关方法。'
+  const common = '本阶段强制注入的创作方法必须使用；其它方法只在确有需要时加载，不要机械加载无关方法。所有读写都留在当前工作区内；工具怎么用看它的 schema 与报错，不要读宿主安装目录（resources／app.asar）或别人的作品目录。'
   switch (facts.stage) {
     case 'proposal':
       return [
@@ -360,7 +360,7 @@ function renderStageBaseZh(facts: StageFacts): string {
 function renderStageBaseEn(facts: StageFacts): string {
   const next = facts.currentChapter + 1
   const header = `## Current stage: ${{ proposal: 'Proposal', foundation: 'Foundation setup', 'foundation-ready': 'Ready to start', plan: 'Chapter planning', write: 'Chapter writing', review: 'Chapter review', 'chapter-done': 'Chapter complete' }[facts.stage]}`
-  const common = 'The craft methods injected for this stage must be used; load other skills only when they are genuinely needed, and do not load unrelated methods mechanically.'
+  const common = 'The craft methods injected for this stage must be used; load other skills only when they are genuinely needed, and do not load unrelated methods mechanically. Keep every read and write inside this workspace; a tool\'s schema and its errors are the contract — do not inspect the host installation (resources/app.asar) or other workspaces.'
   switch (facts.stage) {
     case 'foundation':
       return [

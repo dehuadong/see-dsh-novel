@@ -35,6 +35,13 @@
 - 原因：DSH 的上下文注入按预设／agent 作用域，没有按角色定位子代理的入口；host 无法为一次 worker 调用单独构造 system prompt。
 - 验证：协议文本断言（结算步骤、validator 判据、模式名）；真实会话回执待补（当前按 process-level 记录）。
 
+### 读写只留在工作区（2026-11-16，作者裁决）
+
+- 源工程做法：agent 工具围绕作品目录设计（角色上下文、真值白名单、记忆与素材都按作品根解析），没有可指向任意绝对路径的通用检索工具；运行时与作品同进程同配置，不存在「宿主安装在别处」的概念，因此也没有这条读取路径。
+- 复刻做法：`systemPrompt.context()` 注入的阶段协议通用段（中英）要求一切读写留在当前工作区，并明确「不要读宿主安装目录（resources／app.asar）或别人的作品目录，工具怎么用看 schema 与报错」。
+- 原因：作者 2026-11-16 裁决——写小说的会话不应翻宿主安装目录（真实会话里去读 `app.asar` 查工具实现）。DSH 侧没有读路径限制：`fs-sandbox` 的注释写明 "Reads pass through untouched"，写检查只在 mutation 上；`tools.guard()`／`tools/pre-execute` 虽能拿到工具名与参数、理论上可拦内置检索，但由作品插件改写宿主工具分派属于新的产品限制，需要单独裁决与路径判定（符号链接、盘符大小写、UNC），不在本批做。
+- 验证：`stage-context` 测试断言中英通用段含该约束；真实会话观察（foundation 阶段不再出现工作区外读取）记 BLOCKED。
+
 ### 阶段数据的提示层级（2026-11-15，AU-18）
 
 - 源工程做法：worker 调用由 host 构造 system prompt（角色与方法）与 user message（章号、用户指令、governed context、上一章、字数遥测）；数据只进入这次 worker 调用的 user message。
