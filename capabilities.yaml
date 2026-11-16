@@ -146,7 +146,7 @@ capabilities:
     status: verified
   - id: cast.single-authority
     title: 人物档案唯一权威：四个角色目录按档位分组注入上下文
-    source: inkos:packages/core/src/utils/outline-paths.ts + inkos:packages/core/src/references/reference-context.ts
+    source: inkos:packages/core/src/utils/outline-paths.ts + inkos:packages/core/src/agents/composer.ts
     dsh: storage + systemPrompt.context()
     implementation: packages/see-dsh-novel/src/pipelines/long/cast.ts
     consumer: packages/see-dsh-novel/test/cast.test.mjs
